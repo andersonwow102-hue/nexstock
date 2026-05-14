@@ -3,12 +3,11 @@ import logoDark from "./assets/nexstock-dark.png";
 import { useState, useEffect } from "react";
 import "./App.css";
 import PointsPage from "./PointsPage.jsx";
+import { supabase } from "./supabase.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
 } from "./db.js";
-
-const ADMIN = { usuario:"anderson", senha:"nexstock2026" };
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
 const STATUS_LISTA = ["Disponível","Em uso","Velho","Com defeito","Em conserto","Descartado"];
@@ -68,9 +67,7 @@ const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit"
 const hoje=()=>new Date().toISOString().slice(0,10);
 
 const Auth={
-  estaLogado:()=>{try{return localStorage.getItem("sc_logado")==="sim";}catch{return false;}},
-  logar:()=>{try{localStorage.setItem("sc_logado","sim");}catch{}},
-  deslogar:()=>{try{localStorage.removeItem("sc_logado");}catch{}},
+  deslogar:async()=>{ await supabase.auth.signOut(); },
 };
 
 function validarItem(f){
@@ -89,16 +86,19 @@ function validarMov(mov,item,tipo){
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function TelaLogin({onLogin}){
-  const [usuario,setUsuario]=useState("");
+  const [email,setEmail]=useState("");
   const [senha,setSenha]=useState("");
   const [erro,setErro]=useState("");
   const [visivel,setVisivel]=useState(false);
-  const [tentativas,setTentativas]=useState(0);
-  const bloqueado=tentativas>=5;
-  function tentar(e){
-    e.preventDefault();if(bloqueado)return;
-    if(usuario.toLowerCase()===ADMIN.usuario&&senha===ADMIN.senha){Auth.logar();onLogin();}
-    else{const n=tentativas+1;setTentativas(n);setErro(n>=5?"Muitas tentativas. Acesso bloqueado.":`Usuário ou senha incorretos. Tentativa ${n}/5.`);setSenha("");}
+  const [carregando,setCarregando]=useState(false);
+
+  async function tentar(e){
+    e.preventDefault();
+    setCarregando(true);setErro("");
+    const {error}=await supabase.auth.signInWithPassword({email,password:senha});
+    setCarregando(false);
+    if(error){setErro("Email ou senha incorretos.");setSenha("");}
+    else{onLogin();}
   }
   return(
     <div className="login-page">
@@ -108,14 +108,14 @@ function TelaLogin({onLogin}){
         <div className="login-subtitulo">Entre com suas credenciais para continuar</div>
         <form className="login-form" onSubmit={tentar}>
           {erro&&<div className="login-erro">🔒 {erro}</div>}
-          <div className="campo"><label>Usuário</label><input type="text" placeholder="Digite seu usuário" value={usuario} onChange={e=>setUsuario(e.target.value)} disabled={bloqueado} autoFocus/></div>
+          <div className="campo"><label>Email</label><input type="email" placeholder="seu@email.com" value={email} onChange={e=>setEmail(e.target.value)} autoFocus/></div>
           <div className="campo"><label>Senha</label>
             <div className="input-senha-wrapper">
-              <input type={visivel?"text":"password"} placeholder="Digite sua senha" value={senha} onChange={e=>setSenha(e.target.value)} disabled={bloqueado}/>
+              <input type={visivel?"text":"password"} placeholder="Digite sua senha" value={senha} onChange={e=>setSenha(e.target.value)}/>
               <button type="button" className="btn-ver-senha" onClick={()=>setVisivel(!visivel)}>{visivel?"🙈":"👁️"}</button>
             </div>
           </div>
-          <button type="submit" className="btn-login" disabled={bloqueado||!usuario||!senha}>{bloqueado?"🔒 Acesso Bloqueado":"Entrar →"}</button>
+          <button type="submit" className="btn-login" disabled={carregando||!email||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
         </form>
         <div className="login-rodape">NexStock · Controle Inteligente de Equipamentos</div>
       </div>
@@ -123,10 +123,24 @@ function TelaLogin({onLogin}){
   );
 }
 
+// ── App principal ─────────────────────────────────────────────────────────────
 export default function App(){
-  const [logado,setLogado]=useState(()=>Auth.estaLogado());
+  const [logado,setLogado]=useState(false);
+  const [verificando,setVerificando]=useState(true);
+
+  useEffect(()=>{
+    supabase.auth.getSession().then(({data:{session}})=>{
+      setLogado(!!session);setVerificando(false);
+    });
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
+      setLogado(!!session);
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+
+  if(verificando)return null;
   if(!logado)return<TelaLogin onLogin={()=>setLogado(true)}/>;
-  return<Sistema onLogout={()=>{Auth.deslogar();setLogado(false);}}/>;
+  return<Sistema onLogout={async()=>{await Auth.deslogar();setLogado(false);}}/>;
 }
 
 // ── Sistema ───────────────────────────────────────────────────────────────────
@@ -154,7 +168,6 @@ function Sistema({onLogout}){
   const [alertaEstoqueAtivo,setAlertaEstoqueAtivo]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
 
-  // Carregar dados do Supabase ao iniciar
   useEffect(()=>{
     async function init(){
       setCarregando(true);
@@ -171,7 +184,6 @@ function Sistema({onLogout}){
 
   function toggleTema(){const n=!temaClaro;setTemaClaro(n);try{localStorage.setItem("sc_tema",n?"claro":"escuro");}catch{}}
 
-  // Stats
   const totalGeral     =itens.reduce((s,i)=>s+i.quantidade,0);
   const totalDisponivel=itens.filter(i=>i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
   const totalEmUso     =itens.filter(i=>i.status==="Em uso").reduce((s,i)=>s+i.quantidade,0);
