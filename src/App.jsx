@@ -111,7 +111,7 @@ function exportarEquipamentosExcel(itens){
 function exportarEquipamentosPDF(itens){
   const doc = new jsPDF({orientation:"landscape"});
   doc.setFontSize(16);
-  doc.text("NexStock — Relatório de Equipamentos", 14, 15);
+  doc.text("AnderFlow — Relatório de Equipamentos", 14, 15);
   doc.setFontSize(10);
   doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`, 14, 22);
   autoTable(doc,{
@@ -154,7 +154,7 @@ function exportarHistoricoExcel(historico){
 function exportarHistoricoPDF(historico){
   const doc = new jsPDF({orientation:"landscape"});
   doc.setFontSize(16);
-  doc.text("NexStock — Histórico de Equipamentos", 14, 15);
+  doc.text("AnderFlow — Histórico de Equipamentos", 14, 15);
   doc.setFontSize(10);
   doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`, 14, 22);
   autoTable(doc,{
@@ -195,7 +195,7 @@ function TelaLogin({onLogin}){
   return(
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo"><img src={logo} alt="NexStock" className="login-logo-img"/></div>
+        <div className="login-logo"><img src={logo} alt="AnderFlow" className="login-logo-img"/></div>
         <div className="login-titulo">Acesso Restrito</div>
         <div className="login-subtitulo">Entre com suas credenciais para continuar</div>
         <form className="login-form" onSubmit={tentar}>
@@ -209,7 +209,7 @@ function TelaLogin({onLogin}){
           </div>
           <button type="submit" className="btn-login" disabled={carregando||!email||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
         </form>
-        <div className="login-rodape">NexStock · Controle Inteligente de Equipamentos</div>
+        <div className="login-rodape">AnderFlow · Controle Inteligente de Equipamentos</div>
       </div>
     </div>
   );
@@ -385,7 +385,7 @@ function Sistema({onLogout}){
     return(
       <div className={`app${temaClaro?" tema-claro":""}`} style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:"16px"}}>
-          <img src={temaClaro?logoDark:logo} alt="NexStock" style={{height:"80px",opacity:0.8}}/>
+          <img src={temaClaro?logoDark:logo} alt="AnderFlow" style={{height:"80px",opacity:0.8}}/>
           <div style={{color:"var(--txt-secondary)",fontSize:"14px"}}>Conectando ao banco de dados...</div>
           <div className="loading-dots"><span/><span/><span/></div>
         </div>
@@ -397,7 +397,7 @@ function Sistema({onLogout}){
     <div className={`app${temaClaro?" tema-claro":""}`}>
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <img src={temaClaro?logoDark:logo} alt="NexStock" className="logo-sidebar-emblem"/>
+          <img src={temaClaro?logoDark:logo} alt="AnderFlow" className="logo-sidebar-emblem"/>
         </div>
         <nav className="sidebar-nav">
           <span className="nav-section-label">Principal</span>
@@ -421,7 +421,7 @@ function Sistema({onLogout}){
             <div className={`tema-toggle ${temaClaro?"ativo":""}`}/>
           </button>
           <button className="btn-logout" onClick={()=>setConfirmLogout(true)}>🚪 Sair do sistema</button>
-          <div className="sidebar-version">v5.0 · Supabase ☁️</div>
+          <div className="sidebar-version">AnderFlow v1.0 · Supabase ☁️</div>
         </div>
       </aside>
 
@@ -430,7 +430,7 @@ function Sistema({onLogout}){
         {aba==="dashboard"&&(<>
           <header className="topbar">
             <div><h1 className="page-title">Dashboard</h1><p className="page-sub">Visão geral do estoque</p></div>
-            <img src={temaClaro?logoDark:logo} alt="NexStock" className="logo-topbar"/>
+            <img src={temaClaro?logoDark:logo} alt="AnderFlow" className="logo-topbar"/>
           </header>
           <div className="dashboard-grid">
             <div className="dashboard-col">
