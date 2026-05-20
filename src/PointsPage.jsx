@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { GERENTES, GERENTE_CORES, MODALIDADES, formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto } from "./pointsData.js";
 import { carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto } from "./db.js";
+
+const hoje=()=>new Date().toISOString().slice(0,10);
+const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 
 const MODALIDADE_COR = {
   "Viapix":             "badge-mod-viapix",
@@ -23,6 +29,87 @@ export function BadgeGerente({ gerente }) {
       {gerente}
     </span>
   );
+}
+
+// ── Exportar Excel Pontos ─────────────────────────────────────────────────────
+function exportarPontosExcel(pontos){
+  const dados = pontos.map(p=>({
+    "Nome Fantasia":  p.nomeFantasia,
+    "Nome do Dono":   p.nomeDono,
+    "Telefone":       p.telefone,
+    "Gerente":        p.gerente,
+    "Modalidades":    p.modalidades.join(", "),
+    "Possui Despesa": p.possuiDespesa==="sim"?"Sim":"Não",
+    "Valor Despesa":  p.possuiDespesa==="sim"?p.valorDespesa:0,
+    "Observação":     p.observacao||"—",
+  }));
+  const ws = XLSX.utils.json_to_sheet(dados);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Pontos");
+  XLSX.writeFile(wb, `pontos_${hoje()}.xlsx`);
+}
+
+// ── Exportar PDF Pontos ───────────────────────────────────────────────────────
+function exportarPontosPDF(pontos){
+  const doc = new jsPDF({orientation:"landscape"});
+  doc.setFontSize(16);
+  doc.text("NexStock — Relatório de Pontos", 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Gerado em: ${agora()}   Total: ${pontos.length} pontos`, 14, 22);
+  autoTable(doc,{
+    startY: 27,
+    head:[["Nome Fantasia","Dono","Telefone","Gerente","Modalidades","Despesa","Valor"]],
+    body: pontos.map(p=>[
+      p.nomeFantasia,
+      p.nomeDono,
+      p.telefone,
+      p.gerente,
+      p.modalidades.join(", "),
+      p.possuiDespesa==="sim"?"Sim":"Não",
+      p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—",
+    ]),
+    styles:{fontSize:8},
+    headStyles:{fillColor:[30,41,59]},
+  });
+  doc.save(`pontos_${hoje()}.pdf`);
+}
+
+// ── Exportar Excel Histórico Pontos ───────────────────────────────────────────
+function exportarHistoricoPontosExcel(historico){
+  const dados = historico.map(h=>({
+    "Tipo":          h.tipo==="cadastro"?"Cadastro":h.tipo==="edicao"?"Edição":"Exclusão",
+    "Nome Fantasia": h.nome,
+    "Gerente":       h.gerente,
+    "Observação":    h.observacao||"—",
+    "Data":          h.data,
+  }));
+  const ws = XLSX.utils.json_to_sheet(dados);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Histórico Pontos");
+  XLSX.writeFile(wb, `historico_pontos_${hoje()}.xlsx`);
+}
+
+// ── Exportar PDF Histórico Pontos ─────────────────────────────────────────────
+function exportarHistoricoPontosPDF(historico){
+  const doc = new jsPDF({orientation:"landscape"});
+  doc.setFontSize(16);
+  doc.text("NexStock — Histórico de Pontos", 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`, 14, 22);
+  autoTable(doc,{
+    startY: 27,
+    head:[["Tipo","Nome Fantasia","Gerente","Observação","Data"]],
+    body: historico.map(h=>[
+      h.tipo==="cadastro"?"Cadastro":h.tipo==="edicao"?"Edição":"Exclusão",
+      h.nome,
+      h.gerente,
+      h.observacao||"—",
+      h.data,
+    ]),
+    styles:{fontSize:8},
+    headStyles:{fillColor:[30,41,59]},
+  });
+  doc.save(`historico_pontos_${hoje()}.pdf`);
 }
 
 // ─── Máscaras ─────────────────────────────────────────────────────────────────
@@ -175,7 +262,6 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick }) {
           </div>
         </div>
       </section>
-
       {pontos.length===0&&(
         <div className="hist-vazio">
           <div className="hist-vazio-icone">📍</div>
@@ -188,7 +274,7 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick }) {
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, onEditar, onExcluir }) {
+function AbaPontos({ pontos, onEditar, onExcluir, onExportExcel, onExportPDF }) {
   const [busca, setBusca] = useState("");
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const filtrados = pontos.filter(p=>{
@@ -208,6 +294,8 @@ function AbaPontos({ pontos, onEditar, onExcluir }) {
             {GERENTES.map(g=><option key={g} value={g}>{g}</option>)}
           </select>
           {(busca||filtroGerente!=="Todos")&&<button className="btn-limpar" onClick={()=>{setBusca("");setFiltroGerente("Todos");}}>✕ Limpar</button>}
+          <button className="btn-secundario" onClick={onExportExcel}>📊 Excel</button>
+          <button className="btn-secundario" onClick={onExportPDF}>📄 PDF</button>
         </div>
       </div>
       <div className="tabela-wrapper">
@@ -259,7 +347,6 @@ function AbaAnalise({ pontos }) {
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:"20px"}}>
-      {/* Gerente líder */}
       <section className="secao">
         <h2 className="secao-titulo">🚨 Gerente com maior despesa</h2>
         <div className="alerta-gerente-card" style={{borderColor:c.border}}>
@@ -281,7 +368,6 @@ function AbaAnalise({ pontos }) {
         </div>
       </section>
 
-      {/* Alertas 50% */}
       {alertas50.length>0&&(
         <section className="secao">
           <h2 className="secao-titulo">🔴 Concentração crítica (≥ 50%)</h2>
@@ -306,7 +392,6 @@ function AbaAnalise({ pontos }) {
         </section>
       )}
 
-      {/* Ranking gerentes */}
       <section className="secao">
         <h2 className="secao-titulo">📊 Ranking por Gerente</h2>
         <div className="alerta-gerente-card">
@@ -329,7 +414,6 @@ function AbaAnalise({ pontos }) {
         </div>
       </section>
 
-      {/* Ranking pontos */}
       {rankingPontos.length>0&&(
         <section className="secao">
           <h2 className="secao-titulo">🏪 Ranking de Pontos por Despesa</h2>
@@ -400,7 +484,6 @@ function AbaGerentes({ pontos }) {
           </div>
         }
       </section>
-
       <section className="secao">
         <h2 className="secao-titulo">🎮 Por Modalidade</h2>
         {porModalidade.length===0
@@ -425,7 +508,7 @@ function AbaGerentes({ pontos }) {
 }
 
 // ─── ABA: Histórico ───────────────────────────────────────────────────────────
-function AbaHistorico({ historico }) {
+function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
   const HIST_CFG_P = {
     "cadastro":{ cor:"hist-cadastro", icone:"🆕", label:"Cadastro" },
     "edicao":  { cor:"hist-edicao",   icone:"✏️", label:"Edição"   },
@@ -433,7 +516,13 @@ function AbaHistorico({ historico }) {
   };
   return(
     <section className="secao">
-      <h2 className="secao-titulo">📋 Histórico de Pontos</h2>
+      <div className="tabela-header">
+        <h2 className="secao-titulo" style={{margin:0}}>📋 Histórico de Pontos</h2>
+        <div style={{display:"flex",gap:"8px"}}>
+          <button className="btn-secundario" onClick={onExportExcel}>📊 Excel</button>
+          <button className="btn-secundario" onClick={onExportPDF}>📄 PDF</button>
+        </div>
+      </div>
       {historico.length===0
         ?<div className="hist-vazio"><div className="hist-vazio-icone">📋</div><div>Nenhuma movimentação registrada.</div></div>
         :<div className="tabela-wrapper">
@@ -521,7 +610,6 @@ export default function PointsPage() {
         <button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>
       </header>
 
-      {/* Abas internas */}
       <div className="points-abas">
         {ABAS.map(a=>(
           <button key={a.id} className={`points-aba-btn ${abaInterna===a.id?"points-aba-ativa":""}`}
@@ -540,10 +628,12 @@ export default function PointsPage() {
 
       {!loading&&(<>
         {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontos} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}/>}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
+            onExportExcel={()=>exportarPontosExcel(pontos)} onExportPDF={()=>exportarPontosPDF(pontos)}/>}
         {abaInterna==="analise"  &&<AbaAnalise pontos={pontos}/>}
         {abaInterna==="gerentes" &&<AbaGerentes pontos={pontos}/>}
-        {abaInterna==="historico"&&<AbaHistorico historico={historico}/>}
+        {abaInterna==="historico"&&<AbaHistorico historico={historico}
+            onExportExcel={()=>exportarHistoricoPontosExcel(historico)} onExportPDF={()=>exportarHistoricoPontosPDF(historico)}/>}
       </>)}
 
       {modalForm&&<PointFormModal ponto={pontoEdit} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
