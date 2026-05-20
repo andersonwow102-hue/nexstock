@@ -87,91 +87,57 @@ function validarMov(mov,item,tipo){
   return null;
 }
 
-// ── Exportar Excel Equipamentos ───────────────────────────────────────────────
 function exportarEquipamentosExcel(itens){
-  const dados = itens.map(i=>({
-    "Patrimônio": i.patrimonio||"—",
-    "Nome":       i.nome,
-    "Categoria":  i.categoria,
-    "Quantidade": i.quantidade,
-    "Mínimo":     i.minimo,
-    "Status":     i.status,
-    "Responsável":i.responsavel||"—",
-    "Localização":i.localizacao||"—",
-    "Observação": i.observacao||"—",
-    "Data Cadastro": i.dataCadastro||"—",
+  const dados=itens.map(i=>({
+    "Patrimônio":i.patrimonio||"—","Nome":i.nome,"Categoria":i.categoria,
+    "Quantidade":i.quantidade,"Mínimo":i.minimo,"Status":i.status,
+    "Responsável":i.responsavel||"—","Localização":i.localizacao||"—",
+    "Observação":i.observacao||"—","Data Cadastro":i.dataCadastro||"—",
   }));
-  const ws = XLSX.utils.json_to_sheet(dados);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Equipamentos");
-  XLSX.writeFile(wb, `equipamentos_${hoje()}.xlsx`);
+  const ws=XLSX.utils.json_to_sheet(dados);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Equipamentos");
+  XLSX.writeFile(wb,`equipamentos_${hoje()}.xlsx`);
 }
 
-// ── Exportar PDF Equipamentos ─────────────────────────────────────────────────
 function exportarEquipamentosPDF(itens){
-  const doc = new jsPDF({orientation:"landscape"});
+  const doc=new jsPDF({orientation:"landscape"});
   doc.setFontSize(16);
-  doc.text("AnderFlow — Relatório de Equipamentos", 14, 15);
+  doc.text("AnderFlow — Relatório de Equipamentos",14,15);
   doc.setFontSize(10);
-  doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`, 14, 22);
+  doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`,14,22);
   autoTable(doc,{
-    startY: 27,
+    startY:27,
     head:[["Patrimônio","Nome","Categoria","Qtd","Status","Responsável","Localização"]],
-    body: itens.map(i=>[
-      i.patrimonio||"—",
-      i.nome,
-      i.categoria,
-      i.quantidade,
-      i.status,
-      i.responsavel||"—",
-      i.localizacao||"—",
-    ]),
-    styles:{fontSize:8},
-    headStyles:{fillColor:[30,41,59]},
+    body:itens.map(i=>[i.patrimonio||"—",i.nome,i.categoria,i.quantidade,i.status,i.responsavel||"—",i.localizacao||"—"]),
+    styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},
   });
   doc.save(`equipamentos_${hoje()}.pdf`);
 }
 
-// ── Exportar Excel Histórico ──────────────────────────────────────────────────
 function exportarHistoricoExcel(historico){
-  const dados = historico.map(h=>({
-    "Tipo":       HIST_CFG[h.tipo]?.label||h.tipo,
-    "Equipamento":h.itemNome,
-    "Categoria":  h.categoria,
-    "Qtd Antes":  h.qtdAntes,
-    "Qtd Depois": h.qtdDepois,
-    "Responsável":h.responsavel||"—",
-    "Observação": h.observacao||"—",
-    "Data":       h.data,
+  const dados=historico.map(h=>({
+    "Tipo":HIST_CFG[h.tipo]?.label||h.tipo,"Equipamento":h.itemNome,"Categoria":h.categoria,
+    "Qtd Antes":h.qtdAntes,"Qtd Depois":h.qtdDepois,
+    "Responsável":h.responsavel||"—","Observação":h.observacao||"—","Data":h.data,
   }));
-  const ws = XLSX.utils.json_to_sheet(dados);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Histórico");
-  XLSX.writeFile(wb, `historico_equipamentos_${hoje()}.xlsx`);
+  const ws=XLSX.utils.json_to_sheet(dados);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Histórico");
+  XLSX.writeFile(wb,`historico_equipamentos_${hoje()}.xlsx`);
 }
 
-// ── Exportar PDF Histórico ────────────────────────────────────────────────────
 function exportarHistoricoPDF(historico){
-  const doc = new jsPDF({orientation:"landscape"});
+  const doc=new jsPDF({orientation:"landscape"});
   doc.setFontSize(16);
-  doc.text("AnderFlow — Histórico de Equipamentos", 14, 15);
+  doc.text("AnderFlow — Histórico de Equipamentos",14,15);
   doc.setFontSize(10);
-  doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`, 14, 22);
+  doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`,14,22);
   autoTable(doc,{
-    startY: 27,
+    startY:27,
     head:[["Tipo","Equipamento","Categoria","Antes","Depois","Responsável","Observação","Data"]],
-    body: historico.map(h=>[
-      HIST_CFG[h.tipo]?.label||h.tipo,
-      h.itemNome,
-      h.categoria,
-      h.qtdAntes,
-      h.qtdDepois,
-      h.responsavel||"—",
-      h.observacao||"—",
-      h.data,
-    ]),
-    styles:{fontSize:8},
-    headStyles:{fillColor:[30,41,59]},
+    body:historico.map(h=>[HIST_CFG[h.tipo]?.label||h.tipo,h.itemNome,h.categoria,h.qtdAntes,h.qtdDepois,h.responsavel||"—",h.observacao||"—",h.data]),
+    styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},
   });
   doc.save(`historico_equipamentos_${hoje()}.pdf`);
 }
@@ -263,13 +229,8 @@ function Sistema({onLogout}){
   useEffect(()=>{
     async function init(){
       setCarregando(true);
-      const [eq, hist] = await Promise.all([
-        carregarEquipamentos(),
-        carregarHistoricoEquipamentos(),
-      ]);
-      setItens(eq);
-      setHistorico(hist);
-      setCarregando(false);
+      const [eq,hist]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos()]);
+      setItens(eq);setHistorico(hist);setCarregando(false);
     }
     init();
   },[]);
@@ -383,10 +344,16 @@ function Sistema({onLogout}){
 
   if(carregando){
     return(
-      <div className={`app${temaClaro?" tema-claro":""}`} style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div style={{textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:"16px"}}>
-          <img src={temaClaro?logoDark:logo} alt="AnderFlow" style={{height:"80px",opacity:0.8}}/>
-          <div style={{color:"var(--txt-secondary)",fontSize:"14px"}}>Conectando ao banco de dados...</div>
+      <div className={`app${temaClaro?" tema-claro":""}`} style={{display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg-base)",minHeight:"100vh"}}>
+        <div style={{textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:"24px",animation:"slideIn 0.4s ease"}}>
+          <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{position:"absolute",width:"120px",height:"120px",border:"2px solid var(--border)",borderTop:"2px solid var(--accent)",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+            <img src={temaClaro?logoDark:logo} alt="AnderFlow" style={{height:"70px",width:"auto",objectFit:"contain",filter:"drop-shadow(0 0 20px rgba(59,111,212,0.4))",animation:"pulse-logo 2s ease-in-out infinite"}}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:"8px",alignItems:"center"}}>
+            <div style={{fontSize:"18px",fontWeight:"700",color:"var(--txt-primary)",letterSpacing:"-0.3px"}}>AnderFlow</div>
+            <div style={{fontSize:"13px",color:"var(--txt-secondary)"}}>Carregando o sistema...</div>
+          </div>
           <div className="loading-dots"><span/><span/><span/></div>
         </div>
       </div>
@@ -426,7 +393,6 @@ function Sistema({onLogout}){
       </aside>
 
       <main className="main">
-
         {aba==="dashboard"&&(<>
           <header className="topbar">
             <div><h1 className="page-title">Dashboard</h1><p className="page-sub">Visão geral do estoque</p></div>
