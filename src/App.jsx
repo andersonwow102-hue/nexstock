@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import PointsPage from "./PointsPage.jsx";
 import { supabase } from "./supabase.js";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
@@ -82,6 +85,95 @@ function validarMov(mov,item,tipo){
   if(tipo.alteraQtd&&mov.quantidade<1)return"Quantidade deve ser pelo menos 1.";
   if(tipo.sentido===-1&&mov.quantidade>item.quantidade)return`Saída (${mov.quantidade}) maior que estoque (${item.quantidade}).`;
   return null;
+}
+
+// ── Exportar Excel Equipamentos ───────────────────────────────────────────────
+function exportarEquipamentosExcel(itens){
+  const dados = itens.map(i=>({
+    "Patrimônio": i.patrimonio||"—",
+    "Nome":       i.nome,
+    "Categoria":  i.categoria,
+    "Quantidade": i.quantidade,
+    "Mínimo":     i.minimo,
+    "Status":     i.status,
+    "Responsável":i.responsavel||"—",
+    "Localização":i.localizacao||"—",
+    "Observação": i.observacao||"—",
+    "Data Cadastro": i.dataCadastro||"—",
+  }));
+  const ws = XLSX.utils.json_to_sheet(dados);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Equipamentos");
+  XLSX.writeFile(wb, `equipamentos_${hoje()}.xlsx`);
+}
+
+// ── Exportar PDF Equipamentos ─────────────────────────────────────────────────
+function exportarEquipamentosPDF(itens){
+  const doc = new jsPDF({orientation:"landscape"});
+  doc.setFontSize(16);
+  doc.text("NexStock — Relatório de Equipamentos", 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`, 14, 22);
+  autoTable(doc,{
+    startY: 27,
+    head:[["Patrimônio","Nome","Categoria","Qtd","Status","Responsável","Localização"]],
+    body: itens.map(i=>[
+      i.patrimonio||"—",
+      i.nome,
+      i.categoria,
+      i.quantidade,
+      i.status,
+      i.responsavel||"—",
+      i.localizacao||"—",
+    ]),
+    styles:{fontSize:8},
+    headStyles:{fillColor:[30,41,59]},
+  });
+  doc.save(`equipamentos_${hoje()}.pdf`);
+}
+
+// ── Exportar Excel Histórico ──────────────────────────────────────────────────
+function exportarHistoricoExcel(historico){
+  const dados = historico.map(h=>({
+    "Tipo":       HIST_CFG[h.tipo]?.label||h.tipo,
+    "Equipamento":h.itemNome,
+    "Categoria":  h.categoria,
+    "Qtd Antes":  h.qtdAntes,
+    "Qtd Depois": h.qtdDepois,
+    "Responsável":h.responsavel||"—",
+    "Observação": h.observacao||"—",
+    "Data":       h.data,
+  }));
+  const ws = XLSX.utils.json_to_sheet(dados);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Histórico");
+  XLSX.writeFile(wb, `historico_equipamentos_${hoje()}.xlsx`);
+}
+
+// ── Exportar PDF Histórico ────────────────────────────────────────────────────
+function exportarHistoricoPDF(historico){
+  const doc = new jsPDF({orientation:"landscape"});
+  doc.setFontSize(16);
+  doc.text("NexStock — Histórico de Equipamentos", 14, 15);
+  doc.setFontSize(10);
+  doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`, 14, 22);
+  autoTable(doc,{
+    startY: 27,
+    head:[["Tipo","Equipamento","Categoria","Antes","Depois","Responsável","Observação","Data"]],
+    body: historico.map(h=>[
+      HIST_CFG[h.tipo]?.label||h.tipo,
+      h.itemNome,
+      h.categoria,
+      h.qtdAntes,
+      h.qtdDepois,
+      h.responsavel||"—",
+      h.observacao||"—",
+      h.data,
+    ]),
+    styles:{fontSize:8},
+    headStyles:{fillColor:[30,41,59]},
+  });
+  doc.save(`historico_equipamentos_${hoje()}.pdf`);
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -202,7 +294,6 @@ function Sistema({onLogout}){
       alertaBaixo:ci.some(i=>i.status==="Disponível"&&i.quantidade<i.minimo),
     };
   });
-  const porStatus=STATUS_LISTA.map(st=>({status:st,total:itens.filter(i=>i.status===st).reduce((s,i)=>s+i.quantidade,0)}));
 
   const itensFiltrados=itens.filter(i=>{
     const mC=filtroCatEquip==="Todas"||i.categoria===filtroCatEquip;
@@ -440,7 +531,11 @@ function Sistema({onLogout}){
         {aba==="itens"&&(<>
           <header className="topbar">
             <div><h1 className="page-title">Equipamentos</h1><p className="page-sub">Cadastro e movimentações</p></div>
-            <button className="btn-primario" onClick={abrirNovo}>+ Novo Equipamento</button>
+            <div style={{display:"flex",gap:"8px"}}>
+              <button className="btn-secundario" onClick={()=>exportarEquipamentosExcel(itens)}>📊 Excel</button>
+              <button className="btn-secundario" onClick={()=>exportarEquipamentosPDF(itens)}>📄 PDF</button>
+              <button className="btn-primario" onClick={abrirNovo}>+ Novo Equipamento</button>
+            </div>
           </header>
           <div className="points-abas">
             {ABAS_EQUIP.map(a=>(
@@ -578,7 +673,13 @@ function Sistema({onLogout}){
 
           {abaEquip==="historico"&&(
             <section className="secao">
-              <h2 className="secao-titulo">Histórico de Equipamentos</h2>
+              <div className="tabela-header">
+                <h2 className="secao-titulo" style={{margin:0}}>Histórico de Equipamentos</h2>
+                <div style={{display:"flex",gap:"8px"}}>
+                  <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historico)}>📊 Excel</button>
+                  <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historico)}>📄 PDF</button>
+                </div>
+              </div>
               {historico.length===0
                 ?<div className="hist-vazio"><div className="hist-vazio-icone">📋</div><div>Nenhuma movimentação registrada.</div></div>
                 :<div className="tabela-wrapper">
@@ -610,7 +711,13 @@ function Sistema({onLogout}){
         {aba==="historico"&&(<>
           <header className="topbar">
             <div><h1 className="page-title">Histórico</h1><p className="page-sub">{historico.length} movimentação{historico.length!==1?"ões":""} registrada{historico.length!==1?"s":""}</p></div>
-            {historico.length>0&&<button className="btn-danger-outline" onClick={limparHistorico}>🗑️ Limpar</button>}
+            <div style={{display:"flex",gap:"8px"}}>
+              {historico.length>0&&<>
+                <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historico)}>📊 Excel</button>
+                <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historico)}>📄 PDF</button>
+              </>}
+              {historico.length>0&&<button className="btn-danger-outline" onClick={limparHistorico}>🗑️ Limpar</button>}
+            </div>
           </header>
           <section className="secao">
             <div className="tabela-header">
