@@ -53,7 +53,7 @@ function exportarPontosExcel(pontos){
 function exportarPontosPDF(pontos){
   const doc = new jsPDF({orientation:"landscape"});
   doc.setFontSize(16);
-  doc.text("NexStock — Relatório de Pontos", 14, 15);
+  doc.text("Stock-ON - Relatório de Pontos", 14, 15);
   doc.setFontSize(10);
   doc.text(`Gerado em: ${agora()}   Total: ${pontos.length} pontos`, 14, 22);
   autoTable(doc,{
@@ -93,7 +93,7 @@ function exportarHistoricoPontosExcel(historico){
 function exportarHistoricoPontosPDF(historico){
   const doc = new jsPDF({orientation:"landscape"});
   doc.setFontSize(16);
-  doc.text("NexStock — Histórico de Pontos", 14, 15);
+  doc.text("Stock-ON - Histórico de Pontos", 14, 15);
   doc.setFontSize(10);
   doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`, 14, 22);
   autoTable(doc,{
