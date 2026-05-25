@@ -342,7 +342,7 @@ function Sistema({onLogout}){
         <div style={{textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:"24px",animation:"slideIn 0.4s ease"}}>
           <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <div style={{position:"absolute",width:"120px",height:"120px",border:"2px solid var(--border)",borderTop:"2px solid var(--accent)",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
-            <img src={temaClaro?logoLight:logo} alt="Stock-ON" style={{height:"70px",width:"auto",objectFit:"contain",filter:"drop-shadow(0 0 20px rgba(59,111,212,0.4))",animation:"pulse-logo 2s ease-in-out infinite"}}/>
+            <img src={temaClaro?logoLight:logo} alt="Stock-ON" style={{height:"70px",width:"auto",objectFit:"contain",filter:"drop-shadow(0 0 20px rgba(255,179,0,0.35))",animation:"pulse-logo 2s ease-in-out infinite"}}/>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:"8px",alignItems:"center"}}>
             <div style={{fontSize:"18px",fontWeight:"700",color:"var(--txt-primary)",letterSpacing:"-0.3px"}}>Stock-ON</div>
