@@ -10,28 +10,22 @@ import autoTable from "jspdf-autotable";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
+  carregarPontos,
 } from "./db.js";
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
-const STATUS_LISTA = ["Disponível","Em uso","Velho","Com defeito","Em conserto","Descartado"];
+const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
 const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌"};
 const MINIMO_CATEGORIA = 5;
 const STATUS_CFG = {
   "Disponível": {cor:"status-disponivel"},
-  "Em uso":     {cor:"status-em-uso"},
-  "Velho":      {cor:"status-velho"},
-  "Com defeito":{cor:"status-defeito"},
+  "Em rota":    {cor:"status-em-rota"},
   "Em conserto":{cor:"status-conserto"},
-  "Descartado": {cor:"status-descartado"},
 };
 const TIPOS_MOV = [
-  {id:"entrada",   label:"Entrada",            icone:"➕",alteraStatus:false,novoStatus:null,          alteraQtd:true, sentido:1 },
-  {id:"saida",     label:"Saída",              icone:"➖",alteraStatus:false,novoStatus:null,          alteraQtd:true, sentido:-1},
-  {id:"conserto",  label:"Enviar p/ Conserto", icone:"🔧",alteraStatus:true, novoStatus:"Em conserto", alteraQtd:false,sentido:0 },
-  {id:"retorno",   label:"Retorno do Conserto",icone:"✅",alteraStatus:true, novoStatus:"Disponível",  alteraQtd:false,sentido:0 },
-  {id:"defeito",   label:"Marcar Defeito",     icone:"❌",alteraStatus:true, novoStatus:"Com defeito", alteraQtd:false,sentido:0 },
-  {id:"disponivel",label:"Disponibilizar",     icone:"🟢",alteraStatus:true, novoStatus:"Disponível",  alteraQtd:false,sentido:0 },
-  {id:"baixa",     label:"Baixa / Descartar",  icone:"🗑️",alteraStatus:true, novoStatus:"Descartado",  alteraQtd:true, sentido:-1},
+  {id:"ponto",     label:"Enviar para Ponto",   icone:"📍",novoStatus:"Em rota",     exigePonto:true },
+  {id:"conserto",  label:"Enviar p/ Conserto",  icone:"🔧",novoStatus:"Em conserto",exigePonto:false},
+  {id:"disponivel",label:"Disponibilizar",       icone:"✅",novoStatus:"Disponível",  exigePonto:false},
 ];
 const HIST_CFG = {
   "cadastro":  {cor:"hist-cadastro",  icone:"🆕",label:"Cadastro" },
@@ -44,6 +38,7 @@ const HIST_CFG = {
   "defeito":   {cor:"hist-defeito",   icone:"❌",label:"Defeito"  },
   "disponivel":{cor:"hist-disponivel",icone:"🟢",label:"Disponível"},
   "baixa":     {cor:"hist-baixa",     icone:"⬇️",label:"Baixa"    },
+  "ponto":     {cor:"hist-rota",      icone:"📍",label:"Enviado ao ponto"},
 };
 
 const PALAVRAS_MAIUSCULAS=["LG","POS","USB","USB-C","TV","LED","LCD","OLED","QLED","HP","IBM","CPU","GPS","HD","SSD","RAM","HDMI","VGA","PC","65W","45W","20W","4K","8K"];
@@ -66,7 +61,7 @@ function gerarPatrimonio(cat,itens){
 }
 
 const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponível",minimo:5,observacao:"",localizacao:"",responsavel:"",patrimonio:"",dataCadastro:""};
-const movVazio={tipoId:"entrada",quantidade:1,responsavel:"",localizacao:"",observacao:""};
+const movVazio={tipoId:"ponto",ponto:"",responsavel:"",observacao:""};
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
 
@@ -79,17 +74,16 @@ function validarItem(f){
   if(!f.patrimonio.trim()) return"Código / Patrimônio é obrigatório.";
   return null;
 }
-function validarMov(mov,item,tipo){
-  if(tipo.alteraQtd&&mov.quantidade<1)return"Quantidade deve ser pelo menos 1.";
-  if(tipo.sentido===-1&&mov.quantidade>item.quantidade)return`Saída (${mov.quantidade}) maior que estoque (${item.quantidade}).`;
+function validarMov(mov,tipo){
+  if(tipo.exigePonto&&!mov.ponto)return"Selecione o ponto de destino.";
   return null;
 }
 
 function exportarEquipamentosExcel(itens){
   const dados=itens.map(i=>({
     "Patrimônio":i.patrimonio||"—","Nome":i.nome,"Categoria":i.categoria,
-    "Quantidade":i.quantidade,"Status":i.status,
-    "Responsável":i.responsavel||"—","Localização":i.localizacao||"—",
+    "Status":i.status,"Ponto / Localização":i.localizacao||"—",
+    "Responsável":i.responsavel||"—",
     "Observação":i.observacao||"—","Data Cadastro":i.dataCadastro||"—",
   }));
   const ws=XLSX.utils.json_to_sheet(dados);
@@ -103,8 +97,8 @@ function exportarEquipamentosPDF(itens){
   doc.setFontSize(16);doc.text("Stock-ON — Relatório de Equipamentos",14,15);
   doc.setFontSize(10);doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`,14,22);
   autoTable(doc,{startY:27,
-    head:[["Patrimônio","Nome","Categoria","Qtd","Status","Responsável","Localização"]],
-    body:itens.map(i=>[i.patrimonio||"—",i.nome,i.categoria,i.quantidade,i.status,i.responsavel||"—",i.localizacao||"—"]),
+    head:[["Patrimônio","Nome","Categoria","Status","Ponto / Localização","Responsável"]],
+    body:itens.map(i=>[i.patrimonio||"—",i.nome,i.categoria,i.status,i.localizacao||"—",i.responsavel||"—"]),
     styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},
   });
   doc.save(`equipamentos_${hoje()}.pdf`);
@@ -196,6 +190,7 @@ export default function App(){
 function Sistema({onLogout}){
   const [itens,setItens]           =useState([]);
   const [historico,setHistorico]   =useState([]);
+  const [pontos,setPontos]         =useState([]);
   const [carregando,setCarregando] =useState(true);
   const [aba,setAba]               =useState("dashboard");
   const [abaEquip,setAbaEquip]     =useState("lista");
@@ -221,8 +216,8 @@ function Sistema({onLogout}){
   useEffect(()=>{
     async function init(){
       setCarregando(true);
-      const [eq,hist]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos()]);
-      setItens(eq);setHistorico(hist);setCarregando(false);
+      const [eq,hist,pts]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos(),carregarPontos()]);
+      setItens(eq);setHistorico(hist);setPontos(pts);setCarregando(false);
     }
     init();
   },[]);
@@ -231,26 +226,23 @@ function Sistema({onLogout}){
   function fecharSidebar(){setSidebarAberta(false);}
   function navegar(novaAba){setAba(novaAba);fecharSidebar();}
 
-  const totalGeral     =itens.reduce((s,i)=>s+i.quantidade,0);
-  const totalDisponivel=itens.filter(i=>i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
-  const totalEmUso     =itens.filter(i=>i.status==="Em uso").reduce((s,i)=>s+i.quantidade,0);
-  const totalDefeito   =itens.filter(i=>i.status==="Com defeito").reduce((s,i)=>s+i.quantidade,0);
-  const totalConserto  =itens.filter(i=>i.status==="Em conserto").reduce((s,i)=>s+i.quantidade,0);
+  const totalGeral     =itens.length;
+  const totalDisponivel=itens.filter(i=>i.status==="Disponível").length;
+  const totalEmRota    =itens.filter(i=>i.status==="Em rota").length;
+  const totalConserto  =itens.filter(i=>i.status==="Em conserto").length;
 
   const alertas = CATEGORIAS.map(cat=>{
-    const totalDisp=itens.filter(i=>i.categoria===cat&&i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
+    const totalDisp=itens.filter(i=>i.categoria===cat&&i.status==="Disponível").length;
     return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
   }).filter(a=>a.totalDisponivel<MINIMO_CATEGORIA);
 
   const porCategoria=CATEGORIAS.map(cat=>{
     const ci=itens.filter(i=>i.categoria===cat);
-    const totalDisp=ci.filter(i=>i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
-    return{categoria:cat,total:ci.reduce((s,i)=>s+i.quantidade,0),qtdItens:ci.length,
+    const totalDisp=ci.filter(i=>i.status==="Disponível").length;
+    return{categoria:cat,total:ci.length,qtdItens:ci.length,
       disponivel:totalDisp,
-      emUso:ci.filter(i=>i.status==="Em uso").reduce((s,i)=>s+i.quantidade,0),
-      defeito:ci.filter(i=>i.status==="Com defeito").reduce((s,i)=>s+i.quantidade,0),
-      conserto:ci.filter(i=>i.status==="Em conserto").reduce((s,i)=>s+i.quantidade,0),
-      velho:ci.filter(i=>i.status==="Velho").reduce((s,i)=>s+i.quantidade,0),
+      emRota:ci.filter(i=>i.status==="Em rota").length,
+      conserto:ci.filter(i=>i.status==="Em conserto").length,
       alertaBaixo:totalDisp<MINIMO_CATEGORIA,
     };
   });
@@ -278,11 +270,11 @@ function Sistema({onLogout}){
   }
   function abrirEditar(i){setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
-  function abrirMov(item){setModalMov(item);setMov({...movVazio});setErroMov("");}
+  function abrirMov(item){setModalMov(item);setMov({...movVazio,ponto:item.localizacao||""});setErroMov("");}
   function fecharMov(){setModalMov(null);}
 
   async function salvarItem(){
-    const ff={...form,nome:padronizarNome(form.nome),quantidade:itemEdit?form.quantidade:1,minimo:5,dataCadastro:form.dataCadastro||hoje()};
+    const ff={...form,nome:padronizarNome(form.nome),quantidade:1,minimo:5,dataCadastro:form.dataCadastro||hoje()};
     const erro=validarItem(ff);if(erro){setErroForm(erro);return;}
     if(itemEdit){
       await salvarEquipamento({...ff,id:itemEdit.id});
@@ -311,15 +303,13 @@ function Sistema({onLogout}){
 
   async function confirmarMov(){
     const tipo=TIPOS_MOV.find(t=>t.id===mov.tipoId);
-    const erro=validarMov(mov,modalMov,tipo);if(erro){setErroMov(erro);return;}
-    const qtdAntes=modalMov.quantidade;
-    let qtdDepois=qtdAntes,novoStatus=modalMov.status;
-    if(tipo.alteraQtd)    qtdDepois=qtdAntes+(tipo.sentido*mov.quantidade);
-    if(tipo.alteraStatus) novoStatus=tipo.novoStatus;
-    const upd={...modalMov,quantidade:qtdDepois,status:novoStatus};
+    const erro=validarMov(mov,tipo);if(erro){setErroMov(erro);return;}
+    const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
+    const upd={...modalMov,quantidade:1,status:tipo.novoStatus,localizacao,responsavel:mov.responsavel||modalMov.responsavel};
     await salvarEquipamento(upd);
     setItens(prev=>prev.map(i=>i.id===modalMov.id?upd:i));
-    const h={id:Date.now(),tipo:tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes,qtdDepois,responsavel:mov.responsavel||"—",observacao:mov.observacao||tipo.label,data:agora()};
+    const detalhe=tipo.id==="ponto"?`Destino: ${mov.ponto}`:tipo.label;
+    const h={id:Date.now(),tipo:tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||"—",observacao:[detalhe,mov.observacao].filter(Boolean).join(" | "),data:agora()};
     await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     fecharMov();
   }
@@ -402,10 +392,9 @@ function Sistema({onLogout}){
               <section className="secao">
                 <h2 className="secao-titulo">Resumo Geral</h2>
                 <div className="resumo-grid">
-                  <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Total Unidades</div></div>
+                  <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Equipamentos</div></div>
                   <div className="resumo-card resumo-disponivel clickable" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
-                  <div className="resumo-card resumo-uso clickable" onClick={()=>{navegar("itens");setFiltroSt("Em uso");}}><div className="resumo-num">{totalEmUso}</div><div className="resumo-label">Em Uso</div></div>
-                  <div className="resumo-card resumo-defeito clickable" onClick={()=>{navegar("itens");setFiltroSt("Com defeito");}}><div className="resumo-num">{totalDefeito}</div><div className="resumo-label">Com Defeito</div></div>
+                  <div className="resumo-card resumo-uso clickable" onClick={()=>{navegar("itens");setFiltroSt("Em rota");}}><div className="resumo-num">{totalEmRota}</div><div className="resumo-label">Em Rota</div></div>
                   <div className="resumo-card resumo-conserto clickable" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>
                   <div className={`resumo-card ${alertas.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertas.length}</div><div className="resumo-label">Alertas</div></div>
                 </div>
@@ -450,15 +439,13 @@ function Sistema({onLogout}){
                         </div>
                         <div className="cat-detalhe-total">
                           <span className="cat-total-num">{c.total}</span>
-                          <span className="cat-total-label">unidades</span>
+                          <span className="cat-total-label">equipamentos</span>
                         </div>
                       </div>
                       <div className="cat-detalhe-status">
                         {c.disponivel>0&&<div className="cat-st-linha cat-st-disp"><span>✅ Disponível</span><strong>{c.disponivel}</strong></div>}
-                        {c.emUso>0&&    <div className="cat-st-linha cat-st-uso"> <span>🔵 Em uso</span>   <strong>{c.emUso}</strong></div>}
-                        {c.defeito>0&&  <div className="cat-st-linha cat-st-def"> <span>❌ Defeito</span>   <strong>{c.defeito}</strong></div>}
+                        {c.emRota>0&&   <div className="cat-st-linha cat-st-uso"> <span>📍 Em rota</span>   <strong>{c.emRota}</strong></div>}
                         {c.conserto>0&& <div className="cat-st-linha cat-st-con"> <span>🔧 Conserto</span>  <strong>{c.conserto}</strong></div>}
-                        {c.velho>0&&    <div className="cat-st-linha cat-st-vel"> <span>⚪ Velho</span>     <strong>{c.velho}</strong></div>}
                       </div>
                     </div>
                   ))}
@@ -571,19 +558,19 @@ function Sistema({onLogout}){
               </div>
               <div className="tabela-wrapper">
                 <table className="tabela">
-                  <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Qtd</th><th>Status</th><th>Movimentar</th><th>⚙️</th></tr></thead>
+                  <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Status</th><th>Ponto / Localização</th><th>Movimentar</th><th>⚙️</th></tr></thead>
                   <tbody>
                     {itensFiltrados.length===0?<tr><td colSpan={7} className="tabela-vazia">Nenhum item encontrado.</td></tr>
                     :itensFiltrados.map(item=>{
-                      const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
+                      const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").length;
                       const emAlerta=totalCat<MINIMO_CATEGORIA;
                       return(
                         <tr key={item.id} className={emAlerta?"row-alerta":""}>
                           <td className="td-minimo">{item.patrimonio||"—"}</td>
                           <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
                           <td><span className="badge-cat">{item.categoria}</span></td>
-                          <td className={emAlerta?"qtd-baixa":"qtd-normal"}>{item.quantidade}</td>
                           <td><span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span></td>
+                          <td className="td-obs">{item.localizacao||"Sem ponto"}</td>
                           <td><button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button></td>
                           <td className="td-acoes">
                             <button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>
@@ -603,10 +590,9 @@ function Sistema({onLogout}){
               <section className="secao">
                 <h2 className="secao-titulo">Resumo Geral</h2>
                 <div className="resumo-grid">
-                  <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Total Unidades</div></div>
+                  <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Equipamentos</div></div>
                   <div className="resumo-card resumo-disponivel"><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
-                  <div className="resumo-card resumo-uso"><div className="resumo-num">{totalEmUso}</div><div className="resumo-label">Em Uso</div></div>
-                  <div className="resumo-card resumo-defeito"><div className="resumo-num">{totalDefeito}</div><div className="resumo-label">Com Defeito</div></div>
+                  <div className="resumo-card resumo-uso"><div className="resumo-num">{totalEmRota}</div><div className="resumo-label">Em Rota</div></div>
                   <div className="resumo-card resumo-conserto"><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>
                   <div className={`resumo-card ${alertas.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertas.length}</div><div className="resumo-label">Alertas</div></div>
                 </div>
@@ -626,15 +612,13 @@ function Sistema({onLogout}){
                         </div>
                         <div className="cat-detalhe-total">
                           <span className="cat-total-num">{c.total}</span>
-                          <span className="cat-total-label">unidades</span>
+                          <span className="cat-total-label">equipamentos</span>
                         </div>
                       </div>
                       <div className="cat-detalhe-status">
                         {c.disponivel>0&&<div className="cat-st-linha cat-st-disp"><span>✅ Disponível</span><strong>{c.disponivel}</strong></div>}
-                        {c.emUso>0&&    <div className="cat-st-linha cat-st-uso"> <span>🔵 Em uso</span>   <strong>{c.emUso}</strong></div>}
-                        {c.defeito>0&&  <div className="cat-st-linha cat-st-def"> <span>❌ Defeito</span>   <strong>{c.defeito}</strong></div>}
+                        {c.emRota>0&&   <div className="cat-st-linha cat-st-uso"> <span>📍 Em rota</span>   <strong>{c.emRota}</strong></div>}
                         {c.conserto>0&& <div className="cat-st-linha cat-st-con"> <span>🔧 Conserto</span>  <strong>{c.conserto}</strong></div>}
-                        {c.velho>0&&    <div className="cat-st-linha cat-st-vel"> <span>⚪ Velho</span>     <strong>{c.velho}</strong></div>}
                       </div>
                     </div>
                   ))}
@@ -686,7 +670,7 @@ function Sistema({onLogout}){
                 <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
               </div>
             </header>
-            <PointsPage/>
+            <PointsPage equipamentos={itens} onPontosChange={setPontos} onEquipamentosChange={setItens}/>
           </>
         )}
 
@@ -772,16 +756,7 @@ function Sistema({onLogout}){
                     {STATUS_LISTA.map(s=><option key={s}>{s}</option>)}
                   </select></div>
               </div>
-              {itemEdit&&(
-                <div className="campo" style={{maxWidth:"50%"}}>
-                  <label>Quantidade</label>
-                  <input type="number" min="0" value={form.quantidade} onChange={e=>setForm({...form,quantidade:parseInt(e.target.value)||0})}/>
-                </div>
-              )}
-              {!itemEdit&&(
-                <div className="campo-info-minimo">📦 Cada equipamento é cadastrado com <strong>1 unidade</strong>. Use movimentações para ajustar.</div>
-              )}
-              <div className="campo-info-minimo">🔒 Estoque mínimo por categoria: <strong>5 unidades disponíveis</strong></div>
+              <div className="campo-info-minimo">🔒 Alerta de estoque por categoria: <strong>menos de 5 equipamentos disponíveis</strong></div>
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={fecharForm}>Cancelar</button>
@@ -794,14 +769,14 @@ function Sistema({onLogout}){
       {modalMov&&(
         <div className="modal-overlay" onClick={fecharMov}>
           <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><h3>📦 Movimentação de Estoque</h3><button className="modal-fechar" onClick={fecharMov}>✕</button></div>
+            <div className="modal-header"><h3>📍 Movimentar Equipamento</h3><button className="modal-fechar" onClick={fecharMov}>✕</button></div>
             <div className="modal-body">
               <div className="mov-item-info">
                 <div className="mov-item-nome">{ICONES[modalMov.categoria]} {modalMov.nome}</div>
                 <div className="mov-item-meta">
                   <span className="badge-cat">{modalMov.categoria}</span>
                   <span className={`badge-status ${STATUS_CFG[modalMov.status]?.cor||""}`}>{modalMov.status}</span>
-                  <span className="mov-item-qtd">Estoque: <strong style={{color:"var(--verde)"}}>{modalMov.quantidade}</strong></span>
+                  <span className="mov-item-qtd">Local atual: <strong>{modalMov.localizacao||"Sem ponto"}</strong></span>
                   {modalMov.patrimonio&&<span className="mov-item-pat">{modalMov.patrimonio}</span>}
                 </div>
               </div>
@@ -817,15 +792,17 @@ function Sistema({onLogout}){
                   ))}
                 </div>
               </div>
-              {tipoMovSel?.alteraQtd&&(
+              {tipoMovSel?.exigePonto&&(
                 <div className="campo">
-                  <label>Quantidade *</label>
-                  <input type="number" min="1" value={mov.quantidade} onChange={e=>setMov({...mov,quantidade:parseInt(e.target.value)||1})}/>
-                  {tipoMovSel.sentido===-1&&<span className="campo-hint">Após saída: <strong>{Math.max(0,modalMov.quantidade-mov.quantidade)}</strong> unidades</span>}
-                  {tipoMovSel.sentido===1 &&<span className="campo-hint">Após entrada: <strong>{modalMov.quantidade+mov.quantidade}</strong> unidades</span>}
+                  <label>Ponto de destino *</label>
+                  <select value={mov.ponto} onChange={e=>setMov({...mov,ponto:e.target.value})}>
+                    <option value="">Selecione um ponto...</option>
+                    {pontos.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
+                  </select>
+                  {pontos.length===0&&<span className="campo-hint">Cadastre um ponto antes de enviar o equipamento.</span>}
                 </div>
               )}
-              {tipoMovSel?.alteraStatus&&<div className="mov-status-resultado">Novo status: <span className={`badge-status ${STATUS_CFG[tipoMovSel.novoStatus]?.cor||""}`}>{tipoMovSel.novoStatus}</span></div>}
+              <div className="mov-status-resultado">Novo status: <span className={`badge-status ${STATUS_CFG[tipoMovSel.novoStatus]?.cor||""}`}>{tipoMovSel.novoStatus}</span></div>
               <div className="campos-duplos">
                 <div className="campo"><label>Responsável</label><input type="text" placeholder="Ex: Carlos" value={mov.responsavel} onChange={e=>setMov({...mov,responsavel:e.target.value})}/></div>
                 <div className="campo"><label>Observação</label><input type="text" placeholder="Motivo..." value={mov.observacao} onChange={e=>setMov({...mov,observacao:e.target.value})}/></div>

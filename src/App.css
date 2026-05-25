@@ -523,6 +523,7 @@ body {
 .status-label  { font-size: 11px; font-weight: 500; opacity: 0.85; }
 .status-disponivel  { background: var(--verde-bg);    color: var(--verde);    border-color: var(--verde-border); }
 .status-em-uso      { background: var(--azul-bg);     color: var(--azul);     border-color: var(--azul-border); }
+.status-em-rota     { background: var(--azul-bg);     color: var(--azul);     border-color: var(--azul-border); }
 .status-velho       { background: var(--cinza-bg);    color: var(--cinza);    border-color: rgba(100,116,139,0.2); }
 .status-defeito     { background: var(--vermelho-bg); color: var(--vermelho); border-color: var(--vermelho-border); }
 .status-conserto    { background: var(--amarelo-bg);  color: var(--amarelo);  border-color: var(--amarelo-border); }
@@ -611,6 +612,7 @@ body {
 .hist-defeito    { background: var(--vermelho-bg); color: var(--vermelho); }
 .hist-disponivel { background: var(--verde-bg);    color: var(--verde);    }
 .hist-baixa      { background: var(--cinza-bg);    color: var(--cinza);    }
+.hist-rota       { background: var(--azul-bg);     color: var(--azul);     }
 
 .hist-vazio { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 50px; color: var(--txt-muted); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .hist-vazio-icone { font-size: 36px; opacity: 0.3; }
@@ -826,6 +828,7 @@ body {
 .tema-claro .badge-mod-bicho     { background:#fef9c3; color:#854d0e; border-color:#fde047; }
 .tema-claro .badge-mod-lotobanca { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
 .modalidades-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.equipamentos-ponto { display: flex; flex-wrap: wrap; gap: 4px; min-width: 150px; }
 
 .despesas-total-banner {
   background: var(--verde-bg); border: 1px solid var(--verde-border);
@@ -1001,8 +1004,10 @@ body {
 .tema-claro .badge-hist.hist-defeito    { background: #fee2e2; color: #991b1b; }
 .tema-claro .badge-hist.hist-disponivel { background: #dcfce7; color: #166534; }
 .tema-claro .badge-hist.hist-baixa      { background: #f1f5f9; color: #475569; }
+.tema-claro .badge-hist.hist-rota       { background: #dbeafe; color: #1e40af; }
 .tema-claro .status-disponivel  { background: #dcfce7; color: #166534; border-color: #86efac; }
 .tema-claro .status-em-uso      { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+.tema-claro .status-em-rota     { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
 .tema-claro .status-velho       { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 .tema-claro .status-defeito     { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 .tema-claro .status-conserto    { background: #fef9c3; color: #854d0e; border-color: #fde047; }

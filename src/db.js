@@ -107,7 +107,7 @@ export async function adicionarHistoricoPonto(h) {
 function mapEquipamento(row) {
   return {
     id: row.id, nome: row.nome, categoria: row.categoria,
-    quantidade: row.quantidade, status: row.status, minimo: row.minimo,
+    quantidade: 1, status: normalizarStatus(row.status), minimo: row.minimo,
     observacao: row.observacao || '', localizacao: row.localizacao || '',
     responsavel: row.responsavel || '', patrimonio: row.patrimonio || '',
     dataCadastro: row.data_cadastro || '',
@@ -116,11 +116,17 @@ function mapEquipamento(row) {
 
 function desmapEquipamento(item) {
   return {
-    nome: item.nome, categoria: item.categoria, quantidade: item.quantidade,
+    nome: item.nome, categoria: item.categoria, quantidade: 1,
     status: item.status, minimo: item.minimo, observacao: item.observacao || '',
     localizacao: item.localizacao || '', responsavel: item.responsavel || '',
     patrimonio: item.patrimonio || '', data_cadastro: item.dataCadastro || '',
   };
+}
+
+function normalizarStatus(status) {
+  if (status === 'Disponível' || status === 'Em rota' || status === 'Em conserto') return status;
+  if (status === 'Em uso') return 'Em rota';
+  return 'Em conserto';
 }
 
 function mapPonto(row) {

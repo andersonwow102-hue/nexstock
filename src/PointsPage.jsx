@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { GERENTES, GERENTE_CORES, MODALIDADES, formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto } from "./pointsData.js";
-import { carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto } from "./db.js";
+import { carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento } from "./db.js";
 
 const hoje=()=>new Date().toISOString().slice(0,10);
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
@@ -127,10 +127,13 @@ function mascaraMoeda(v) {
 }
 
 // ─── Modal Formulário ─────────────────────────────────────────────────────────
-function PointFormModal({ ponto, onSalvar, onFechar }) {
+function PointFormModal({ ponto, equipamentos, onSalvar, onFechar }) {
   const [form, setForm] = useState(ponto ? {...ponto,
     valorDespesa: ponto.valorDespesa ? mascaraMoeda(String(Math.round(ponto.valorDespesa*100))) : ""
   } : {...pontoFormVazio});
+  const [equipamentosSelecionados, setEquipamentosSelecionados] = useState(
+    equipamentos.filter(i=>ponto&&i.localizacao===ponto.nomeFantasia).map(i=>i.id)
+  );
   const [erro, setErro] = useState("");
 
   function toggleModalidade(m) {
@@ -142,7 +145,7 @@ function PointFormModal({ ponto, onSalvar, onFechar }) {
   function salvar() {
     const e = validarPonto(form);
     if (e) { setErro(e); return; }
-    onSalvar({...form, valorDespesa: form.possuiDespesa==="sim" ? parseMoeda(form.valorDespesa) : 0});
+    onSalvar({...form, valorDespesa: form.possuiDespesa==="sim" ? parseMoeda(form.valorDespesa) : 0}, equipamentosSelecionados);
   }
 
   return (
@@ -178,6 +181,20 @@ function PointFormModal({ ponto, onSalvar, onFechar }) {
                 </label>
               ))}
             </div>
+          </div>
+          <div className="campo">
+            <label>Equipamentos neste ponto</label>
+            {equipamentos.length===0
+              ?<span className="campo-hint">Nenhum equipamento cadastrado ainda.</span>
+              :<div className="modalidades-grid">
+                {equipamentos.map(item=>(
+                  <label key={item.id} className={`modalidade-item ${equipamentosSelecionados.includes(item.id)?"modalidade-ativa":""}`}>
+                    <input type="checkbox" checked={equipamentosSelecionados.includes(item.id)} onChange={()=>setEquipamentosSelecionados(prev=>prev.includes(item.id)?prev.filter(id=>id!==item.id):[...prev,item.id])}/>
+                    {item.patrimonio||item.nome}
+                    {item.localizacao&&item.localizacao!==ponto?.nomeFantasia&&<span className="campo-hint"> - atual: {item.localizacao}</span>}
+                  </label>
+                ))}
+              </div>}
           </div>
           <div className="campo">
             <label>Possui Despesa? *</label>
@@ -274,12 +291,13 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick }) {
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, onEditar, onExcluir, onExportExcel, onExportPDF }) {
+function AbaPontos({ pontos, equipamentos, onEditar, onExcluir, onExportExcel, onExportPDF }) {
   const [busca, setBusca] = useState("");
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
-    const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente].some(f=>(f||"").toLowerCase().includes(q));
+    const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
+    const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,...vinculados.map(i=>i.patrimonio)].some(f=>(f||"").toLowerCase().includes(q));
     return mB&&(filtroGerente==="Todos"||p.gerente===filtroGerente);
   });
 
@@ -300,13 +318,19 @@ function AbaPontos({ pontos, onEditar, onExcluir, onExportExcel, onExportPDF }) 
       </div>
       <div className="tabela-wrapper">
         <table className="tabela">
-          <thead><tr><th>Nome Fantasia</th><th>Dono</th><th>Telefone</th><th>Gerente</th><th>Modalidades</th><th>Despesa</th><th>Valor</th><th>⚙️</th></tr></thead>
+          <thead><tr><th>Nome Fantasia</th><th>Equipamentos</th><th>Dono</th><th>Telefone</th><th>Gerente</th><th>Modalidades</th><th>Despesa</th><th>Valor</th><th>⚙️</th></tr></thead>
           <tbody>
             {filtrados.length===0
-              ?<tr><td colSpan={8} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
-              :filtrados.map(p=>(
-                <tr key={p.id}>
+              ?<tr><td colSpan={9} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
+              :filtrados.map(p=>{
+                const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
+                return <tr key={p.id}>
                   <td className="td-nome">🏪 {p.nomeFantasia}</td>
+                  <td>
+                    {vinculados.length===0
+                      ?<span className="td-obs">Nenhum</span>
+                      :<div className="equipamentos-ponto">{vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>)}</div>}
+                  </td>
                   <td className="td-obs">{p.nomeDono}</td>
                   <td className="td-obs">{p.telefone}</td>
                   <td><BadgeGerente gerente={p.gerente}/></td>
@@ -317,8 +341,8 @@ function AbaPontos({ pontos, onEditar, onExcluir, onExportExcel, onExportPDF }) 
                     <button className="btn-editar" onClick={()=>onEditar(p)} title="Editar">✏️</button>
                     <button className="btn-excluir" onClick={()=>onExcluir(p.id)} title="Excluir">🗑️</button>
                   </td>
-                </tr>
-              ))}
+                </tr>;
+              })}
           </tbody>
         </table>
       </div>
@@ -548,7 +572,7 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage() {
+export default function PointsPage({ equipamentos=[], onPontosChange, onEquipamentosChange }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [loading,    setLoading]   = useState(true);
@@ -562,20 +586,32 @@ export default function PointsPage() {
     async function carregar(){
       setLoading(true);
       const [pts, hist] = await Promise.all([carregarPontos(), carregarHistoricoPontos()]);
-      setPontos(pts); setHistorico(hist); setLoading(false);
+      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); setLoading(false);
     }
     carregar();
   },[]);
 
-  async function salvarPontoHandler(form){
+  async function salvarPontoHandler(form, equipamentosSelecionados){
     try{
       if(pontoEdit){
         await salvarPonto({...form,id:pontoEdit.id});
-        setPontos(pontos.map(p=>p.id===pontoEdit.id?{...form,id:pontoEdit.id}:p));
+        const atualizados=pontos.map(p=>p.id===pontoEdit.id?{...form,id:pontoEdit.id}:p);
+        setPontos(atualizados);onPontosChange?.(atualizados);
       }else{
         const novoId=await salvarPonto(form);
-        setPontos(prev=>[...prev,{...form,id:novoId}]);
+        const atualizados=[...pontos,{...form,id:novoId}];
+        setPontos(atualizados);onPontosChange?.(atualizados);
       }
+      const idsSelecionados=new Set(equipamentosSelecionados);
+      const nomeAnterior=pontoEdit?.nomeFantasia;
+      const equipamentosAtualizados=equipamentos.map(item=>{
+        if(idsSelecionados.has(item.id)) return {...item,quantidade:1,status:"Em rota",localizacao:form.nomeFantasia};
+        if(nomeAnterior&&item.localizacao===nomeAnterior) return {...item,quantidade:1,status:"Disponível",localizacao:""};
+        return item;
+      });
+      const alterados=equipamentosAtualizados.filter((item,index)=>item.status!==equipamentos[index].status||item.localizacao!==equipamentos[index].localizacao);
+      await Promise.all(alterados.map(item=>salvarEquipamento(item)));
+      if(alterados.length>0) onEquipamentosChange?.(equipamentosAtualizados);
       const h={id:Date.now(),tipo:pontoEdit?"edicao":"cadastro",nome:form.nomeFantasia,gerente:form.gerente,observacao:pontoEdit?"Ponto editado":"Ponto cadastrado",data:agoraStr()};
       await adicionarHistoricoPonto(h);
       setHistorico(prev=>[h,...prev]);
@@ -587,7 +623,8 @@ export default function PointsPage() {
     const p=pontos.find(x=>x.id===id);
     try{
       await excluirPonto(id);
-      setPontos(pontos.filter(x=>x.id!==id));
+      const atualizados=pontos.filter(x=>x.id!==id);
+      setPontos(atualizados);onPontosChange?.(atualizados);
       const h={id:Date.now(),tipo:"exclusao",nome:p.nomeFantasia,gerente:p.gerente,observacao:"Ponto removido",data:agoraStr()};
       await adicionarHistoricoPonto(h);
       setHistorico(prev=>[h,...prev]);
@@ -628,7 +665,7 @@ export default function PointsPage() {
 
       {!loading&&(<>
         {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontos} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} equipamentos={equipamentos} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
             onExportExcel={()=>exportarPontosExcel(pontos)} onExportPDF={()=>exportarPontosPDF(pontos)}/>}
         {abaInterna==="analise"  &&<AbaAnalise pontos={pontos}/>}
         {abaInterna==="gerentes" &&<AbaGerentes pontos={pontos}/>}
@@ -636,7 +673,7 @@ export default function PointsPage() {
             onExportExcel={()=>exportarHistoricoPontosExcel(historico)} onExportPDF={()=>exportarHistoricoPontosPDF(historico)}/>}
       </>)}
 
-      {modalForm&&<PointFormModal ponto={pontoEdit} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
+      {modalForm&&<PointFormModal ponto={pontoEdit} equipamentos={equipamentos} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
       {verDespesas&&<PointExpensesModal pontos={pontos} onFechar={()=>setVerDespesas(false)}/>}
 
       {excluindo&&(
