@@ -15,6 +15,7 @@ import {
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
 const STATUS_LISTA = ["Disponível","Em uso","Velho","Com defeito","Em conserto","Descartado"];
 const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌"};
+const MINIMO_CATEGORIA = 5;
 const STATUS_CFG = {
   "Disponível": {cor:"status-disponivel"},
   "Em uso":     {cor:"status-em-uso"},
@@ -76,7 +77,6 @@ function validarItem(f){
   if(!f.categoria)         return"Categoria é obrigatória.";
   if(!f.status)            return"Status é obrigatório.";
   if(!f.patrimonio.trim()) return"Código / Patrimônio é obrigatório.";
-  if(f.quantidade<0)       return"Quantidade não pode ser negativa.";
   return null;
 }
 function validarMov(mov,item,tipo){
@@ -88,7 +88,7 @@ function validarMov(mov,item,tipo){
 function exportarEquipamentosExcel(itens){
   const dados=itens.map(i=>({
     "Patrimônio":i.patrimonio||"—","Nome":i.nome,"Categoria":i.categoria,
-    "Quantidade":i.quantidade,"Mínimo":i.minimo,"Status":i.status,
+    "Quantidade":i.quantidade,"Status":i.status,
     "Responsável":i.responsavel||"—","Localização":i.localizacao||"—",
     "Observação":i.observacao||"—","Data Cadastro":i.dataCadastro||"—",
   }));
@@ -236,17 +236,23 @@ function Sistema({onLogout}){
   const totalEmUso     =itens.filter(i=>i.status==="Em uso").reduce((s,i)=>s+i.quantidade,0);
   const totalDefeito   =itens.filter(i=>i.status==="Com defeito").reduce((s,i)=>s+i.quantidade,0);
   const totalConserto  =itens.filter(i=>i.status==="Em conserto").reduce((s,i)=>s+i.quantidade,0);
-  const alertas        =itens.filter(i=>i.status==="Disponível"&&i.quantidade<i.minimo);
+
+  // ── Alertas por CATEGORIA (soma total disponível da categoria vs mínimo 5) ──
+  const alertas = CATEGORIAS.map(cat=>{
+    const totalDisp=itens.filter(i=>i.categoria===cat&&i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
+    return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
+  }).filter(a=>a.totalDisponivel<MINIMO_CATEGORIA);
 
   const porCategoria=CATEGORIAS.map(cat=>{
     const ci=itens.filter(i=>i.categoria===cat);
+    const totalDisp=ci.filter(i=>i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
     return{categoria:cat,total:ci.reduce((s,i)=>s+i.quantidade,0),qtdItens:ci.length,
-      disponivel:ci.filter(i=>i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0),
+      disponivel:totalDisp,
       emUso:ci.filter(i=>i.status==="Em uso").reduce((s,i)=>s+i.quantidade,0),
       defeito:ci.filter(i=>i.status==="Com defeito").reduce((s,i)=>s+i.quantidade,0),
       conserto:ci.filter(i=>i.status==="Em conserto").reduce((s,i)=>s+i.quantidade,0),
       velho:ci.filter(i=>i.status==="Velho").reduce((s,i)=>s+i.quantidade,0),
-      alertaBaixo:ci.some(i=>i.status==="Disponível"&&i.quantidade<i.minimo),
+      alertaBaixo:totalDisp<MINIMO_CATEGORIA,
     };
   });
 
@@ -267,7 +273,9 @@ function Sistema({onLogout}){
 
   function abrirNovo(){
     const cat=CATEGORIAS[0];
-    setItemEdit(null);setForm({...formVazio,dataCadastro:hoje(),patrimonio:gerarPatrimonio(cat,itens),minimo:5});setErroForm("");setModalForm(true);
+    setItemEdit(null);
+    setForm({...formVazio,quantidade:1,dataCadastro:hoje(),patrimonio:gerarPatrimonio(cat,itens),minimo:5});
+    setErroForm("");setModalForm(true);
   }
   function abrirEditar(i){setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
@@ -275,20 +283,19 @@ function Sistema({onLogout}){
   function fecharMov(){setModalMov(null);}
 
   async function salvarItem(){
-    const ff={...form,nome:padronizarNome(form.nome),minimo:5,dataCadastro:form.dataCadastro||hoje()};
+    const ff={...form,nome:padronizarNome(form.nome),quantidade:itemEdit?form.quantidade:1,minimo:5,dataCadastro:form.dataCadastro||hoje()};
     const erro=validarItem(ff);if(erro){setErroForm(erro);return;}
     if(itemEdit){
       await salvarEquipamento({...ff,id:itemEdit.id});
       setItens(itens.map(i=>i.id===itemEdit.id?{...ff,id:itemEdit.id}:i));
       const d=[];
-      if(itemEdit.quantidade!==ff.quantidade)d.push(`Qtd: ${itemEdit.quantidade}→${ff.quantidade}`);
       if(itemEdit.status!==ff.status)d.push(`Status: ${itemEdit.status}→${ff.status}`);
       const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }else{
       const novoId=await salvarEquipamento(ff);
       setItens(prev=>[...prev,{...ff,id:novoId}]);
-      const h={id:Date.now(),tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:ff.quantidade,responsavel:"—",observacao:`Patrimônio: ${ff.patrimonio}`,data:agora()};
+      const h={id:Date.now(),tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:`Patrimônio: ${ff.patrimonio}`,data:agora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }
     fecharForm();
@@ -350,7 +357,6 @@ function Sistema({onLogout}){
 
   return(
     <div className={`app${temaClaro?" tema-claro":""}`}>
-      {/* Overlay mobile */}
       <div className={`sidebar-overlay ${sidebarAberta?"ativo":""}`} onClick={fecharSidebar}/>
 
       <aside className={`sidebar ${sidebarAberta?"aberta":""}`}>
@@ -370,7 +376,7 @@ function Sistema({onLogout}){
         <div className="sidebar-footer">
           {alertas.length>0&&(
             <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
-              ⚠️ {alertas.length} alerta{alertas.length>1?"s":""} de estoque
+              ⚠️ {alertas.length} categoria{alertas.length>1?"s":""} em alerta
               <span className="sidebar-alerta-arrow">→</span>
             </button>
           )}
@@ -407,18 +413,21 @@ function Sistema({onLogout}){
               </section>
               {alertas.length>0&&(
                 <section className="secao">
-                  <h2 className="secao-titulo">⚠️ Estoque Baixo</h2>
+                  <h2 className="secao-titulo">⚠️ Estoque Baixo por Categoria</h2>
                   <div className="alertas-section">
-                    {alertas.map(item=>(
-                      <div key={item.id} className="alerta-card">
-                        <span className="alerta-icon">⚠️</span>
+                    {alertas.map(a=>(
+                      <div key={a.categoria} className="alerta-card">
+                        <span className="alerta-icon">{ICONES[a.categoria]}</span>
                         <div className="alerta-info">
-                          <div className="alerta-nome"><strong>{item.nome}</strong><span className="badge-cat">{item.categoria}</span></div>
-                          <div className="alerta-detalhe">Atual: <strong style={{color:"var(--vermelho)"}}>{item.quantidade}</strong> · Mín: {item.minimo} · Faltam: <strong style={{color:"var(--vermelho)"}}>{item.minimo-item.quantidade}</strong></div>
+                          <div className="alerta-nome"><strong>{a.categoria}</strong><span className="badge-cat">Categoria</span></div>
+                          <div className="alerta-detalhe">
+                            Disponível: <strong style={{color:"var(--vermelho)"}}>{a.totalDisponivel}</strong>
+                            &nbsp;·&nbsp;Mínimo: {MINIMO_CATEGORIA}
+                            &nbsp;·&nbsp;Faltam: <strong style={{color:"var(--vermelho)"}}>{a.faltam}</strong> un.
+                          </div>
                         </div>
                         <div className="alerta-acoes">
-                          <button className="btn-alerta-mov" onClick={()=>{navegar("itens");abrirMov(item);}}>📦</button>
-                          <button className="btn-alerta-editar" onClick={()=>{navegar("itens");abrirEditar(item);}}>✏️</button>
+                          <button className="btn-alerta-editar" onClick={()=>{navegar("itens");setFiltroCatEquip(a.categoria);setAbaEquip("lista");}}>🔍 Ver</button>
                         </div>
                       </div>
                     ))}
@@ -520,27 +529,25 @@ function Sistema({onLogout}){
               <div className="alerta-banner-header">
                 <div className="alerta-banner-titulo">
                   <span className="alerta-banner-emoji">🚨</span>
-                  <strong>{alertas.length} equipamento{alertas.length>1?"s":""} com estoque abaixo do mínimo!</strong>
+                  <strong>{alertas.length} categoria{alertas.length>1?"s":""} com estoque abaixo do mínimo!</strong>
                   <span className="alerta-banner-pulse"/>
                 </div>
                 <button className="alerta-banner-fechar" onClick={()=>setAlertaEstoqueAtivo(false)}>✕</button>
               </div>
               <div className="alerta-banner-itens">
-                {alertas.map(item=>(
-                  <div key={item.id} className="alerta-banner-item">
-                    <span className="alerta-banner-icone">{ICONES[item.categoria]}</span>
+                {alertas.map(a=>(
+                  <div key={a.categoria} className="alerta-banner-item">
+                    <span className="alerta-banner-icone">{ICONES[a.categoria]}</span>
                     <div className="alerta-banner-info">
-                      <span className="alerta-banner-nome">{item.nome}</span>
+                      <span className="alerta-banner-nome">{a.categoria}</span>
                       <span className="alerta-banner-detalhe">
-                        <span className="badge-cat">{item.categoria}</span>
-                        Atual: <strong style={{color:"var(--vermelho)"}}>{item.quantidade}</strong>
-                        &nbsp;·&nbsp;Mínimo: <strong>{item.minimo}</strong>
-                        &nbsp;·&nbsp;Faltam: <strong style={{color:"var(--vermelho)"}}>{item.minimo-item.quantidade}</strong> un.
+                        Disponível: <strong style={{color:"var(--vermelho)"}}>{a.totalDisponivel}</strong>
+                        &nbsp;·&nbsp;Mínimo: <strong>{MINIMO_CATEGORIA}</strong>
+                        &nbsp;·&nbsp;Faltam: <strong style={{color:"var(--vermelho)"}}>{a.faltam}</strong> un.
                       </span>
                     </div>
                     <div className="alerta-banner-acoes">
-                      <button className="btn-alerta-mov" onClick={()=>abrirMov(item)}>📦 Movimentar</button>
-                      <button className="btn-alerta-editar" onClick={()=>abrirEditar(item)}>✏️ Editar</button>
+                      <button className="btn-alerta-editar" onClick={()=>{setFiltroCatEquip(a.categoria);setAbaEquip("lista");setAlertaEstoqueAtivo(false);}}>🔍 Ver categoria</button>
                     </div>
                   </div>
                 ))}
@@ -565,24 +572,27 @@ function Sistema({onLogout}){
               </div>
               <div className="tabela-wrapper">
                 <table className="tabela">
-                  <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Qtd</th><th>Mín</th><th>Status</th><th>Movimentar</th><th>⚙️</th></tr></thead>
+                  <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Qtd</th><th>Status</th><th>Movimentar</th><th>⚙️</th></tr></thead>
                   <tbody>
-                    {itensFiltrados.length===0?<tr><td colSpan={8} className="tabela-vazia">Nenhum item encontrado.</td></tr>
-                    :itensFiltrados.map(item=>(
-                      <tr key={item.id} className={item.status==="Disponível"&&item.quantidade<item.minimo?"row-alerta":""}>
-                        <td className="td-minimo">{item.patrimonio||"—"}</td>
-                        <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
-                        <td><span className="badge-cat">{item.categoria}</span></td>
-                        <td className={item.status==="Disponível"&&item.quantidade<item.minimo?"qtd-baixa":"qtd-normal"}>{item.quantidade}</td>
-                        <td className="td-minimo">{item.minimo}</td>
-                        <td><span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span></td>
-                        <td><button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button></td>
-                        <td className="td-acoes">
-                          <button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>
-                          <button className="btn-excluir" onClick={()=>setExcluindo(item.id)}>🗑️</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {itensFiltrados.length===0?<tr><td colSpan={7} className="tabela-vazia">Nenhum item encontrado.</td></tr>
+                    :itensFiltrados.map(item=>{
+                      const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
+                      const emAlerta=totalCat<MINIMO_CATEGORIA;
+                      return(
+                        <tr key={item.id} className={emAlerta?"row-alerta":""}>
+                          <td className="td-minimo">{item.patrimonio||"—"}</td>
+                          <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
+                          <td><span className="badge-cat">{item.categoria}</span></td>
+                          <td className={emAlerta?"qtd-baixa":"qtd-normal"}>{item.quantidade}</td>
+                          <td><span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span></td>
+                          <td><button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button></td>
+                          <td className="td-acoes">
+                            <button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>
+                            <button className="btn-excluir" onClick={()=>setExcluindo(item.id)}>🗑️</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -763,11 +773,16 @@ function Sistema({onLogout}){
                     {STATUS_LISTA.map(s=><option key={s}>{s}</option>)}
                   </select></div>
               </div>
-              <div className="campo" style={{maxWidth:"50%"}}>
-                <label>Quantidade</label>
-                <input type="number" min="0" value={form.quantidade} onChange={e=>setForm({...form,quantidade:parseInt(e.target.value)||0})}/>
-              </div>
-              <div className="campo-info-minimo">🔒 Estoque mínimo fixo: <strong>5 unidades</strong></div>
+              {itemEdit&&(
+                <div className="campo" style={{maxWidth:"50%"}}>
+                  <label>Quantidade</label>
+                  <input type="number" min="0" value={form.quantidade} onChange={e=>setForm({...form,quantidade:parseInt(e.target.value)||0})}/>
+                </div>
+              )}
+              {!itemEdit&&(
+                <div className="campo-info-minimo">📦 Cada equipamento é cadastrado com <strong>1 unidade</strong>. Use movimentações para ajustar.</div>
+              )}
+              <div className="campo-info-minimo">🔒 Estoque mínimo por categoria: <strong>5 unidades disponíveis</strong></div>
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={fecharForm}>Cancelar</button>
