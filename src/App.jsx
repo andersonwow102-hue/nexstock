@@ -69,9 +69,7 @@ const movVazio={tipoId:"entrada",quantidade:1,responsavel:"",localizacao:"",obse
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
 
-const Auth={
-  deslogar:async()=>{ await supabase.auth.signOut(); },
-};
+const Auth={ deslogar:async()=>{ await supabase.auth.signOut(); } };
 
 function validarItem(f){
   if(!f.nome.trim())       return"Nome do equipamento é obrigatório.";
@@ -102,12 +100,9 @@ function exportarEquipamentosExcel(itens){
 
 function exportarEquipamentosPDF(itens){
   const doc=new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);
-  doc.text("AnderFlow — Relatório de Equipamentos",14,15);
-  doc.setFontSize(10);
-  doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`,14,22);
-  autoTable(doc,{
-    startY:27,
+  doc.setFontSize(16);doc.text("AnderFlow — Relatório de Equipamentos",14,15);
+  doc.setFontSize(10);doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`,14,22);
+  autoTable(doc,{startY:27,
     head:[["Patrimônio","Nome","Categoria","Qtd","Status","Responsável","Localização"]],
     body:itens.map(i=>[i.patrimonio||"—",i.nome,i.categoria,i.quantidade,i.status,i.responsavel||"—",i.localizacao||"—"]),
     styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},
@@ -129,12 +124,9 @@ function exportarHistoricoExcel(historico){
 
 function exportarHistoricoPDF(historico){
   const doc=new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);
-  doc.text("AnderFlow — Histórico de Equipamentos",14,15);
-  doc.setFontSize(10);
-  doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`,14,22);
-  autoTable(doc,{
-    startY:27,
+  doc.setFontSize(16);doc.text("AnderFlow — Histórico de Equipamentos",14,15);
+  doc.setFontSize(10);doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`,14,22);
+  autoTable(doc,{startY:27,
     head:[["Tipo","Equipamento","Categoria","Antes","Depois","Responsável","Observação","Data"]],
     body:historico.map(h=>[HIST_CFG[h.tipo]?.label||h.tipo,h.itemNome,h.categoria,h.qtdAntes,h.qtdDepois,h.responsavel||"—",h.observacao||"—",h.data]),
     styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},
@@ -151,8 +143,7 @@ function TelaLogin({onLogin}){
   const [carregando,setCarregando]=useState(false);
 
   async function tentar(e){
-    e.preventDefault();
-    setCarregando(true);setErro("");
+    e.preventDefault();setCarregando(true);setErro("");
     const {error}=await supabase.auth.signInWithPassword({email,password:senha});
     setCarregando(false);
     if(error){setErro("Email ou senha incorretos.");setSenha("");}
@@ -225,6 +216,7 @@ function Sistema({onLogout}){
   const [confirmLogout,setConfirmLogout]=useState(false);
   const [alertaEstoqueAtivo,setAlertaEstoqueAtivo]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
+  const [sidebarAberta,setSidebarAberta]=useState(false);
 
   useEffect(()=>{
     async function init(){
@@ -236,6 +228,8 @@ function Sistema({onLogout}){
   },[]);
 
   function toggleTema(){const n=!temaClaro;setTemaClaro(n);try{localStorage.setItem("sc_tema",n?"claro":"escuro");}catch{}}
+  function fecharSidebar(){setSidebarAberta(false);}
+  function navegar(novaAba){setAba(novaAba);fecharSidebar();}
 
   const totalGeral     =itens.reduce((s,i)=>s+i.quantidade,0);
   const totalDisponivel=itens.filter(i=>i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
@@ -290,15 +284,12 @@ function Sistema({onLogout}){
       if(itemEdit.quantidade!==ff.quantidade)d.push(`Qtd: ${itemEdit.quantidade}→${ff.quantidade}`);
       if(itemEdit.status!==ff.status)d.push(`Status: ${itemEdit.status}→${ff.status}`);
       const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora()};
-      await adicionarHistoricoEquipamento(h);
-      setHistorico(prev=>[h,...prev]);
+      await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }else{
       const novoId=await salvarEquipamento(ff);
-      const novoItem={...ff,id:novoId};
-      setItens(prev=>[...prev,novoItem]);
+      setItens(prev=>[...prev,{...ff,id:novoId}]);
       const h={id:Date.now(),tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:ff.quantidade,responsavel:"—",observacao:`Patrimônio: ${ff.patrimonio}`,data:agora()};
-      await adicionarHistoricoEquipamento(h);
-      setHistorico(prev=>[h,...prev]);
+      await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }
     fecharForm();
   }
@@ -308,8 +299,7 @@ function Sistema({onLogout}){
     await excluirEquipamento(id);
     setItens(prev=>prev.filter(i=>i.id!==id));
     const h={id:Date.now(),tipo:"exclusao",itemId:id,itemNome:item.nome,categoria:item.categoria,qtdAntes:item.quantidade,qtdDepois:0,responsavel:"—",observacao:"Item removido",data:agora()};
-    await adicionarHistoricoEquipamento(h);
-    setHistorico(prev=>[h,...prev]);
+    await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     setExcluindo(null);
   }
 
@@ -324,22 +314,20 @@ function Sistema({onLogout}){
     await salvarEquipamento(upd);
     setItens(prev=>prev.map(i=>i.id===modalMov.id?upd:i));
     const h={id:Date.now(),tipo:tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes,qtdDepois,responsavel:mov.responsavel||"—",observacao:mov.observacao||tipo.label,data:agora()};
-    await adicionarHistoricoEquipamento(h);
-    setHistorico(prev=>[h,...prev]);
+    await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     fecharMov();
   }
 
   async function limparHistorico(){
     if(!window.confirm("Limpar todo o histórico?"))return;
-    await limparHistoricoEquipamentos();
-    setHistorico([]);
+    await limparHistoricoEquipamentos();setHistorico([]);
   }
 
   const tipoMovSel=TIPOS_MOV.find(t=>t.id===mov.tipoId);
   const ABAS_EQUIP=[
-    {id:"lista",     label:`📦 Todos (${itens.length})`},
-    {id:"resumo",    label:"📊 Resumo por Status"},
-    {id:"historico", label:`📋 Histórico (${historico.length})`},
+    {id:"lista",label:`📦 Todos (${itens.length})`},
+    {id:"resumo",label:"📊 Resumo por Status"},
+    {id:"historico",label:`📋 Histórico (${historico.length})`},
   ];
 
   if(carregando){
@@ -362,23 +350,26 @@ function Sistema({onLogout}){
 
   return(
     <div className={`app${temaClaro?" tema-claro":""}`}>
-      <aside className="sidebar">
+      {/* Overlay mobile */}
+      <div className={`sidebar-overlay ${sidebarAberta?"ativo":""}`} onClick={fecharSidebar}/>
+
+      <aside className={`sidebar ${sidebarAberta?"aberta":""}`}>
         <div className="sidebar-logo">
           <img src={temaClaro?logoDark:logo} alt="AnderFlow" className="logo-sidebar-emblem"/>
         </div>
         <nav className="sidebar-nav">
           <span className="nav-section-label">Principal</span>
-          <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>setAba("dashboard")}><span>📊</span> Dashboard</button>
-          <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>setAba("itens")}><span>📦</span> Equipamentos</button>
-          <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>setAba("pontos")}><span>📍</span> Pontos</button>
-          <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>setAba("historico")}>
+          <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><span>📊</span> Dashboard</button>
+          <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span>📦</span> Equipamentos</button>
+          <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span>📍</span> Pontos</button>
+          <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
             <span>📋</span> Histórico
             {historico.length>0&&<span className="nav-badge">{historico.length>99?"99+":historico.length}</span>}
           </button>
         </nav>
         <div className="sidebar-footer">
           {alertas.length>0&&(
-            <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);setAba("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
+            <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
               ⚠️ {alertas.length} alerta{alertas.length>1?"s":""} de estoque
               <span className="sidebar-alerta-arrow">→</span>
             </button>
@@ -395,7 +386,10 @@ function Sistema({onLogout}){
       <main className="main">
         {aba==="dashboard"&&(<>
           <header className="topbar">
-            <div><h1 className="page-title">Dashboard</h1><p className="page-sub">Visão geral do estoque</p></div>
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Dashboard</h1><p className="page-sub">Visão geral do estoque</p></div>
+            </div>
             <img src={temaClaro?logoDark:logo} alt="AnderFlow" className="logo-topbar"/>
           </header>
           <div className="dashboard-grid">
@@ -404,10 +398,10 @@ function Sistema({onLogout}){
                 <h2 className="secao-titulo">Resumo Geral</h2>
                 <div className="resumo-grid">
                   <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Total Unidades</div></div>
-                  <div className="resumo-card resumo-disponivel clickable" onClick={()=>{setAba("itens");setFiltroSt("Disponível");}}><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
-                  <div className="resumo-card resumo-uso clickable" onClick={()=>{setAba("itens");setFiltroSt("Em uso");}}><div className="resumo-num">{totalEmUso}</div><div className="resumo-label">Em Uso</div></div>
-                  <div className="resumo-card resumo-defeito clickable" onClick={()=>{setAba("itens");setFiltroSt("Com defeito");}}><div className="resumo-num">{totalDefeito}</div><div className="resumo-label">Com Defeito</div></div>
-                  <div className="resumo-card resumo-conserto clickable" onClick={()=>{setAba("itens");setFiltroSt("Em conserto");}}><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>
+                  <div className="resumo-card resumo-disponivel clickable" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
+                  <div className="resumo-card resumo-uso clickable" onClick={()=>{navegar("itens");setFiltroSt("Em uso");}}><div className="resumo-num">{totalEmUso}</div><div className="resumo-label">Em Uso</div></div>
+                  <div className="resumo-card resumo-defeito clickable" onClick={()=>{navegar("itens");setFiltroSt("Com defeito");}}><div className="resumo-num">{totalDefeito}</div><div className="resumo-label">Com Defeito</div></div>
+                  <div className="resumo-card resumo-conserto clickable" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>
                   <div className={`resumo-card ${alertas.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertas.length}</div><div className="resumo-label">Alertas</div></div>
                 </div>
               </section>
@@ -423,8 +417,8 @@ function Sistema({onLogout}){
                           <div className="alerta-detalhe">Atual: <strong style={{color:"var(--vermelho)"}}>{item.quantidade}</strong> · Mín: {item.minimo} · Faltam: <strong style={{color:"var(--vermelho)"}}>{item.minimo-item.quantidade}</strong></div>
                         </div>
                         <div className="alerta-acoes">
-                          <button className="btn-alerta-mov" onClick={()=>{setAba("itens");abrirMov(item);}}>📦</button>
-                          <button className="btn-alerta-editar" onClick={()=>{setAba("itens");abrirEditar(item);}}>✏️</button>
+                          <button className="btn-alerta-mov" onClick={()=>{navegar("itens");abrirMov(item);}}>📦</button>
+                          <button className="btn-alerta-editar" onClick={()=>{navegar("itens");abrirEditar(item);}}>✏️</button>
                         </div>
                       </div>
                     ))}
@@ -438,7 +432,7 @@ function Sistema({onLogout}){
                 <div className="cat-detalhe-grid">
                   {porCategoria.map(c=>(
                     <div key={c.categoria} className={`cat-detalhe-card ${c.alertaBaixo?"cat-detalhe-alerta":""}`}
-                      onClick={()=>{setAba("itens");setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
+                      onClick={()=>{navegar("itens");setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
                       <div className="cat-detalhe-header">
                         <span className="cat-detalhe-icone">{ICONES[c.categoria]}</span>
                         <div style={{flex:1,minWidth:0}}>
@@ -468,7 +462,7 @@ function Sistema({onLogout}){
                 <section className="secao">
                   <div className="tabela-header">
                     <h2 className="secao-titulo" style={{margin:0}}>Últimas Movimentações</h2>
-                    <button className="btn-link" onClick={()=>setAba("historico")}>Ver todas →</button>
+                    <button className="btn-link" onClick={()=>navegar("historico")}>Ver todas →</button>
                   </div>
                   <div className="tabela-wrapper">
                     <table className="tabela">
@@ -496,11 +490,14 @@ function Sistema({onLogout}){
 
         {aba==="itens"&&(<>
           <header className="topbar">
-            <div><h1 className="page-title">Equipamentos</h1><p className="page-sub">Cadastro e movimentações</p></div>
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Equipamentos</h1><p className="page-sub">Cadastro e movimentações</p></div>
+            </div>
             <div style={{display:"flex",gap:"8px"}}>
               <button className="btn-secundario" onClick={()=>exportarEquipamentosExcel(itens)}>📊 Excel</button>
               <button className="btn-secundario" onClick={()=>exportarEquipamentosPDF(itens)}>📄 PDF</button>
-              <button className="btn-primario" onClick={abrirNovo}>+ Novo Equipamento</button>
+              <button className="btn-primario" onClick={abrirNovo}>+ Novo</button>
             </div>
           </header>
           <div className="points-abas">
@@ -672,11 +669,24 @@ function Sistema({onLogout}){
           )}
         </>)}
 
-        {aba==="pontos"&&<PointsPage/>}
+        {aba==="pontos"&&(
+          <>
+            <header className="topbar">
+              <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+                <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+                <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
+              </div>
+            </header>
+            <PointsPage/>
+          </>
+        )}
 
         {aba==="historico"&&(<>
           <header className="topbar">
-            <div><h1 className="page-title">Histórico</h1><p className="page-sub">{historico.length} movimentação{historico.length!==1?"ões":""} registrada{historico.length!==1?"s":""}</p></div>
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Histórico</h1><p className="page-sub">{historico.length} movimentação{historico.length!==1?"ões":""} registrada{historico.length!==1?"s":""}</p></div>
+            </div>
             <div style={{display:"flex",gap:"8px"}}>
               {historico.length>0&&<>
                 <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historico)}>📊 Excel</button>
