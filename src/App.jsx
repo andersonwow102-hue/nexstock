@@ -100,7 +100,7 @@ function exportarEquipamentosExcel(itens){
 
 function exportarEquipamentosPDF(itens){
   const doc=new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);doc.text("AnderFlow — Relatório de Equipamentos",14,15);
+  doc.setFontSize(16);doc.text("Stock-ON — Relatório de Equipamentos",14,15);
   doc.setFontSize(10);doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`,14,22);
   autoTable(doc,{startY:27,
     head:[["Patrimônio","Nome","Categoria","Qtd","Status","Responsável","Localização"]],
@@ -124,7 +124,7 @@ function exportarHistoricoExcel(historico){
 
 function exportarHistoricoPDF(historico){
   const doc=new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);doc.text("AnderFlow — Histórico de Equipamentos",14,15);
+  doc.setFontSize(16);doc.text("Stock-ON — Histórico de Equipamentos",14,15);
   doc.setFontSize(10);doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`,14,22);
   autoTable(doc,{startY:27,
     head:[["Tipo","Equipamento","Categoria","Antes","Depois","Responsável","Observação","Data"]],
@@ -152,7 +152,7 @@ function TelaLogin({onLogin}){
   return(
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo"><img src={logo} alt="AnderFlow" className="login-logo-img"/></div>
+        <div className="login-logo"><img src={logo} alt="Stock-ON" className="login-logo-img"/></div>
         <div className="login-titulo">Acesso Restrito</div>
         <div className="login-subtitulo">Entre com suas credenciais para continuar</div>
         <form className="login-form" onSubmit={tentar}>
@@ -166,7 +166,7 @@ function TelaLogin({onLogin}){
           </div>
           <button type="submit" className="btn-login" disabled={carregando||!email||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
         </form>
-        <div className="login-rodape">AnderFlow · Controle Inteligente de Equipamentos</div>
+        <div className="login-rodape">Stock-ON · Controle Inteligente de Equipamentos</div>
       </div>
     </div>
   );
@@ -237,7 +237,6 @@ function Sistema({onLogout}){
   const totalDefeito   =itens.filter(i=>i.status==="Com defeito").reduce((s,i)=>s+i.quantidade,0);
   const totalConserto  =itens.filter(i=>i.status==="Em conserto").reduce((s,i)=>s+i.quantidade,0);
 
-  // ── Alertas por CATEGORIA (soma total disponível da categoria vs mínimo 5) ──
   const alertas = CATEGORIAS.map(cat=>{
     const totalDisp=itens.filter(i=>i.categoria===cat&&i.status==="Disponível").reduce((s,i)=>s+i.quantidade,0);
     return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
@@ -343,10 +342,10 @@ function Sistema({onLogout}){
         <div style={{textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:"24px",animation:"slideIn 0.4s ease"}}>
           <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <div style={{position:"absolute",width:"120px",height:"120px",border:"2px solid var(--border)",borderTop:"2px solid var(--accent)",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
-            <img src={temaClaro?logoDark:logo} alt="AnderFlow" style={{height:"70px",width:"auto",objectFit:"contain",filter:"drop-shadow(0 0 20px rgba(59,111,212,0.4))",animation:"pulse-logo 2s ease-in-out infinite"}}/>
+            <img src={temaClaro?logoDark:logo} alt="Stock-ON" style={{height:"70px",width:"auto",objectFit:"contain",filter:"drop-shadow(0 0 20px rgba(59,111,212,0.4))",animation:"pulse-logo 2s ease-in-out infinite"}}/>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:"8px",alignItems:"center"}}>
-            <div style={{fontSize:"18px",fontWeight:"700",color:"var(--txt-primary)",letterSpacing:"-0.3px"}}>AnderFlow</div>
+            <div style={{fontSize:"18px",fontWeight:"700",color:"var(--txt-primary)",letterSpacing:"-0.3px"}}>Stock-ON</div>
             <div style={{fontSize:"13px",color:"var(--txt-secondary)"}}>Carregando o sistema...</div>
           </div>
           <div className="loading-dots"><span/><span/><span/></div>
@@ -361,7 +360,7 @@ function Sistema({onLogout}){
 
       <aside className={`sidebar ${sidebarAberta?"aberta":""}`}>
         <div className="sidebar-logo">
-          <img src={temaClaro?logoDark:logo} alt="AnderFlow" className="logo-sidebar-emblem"/>
+          <img src={temaClaro?logoDark:logo} alt="Stock-ON" className="logo-sidebar-emblem"/>
         </div>
         <nav className="sidebar-nav">
           <span className="nav-section-label">Principal</span>
@@ -385,7 +384,7 @@ function Sistema({onLogout}){
             <div className={`tema-toggle ${temaClaro?"ativo":""}`}/>
           </button>
           <button className="btn-logout" onClick={()=>setConfirmLogout(true)}>🚪 Sair do sistema</button>
-          <div className="sidebar-version">AnderFlow v1.0 · Supabase ☁️</div>
+          <div className="sidebar-version">Stock-ON v1.0 · Supabase ☁️</div>
         </div>
       </aside>
 
@@ -396,7 +395,7 @@ function Sistema({onLogout}){
               <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
               <div><h1 className="page-title">Dashboard</h1><p className="page-sub">Visão geral do estoque</p></div>
             </div>
-            <img src={temaClaro?logoDark:logo} alt="AnderFlow" className="logo-topbar"/>
+            <img src={temaClaro?logoDark:logo} alt="Stock-ON" className="logo-topbar"/>
           </header>
           <div className="dashboard-grid">
             <div className="dashboard-col">
