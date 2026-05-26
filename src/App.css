@@ -210,6 +210,13 @@ body {
   width: 100%;
 }
 .btn-logout:hover { color: var(--vermelho); border-color: var(--vermelho); background: var(--vermelho-bg); }
+.btn-senha {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; color: var(--txt-muted); border: 1px solid var(--border);
+  padding: 8px 12px; border-radius: var(--radius-sm); font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.btn-senha:hover { color: var(--azul); border-color: var(--azul); background: var(--azul-bg); }
 
 /* ══════════════════════════════════════════════════════
    MAIN
@@ -925,6 +932,11 @@ body {
 }
 .modal-fechar:hover { color: var(--txt-primary); background: var(--bg-card); }
 .modal-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; }
+.senha-texto { color: var(--txt-secondary); font-size: 13px; line-height: 1.55; }
+.senha-sucesso {
+  padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--verde-border);
+  background: var(--verde-bg); color: var(--verde); font-weight: 600; font-size: 13.5px;
+}
 .modal-footer { padding: 14px 22px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
 
 /* ══════════════════════════════════════════════════════
@@ -1368,6 +1380,8 @@ body {
 .tema-claro .sidebar-alerta { background: rgba(201,125,0,0.08); }
 .tema-claro .btn-logout { color: #4a5f82; border-color: #dce4f0; }
 .tema-claro .btn-logout:hover { color: #c53030; border-color: #fca5a5; background: #fee2e2; }
+.tema-claro .btn-senha { color: #4a5f82; border-color: #dce4f0; }
+.tema-claro .btn-senha:hover { color: #2563eb; border-color: #93c5fd; background: #dbeafe; }
 .tema-claro .sidebar-version { color: #b8c6db; }
 .tema-claro .login-page { background: #f7f9fd; }
 .tema-claro .login-page::before { background: radial-gradient(circle, rgba(37,99,235,0.1) 0%, transparent 70%); }

@@ -452,6 +452,64 @@ function TelaLogin({onLogin}){
   );
 }
 
+function ModalAlterarSenha({onFechar}) {
+  const [senhaAtual,setSenhaAtual]=useState("");
+  const [novaSenha,setNovaSenha]=useState("");
+  const [confirmacao,setConfirmacao]=useState("");
+  const [erro,setErro]=useState("");
+  const [sucesso,setSucesso]=useState(false);
+  const [salvando,setSalvando]=useState(false);
+
+  async function salvar(e) {
+    e.preventDefault();
+    setErro("");
+    if(!senhaAtual){setErro("Informe sua senha atual.");return;}
+    if(novaSenha.length<8){setErro("A nova senha precisa ter pelo menos 8 caracteres.");return;}
+    if(novaSenha!==confirmacao){setErro("A confirmação da nova senha está diferente.");return;}
+    if(novaSenha===senhaAtual){setErro("A nova senha deve ser diferente da senha atual.");return;}
+    setSalvando(true);
+    const {data:{user}}=await supabase.auth.getUser();
+    if(!user?.email){setSalvando(false);setErro("Não foi possível identificar o e-mail deste login.");return;}
+    const {error:erroSenhaAtual}=await supabase.auth.signInWithPassword({email:user.email,password:senhaAtual});
+    if(erroSenhaAtual){setSalvando(false);setErro("A senha atual informada está incorreta.");return;}
+    const {error}=await supabase.auth.updateUser({password:novaSenha});
+    setSalvando(false);
+    if(error){
+      setErro(error.message.toLowerCase().includes("password")?"Não foi possível alterar. Confira sua senha atual e tente novamente.":"Não foi possível alterar a senha agora.");
+      return;
+    }
+    setSucesso(true);
+  }
+
+  return(
+    <div className="modal-overlay" onClick={onFechar}>
+      <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
+        <div className="modal-header"><h3>Alterar Minha Senha</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
+        {sucesso?(
+          <>
+            <div className="modal-body">
+              <div className="senha-sucesso">✅ Senha alterada com sucesso.</div>
+              <p className="senha-texto">Na próxima entrada, use a nova senha cadastrada.</p>
+            </div>
+            <div className="modal-footer"><button className="btn-primario" onClick={onFechar}>Fechar</button></div>
+          </>
+        ):(
+          <form onSubmit={salvar}>
+            <div className="modal-body">
+              <p className="senha-texto">Esta alteração vale somente para o seu próprio login.</p>
+              {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+              <div className="campo"><label>Senha atual *</label><input type="password" value={senhaAtual} onChange={e=>setSenhaAtual(e.target.value)} autoFocus/></div>
+              <div className="campo"><label>Nova senha *</label><input type="password" placeholder="Mínimo de 8 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)}/></div>
+              <div className="campo"><label>Confirmar nova senha *</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
+            </div>
+            <div className="modal-footer"><button type="button" className="btn-secundario" onClick={onFechar}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvando}>{salvando?"Salvando...":"Alterar senha"}</button></div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── App principal ─────────────────────────────────────────────────────────────
 export default function App(){
   const [logado,setLogado]=useState(false);
@@ -497,6 +555,7 @@ function Sistema({onLogout}){
   const [histFTipo,setHistFTipo]   =useState("Todos");
   const [histBusca,setHistBusca]   =useState("");
   const [confirmLogout,setConfirmLogout]=useState(false);
+  const [modalSenha,setModalSenha]=useState(false);
   const [alertaEstoqueAtivo,setAlertaEstoqueAtivo]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
   const [sidebarAberta,setSidebarAberta]=useState(false);
@@ -720,6 +779,7 @@ function Sistema({onLogout}){
             <span>{temaClaro?"☀️ Tema Claro":"🌙 Tema Escuro"}</span>
             <div className={`tema-toggle ${temaClaro?"ativo":""}`}/>
           </button>
+          <button className="btn-senha" onClick={()=>setModalSenha(true)}>🔒 Alterar minha senha</button>
           <button className="btn-logout" onClick={()=>setConfirmLogout(true)}>🚪 Sair do sistema</button>
           <div className="sidebar-version">Stock-ON v1.0 · Supabase ☁️</div>
         </div>
@@ -1298,6 +1358,8 @@ function Sistema({onLogout}){
           </div>
         </div>
       )}
+
+      {modalSenha&&<ModalAlterarSenha onFechar={()=>setModalSenha(false)}/>}
     </div>
   );
 }
