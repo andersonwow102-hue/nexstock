@@ -126,6 +126,155 @@ async function exportarHistoricoPDF(historico){
   });
 }
 
+function RelatoriosPage({ itens, pontos }) {
+  const gerentes = [...new Set(pontos.map(p=>p.gerente).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const [gerenteSelecionado, setGerenteSelecionado] = useState("");
+  const gerente = gerentes.includes(gerenteSelecionado) ? gerenteSelecionado : gerentes[0]||"";
+  const disponiveis = itens.filter(i=>i.status==="Disponível");
+  const pontosGerente = pontos.filter(p=>p.gerente===gerente);
+  const locaisGerente = new Set(pontosGerente.map(p=>p.nomeFantasia));
+  const equipamentosGerente = itens.filter(i=>locaisGerente.has(i.localizacao));
+  const formatarValor = valor => Number(valor||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  const linhasEquipamentos = lista => lista.map(i=>[
+    i.patrimonio||"-", i.nome, i.categoria, i.status, i.localizacao||"Sem ponto", i.responsavel||"-",
+  ]);
+  const linhasPontos = lista => lista.map(p=>[
+    p.nomeFantasia, p.nomeDono, p.gerente,
+    itens.filter(i=>i.localizacao===p.nomeFantasia).length,
+    p.possuiDespesa==="sim"?"Sim":"Não",
+    p.possuiDespesa==="sim"?formatarValor(p.valorDespesa):"-",
+  ]);
+
+  async function gerarCompleto() {
+    await gerarRelatorioPDF({
+      titulo:"Relatório Geral",
+      descricao:"Visão completa da operação, equipamentos e pontos cadastrados",
+      nomeArquivo:`stock-on_relatorio_geral_${hoje()}.pdf`,
+      total:itens.length+pontos.length,
+      secoes:[
+        {
+          titulo:"Resumo operacional",
+          colunas:["Indicador","Quantidade"],
+          linhas:[
+            ["Equipamentos cadastrados", itens.length],
+            ["Equipamentos disponíveis", disponiveis.length],
+            ["Equipamentos em rota", itens.filter(i=>i.status==="Em rota").length],
+            ["Equipamentos em conserto", itens.filter(i=>i.status==="Em conserto").length],
+            ["Pontos cadastrados", pontos.length],
+          ],
+        },
+        {
+          titulo:"Equipamentos",
+          colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+          linhas:linhasEquipamentos(itens),
+        },
+        {
+          titulo:"Pontos",
+          colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Despesa","Valor"],
+          linhas:linhasPontos(pontos),
+        },
+      ],
+    });
+  }
+
+  async function gerarPontos() {
+    await gerarRelatorioPDF({
+      titulo:"Relatório de Pontos",
+      descricao:"Pontos cadastrados, gerentes, equipamentos vinculados e despesas",
+      nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
+      total:pontos.length,
+      colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Despesa","Valor"],
+      linhas:linhasPontos(pontos),
+    });
+  }
+
+  async function gerarDisponiveis() {
+    await gerarRelatorioPDF({
+      titulo:"Equipamentos Disponíveis",
+      descricao:"Equipamentos prontos para serem enviados a um ponto",
+      nomeArquivo:`stock-on_disponiveis_${hoje()}.pdf`,
+      total:disponiveis.length,
+      colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+      linhas:linhasEquipamentos(disponiveis),
+    });
+  }
+
+  async function gerarPorGerente() {
+    await gerarRelatorioPDF({
+      titulo:`Relatório do Gerente - ${gerente}`,
+      descricao:"Pontos sob responsabilidade e equipamentos atualmente vinculados",
+      nomeArquivo:`stock-on_gerente_${gerente.toLowerCase().replace(/\s+/g,"-")}_${hoje()}.pdf`,
+      total:pontosGerente.length+equipamentosGerente.length,
+      secoes:[
+        {
+          titulo:`Pontos de ${gerente}`,
+          colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Despesa","Valor"],
+          linhas:linhasPontos(pontosGerente),
+        },
+        {
+          titulo:"Equipamentos nos pontos do gerente",
+          colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+          linhas:linhasEquipamentos(equipamentosGerente),
+        },
+      ],
+    });
+  }
+
+  return(
+    <div className="relatorios-painel">
+      <section className="relatorios-intro">
+        <div>
+          <span className="dash-kicker">Exportação rápida</span>
+          <h2>Escolha o relatório que precisa enviar</h2>
+          <p>Todos os documentos saem em PDF com a identidade Stock-ON e os dados atualizados do sistema.</p>
+        </div>
+        <div className="relatorios-resumo">
+          <strong>{itens.length}</strong><small>equipamentos</small>
+          <strong>{pontos.length}</strong><small>pontos</small>
+        </div>
+      </section>
+
+      <section className="relatorios-grid">
+        <article className="relatorio-card relatorio-destaque">
+          <span className="relatorio-icone">📑</span>
+          <h3>Tudo</h3>
+          <p>Resumo geral, lista de equipamentos e lista de pontos em um único PDF.</p>
+          <button className="btn-primario" onClick={gerarCompleto}>Gerar PDF completo</button>
+        </article>
+        <article className="relatorio-card">
+          <span className="relatorio-icone">📦</span>
+          <h3>Equipamentos</h3>
+          <p>Inventário completo com status e localização atual.</p>
+          <button className="btn-secundario" onClick={()=>exportarEquipamentosPDF(itens)}>Gerar equipamentos</button>
+        </article>
+        <article className="relatorio-card">
+          <span className="relatorio-icone">📍</span>
+          <h3>Pontos</h3>
+          <p>Estabelecimentos, despesas, gerentes e quantidade de equipamentos.</p>
+          <button className="btn-secundario" onClick={gerarPontos}>Gerar pontos</button>
+        </article>
+        <article className="relatorio-card">
+          <span className="relatorio-icone">✅</span>
+          <h3>Disponíveis</h3>
+          <p>Somente os {disponiveis.length} equipamentos disponíveis para envio.</p>
+          <button className="btn-secundario" onClick={gerarDisponiveis}>Gerar disponíveis</button>
+        </article>
+        <article className="relatorio-card relatorio-gerente">
+          <span className="relatorio-icone">👤</span>
+          <h3>Por gerente</h3>
+          <p>Veja os pontos e equipamentos ligados a uma pessoa responsável.</p>
+          <select className="select-filtro" value={gerente} onChange={e=>setGerenteSelecionado(e.target.value)}>
+            {gerentes.length===0
+              ?<option value="">Nenhum gerente cadastrado</option>
+              :gerentes.map(nome=><option key={nome} value={nome}>{nome}</option>)}
+          </select>
+          <button className="btn-secundario" onClick={gerarPorGerente} disabled={!gerente}>Gerar por gerente</button>
+        </article>
+      </section>
+    </div>
+  );
+}
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 function TelaLogin({onLogin}){
   const [email,setEmail]=useState("");
@@ -374,6 +523,7 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><span>📊</span> Dashboard</button>
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span>📦</span> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span>📍</span> Pontos</button>
+          <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span>📄</span> Relatórios</button>
           <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
             <span>📋</span> Histórico
             {historico.length>0&&<span className="nav-badge">{historico.length>99?"99+":historico.length}</span>}
@@ -714,6 +864,16 @@ function Sistema({onLogout}){
             <PointsPage equipamentos={itens} onPontosChange={setPontos} onEquipamentosChange={setItens}/>
           </>
         )}
+
+        {aba==="relatorios"&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Relatórios</h1><p className="page-sub">Central de PDFs profissionais</p></div>
+            </div>
+          </header>
+          <RelatoriosPage itens={itens} pontos={pontos}/>
+        </>)}
 
         {aba==="historico"&&(<>
           <header className="topbar">

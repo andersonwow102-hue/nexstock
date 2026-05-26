@@ -35,7 +35,7 @@ function baixarDocumento(doc, nomeArquivo) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, colunas, linhas, total }) {
+export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, colunas, linhas, total, secoes }) {
   try {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const largura = doc.internal.pageSize.getWidth();
@@ -68,23 +68,39 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
     doc.text(descricao, inicioTitulo, 21);
     doc.text(`Emitido em: ${agora()}  |  Total de registros: ${total}`, inicioTitulo, 27);
 
-    autoTable(doc, {
-      startY: 41,
-      head: [colunas],
-      body: linhas,
-      margin: { left: 12, right: 12, bottom: 18 },
-      theme: "grid",
-      styles: { fontSize: 8.5, cellPadding: 3.2, lineColor: [219, 228, 240], lineWidth: 0.2, textColor: AZUL },
-      headStyles: { fillColor: AZUL, textColor: [255, 255, 255], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [247, 249, 253] },
-      didDrawPage: () => {
-        doc.setDrawColor(222, 226, 234);
-        doc.line(12, altura - 12, largura - 12, altura - 12);
-        doc.setTextColor(...CINZA);
-        doc.setFontSize(8);
-        doc.text("Stock-ON | Seu estoque sempre ON.", 12, altura - 7);
-        doc.text(`Pagina ${doc.internal.getNumberOfPages()}`, largura - 12, altura - 7, { align: "right" });
-      },
+    const tabelas = secoes?.length ? secoes : [{ colunas, linhas }];
+    let inicioTabela = 41;
+    tabelas.forEach((secao) => {
+      if (secao.titulo) {
+        if (inicioTabela > altura - 32) {
+          doc.addPage();
+          inicioTabela = 18;
+        }
+        doc.setTextColor(...AZUL);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text(secao.titulo, 12, inicioTabela);
+        inicioTabela += 5;
+      }
+      autoTable(doc, {
+        startY: inicioTabela,
+        head: [secao.colunas],
+        body: secao.linhas,
+        margin: { left: 12, right: 12, bottom: 18 },
+        theme: "grid",
+        styles: { fontSize: 8.5, cellPadding: 3.2, lineColor: [219, 228, 240], lineWidth: 0.2, textColor: AZUL },
+        headStyles: { fillColor: AZUL, textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [247, 249, 253] },
+        didDrawPage: () => {
+          doc.setDrawColor(222, 226, 234);
+          doc.line(12, altura - 12, largura - 12, altura - 12);
+          doc.setTextColor(...CINZA);
+          doc.setFontSize(8);
+          doc.text("Stock-ON | Seu estoque sempre ON.", 12, altura - 7);
+          doc.text(`Pagina ${doc.internal.getNumberOfPages()}`, largura - 12, altura - 7, { align: "right" });
+        },
+      });
+      inicioTabela = doc.lastAutoTable.finalY + 12;
     });
     baixarDocumento(doc, nomeArquivo);
   } catch (erro) {
