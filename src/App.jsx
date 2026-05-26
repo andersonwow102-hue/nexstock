@@ -13,10 +13,11 @@ import {
   carregarPerfilAtual,
 } from "./db.js";
 
-const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
+const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Totens","Noteiro","PDV Touchscreen"];
 const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
-const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌"};
+const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌","Totens":"🗼","Noteiro":"💵","PDV Touchscreen":"🧾"};
 const MINIMO_CATEGORIA = 5;
+const CATEGORIA_COM_ALERTA = "Terminais";
 const STATUS_CFG = {
   "Disponível": {cor:"status-disponivel"},
   "Em rota":    {cor:"status-em-rota"},
@@ -41,7 +42,7 @@ const HIST_CFG = {
   "ponto":     {cor:"hist-rota",      icone:"📍",label:"Enviado ao ponto"},
 };
 
-const PALAVRAS_MAIUSCULAS=["LG","POS","USB","USB-C","TV","LED","LCD","OLED","QLED","HP","IBM","CPU","GPS","HD","SSD","RAM","HDMI","VGA","PC","65W","45W","20W","4K","8K"];
+const PALAVRAS_MAIUSCULAS=["LG","POS","PDV","USB","USB-C","TV","LED","LCD","OLED","QLED","HP","IBM","CPU","GPS","HD","SSD","RAM","HDMI","VGA","PC","65W","45W","20W","4K","8K"];
 function padronizarNome(t){
   if(!t)return"";
   return t.trim().replace(/\s+/g," ").split(" ").map(p=>{
@@ -52,7 +53,7 @@ function padronizarNome(t){
   }).join(" ");
 }
 
-const PREFIXO_CAT={"Televisões":"TV","Terminais":"TRM","Impressoras":"IMP","Tablets":"TAB","Carregadores":"CAR"};
+const PREFIXO_CAT={"Televisões":"TV","Terminais":"TRM","Impressoras":"IMP","Tablets":"TAB","Carregadores":"CAR","Totens":"TOT","Noteiro":"NOT","PDV Touchscreen":"PDV"};
 function gerarPatrimonio(cat,itens){
   const pref=PREFIXO_CAT[cat]||"EQP";
   const nums=itens.filter(i=>i.categoria===cat&&i.patrimonio).map(i=>{const m=i.patrimonio.match(/(\d+)$/);return m?parseInt(m[1]):0;});
@@ -711,7 +712,7 @@ function Sistema({onLogout}){
   const totalEmRota    =itens.filter(i=>i.status==="Em rota").length;
   const totalConserto  =itens.filter(i=>i.status==="Em conserto").length;
 
-  const alertas = CATEGORIAS.map(cat=>{
+  const alertas = [CATEGORIA_COM_ALERTA].map(cat=>{
     const totalDisp=itens.filter(i=>i.categoria===cat&&i.status==="Disponível").length;
     return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
   }).filter(a=>a.totalDisponivel<MINIMO_CATEGORIA);
@@ -723,7 +724,7 @@ function Sistema({onLogout}){
       disponivel:totalDisp,
       emRota:ci.filter(i=>i.status==="Em rota").length,
       conserto:ci.filter(i=>i.status==="Em conserto").length,
-      alertaBaixo:totalDisp<MINIMO_CATEGORIA,
+      alertaBaixo:cat===CATEGORIA_COM_ALERTA&&totalDisp<MINIMO_CATEGORIA,
     };
   });
   const inconsistencias=itens.filter(item=>{
@@ -913,7 +914,7 @@ function Sistema({onLogout}){
         <div className="sidebar-footer">
           {alertas.length>0&&(
             <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
-              ⚠️ {alertas.length} categoria{alertas.length>1?"s":""} em alerta
+              ⚠️ Terminais em alerta
               <span className="sidebar-alerta-arrow">→</span>
             </button>
           )}
@@ -987,7 +988,7 @@ function Sistema({onLogout}){
                 <section className={`secao dash-atencao ${alertas.length===0?"ok":""}`}>
                   <h2 className="secao-titulo">Atenção</h2>
                   {alertas.length===0
-                    ?<p className="dash-vazio">Tudo certo: nenhuma categoria está abaixo do mínimo.</p>
+                    ?<p className="dash-vazio">Tudo certo: Terminais dentro do estoque mínimo.</p>
                     :alertas.map(a=>(
                       <button key={a.categoria} className="dash-alerta" onClick={()=>{navegar("itens");setFiltroCatEquip(a.categoria);setAbaEquip("lista");}}>
                         <span>{ICONES[a.categoria]}</span>
@@ -1069,7 +1070,7 @@ function Sistema({onLogout}){
               <div className="alerta-banner-header">
                 <div className="alerta-banner-titulo">
                   <span className="alerta-banner-emoji">🚨</span>
-                  <strong>{alertas.length} categoria{alertas.length>1?"s":""} com estoque abaixo do mínimo!</strong>
+                  <strong>Terminais com estoque abaixo do mínimo!</strong>
                   <span className="alerta-banner-pulse"/>
                 </div>
                 <button className="alerta-banner-fechar" onClick={()=>setAlertaEstoqueAtivo(false)}>✕</button>
@@ -1126,7 +1127,7 @@ function Sistema({onLogout}){
                     {itensFiltrados.length===0?<tr><td colSpan={7} className="tabela-vazia">Nenhum item encontrado.</td></tr>
                     :itensPagina.map(item=>{
                       const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").length;
-                      const emAlerta=totalCat<MINIMO_CATEGORIA;
+                      const emAlerta=item.categoria===CATEGORIA_COM_ALERTA&&totalCat<MINIMO_CATEGORIA;
                       return(
                         <tr key={item.id} className={emAlerta?"row-alerta":""}>
                           <td className="td-minimo">{item.patrimonio||"—"}</td>
@@ -1394,7 +1395,7 @@ function Sistema({onLogout}){
                   <span className="campo-hint">Ao salvar, o equipamento já ficará vinculado ao ponto escolhido.</span>
                 </div>
               )}
-              <div className="campo-info-minimo">🔒 Alerta de estoque por categoria: <strong>menos de 5 equipamentos disponíveis</strong></div>
+              <div className="campo-info-minimo">🔒 Alerta operacional somente para <strong>Terminais com menos de 5 disponíveis</strong></div>
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={fecharForm}>Cancelar</button>
