@@ -496,14 +496,17 @@ function Sistema({onLogout}){
               <button className="btn-primario" onClick={abrirNovo}>+ Novo</button>
             </div>
           </header>
-          <div className="points-abas">
+          <div className="equip-navegacao">
+            <span className="equip-filtro-label">Visualizar</span>
+            <div className="points-abas equip-abas">
             {ABAS_EQUIP.map(a=>(
               <button key={a.id} className={`points-aba-btn ${abaEquip===a.id?"points-aba-ativa":""}`} onClick={()=>setAbaEquip(a.id)}>{a.label}</button>
             ))}
-            <div style={{marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap"}}>
+            </div>
+            <span className="equip-filtro-label">Categoria</span>
+            <div className="equip-categorias">
               {["Todas",...CATEGORIAS].map(cat=>(
                 <button key={cat} className={`points-aba-btn ${filtroCatEquip===cat?"points-aba-ativa":""}`}
-                  style={{minWidth:"auto",padding:"8px 10px",fontSize:"11.5px"}}
                   onClick={()=>{setFiltroCatEquip(cat);setAbaEquip("lista");}}>
                   {cat==="Todas"?"Todas":ICONES[cat]+" "+cat}
                 </button>
@@ -543,11 +546,14 @@ function Sistema({onLogout}){
           )}
 
           {abaEquip==="lista"&&(
-            <section className="secao">
+            <section className="secao equip-lista">
               <div className="tabela-header">
-                <h2 className="secao-titulo" style={{margin:0}}>Itens <span className="badge-count">{itensFiltrados.length}</span></h2>
-                <div className="filtros">
-                  <input className="input-busca" type="text" placeholder="🔍 Nome, patrimônio..." value={busca} onChange={e=>setBusca(e.target.value)}/>
+                <div className="equip-titulo">
+                  <h2>Equipamentos cadastrados</h2>
+                  <p>{itensFiltrados.length} resultado{itensFiltrados.length!==1?"s":""} encontrado{itensFiltrados.length!==1?"s":""}</p>
+                </div>
+                <div className="filtros equip-filtros">
+                  <input className="input-busca" type="text" placeholder="Buscar nome, código ou ponto..." value={busca} onChange={e=>setBusca(e.target.value)}/>
                   <select className="select-filtro" value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}>
                     <option value="Todos">Todos os status</option>
                     {STATUS_LISTA.map(s=><option key={s}>{s}</option>)}
@@ -557,8 +563,8 @@ function Sistema({onLogout}){
                   )}
                 </div>
               </div>
-              <div className="tabela-wrapper">
-                <table className="tabela">
+              <div className="tabela-wrapper equip-tabela">
+                <table className="tabela tabela-equipamentos">
                   <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Status</th><th>Ponto / Localização</th><th>Movimentar</th><th>⚙️</th></tr></thead>
                   <tbody>
                     {itensFiltrados.length===0?<tr><td colSpan={7} className="tabela-vazia">Nenhum item encontrado.</td></tr>
@@ -582,6 +588,26 @@ function Sistema({onLogout}){
                     })}
                   </tbody>
                 </table>
+              </div>
+              <div className="equip-cards">
+                {itensFiltrados.length===0?<div className="tabela-vazia">Nenhum item encontrado.</div>
+                :itensFiltrados.map(item=>(
+                  <article className="equip-card" key={item.id}>
+                    <div className="equip-card-topo">
+                      <div><span className="equip-codigo">{item.patrimonio||"—"}</span><h3>{ICONES[item.categoria]} {item.nome}</h3></div>
+                      <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
+                    </div>
+                    <div className="equip-card-meta">
+                      <span className="badge-cat">{item.categoria}</span>
+                      <span>📍 {item.localizacao||"Sem ponto"}</span>
+                    </div>
+                    <div className="equip-card-acoes">
+                      <button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>
+                      <button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>
+                      <button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir">🗑️</button>
+                    </div>
+                  </article>
+                ))}
               </div>
             </section>
           )}

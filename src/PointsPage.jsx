@@ -262,7 +262,7 @@ function PointExpensesModal({ pontos, onFechar }) {
 }
 
 // ─── ABA: Visão Geral ─────────────────────────────────────────────────────────
-function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick }) {
+function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos }) {
   const totalPontos   = pontos.length;
   const comDespesa    = pontos.filter(p=>p.possuiDespesa==="sim").length;
   const semDespesa    = pontos.filter(p=>p.possuiDespesa==="nao").length;
@@ -272,14 +272,14 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick }) {
     <>
       <section className="secao">
         <h2 className="secao-titulo">Resumo Geral</h2>
-        <div className="resumo-grid">
-          <div className="resumo-card resumo-total"><div className="resumo-num">{totalPontos}</div><div className="resumo-label">Total de Pontos</div></div>
-          <div className="resumo-card resumo-disponivel"><div className="resumo-num">{semDespesa}</div><div className="resumo-label">Sem Despesa</div></div>
-          <div className="resumo-card resumo-defeito"><div className="resumo-num">{comDespesa}</div><div className="resumo-label">Com Despesa</div></div>
-          <div className="resumo-card resumo-conserto ponto-despesa-card clickable" onClick={onVerDespesas}>
+        <div className="ponto-resumo-grid">
+          <button className="resumo-card resumo-total clickable" onClick={()=>onAbrirPontos("todos")}><div className="resumo-num">{totalPontos}</div><div className="resumo-label">Total de Pontos</div><small>Ver todos</small></button>
+          <button className="resumo-card resumo-disponivel clickable" onClick={()=>onAbrirPontos("nao")}><div className="resumo-num">{semDespesa}</div><div className="resumo-label">Sem Despesa</div><small>Mostrar lista</small></button>
+          <button className="resumo-card resumo-defeito clickable" onClick={()=>onAbrirPontos("sim")}><div className="resumo-num">{comDespesa}</div><div className="resumo-label">Com Despesa</div><small>Mostrar lista</small></button>
+          <button className="resumo-card resumo-conserto ponto-despesa-card clickable" onClick={onVerDespesas}>
             <div className="resumo-num" style={{fontSize:"18px"}}>{formatarReais(totalDespesas)}</div>
-            <div className="resumo-label">💰 Total Despesas <span style={{fontSize:"10px",opacity:0.7}}>(clique)</span></div>
-          </div>
+            <div className="resumo-label">💰 Total Despesas</div><small>Ver detalhes</small>
+          </button>
         </div>
       </section>
       {pontos.length===0&&(
@@ -294,32 +294,34 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick }) {
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, onEditar, onExcluir, onExportExcel, onExportPDF }) {
+function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onExportExcel, onExportPDF }) {
   const [busca, setBusca] = useState("");
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
     const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
     const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,...vinculados.map(i=>i.patrimonio)].some(f=>(f||"").toLowerCase().includes(q));
-    return mB&&(filtroGerente==="Todos"||p.gerente===filtroGerente);
+    const mD=filtroDespesa==="todos"||p.possuiDespesa===filtroDespesa;
+    return mB&&mD&&(filtroGerente==="Todos"||p.gerente===filtroGerente);
   });
+  const tituloFiltro=filtroDespesa==="sim"?"Com despesa":filtroDespesa==="nao"?"Sem despesa":"Todos";
 
   return (
-    <section className="secao">
+    <section className="secao pontos-lista">
       <div className="tabela-header">
-        <h2 className="secao-titulo" style={{margin:0}}>Pontos <span className="badge-count">{filtrados.length}</span></h2>
+        <h2 className="secao-titulo" style={{margin:0}}>Pontos: {tituloFiltro} <span className="badge-count">{filtrados.length}</span></h2>
         <div className="filtros">
           <input className="input-busca" type="text" placeholder="🔍 Nome, dono, gerente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
           <select className="select-filtro" value={filtroGerente} onChange={e=>setFiltroGerente(e.target.value)}>
             <option value="Todos">Todos os gerentes</option>
             {GERENTES.map(g=><option key={g} value={g}>{g}</option>)}
           </select>
-          {(busca||filtroGerente!=="Todos")&&<button className="btn-limpar" onClick={()=>{setBusca("");setFiltroGerente("Todos");}}>✕ Limpar</button>}
+          {(busca||filtroGerente!=="Todos"||filtroDespesa!=="todos")&&<button className="btn-limpar" onClick={()=>{setBusca("");setFiltroGerente("Todos");onLimparFiltro();}}>✕ Limpar</button>}
           <button className="btn-secundario" onClick={onExportExcel}>📊 Excel</button>
           <button className="btn-secundario" onClick={onExportPDF}>📄 PDF</button>
         </div>
       </div>
-      <div className="tabela-wrapper">
+      <div className="tabela-wrapper pontos-tabela">
         <table className="tabela">
           <thead><tr><th>Nome Fantasia</th><th>Equipamentos</th><th>Dono</th><th>Telefone</th><th>Gerente</th><th>Modalidades</th><th>Despesa</th><th>Valor</th><th>⚙️</th></tr></thead>
           <tbody>
@@ -348,6 +350,28 @@ function AbaPontos({ pontos, equipamentos, onEditar, onExcluir, onExportExcel, o
               })}
           </tbody>
         </table>
+      </div>
+      <div className="ponto-cards">
+        {filtrados.length===0?<div className="tabela-vazia">Nenhum ponto encontrado.</div>
+        :filtrados.map(p=>{
+          const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
+          return(
+            <article className="ponto-card" key={p.id}>
+              <div className="ponto-card-topo">
+                <div><h3>🏪 {p.nomeFantasia}</h3><p>{p.nomeDono} · {p.telefone}</p></div>
+                <span className={`badge-status ${p.possuiDespesa==="sim"?"status-defeito":"status-disponivel"}`}>{p.possuiDespesa==="sim"?"Com despesa":"Sem despesa"}</span>
+              </div>
+              <div className="ponto-card-linha"><span>Gerente</span><BadgeGerente gerente={p.gerente}/></div>
+              <div className="ponto-card-linha"><span>Modalidades</span><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></div>
+              <div className="ponto-card-linha"><span>Equipamentos</span><div className="equipamentos-ponto">{vinculados.length? vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>) : <span className="td-obs">Nenhum</span>}</div></div>
+              {p.possuiDespesa==="sim"&&<div className="ponto-card-valor">{formatarReais(p.valorDespesa)}</div>}
+              <div className="ponto-card-acoes">
+                <button className="btn-editar" onClick={()=>onEditar(p)}>✏️ Editar</button>
+                <button className="btn-excluir" onClick={()=>onExcluir(p.id)}>🗑️ Excluir</button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -584,6 +608,7 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
   const [pontoEdit,  setPontoEdit] = useState(null);
   const [excluindo,  setExcluindo] = useState(null);
   const [verDespesas,setVerDespesas]=useState(false);
+  const [filtroDespesa,setFiltroDespesa]=useState("todos");
 
   useEffect(()=>{
     async function carregar(){
@@ -643,18 +668,22 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
     {id:"gerentes", label:"👤 Gerentes & Modalidades"},
     {id:"historico",label:`📋 Histórico (${historico.length})`},
   ];
+  function abrirPontosFiltrados(filtro){
+    setFiltroDespesa(filtro);
+    setAbaInterna("pontos");
+  }
 
   return(
     <div className="points-page">
-      <header className="topbar">
-        <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos da empresa</p></div>
+      <div className="points-toolbar">
+        <p>Consulte estabelecimentos, despesas e equipamentos vinculados.</p>
         <button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>
-      </header>
+      </div>
 
       <div className="points-abas">
         {ABAS.map(a=>(
           <button key={a.id} className={`points-aba-btn ${abaInterna===a.id?"points-aba-ativa":""}`}
-            onClick={()=>setAbaInterna(a.id)}>
+            onClick={()=>{setAbaInterna(a.id);if(a.id==="pontos")setFiltroDespesa("todos");}}>
             {a.label}
           </button>
         ))}
@@ -668,8 +697,8 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
       )}
 
       {!loading&&(<>
-        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontos} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} equipamentos={equipamentos} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
+        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontos} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} equipamentos={equipamentos} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
             onExportExcel={()=>exportarPontosExcel(pontos)} onExportPDF={()=>exportarPontosPDF(pontos)}/>}
         {abaInterna==="analise"  &&<AbaAnalise pontos={pontos}/>}
         {abaInterna==="gerentes" &&<AbaGerentes pontos={pontos}/>}
