@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
-import { gerarRelatorioPDF } from "./pdfReports.js";
 import { GERENTES, GERENTE_CORES, MODALIDADES, formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto } from "./pointsData.js";
 import { carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento } from "./db.js";
 
@@ -30,7 +28,13 @@ export function BadgeGerente({ gerente }) {
 }
 
 // ── Exportar Excel Pontos ─────────────────────────────────────────────────────
-function exportarPontosExcel(pontos){
+async function gerarPDF(configuracao) {
+  const { gerarRelatorioPDF } = await import("./pdfReports.js");
+  return gerarRelatorioPDF(configuracao);
+}
+
+async function exportarPontosExcel(pontos){
+  const XLSX = await import("xlsx");
   const dados = pontos.map(p=>({
     "Nome Fantasia":  p.nomeFantasia,
     "Nome do Dono":   p.nomeDono,
@@ -54,7 +58,7 @@ async function exportarPontosPDF(pontos){
     a.nomeFantasia.localeCompare(b.nomeFantasia, "pt-BR")
   );
   const totalDespesas=pontos.reduce((total,p)=>total+(p.possuiDespesa==="sim"?Number(p.valorDespesa||0):0),0);
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Relatório de Pontos",
     descricao:"Estabelecimentos cadastrados, responsáveis e despesas",
     nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
@@ -79,7 +83,8 @@ async function exportarPontosPDF(pontos){
 }
 
 // ── Exportar Excel Histórico Pontos ───────────────────────────────────────────
-function exportarHistoricoPontosExcel(historico){
+async function exportarHistoricoPontosExcel(historico){
+  const XLSX = await import("xlsx");
   const dados = historico.map(h=>({
     "Tipo":          h.tipo==="cadastro"?"Cadastro":h.tipo==="edicao"?"Edição":"Exclusão",
     "Nome Fantasia": h.nome,
@@ -95,7 +100,7 @@ function exportarHistoricoPontosExcel(historico){
 
 // ── Exportar PDF Histórico Pontos ─────────────────────────────────────────────
 async function exportarHistoricoPontosPDF(historico){
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Histórico de Pontos",
     descricao:"Registro de cadastros, alterações e exclusões de pontos",
     nomeArquivo:`stock-on_historico_pontos_${hoje()}.pdf`,

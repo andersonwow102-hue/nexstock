@@ -5,8 +5,6 @@ import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import { supabase } from "./supabase.js";
-import * as XLSX from "xlsx";
-import { gerarRelatorioPDF } from "./pdfReports.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
@@ -116,7 +114,13 @@ function baixarJSON(nomeArquivo, dados){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-function exportarEquipamentosExcel(itens){
+async function gerarPDF(configuracao) {
+  const { gerarRelatorioPDF } = await import("./pdfReports.js");
+  return gerarRelatorioPDF(configuracao);
+}
+
+async function exportarEquipamentosExcel(itens){
+  const XLSX=await import("xlsx");
   const dados=itens.map(i=>({
     "Patrimônio":i.patrimonio||"—","Nome":i.nome,"Categoria":i.categoria,
     "Status":i.status,"Ponto / Localização":i.localizacao||"—",
@@ -131,7 +135,7 @@ function exportarEquipamentosExcel(itens){
 
 async function exportarEquipamentosPDF(itens){
   const ordenados=ordenarEquipamentos(itens);
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Relatório de Equipamentos",
     descricao:"Inventário operacional e localização atual dos equipamentos",
     nomeArquivo:`stock-on_equipamentos_${hoje()}.pdf`,
@@ -147,7 +151,8 @@ async function exportarEquipamentosPDF(itens){
   });
 }
 
-function exportarHistoricoExcel(historico){
+async function exportarHistoricoExcel(historico){
+  const XLSX=await import("xlsx");
   const dados=historico.map(h=>({
     "Tipo":HIST_CFG[h.tipo]?.label||h.tipo,"Equipamento":h.itemNome,"Categoria":h.categoria,
     "Qtd Antes":h.qtdAntes,"Qtd Depois":h.qtdDepois,
@@ -160,7 +165,7 @@ function exportarHistoricoExcel(historico){
 }
 
 async function exportarHistoricoPDF(historico){
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Histórico de Equipamentos",
     descricao:"Rastreabilidade de cadastros e movimentações operacionais",
     nomeArquivo:`stock-on_historico_equipamentos_${hoje()}.pdf`,
@@ -175,7 +180,7 @@ async function exportarHistoricoPDF(historico){
   });
 }
 
-function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
+function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual }) {
   const gerentes = [...new Set(pontos.map(p=>p.gerente).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const [gerenteSelecionado, setGerenteSelecionado] = useState("");
   const gerente = gerentes.includes(gerenteSelecionado) ? gerenteSelecionado : gerentes[0]||"";
@@ -195,7 +200,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   ]);
 
   async function gerarCompleto() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:"Relatório Geral",
       descricao:"Visão completa da operação, equipamentos e pontos cadastrados",
       nomeArquivo:`stock-on_relatorio_geral_${hoje()}.pdf`,
@@ -224,7 +229,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   }
 
   async function gerarPontos() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:"Relatório de Pontos",
       descricao:"Pontos cadastrados, gerentes, equipamentos vinculados e despesas",
       nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
@@ -241,7 +246,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   }
 
   async function gerarDisponiveis() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:"Equipamentos Disponíveis",
       descricao:"Equipamentos prontos para serem enviados a um ponto",
       nomeArquivo:`stock-on_disponiveis_${hoje()}.pdf`,
@@ -259,7 +264,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   }
 
   async function gerarPorGerente() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:`Relatório do Gerente - ${gerente}`,
       descricao:"Pontos sob responsabilidade e equipamentos atualmente vinculados",
       nomeArquivo:`stock-on_gerente_${gerente.toLowerCase().replace(/\s+/g,"-")}_${hoje()}.pdf`,
@@ -346,12 +351,12 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
           </select>
           <button className="btn-secundario" onClick={gerarPorGerente} disabled={!gerente}>Gerar por gerente</button>
         </article>
-        <article className="relatorio-card relatorio-backup">
+        {perfilAtual?.perfil==="administrador"&&<article className="relatorio-card relatorio-backup">
           <span className="relatorio-icone">💾</span>
           <h3>Backup completo</h3>
           <p>Baixa equipamentos, pontos e históricos em arquivo de segurança para guardar fora do sistema.</p>
           <button className="btn-secundario" onClick={exportarBackup}>Baixar backup</button>
-        </article>
+        </article>}
       </section>
     </div>
   );
@@ -421,10 +426,11 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, p
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
-function TelaLogin({onLogin, avisoInicial=""}){
+function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
   const [email,setEmail]=useState("");
   const [senha,setSenha]=useState("");
   const [erro,setErro]=useState(avisoInicial);
+  const [mensagem,setMensagem]=useState(mensagemInicial);
   const [visivel,setVisivel]=useState(false);
   const [carregando,setCarregando]=useState(false);
 
@@ -435,6 +441,18 @@ function TelaLogin({onLogin, avisoInicial=""}){
     if(error){setErro("Email ou senha incorretos.");setSenha("");}
     else{onLogin();}
   }
+
+  async function recuperarSenha() {
+    setErro("");
+    setMensagem("");
+    if(!email.trim()){setErro("Informe seu e-mail acima para recuperar a senha.");return;}
+    setCarregando(true);
+    const {error}=await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+    setCarregando(false);
+    if(error){setErro("Não foi possível enviar a recuperação agora. Tente novamente.");return;}
+    setMensagem("Enviamos um link para seu e-mail. Abra-o para cadastrar uma nova senha.");
+  }
+
   return(
     <div className="login-page">
       <div className="login-card">
@@ -443,6 +461,7 @@ function TelaLogin({onLogin, avisoInicial=""}){
         <div className="login-subtitulo">Entre com suas credenciais para continuar</div>
         <form className="login-form" onSubmit={tentar}>
           {erro&&<div className="login-erro">🔒 {erro}</div>}
+          {mensagem&&<div className="login-sucesso">✅ {mensagem}</div>}
           <div className="campo"><label>Email</label><input type="email" placeholder="seu@email.com" value={email} onChange={e=>setEmail(e.target.value)} autoFocus/></div>
           <div className="campo"><label>Senha</label>
             <div className="input-senha-wrapper">
@@ -451,8 +470,45 @@ function TelaLogin({onLogin, avisoInicial=""}){
             </div>
           </div>
           <button type="submit" className="btn-login" disabled={carregando||!email||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
+          <button type="button" className="btn-esqueci" disabled={carregando} onClick={recuperarSenha}>Esqueci minha senha</button>
         </form>
         <div className="login-rodape">Stock-ON · Controle Inteligente de Equipamentos</div>
+      </div>
+    </div>
+  );
+}
+
+function TelaNovaSenha({onConcluir}) {
+  const [novaSenha,setNovaSenha]=useState("");
+  const [confirmacao,setConfirmacao]=useState("");
+  const [erro,setErro]=useState("");
+  const [carregando,setCarregando]=useState(false);
+
+  async function salvar(e) {
+    e.preventDefault();
+    setErro("");
+    if(novaSenha.length<8){setErro("A nova senha precisa ter pelo menos 8 caracteres.");return;}
+    if(novaSenha!==confirmacao){setErro("A confirmação da senha está diferente.");return;}
+    setCarregando(true);
+    const {error}=await supabase.auth.updateUser({password:novaSenha});
+    setCarregando(false);
+    if(error){setErro("Não foi possível cadastrar a nova senha. Solicite outro link de recuperação.");return;}
+    await supabase.auth.signOut();
+    onConcluir();
+  }
+
+  return(
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo"><img src={logo} alt="Stock-ON" className="login-logo-img"/></div>
+        <div className="login-titulo">Cadastrar Nova Senha</div>
+        <div className="login-subtitulo">Crie uma senha nova para continuar</div>
+        <form className="login-form" onSubmit={salvar}>
+          {erro&&<div className="login-erro">🔒 {erro}</div>}
+          <div className="campo"><label>Nova senha</label><input type="password" placeholder="Mínimo de 8 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} autoFocus/></div>
+          <div className="campo"><label>Confirmar nova senha</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
+          <button type="submit" className="btn-login" disabled={carregando||!novaSenha||!confirmacao}>{carregando?"Salvando...":"Salvar nova senha"}</button>
+        </form>
       </div>
     </div>
   );
@@ -521,6 +577,8 @@ export default function App(){
   const [logado,setLogado]=useState(false);
   const [verificando,setVerificando]=useState(true);
   const [erroSessao,setErroSessao]=useState("");
+  const [mensagemLogin,setMensagemLogin]=useState("");
+  const [recuperandoSenha,setRecuperandoSenha]=useState(false);
 
   useEffect(()=>{
     let ativo=true;
@@ -536,9 +594,11 @@ export default function App(){
         setLogado(false);
         setVerificando(false);
       });
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((evento,session)=>{
       if(!ativo)return;
+      if(evento==="PASSWORD_RECOVERY"){setRecuperandoSenha(true);setVerificando(false);return;}
       setLogado(!!session);
+      setVerificando(false);
       if(session)setErroSessao("");
     });
     return()=>{ativo=false;subscription.unsubscribe();};
@@ -550,7 +610,8 @@ export default function App(){
       <p>Preparando acesso...</p>
     </div>
   );
-  if(!logado)return<TelaLogin avisoInicial={erroSessao} onLogin={()=>setLogado(true)}/>;
+  if(recuperandoSenha)return<TelaNovaSenha onConcluir={()=>{setRecuperandoSenha(false);setLogado(false);setMensagemLogin("Senha alterada com sucesso. Entre com sua nova senha.");}}/>;
+  if(!logado)return<TelaLogin avisoInicial={erroSessao} mensagemInicial={mensagemLogin} onLogin={()=>{setMensagemLogin("");setLogado(true);}}/>;
   return<Sistema onLogout={async()=>{await Auth.deslogar();setLogado(false);}}/>;
 }
 
@@ -1204,7 +1265,7 @@ function Sistema({onLogout}){
               <div><h1 className="page-title">Relatórios</h1><p className="page-sub">Central de PDFs profissionais</p></div>
             </div>
           </header>
-          <RelatoriosPage itens={itens} pontos={pontos} historico={historico} historicoPontos={historicoPontos}/>
+          <RelatoriosPage itens={itens} pontos={pontos} historico={historico} historicoPontos={historicoPontos} perfilAtual={perfilAtual}/>
         </>)}
 
         {aba==="gestao"&&(<>

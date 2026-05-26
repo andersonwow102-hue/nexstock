@@ -1112,6 +1112,16 @@ body {
 }
 .btn-login:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px var(--accent-glow); filter: brightness(1.1); }
 .btn-login:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-esqueci {
+  margin-top: -2px; background: none; border: none; color: var(--txt-secondary);
+  font-family: 'Inter', sans-serif; font-size: 12.5px; cursor: pointer; padding: 5px;
+}
+.btn-esqueci:hover:not(:disabled) { color: var(--accent); }
+.btn-esqueci:disabled { opacity: .5; cursor: not-allowed; }
+.login-sucesso {
+  padding: 10px 12px; background: var(--verde-bg); border: 1px solid var(--verde-border);
+  border-radius: var(--radius-sm); color: var(--verde); font-size: 12.5px; line-height: 1.45;
+}
 .login-rodape { font-size: 11px; color: var(--txt-dim); text-align: center; margin-top: 8px; }
 
 /* ══════════════════════════════════════════════════════
