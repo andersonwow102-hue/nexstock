@@ -1,0 +1,83 @@
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import logo from "./assets/stock-on-light.png";
+
+const AZUL = [15, 35, 72];
+const DOURADO = [222, 147, 0];
+const CINZA = [100, 116, 139];
+
+function agora() {
+  return new Date().toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+async function carregarImagem(url) {
+  const resposta = await fetch(url);
+  if (!resposta.ok) throw new Error("Logo nao carregada");
+  const blob = await resposta.blob();
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolve(leitor.result);
+    leitor.onerror = reject;
+    leitor.readAsDataURL(blob);
+  });
+}
+
+function baixarDocumento(doc, nomeArquivo) {
+  const url = URL.createObjectURL(doc.output("blob"));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nomeArquivo;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, colunas, linhas, total }) {
+  try {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const largura = doc.internal.pageSize.getWidth();
+    const altura = doc.internal.pageSize.getHeight();
+    const imagem = await carregarImagem(logo);
+
+    doc.setFillColor(...AZUL);
+    doc.rect(0, 0, largura, 33, "F");
+    doc.setFillColor(...DOURADO);
+    doc.rect(0, 32, largura, 1, "F");
+    doc.addImage(imagem, "PNG", 12, 4, 35, 23, undefined, "FAST");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(17);
+    doc.text(titulo, 54, 14);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(descricao, 54, 21);
+    doc.text(`Emitido em: ${agora()}  |  Total de registros: ${total}`, 54, 27);
+
+    autoTable(doc, {
+      startY: 41,
+      head: [colunas],
+      body: linhas,
+      margin: { left: 12, right: 12, bottom: 18 },
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 3.2, lineColor: [219, 228, 240], lineWidth: 0.2, textColor: AZUL },
+      headStyles: { fillColor: AZUL, textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [247, 249, 253] },
+      didDrawPage: () => {
+        doc.setDrawColor(222, 226, 234);
+        doc.line(12, altura - 12, largura - 12, altura - 12);
+        doc.setTextColor(...CINZA);
+        doc.setFontSize(8);
+        doc.text("Stock-ON | Seu estoque sempre ON.", 12, altura - 7);
+        doc.text(`Pagina ${doc.internal.getNumberOfPages()}`, largura - 12, altura - 7, { align: "right" });
+      },
+    });
+    baixarDocumento(doc, nomeArquivo);
+  } catch (erro) {
+    console.error("Erro ao gerar PDF:", erro);
+    window.alert("Nao foi possivel gerar o PDF. Atualize a pagina e tente novamente.");
+  }
+}

@@ -5,8 +5,8 @@ import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import { supabase } from "./supabase.js";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { gerarRelatorioPDF } from "./pdfReports.js";
+import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
@@ -92,16 +92,15 @@ function exportarEquipamentosExcel(itens){
   XLSX.writeFile(wb,`equipamentos_${hoje()}.xlsx`);
 }
 
-function exportarEquipamentosPDF(itens){
-  const doc=new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);doc.text("Stock-ON — Relatório de Equipamentos",14,15);
-  doc.setFontSize(10);doc.text(`Gerado em: ${agora()}   Total: ${itens.length} itens`,14,22);
-  autoTable(doc,{startY:27,
-    head:[["Patrimônio","Nome","Categoria","Status","Ponto / Localização","Responsável"]],
-    body:itens.map(i=>[i.patrimonio||"—",i.nome,i.categoria,i.status,i.localizacao||"—",i.responsavel||"—"]),
-    styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},
+async function exportarEquipamentosPDF(itens){
+  await gerarRelatorioPDF({
+    titulo:"Relatório de Equipamentos",
+    descricao:"Inventário operacional e localização atual dos equipamentos",
+    nomeArquivo:`stock-on_equipamentos_${hoje()}.pdf`,
+    total:itens.length,
+    colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+    linhas:itens.map(i=>[i.patrimonio||"-",i.nome,i.categoria,i.status,i.localizacao||"Sem ponto",i.responsavel||"-"]),
   });
-  doc.save(`equipamentos_${hoje()}.pdf`);
 }
 
 function exportarHistoricoExcel(historico){
@@ -116,16 +115,15 @@ function exportarHistoricoExcel(historico){
   XLSX.writeFile(wb,`historico_equipamentos_${hoje()}.xlsx`);
 }
 
-function exportarHistoricoPDF(historico){
-  const doc=new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);doc.text("Stock-ON — Histórico de Equipamentos",14,15);
-  doc.setFontSize(10);doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`,14,22);
-  autoTable(doc,{startY:27,
-    head:[["Tipo","Equipamento","Categoria","Antes","Depois","Responsável","Observação","Data"]],
-    body:historico.map(h=>[HIST_CFG[h.tipo]?.label||h.tipo,h.itemNome,h.categoria,h.qtdAntes,h.qtdDepois,h.responsavel||"—",h.observacao||"—",h.data]),
-    styles:{fontSize:8},headStyles:{fillColor:[30,41,59]},
+async function exportarHistoricoPDF(historico){
+  await gerarRelatorioPDF({
+    titulo:"Histórico de Equipamentos",
+    descricao:"Rastreabilidade de cadastros e movimentações operacionais",
+    nomeArquivo:`stock-on_historico_equipamentos_${hoje()}.pdf`,
+    total:historico.length,
+    colunas:["Tipo","Equipamento","Categoria","Responsável","Detalhe","Data"],
+    linhas:historico.map(h=>[HIST_CFG[h.tipo]?.label||h.tipo,h.itemNome,h.categoria,h.responsavel||"-",h.observacao||"-",h.data]),
   });
-  doc.save(`historico_equipamentos_${hoje()}.pdf`);
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -251,6 +249,7 @@ function Sistema({onLogout}){
     ...p,
     totalEquipamentos:itens.filter(i=>i.localizacao===p.nomeFantasia).length,
   })).filter(p=>p.totalEquipamentos>0).sort((a,b)=>b.totalEquipamentos-a.totalEquipamentos);
+  const mensagemDoDia=getMensagemMotivacionalDoDia();
 
   const itensFiltrados=itens.filter(i=>{
     const mC=filtroCatEquip==="Todas"||i.categoria===filtroCatEquip;
@@ -411,6 +410,7 @@ function Sistema({onLogout}){
                 <span className="dash-kicker">Controle operacional</span>
                 <h2>Onde está cada equipamento?</h2>
                 <p>Acompanhe disponibilidade, equipamentos em pontos e itens em conserto em uma única tela.</p>
+                <div className="dash-biscoito"><span>Mensagem do dia</span><q>{mensagemDoDia}</q></div>
               </div>
               <div className="dash-acoes">
                 <button className="btn-primario" onClick={()=>navegar("itens")}>Ver equipamentos</button>

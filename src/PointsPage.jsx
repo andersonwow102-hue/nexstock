@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { gerarRelatorioPDF } from "./pdfReports.js";
 import { GERENTES, GERENTE_CORES, MODALIDADES, formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto } from "./pointsData.js";
 import { carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento } from "./db.js";
 
 const hoje=()=>new Date().toISOString().slice(0,10);
-const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 
 const MODALIDADE_COR = {
   "Viapix":             "badge-mod-viapix",
@@ -50,28 +48,23 @@ function exportarPontosExcel(pontos){
 }
 
 // ── Exportar PDF Pontos ───────────────────────────────────────────────────────
-function exportarPontosPDF(pontos){
-  const doc = new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);
-  doc.text("Stock-ON - Relatório de Pontos", 14, 15);
-  doc.setFontSize(10);
-  doc.text(`Gerado em: ${agora()}   Total: ${pontos.length} pontos`, 14, 22);
-  autoTable(doc,{
-    startY: 27,
-    head:[["Nome Fantasia","Dono","Telefone","Gerente","Modalidades","Despesa","Valor"]],
-    body: pontos.map(p=>[
+async function exportarPontosPDF(pontos){
+  await gerarRelatorioPDF({
+    titulo:"Relatório de Pontos",
+    descricao:"Estabelecimentos cadastrados, responsáveis e despesas",
+    nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
+    total:pontos.length,
+    colunas:["Nome Fantasia","Dono","Telefone","Gerente","Modalidades","Despesa","Valor"],
+    linhas:pontos.map(p=>[
       p.nomeFantasia,
       p.nomeDono,
       p.telefone,
       p.gerente,
       p.modalidades.join(", "),
       p.possuiDespesa==="sim"?"Sim":"Não",
-      p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—",
+      p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"-",
     ]),
-    styles:{fontSize:8},
-    headStyles:{fillColor:[30,41,59]},
   });
-  doc.save(`pontos_${hoje()}.pdf`);
 }
 
 // ── Exportar Excel Histórico Pontos ───────────────────────────────────────────
@@ -90,26 +83,21 @@ function exportarHistoricoPontosExcel(historico){
 }
 
 // ── Exportar PDF Histórico Pontos ─────────────────────────────────────────────
-function exportarHistoricoPontosPDF(historico){
-  const doc = new jsPDF({orientation:"landscape"});
-  doc.setFontSize(16);
-  doc.text("Stock-ON - Histórico de Pontos", 14, 15);
-  doc.setFontSize(10);
-  doc.text(`Gerado em: ${agora()}   Total: ${historico.length} registros`, 14, 22);
-  autoTable(doc,{
-    startY: 27,
-    head:[["Tipo","Nome Fantasia","Gerente","Observação","Data"]],
-    body: historico.map(h=>[
+async function exportarHistoricoPontosPDF(historico){
+  await gerarRelatorioPDF({
+    titulo:"Histórico de Pontos",
+    descricao:"Registro de cadastros, alterações e exclusões de pontos",
+    nomeArquivo:`stock-on_historico_pontos_${hoje()}.pdf`,
+    total:historico.length,
+    colunas:["Tipo","Nome Fantasia","Gerente","Observação","Data"],
+    linhas:historico.map(h=>[
       h.tipo==="cadastro"?"Cadastro":h.tipo==="edicao"?"Edição":"Exclusão",
       h.nome,
       h.gerente,
-      h.observacao||"—",
+      h.observacao||"-",
       h.data,
     ]),
-    styles:{fontSize:8},
-    headStyles:{fillColor:[30,41,59]},
   });
-  doc.save(`historico_pontos_${hoje()}.pdf`);
 }
 
 // ─── Máscaras ─────────────────────────────────────────────────────────────────
