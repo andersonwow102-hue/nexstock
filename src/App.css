@@ -648,6 +648,8 @@ body {
 .acesso-item strong { font-size: 14px; color: var(--txt-primary); }
 .acesso-item small { font-size: 11px; color: var(--txt-muted); }
 .acesso-item select { min-width: 190px; }
+.acesso-controles { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px !important; }
+.btn-acesso { white-space: nowrap; font-size: 12px; padding: 9px 11px; }
 .modal-ficha { max-width: 720px; }
 .ficha-cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ficha-cabecalho h2 { color: var(--txt-primary); font-size: 19px; margin-top: 5px; }
@@ -1122,6 +1124,15 @@ body {
   padding: 10px 12px; background: var(--verde-bg); border: 1px solid var(--verde-border);
   border-radius: var(--radius-sm); color: var(--verde); font-size: 12.5px; line-height: 1.45;
 }
+.recuperacao-box {
+  display: flex; flex-direction: column; gap: 9px; padding: 12px;
+  border: 1px solid var(--amarelo-border); border-radius: var(--radius-md);
+  background: var(--amarelo-bg); color: var(--txt-secondary); font-size: 12px; line-height: 1.45;
+}
+.recuperacao-box strong { color: var(--amarelo); font-size: 12.5px; }
+.recuperacao-check { display: flex; align-items: flex-start; gap: 7px; color: var(--txt-primary); cursor: pointer; }
+.recuperacao-check input { margin-top: 3px; accent-color: var(--accent); }
+.btn-recuperar { width: 100%; margin-top: 2px; }
 .login-rodape { font-size: 11px; color: var(--txt-dim); text-align: center; margin-top: 8px; }
 
 /* ══════════════════════════════════════════════════════
@@ -1325,7 +1336,7 @@ body {
   .dash-categoria { gap: 8px; padding: 9px; }
   .dash-cat-numeros small { display: none; }
   .ponto-resumo-grid { grid-template-columns: 1fr; }
-  .gestao-abas, .gestao-toolbar, .acesso-item { flex-direction: column; align-items: stretch; max-width: none; }
+  .gestao-abas, .gestao-toolbar, .acesso-item, .acesso-controles { flex-direction: column !important; align-items: stretch; max-width: none; }
   .gestao-mes { max-width: none; }
   .acesso-item select { min-width: 0; }
   .equip-filtros { flex-direction: column; align-items: stretch; }

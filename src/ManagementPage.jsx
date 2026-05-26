@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatarReais } from "./pointsData.js";
 import {
   carregarDespesasMensais, salvarDespesaMensal, excluirDespesaMensal,
-  carregarPerfis, salvarPerfil,
+  carregarPerfis, salvarPerfil, redefinirAcessoUsuario,
 } from "./db.js";
 
 const competenciaAtual = () => new Date().toISOString().slice(0, 7);
@@ -26,6 +26,9 @@ export default function ManagementPage({ pontos = [], perfilAtual, onPerfilAtual
   const [competencia, setCompetencia] = useState(competenciaAtual());
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(despesaVazia());
+  const [usuarioAcesso, setUsuarioAcesso] = useState(null);
+  const [formAcesso, setFormAcesso] = useState({ novoEmail: "", novaSenha: "", confirmacao: "" });
+  const [salvandoAcesso, setSalvandoAcesso] = useState(false);
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [carregando, setCarregando] = useState(true);
@@ -100,6 +103,36 @@ export default function ManagementPage({ pontos = [], perfilAtual, onPerfilAtual
       setMensagem("Permissão atualizada.");
     } catch (e) {
       setMensagem(`Não foi possível alterar a permissão: ${e.message}`);
+    }
+  }
+
+  function abrirRedefinirAcesso(item) {
+    setUsuarioAcesso(item);
+    setFormAcesso({ novoEmail: "", novaSenha: "", confirmacao: "" });
+    setErro("");
+  }
+
+  async function confirmarRedefinicaoAcesso(e) {
+    e.preventDefault();
+    setErro("");
+    const email = formAcesso.novoEmail.trim().toLowerCase();
+    if (!email || !email.includes("@") || !email.includes(".")) { setErro("Informe o e-mail verdadeiro que o usuário consegue acessar."); return; }
+    if (/@(nexstock|stockon)\.com$/i.test(email)) { setErro("Este domínio é usado apenas como login interno. Informe Gmail, Outlook ou outro e-mail real."); return; }
+    if (formAcesso.novaSenha.length < 8) { setErro("A senha provisória precisa ter pelo menos 8 caracteres."); return; }
+    if (formAcesso.novaSenha !== formAcesso.confirmacao) { setErro("A confirmação da senha está diferente."); return; }
+    try {
+      setSalvandoAcesso(true);
+      await redefinirAcessoUsuario({ userId: usuarioAcesso.userId, novoEmail: email, novaSenha: formAcesso.novaSenha });
+      await recarregarPerfis();
+      setUsuarioAcesso(null);
+      setMensagem(`Acesso atualizado. O novo login de ${email} já pode ser utilizado.`);
+    } catch (e) {
+      const indisponivel = e.message.toLowerCase().includes("function") || e.message.toLowerCase().includes("failed to send");
+      setErro(indisponivel
+        ? "A função segura de redefinição ainda não foi ativada no Supabase."
+        : `Não foi possível redefinir o acesso: ${e.message}`);
+    } finally {
+      setSalvandoAcesso(false);
     }
   }
 
@@ -193,18 +226,39 @@ export default function ManagementPage({ pontos = [], perfilAtual, onPerfilAtual
               {perfis.map(p => (
                 <div className="acesso-item" key={p.userId}>
                   <div><strong>{p.nome}</strong><small>{p.userId === perfilAtual.userId ? "Você" : "Usuário cadastrado"}</small></div>
-                  <select value={p.perfil} disabled={p.userId === perfilAtual.userId} title={p.userId === perfilAtual.userId ? "Seu próprio perfil permanece administrador para evitar perda de acesso." : ""} onChange={e => alterarPerfil(p, e.target.value)}>
-                    <option value="administrador">Administrador</option>
-                    <option value="operador">Operador</option>
-                    <option value="consulta">Apenas consulta</option>
-                  </select>
+                  <div className="acesso-controles">
+                    <select value={p.perfil} disabled={p.userId === perfilAtual.userId} title={p.userId === perfilAtual.userId ? "Seu próprio perfil permanece administrador para evitar perda de acesso." : ""} onChange={e => alterarPerfil(p, e.target.value)}>
+                      <option value="administrador">Administrador</option>
+                      <option value="operador">Operador</option>
+                      <option value="consulta">Apenas consulta</option>
+                    </select>
+                    <button className="btn-secundario btn-acesso" onClick={() => abrirRedefinirAcesso(p)}>{p.userId === perfilAtual.userId ? "Regularizar meu e-mail" : "Redefinir acesso"}</button>
+                  </div>
                 </div>
               ))}
               {perfis.length === 0 && <p className="tabela-vazia">Nenhum usuário encontrado.</p>}
             </div>
           )}
-          <p className="acessos-nota">Novos usuários são criados no Supabase Authentication e começam como apenas consulta. Seu próprio perfil não pode ser rebaixado nesta tela para evitar perda de acesso.</p>
+          <p className="acessos-nota">Novos usuários começam como apenas consulta. Para permitir recuperação de senha, use um e-mail real ao criar ou redefinir o acesso. Seu próprio perfil não pode ser rebaixado nesta tela.</p>
         </section>
+      )}
+
+      {usuarioAcesso && (
+        <div className="modal-overlay" onClick={() => setUsuarioAcesso(null)}>
+          <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h3>Redefinir Acesso</h3><button className="modal-fechar" onClick={() => setUsuarioAcesso(null)}>✕</button></div>
+            <form onSubmit={confirmarRedefinicaoAcesso}>
+              <div className="modal-body">
+                <p className="senha-texto">Usuário atual: <strong>{usuarioAcesso.nome}</strong>. Troque para um e-mail que realmente receba mensagens e informe uma senha provisória. O e-mail passará a ser o novo login.</p>
+                {erro && <div className="erro-msg">⚠️ {erro}</div>}
+                <div className="campo"><label>Novo e-mail verdadeiro *</label><input type="email" placeholder="socio@gmail.com" value={formAcesso.novoEmail} onChange={e => setFormAcesso({ ...formAcesso, novoEmail: e.target.value })} autoFocus /></div>
+                <div className="campo"><label>Senha provisória *</label><input type="password" placeholder="Mínimo de 8 caracteres" value={formAcesso.novaSenha} onChange={e => setFormAcesso({ ...formAcesso, novaSenha: e.target.value })} /></div>
+                <div className="campo"><label>Confirmar senha *</label><input type="password" value={formAcesso.confirmacao} onChange={e => setFormAcesso({ ...formAcesso, confirmacao: e.target.value })} /></div>
+              </div>
+              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setUsuarioAcesso(null)}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Salvando..." : "Atualizar acesso"}</button></div>
+            </form>
+          </div>
+        </div>
       )}
 
       {modal && (

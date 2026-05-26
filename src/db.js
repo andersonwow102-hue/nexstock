@@ -133,6 +133,15 @@ export async function salvarPerfil(perfil) {
   if (error) throw new Error(error.message);
 }
 
+export async function redefinirAcessoUsuario({ userId, novoEmail, novaSenha }) {
+  const { data, error } = await supabase.functions.invoke('redefinir-acesso-usuario', {
+    body: { userId, novoEmail, novaSenha },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
 export async function carregarDespesasMensais() {
   const { data, error } = await supabase.from('despesas_mensais').select('*').order('competencia', { ascending: false }).order('id', { ascending: false });
   if (error) { console.error('Erro ao carregar despesas mensais:', error); return []; }

@@ -433,6 +433,8 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
   const [mensagem,setMensagem]=useState(mensagemInicial);
   const [visivel,setVisivel]=useState(false);
   const [carregando,setCarregando]=useState(false);
+  const [recuperacaoAberta,setRecuperacaoAberta]=useState(false);
+  const [emailConfirmado,setEmailConfirmado]=useState(false);
 
   async function tentar(e){
     e.preventDefault();setCarregando(true);setErro("");
@@ -446,11 +448,18 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
     setErro("");
     setMensagem("");
     if(!email.trim()){setErro("Informe seu e-mail acima para recuperar a senha.");return;}
+    if(/@(nexstock|stockon)\.com$/i.test(email.trim())){
+      setErro("Este login foi criado apenas no app e não recebe e-mail. Peça ao administrador para trocar seu acesso por um e-mail verdadeiro.");
+      return;
+    }
+    if(!emailConfirmado){setErro("Confirme que este e-mail existe e recebe mensagens antes de continuar.");return;}
     setCarregando(true);
     const {error}=await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
     setCarregando(false);
     if(error){setErro("Não foi possível enviar a recuperação agora. Tente novamente.");return;}
-    setMensagem("Enviamos um link para seu e-mail. Abra-o para cadastrar uma nova senha.");
+    setMensagem("Enviamos um link para seu e-mail real. Abra-o para cadastrar uma nova senha.");
+    setRecuperacaoAberta(false);
+    setEmailConfirmado(false);
   }
 
   return(
@@ -470,7 +479,16 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
             </div>
           </div>
           <button type="submit" className="btn-login" disabled={carregando||!email||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
-          <button type="button" className="btn-esqueci" disabled={carregando} onClick={recuperarSenha}>Esqueci minha senha</button>
+          <button type="button" className="btn-esqueci" disabled={carregando} onClick={()=>{setRecuperacaoAberta(!recuperacaoAberta);setErro("");setMensagem("");}}>Esqueci minha senha</button>
+          {recuperacaoAberta&&<div className="recuperacao-box">
+            <strong>Recuperação somente por e-mail real</strong>
+            <p>O e-mail usado no login precisa possuir caixa de entrada. Se ele foi criado apenas dentro do app, peça ao administrador para trocar seu acesso por um e-mail verdadeiro.</p>
+            <label className="recuperacao-check">
+              <input type="checkbox" checked={emailConfirmado} onChange={e=>setEmailConfirmado(e.target.checked)}/>
+              Confirmo que tenho acesso à caixa de entrada deste e-mail.
+            </label>
+            <button type="button" className="btn-secundario btn-recuperar" disabled={carregando||!emailConfirmado} onClick={recuperarSenha}>{carregando?"Enviando...":"Enviar link de recuperação"}</button>
+          </div>}
         </form>
         <div className="login-rodape">Stock-ON · Controle Inteligente de Equipamentos</div>
       </div>
