@@ -540,6 +540,82 @@ body {
 .busca-item span { font-size: 13px; font-weight: 600; }
 .busca-item small { color: var(--txt-secondary); font-size: 11.5px; }
 .busca-item.sem-clique { cursor: default; }
+
+.sidebar-perfil {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg-card); color: var(--txt-secondary); font-size: 11px;
+}
+.sidebar-perfil strong { color: var(--accent); text-transform: capitalize; font-size: 11px; }
+
+.gestao-page { display: flex; flex-direction: column; gap: 16px; }
+.gestao-intro {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px;
+  padding: 22px 26px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.gestao-kicker { display: block; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; margin-bottom: 8px; }
+.gestao-intro h2 { color: var(--txt-primary); font-size: 22px; margin-bottom: 5px; }
+.gestao-intro p { color: var(--txt-secondary); font-size: 13px; }
+.perfil-selo {
+  border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 700;
+  text-transform: capitalize; border: 1px solid var(--border);
+}
+.perfil-administrador { background: var(--azul-bg); color: var(--azul); border-color: var(--azul-border); }
+.perfil-operador { background: var(--verde-bg); color: var(--verde); border-color: var(--verde-border); }
+.perfil-consulta { background: var(--amarelo-bg); color: var(--amarelo); border-color: var(--amarelo-border); }
+.gestao-abas {
+  display: flex; gap: 5px; padding: 4px; max-width: 550px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+}
+.gestao-abas button {
+  flex: 1; padding: 10px 16px; border: 1px solid transparent; border-radius: var(--radius-md);
+  color: var(--txt-secondary); background: none; cursor: pointer; font: inherit; font-size: 13px;
+}
+.gestao-abas button.ativo { background: var(--azul-bg); color: var(--azul); border-color: var(--azul-border); font-weight: 600; }
+.gestao-mensagem {
+  background: var(--verde-bg); color: var(--verde); border: 1px solid var(--verde-border);
+  padding: 10px 14px; border-radius: var(--radius-md); display: flex; justify-content: space-between; font-size: 13px;
+}
+.gestao-mensagem button { background: none; border: none; color: inherit; cursor: pointer; }
+.gestao-toolbar {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 14px 18px; display: flex; justify-content: space-between; align-items: end; gap: 12px;
+}
+.gestao-mes { max-width: 210px; margin: 0; }
+.gestao-resumo { display: grid; grid-template-columns: repeat(3, minmax(170px, 1fr)); gap: 10px; }
+.gestao-resumo article {
+  display: flex; flex-direction: column; gap: 8px; padding: 16px 18px;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card);
+}
+.gestao-resumo small { font-size: 10px; font-weight: 700; letter-spacing: .8px; color: var(--txt-muted); }
+.gestao-resumo strong { font-size: 25px; color: var(--txt-primary); }
+.gestao-resumo .com-alerta { border-color: var(--vermelho-border); background: var(--vermelho-bg); }
+.gestao-resumo .com-alerta strong { color: var(--vermelho); }
+.despesa-alertas {
+  background: var(--vermelho-bg); border: 1px solid var(--vermelho-border);
+  border-radius: var(--radius-lg); padding: 15px 18px; display: flex; flex-direction: column; gap: 9px;
+}
+.despesa-alertas h3 { font-size: 14px; color: var(--vermelho); margin-bottom: 3px; }
+.despesa-alertas div { display: flex; justify-content: space-between; gap: 15px; font-size: 12.5px; color: var(--txt-secondary); padding-top: 8px; border-top: 1px solid var(--vermelho-border); }
+.despesa-alertas strong { color: var(--txt-primary); }
+.gestao-tabela { padding: 0; overflow: hidden; }
+.valor-alerta { color: var(--vermelho); font-weight: 700; }
+.acessos-painel { display: flex; flex-direction: column; gap: 14px; }
+.acessos-explicacao, .acessos-nota, .permissao-aviso {
+  font-size: 13px; color: var(--txt-secondary); background: var(--bg-input);
+  border: 1px solid var(--border); padding: 12px 14px; border-radius: var(--radius-md);
+}
+.permissao-aviso { color: var(--amarelo); border-color: var(--amarelo-border); background: var(--amarelo-bg); }
+.acessos-lista { display: flex; flex-direction: column; gap: 8px; }
+.acesso-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 18px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card);
+}
+.acesso-item div { display: flex; flex-direction: column; gap: 3px; }
+.acesso-item strong { font-size: 14px; color: var(--txt-primary); }
+.acesso-item small { font-size: 11px; color: var(--txt-muted); }
+.acesso-item select { min-width: 190px; }
 .modal-ficha { max-width: 720px; }
 .ficha-cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ficha-cabecalho h2 { color: var(--txt-primary); font-size: 19px; margin-top: 5px; }
@@ -1102,6 +1178,9 @@ body {
   .ponto-resumo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .relatorios-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .busca-resultados { grid-template-columns: 1fr; }
+  .gestao-resumo { grid-template-columns: 1fr; }
+  .gestao-intro { flex-direction: column; align-items: flex-start; }
+  .despesa-alertas div { flex-direction: column; gap: 5px; }
 }
 
 @media (max-width: 900px) {
@@ -1186,6 +1265,9 @@ body {
   .dash-categoria { gap: 8px; padding: 9px; }
   .dash-cat-numeros small { display: none; }
   .ponto-resumo-grid { grid-template-columns: 1fr; }
+  .gestao-abas, .gestao-toolbar, .acesso-item { flex-direction: column; align-items: stretch; max-width: none; }
+  .gestao-mes { max-width: none; }
+  .acesso-item select { min-width: 0; }
   .equip-filtros { flex-direction: column; align-items: stretch; }
   .equip-filtros .input-busca { width: 100%; }
 }

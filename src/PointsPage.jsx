@@ -132,7 +132,7 @@ function mascaraMoeda(v) {
 }
 
 // ─── Modal Formulário ─────────────────────────────────────────────────────────
-export function PointFormModal({ ponto, equipamentos=[], onSalvar, onFechar, mostrarEquipamentos=true }) {
+export function PointFormModal({ ponto, pontos=[], equipamentos=[], onSalvar, onFechar, mostrarEquipamentos=true }) {
   const [form, setForm] = useState(ponto ? {...ponto,
     valorDespesa: ponto.valorDespesa ? mascaraMoeda(String(Math.round(ponto.valorDespesa*100))) : ""
   } : {...pontoFormVazio});
@@ -153,6 +153,11 @@ export function PointFormModal({ ponto, equipamentos=[], onSalvar, onFechar, mos
   function salvar() {
     const e = validarPonto(form);
     if (e) { setErro(e); return; }
+    const nome=form.nomeFantasia.trim().toLowerCase();
+    if(pontos.some(p=>p.id!==ponto?.id&&p.nomeFantasia.trim().toLowerCase()===nome)){
+      setErro("Já existe um ponto com este nome. Use um nome diferente para não confundir a localização dos equipamentos.");
+      return;
+    }
     onSalvar({...form, valorDespesa: form.possuiDespesa==="sim" ? parseMoeda(form.valorDespesa) : 0}, equipamentosSelecionados);
   }
 
@@ -269,7 +274,7 @@ function PointExpensesModal({ pontos, onFechar }) {
 }
 
 // ─── ABA: Visão Geral ─────────────────────────────────────────────────────────
-function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos }) {
+function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos, podeEditar }) {
   const totalPontos   = pontos.length;
   const comDespesa    = pontos.filter(p=>p.possuiDespesa==="sim").length;
   const semDespesa    = pontos.filter(p=>p.possuiDespesa==="nao").length;
@@ -293,7 +298,7 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos }) {
         <div className="hist-vazio">
           <div className="hist-vazio-icone">📍</div>
           <div>Nenhum ponto cadastrado ainda.</div>
-          <button className="btn-primario" style={{marginTop:"8px"}} onClick={onNovoClick}>+ Cadastrar primeiro ponto</button>
+          {podeEditar&&<button className="btn-primario" style={{marginTop:"8px"}} onClick={onNovoClick}>+ Cadastrar primeiro ponto</button>}
         </div>
       )}
     </>
@@ -301,7 +306,7 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos }) {
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onExportExcel, onExportPDF }) {
+function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onExportExcel, onExportPDF, podeEditar }) {
   const [busca, setBusca] = useState("");
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [pagina, setPagina] = useState(1);
@@ -357,8 +362,8 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
                   <td><span className={`badge-status ${p.possuiDespesa==="sim"?"status-defeito":"status-disponivel"}`}>{p.possuiDespesa==="sim"?"Sim":"Não"}</span></td>
                   <td className={p.possuiDespesa==="sim"?"qtd-baixa":"td-minimo"}>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—"}</td>
                   <td className="td-acoes">
-                    <button className="btn-editar" onClick={()=>onEditar(p)} title="Editar">✏️</button>
-                    <button className="btn-excluir" onClick={()=>onExcluir(p.id)} title="Excluir">🗑️</button>
+                    {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)} title="Editar">✏️</button>}
+                    {podeEditar&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)} title="Excluir">🗑️</button>}
                   </td>
                 </tr>;
               })}
@@ -380,8 +385,8 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
               <div className="ponto-card-linha"><span>Equipamentos</span><div className="equipamentos-ponto">{vinculados.length? vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>) : <span className="td-obs">Nenhum</span>}</div></div>
               {p.possuiDespesa==="sim"&&<div className="ponto-card-valor">{formatarReais(p.valorDespesa)}</div>}
               <div className="ponto-card-acoes">
-                <button className="btn-editar" onClick={()=>onEditar(p)}>✏️ Editar</button>
-                <button className="btn-excluir" onClick={()=>onExcluir(p.id)}>🗑️ Excluir</button>
+                {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)}>✏️ Editar</button>}
+                {podeEditar&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)}>🗑️ Excluir</button>}
               </div>
             </article>
           );
@@ -620,7 +625,7 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage({ equipamentos=[], onPontosChange, onEquipamentosChange, onHistoricoChange }) {
+export default function PointsPage({ equipamentos=[], podeEditar=false, onPontosChange, onEquipamentosChange, onHistoricoChange }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [loading,    setLoading]   = useState(true);
@@ -641,6 +646,7 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
   },[]);
 
   async function salvarPontoHandler(form, equipamentosSelecionados){
+    if(!podeEditar)return;
     try{
       if(pontoEdit){
         await salvarPonto({...form,id:pontoEdit.id});
@@ -670,6 +676,7 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
   }
 
   async function excluirHandler(id){
+    if(!podeEditar)return;
     const p=pontos.find(x=>x.id===id);
     const vinculados=equipamentos.filter(item=>item.localizacao===p.nomeFantasia);
     if(vinculados.length>0)return;
@@ -702,7 +709,7 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
     <div className="points-page">
       <div className="points-toolbar">
         <p>Consulte estabelecimentos, despesas e equipamentos vinculados.</p>
-        <button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>
+        {podeEditar&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
       </div>
 
       <div className="points-abas">
@@ -722,8 +729,8 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
       )}
 
       {!loading&&(<>
-        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontos} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} equipamentos={equipamentos} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
+        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontos} podeEditar={podeEditar} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} equipamentos={equipamentos} podeEditar={podeEditar} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
             onExportExcel={()=>exportarPontosExcel(pontos)} onExportPDF={()=>exportarPontosPDF(pontos)}/>}
         {abaInterna==="analise"  &&<AbaAnalise pontos={pontos}/>}
         {abaInterna==="gerentes" &&<AbaGerentes pontos={pontos}/>}
@@ -731,7 +738,7 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
             onExportExcel={()=>exportarHistoricoPontosExcel(historico)} onExportPDF={()=>exportarHistoricoPontosPDF(historico)}/>}
       </>)}
 
-      {modalForm&&<PointFormModal ponto={pontoEdit} equipamentos={equipamentos} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
+      {modalForm&&podeEditar&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
       {verDespesas&&<PointExpensesModal pontos={pontos} onFechar={()=>setVerDespesas(false)}/>}
 
       {excluindo&&(

@@ -3,6 +3,7 @@ import logoLight from "./assets/stock-on-light.png";
 import { useState, useEffect } from "react";
 import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
+import ManagementPage from "./ManagementPage.jsx";
 import { supabase } from "./supabase.js";
 import * as XLSX from "xlsx";
 import { gerarRelatorioPDF } from "./pdfReports.js";
@@ -11,6 +12,7 @@ import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
   carregarPontos, salvarPonto, adicionarHistoricoPonto, carregarHistoricoPontos,
+  carregarPerfilAtual,
 } from "./db.js";
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
@@ -381,7 +383,7 @@ function BuscaGlobalPage({ consulta, onConsulta, itens, pontos, historico, onVer
   );
 }
 
-function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar }) {
+function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, podeEditar }) {
   const movimentos=historico.filter(h=>h.itemId===item.id||h.itemNome===item.nome);
   return(
     <div className="modal-overlay" onClick={onFechar}>
@@ -403,10 +405,10 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar })
             {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação registrada.</p>:movimentos.map(h=><div className="ficha-evento" key={h.id}><span className={`badge-hist ${HIST_CFG[h.tipo]?.cor||""}`}>{HIST_CFG[h.tipo]?.label||h.tipo}</span><div><strong>{h.observacao||"Sem detalhe"}</strong><small>{h.data} · {h.responsavel||"-"}</small></div></div>)}
           </div>
         </div>
-        <div className="modal-footer">
+        {podeEditar&&<div className="modal-footer">
           <button className="btn-secundario" onClick={()=>{onFechar();onEditar(item);}}>Editar</button>
           <button className="btn-primario" onClick={()=>{onFechar();onMovimentar(item);}}>Movimentar</button>
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -501,12 +503,13 @@ function Sistema({onLogout}){
   const [itemDetalhe,setItemDetalhe]=useState(null);
   const [buscaGlobal,setBuscaGlobal]=useState("");
   const [paginaItens,setPaginaItens]=useState(1);
+  const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta"});
 
   useEffect(()=>{
     async function init(){
       setCarregando(true);
-      const [eq,hist,pts,histPts]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos(),carregarPontos(),carregarHistoricoPontos()]);
-      setItens(eq);setHistorico(hist);setPontos(pts);setHistoricoPontos(histPts);setCarregando(false);
+      const [eq,hist,pts,histPts,perfil]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos(),carregarPontos(),carregarHistoricoPontos(),carregarPerfilAtual()]);
+      setItens(eq);setHistorico(hist);setPontos(pts);setHistoricoPontos(histPts);setPerfilAtual(perfil);setCarregando(false);
     }
     init();
   },[]);
@@ -544,6 +547,8 @@ function Sistema({onLogout}){
     totalEquipamentos:itens.filter(i=>i.localizacao===p.nomeFantasia).length,
   })).filter(p=>p.totalEquipamentos>0).sort((a,b)=>b.totalEquipamentos-a.totalEquipamentos);
   const mensagemDoDia=getMensagemMotivacionalDoDia();
+  const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
+  const administrador=perfilAtual.perfil==="administrador";
 
   const itensFiltrados=itens.filter(i=>{
     const mC=filtroCatEquip==="Todas"||i.categoria===filtroCatEquip;
@@ -567,14 +572,16 @@ function Sistema({onLogout}){
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
 
   function abrirNovo(){
+    if(!podeEditar)return;
     const cat=CATEGORIAS[0];
     setItemEdit(null);
     setForm({...formVazio,quantidade:1,dataCadastro:hoje(),patrimonio:gerarPatrimonio(cat,itens),minimo:5});
     setErroForm("");setModalForm(true);
   }
-  function abrirEditar(i){setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
+  function abrirEditar(i){if(!podeEditar)return;setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
   function abrirMov(item){
+    if(!podeEditar)return;
     const inconsistencia=validarItem(item,itens,item.id);
     if(inconsistencia){window.alert(`Corrija o cadastro antes de movimentar este equipamento. ${inconsistencia}`);return;}
     setModalMov(item);setMov({...movVazio,ponto:item.localizacao||""});setErroMov("");
@@ -582,6 +589,7 @@ function Sistema({onLogout}){
   function fecharMov(){setModalMov(null);}
 
   async function salvarItem(){
+    if(!podeEditar){setErroForm("Seu perfil permite somente consulta.");return;}
     const localizacao=form.status==="Em rota"?form.localizacao:form.status==="Em conserto"?"Em conserto":"";
     const ff={...form,nome:padronizarNome(form.nome),quantidade:1,minimo:5,localizacao,dataCadastro:form.dataCadastro||hoje()};
     const erro=validarItem(ff,itens,itemEdit?.id);if(erro){setErroForm(erro);return;}
@@ -605,6 +613,7 @@ function Sistema({onLogout}){
   }
 
   async function salvarPontoRapido(ponto){
+    if(!podeEditar){setErroForm("Seu perfil permite somente consulta.");return;}
     const novoId=await salvarPonto(ponto);
     if(!novoId){setErroForm("Não foi possível cadastrar o ponto. Tente novamente.");return;}
     const novoPonto={...ponto,id:novoId};
@@ -617,6 +626,7 @@ function Sistema({onLogout}){
   }
 
   async function excluir(id){
+    if(!podeEditar)return;
     const item=itens.find(i=>i.id===id);
     await excluirEquipamento(id);
     setItens(prev=>prev.filter(i=>i.id!==id));
@@ -626,6 +636,7 @@ function Sistema({onLogout}){
   }
 
   async function confirmarMov(){
+    if(!podeEditar)return;
     const tipo=TIPOS_MOV.find(t=>t.id===mov.tipoId);
     const erro=validarMov(mov,tipo);if(erro){setErroMov(erro);return;}
     const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
@@ -643,6 +654,7 @@ function Sistema({onLogout}){
   }
 
   async function limparHistorico(){
+    if(!administrador)return;
     if(!window.confirm("Limpar todo o histórico?"))return;
     await limparHistoricoEquipamentos();setHistorico([]);
   }
@@ -687,6 +699,7 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span>📍</span> Pontos</button>
           <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span>🔎</span> Busca Geral</button>
           <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span>📄</span> Relatórios</button>
+          <button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span>💰</span> Despesas & Acessos</button>
           <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
             <span>📋</span> Histórico
             {historico.length>0&&<span className="nav-badge">{historico.length>99?"99+":historico.length}</span>}
@@ -699,6 +712,10 @@ function Sistema({onLogout}){
               <span className="sidebar-alerta-arrow">→</span>
             </button>
           )}
+          <div className="sidebar-perfil">
+            <span>Acesso atual</span>
+            <strong>{perfilAtual.perfil}</strong>
+          </div>
           <button className="btn-tema" onClick={toggleTema}>
             <span>{temaClaro?"☀️ Tema Claro":"🌙 Tema Escuro"}</span>
             <div className={`tema-toggle ${temaClaro?"ativo":""}`}/>
@@ -820,7 +837,7 @@ function Sistema({onLogout}){
             <div style={{display:"flex",gap:"8px"}}>
               <button className="btn-secundario" onClick={()=>exportarEquipamentosExcel(itens)}>📊 Excel</button>
               <button className="btn-secundario" onClick={()=>exportarEquipamentosPDF(itens)}>📄 PDF</button>
-              <button className="btn-primario" onClick={abrirNovo}>+ Novo</button>
+              {podeEditar&&<button className="btn-primario" onClick={abrirNovo}>+ Novo</button>}
             </div>
           </header>
           <div className="equip-navegacao">
@@ -911,11 +928,11 @@ function Sistema({onLogout}){
                           <td><span className="badge-cat">{item.categoria}</span></td>
                           <td><span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span></td>
                           <td className="td-obs">{item.localizacao||"Sem ponto"}</td>
-                          <td><button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button></td>
+                          <td>{podeEditar?<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>:<span className="td-obs">Consulta</span>}</td>
                           <td className="td-acoes">
                             <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎</button>
-                            <button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>
-                            <button className="btn-excluir" onClick={()=>setExcluindo(item.id)}>🗑️</button>
+                            {podeEditar&&<button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>}
+                            {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)}>🗑️</button>}
                           </td>
                         </tr>
                       );
@@ -936,10 +953,10 @@ function Sistema({onLogout}){
                       <span>📍 {item.localizacao||"Sem ponto"}</span>
                     </div>
                     <div className="equip-card-acoes">
-                      <button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>
+                      {podeEditar&&<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>}
                       <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎 Ficha</button>
-                      <button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>
-                      <button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir">🗑️</button>
+                      {podeEditar&&<button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>}
+                      {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir">🗑️</button>}
                     </div>
                   </article>
                 ))}
@@ -1039,7 +1056,7 @@ function Sistema({onLogout}){
                 <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
               </div>
             </header>
-            <PointsPage equipamentos={itens} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
+            <PointsPage equipamentos={itens} podeEditar={podeEditar} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
           </>
         )}
 
@@ -1063,6 +1080,16 @@ function Sistema({onLogout}){
           <RelatoriosPage itens={itens} pontos={pontos} historico={historico} historicoPontos={historicoPontos}/>
         </>)}
 
+        {aba==="gestao"&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Despesas & Acessos</h1><p className="page-sub">Controle mensal e permissões do sistema</p></div>
+            </div>
+          </header>
+          <ManagementPage pontos={pontos} perfilAtual={perfilAtual} onPerfilAtualChange={setPerfilAtual}/>
+        </>)}
+
         {aba==="historico"&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
@@ -1074,7 +1101,7 @@ function Sistema({onLogout}){
                 <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historico)}>📊 Excel</button>
                 <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historico)}>📄 PDF</button>
               </>}
-              {historico.length>0&&<button className="btn-danger-outline" onClick={limparHistorico}>🗑️ Limpar</button>}
+              {administrador&&historico.length>0&&<button className="btn-danger-outline" onClick={limparHistorico}>🗑️ Limpar</button>}
             </div>
           </header>
           <section className="secao">
@@ -1174,6 +1201,7 @@ function Sistema({onLogout}){
       {modalPontoRapido&&(
         <PointFormModal
           ponto={null}
+          pontos={pontos}
           equipamentos={[]}
           mostrarEquipamentos={false}
           onSalvar={salvarPontoRapido}
@@ -1257,6 +1285,7 @@ function Sistema({onLogout}){
           onFechar={()=>setItemDetalhe(null)}
           onEditar={abrirEditar}
           onMovimentar={abrirMov}
+          podeEditar={podeEditar}
         />
       )}
 

@@ -104,6 +104,72 @@ export async function adicionarHistoricoPonto(h) {
 }
 
 // ── Mappers (banco → app) ─────────────────────────────────────────────────────
+export async function carregarPerfilAtual() {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const user = authData?.user;
+  if (authError || !user) return { userId: '', nome: '', perfil: 'consulta' };
+  const { data, error } = await supabase
+    .from('perfis')
+    .select('user_id,nome,perfil')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error) {
+    console.error('Erro ao carregar perfil atual:', error);
+    return { userId: user.id, nome: user.email || '', perfil: 'consulta' };
+  }
+  return data
+    ? { userId: data.user_id, nome: data.nome || user.email || '', perfil: data.perfil }
+    : { userId: user.id, nome: user.email || '', perfil: 'consulta' };
+}
+
+export async function carregarPerfis() {
+  const { data, error } = await supabase.from('perfis').select('user_id,nome,perfil,criado_em').order('nome', { ascending: true });
+  if (error) { console.error('Erro ao carregar perfis:', error); return []; }
+  return data.map(p => ({ userId: p.user_id, nome: p.nome || 'Usuario', perfil: p.perfil, criadoEm: p.criado_em }));
+}
+
+export async function salvarPerfil(perfil) {
+  const { error } = await supabase.from('perfis').update({ perfil: perfil.perfil }).eq('user_id', perfil.userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function carregarDespesasMensais() {
+  const { data, error } = await supabase.from('despesas_mensais').select('*').order('competencia', { ascending: false }).order('id', { ascending: false });
+  if (error) { console.error('Erro ao carregar despesas mensais:', error); return []; }
+  return data.map(mapDespesaMensal);
+}
+
+export async function salvarDespesaMensal(despesa) {
+  const row = {
+    ponto_id: Number(despesa.pontoId), competencia: despesa.competencia,
+    descricao: despesa.descricao.trim(), tipo: despesa.tipo,
+    valor_previsto: Number(despesa.valorPrevisto) || 0, valor_real: Number(despesa.valorReal) || 0,
+    observacao: despesa.observacao || '',
+  };
+  if (despesa.id) {
+    const { error } = await supabase.from('despesas_mensais').update(row).eq('id', despesa.id);
+    if (error) throw new Error(error.message);
+    return despesa.id;
+  }
+  const { data, error } = await supabase.from('despesas_mensais').insert([row]).select().single();
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+export async function excluirDespesaMensal(id) {
+  const { error } = await supabase.from('despesas_mensais').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+function mapDespesaMensal(row) {
+  return {
+    id: row.id, pontoId: row.ponto_id, competencia: row.competencia,
+    descricao: row.descricao, tipo: row.tipo,
+    valorPrevisto: Number(row.valor_previsto) || 0, valorReal: Number(row.valor_real) || 0,
+    observacao: row.observacao || '',
+  };
+}
+
 function mapEquipamento(row) {
   return {
     id: row.id, nome: row.nome, categoria: row.categoria,
