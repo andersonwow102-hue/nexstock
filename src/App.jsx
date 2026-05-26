@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
-import { supabase } from "./supabase.js";
+import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
@@ -596,7 +596,7 @@ export default function App(){
   const [verificando,setVerificando]=useState(true);
   const [erroSessao,setErroSessao]=useState("");
   const [mensagemLogin,setMensagemLogin]=useState("");
-  const [recuperandoSenha,setRecuperandoSenha]=useState(false);
+  const [recuperandoSenha,setRecuperandoSenha]=useState(()=>recuperacaoIniciada());
 
   useEffect(()=>{
     let ativo=true;
@@ -628,7 +628,7 @@ export default function App(){
       <p>Preparando acesso...</p>
     </div>
   );
-  if(recuperandoSenha)return<TelaNovaSenha onConcluir={()=>{setRecuperandoSenha(false);setLogado(false);setMensagemLogin("Senha alterada com sucesso. Entre com sua nova senha.");}}/>;
+  if(recuperandoSenha)return<TelaNovaSenha onConcluir={()=>{limparRecuperacao();setRecuperandoSenha(false);setLogado(false);setMensagemLogin("Senha alterada com sucesso. Entre com sua nova senha.");}}/>;
   if(!logado)return<TelaLogin avisoInicial={erroSessao} mensagemInicial={mensagemLogin} onLogin={()=>{setMensagemLogin("");setLogado(true);}}/>;
   return<Sistema onLogout={async()=>{await Auth.deslogar();setLogado(false);}}/>;
 }
