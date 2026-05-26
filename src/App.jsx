@@ -10,7 +10,7 @@ import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
-  carregarPontos, salvarPonto, adicionarHistoricoPonto,
+  carregarPontos, salvarPonto, adicionarHistoricoPonto, carregarHistoricoPontos,
 } from "./db.js";
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
@@ -61,7 +61,8 @@ function gerarPatrimonio(cat,itens){
 }
 
 const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponível",minimo:5,observacao:"",localizacao:"",responsavel:"",patrimonio:"",dataCadastro:""};
-const movVazio={tipoId:"ponto",ponto:"",responsavel:"",observacao:""};
+const movVazio={tipoId:"ponto",ponto:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:""};
+const ITENS_POR_PAGINA=12;
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
 const formatarMoedaPDF=valor=>Number(valor||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
@@ -82,16 +83,29 @@ function ordenarPontos(lista){
 
 const Auth={ deslogar:async()=>{ await supabase.auth.signOut(); } };
 
-function validarItem(f){
+function validarItem(f,itens=[],itemId=null){
   if(!f.nome.trim())       return"Nome do equipamento é obrigatório.";
   if(!f.categoria)         return"Categoria é obrigatória.";
   if(!f.status)            return"Status é obrigatório.";
   if(!f.patrimonio.trim()) return"Código / Patrimônio é obrigatório.";
+  const patrimonio=f.patrimonio.trim().toUpperCase();
+  const prefixo=PREFIXO_CAT[f.categoria];
+  if(!patrimonio.startsWith(`${prefixo}-`)) return`Código incompatível: equipamentos da categoria ${f.categoria} devem começar com ${prefixo}-.`;
+  if(!new RegExp(`^${prefixo}-\\d{3,}$`).test(patrimonio)) return`Código inválido: use o formato ${prefixo}-001.`;
+  if(itens.some(i=>i.id!==itemId&&(i.patrimonio||"").trim().toUpperCase()===patrimonio)) return`Código duplicado: o patrimônio ${patrimonio} já está cadastrado.`;
   return null;
 }
 function validarMov(mov,tipo){
   if(tipo.exigePonto&&!mov.ponto)return"Selecione o ponto de destino.";
+  if(tipo.id==="conserto"&&!mov.defeito.trim())return"Descreva o defeito antes de enviar o equipamento para conserto.";
   return null;
+}
+
+function baixarJSON(nomeArquivo, dados){
+  const url=URL.createObjectURL(new Blob([JSON.stringify(dados,null,2)],{type:"application/json"}));
+  const link=document.createElement("a");
+  link.href=url;link.download=nomeArquivo;document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 function exportarEquipamentosExcel(itens){
@@ -153,7 +167,7 @@ async function exportarHistoricoPDF(historico){
   });
 }
 
-function RelatoriosPage({ itens, pontos }) {
+function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   const gerentes = [...new Set(pontos.map(p=>p.gerente).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const [gerenteSelecionado, setGerenteSelecionado] = useState("");
   const gerente = gerentes.includes(gerenteSelecionado) ? gerenteSelecionado : gerentes[0]||"";
@@ -263,6 +277,17 @@ function RelatoriosPage({ itens, pontos }) {
     });
   }
 
+  function exportarBackup() {
+    baixarJSON(`stock-on_backup_${hoje()}.json`, {
+      sistema:"Stock-ON",
+      geradoEm:agora(),
+      equipamentos:itens,
+      pontos,
+      historicoEquipamentos:historico,
+      historicoPontos,
+    });
+  }
+
   return(
     <div className="relatorios-painel">
       <section className="relatorios-intro">
@@ -313,7 +338,76 @@ function RelatoriosPage({ itens, pontos }) {
           </select>
           <button className="btn-secundario" onClick={gerarPorGerente} disabled={!gerente}>Gerar por gerente</button>
         </article>
+        <article className="relatorio-card relatorio-backup">
+          <span className="relatorio-icone">💾</span>
+          <h3>Backup completo</h3>
+          <p>Baixa equipamentos, pontos e históricos em arquivo de segurança para guardar fora do sistema.</p>
+          <button className="btn-secundario" onClick={exportarBackup}>Baixar backup</button>
+        </article>
       </section>
+    </div>
+  );
+}
+
+function BuscaGlobalPage({ consulta, onConsulta, itens, pontos, historico, onVerEquipamento, onAbrirPontos }) {
+  const termo=consulta.trim().toLowerCase();
+  const equipamentos=termo?itens.filter(i=>[i.patrimonio,i.nome,i.categoria,i.status,i.localizacao,i.responsavel].some(v=>(v||"").toLowerCase().includes(termo))):[];
+  const pontosEncontrados=termo?pontos.filter(p=>[p.nomeFantasia,p.nomeDono,p.gerente,p.telefone,...p.modalidades].some(v=>(v||"").toLowerCase().includes(termo))):[];
+  const movimentos=termo?historico.filter(h=>[h.itemNome,h.categoria,h.tipo,h.responsavel,h.observacao].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,20):[];
+  return(
+    <div className="busca-global-page">
+      <section className="busca-global-hero">
+        <span className="dash-kicker">Pesquisa geral</span>
+        <h2>Encontre qualquer informação rapidamente</h2>
+        <input className="input-busca busca-global-input" autoFocus type="text" placeholder="Digite patrimônio, ponto, gerente, status ou responsável..." value={consulta} onChange={e=>onConsulta(e.target.value)}/>
+      </section>
+      {!termo
+        ?<div className="hist-vazio"><div className="hist-vazio-icone">🔎</div><div>Digite alguma informação para pesquisar em todo o sistema.</div></div>
+        :<div className="busca-resultados">
+          <section className="secao busca-bloco">
+            <h2 className="secao-titulo">Equipamentos <span className="badge-count">{equipamentos.length}</span></h2>
+            {equipamentos.length===0?<p className="dash-vazio">Nenhum equipamento encontrado.</p>:equipamentos.map(i=><button key={i.id} className="busca-item" onClick={()=>onVerEquipamento(i)}><strong>{i.patrimonio}</strong><span>{i.nome}</span><small>{i.status} · {i.localizacao||"Sem ponto"}</small></button>)}
+          </section>
+          <section className="secao busca-bloco">
+            <h2 className="secao-titulo">Pontos <span className="badge-count">{pontosEncontrados.length}</span></h2>
+            {pontosEncontrados.length===0?<p className="dash-vazio">Nenhum ponto encontrado.</p>:pontosEncontrados.map(p=><button key={p.id} className="busca-item" onClick={onAbrirPontos}><strong>{p.nomeFantasia}</strong><span>{p.gerente}</span><small>{p.telefone}</small></button>)}
+          </section>
+          <section className="secao busca-bloco">
+            <h2 className="secao-titulo">Movimentações <span className="badge-count">{movimentos.length}</span></h2>
+            {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação encontrada.</p>:movimentos.map(h=><div key={h.id} className="busca-item sem-clique"><strong>{h.itemNome}</strong><span>{HIST_CFG[h.tipo]?.label||h.tipo}</span><small>{h.data}</small></div>)}
+          </section>
+        </div>}
+    </div>
+  );
+}
+
+function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar }) {
+  const movimentos=historico.filter(h=>h.itemId===item.id||h.itemNome===item.nome);
+  return(
+    <div className="modal-overlay" onClick={onFechar}>
+      <div className="modal modal-ficha" onClick={e=>e.stopPropagation()}>
+        <div className="modal-header"><h3>Ficha do Equipamento</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
+        <div className="modal-body">
+          <div className="ficha-cabecalho">
+            <div><span className="equip-codigo">{item.patrimonio}</span><h2>{ICONES[item.categoria]} {item.nome}</h2></div>
+            <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
+          </div>
+          <div className="ficha-dados">
+            <div><small>Categoria</small><strong>{item.categoria}</strong></div>
+            <div><small>Local atual</small><strong>{item.localizacao||"Sem ponto"}</strong></div>
+            <div><small>Responsável</small><strong>{item.responsavel||"-"}</strong></div>
+            <div><small>Cadastro</small><strong>{item.dataCadastro||"-"}</strong></div>
+          </div>
+          <h4 className="ficha-subtitulo">Linha do tempo</h4>
+          <div className="ficha-historico">
+            {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação registrada.</p>:movimentos.map(h=><div className="ficha-evento" key={h.id}><span className={`badge-hist ${HIST_CFG[h.tipo]?.cor||""}`}>{HIST_CFG[h.tipo]?.label||h.tipo}</span><div><strong>{h.observacao||"Sem detalhe"}</strong><small>{h.data} · {h.responsavel||"-"}</small></div></div>)}
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secundario" onClick={()=>{onFechar();onEditar(item);}}>Editar</button>
+          <button className="btn-primario" onClick={()=>{onFechar();onMovimentar(item);}}>Movimentar</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -381,6 +475,7 @@ function Sistema({onLogout}){
   const [itens,setItens]           =useState([]);
   const [historico,setHistorico]   =useState([]);
   const [pontos,setPontos]         =useState([]);
+  const [historicoPontos,setHistoricoPontos]=useState([]);
   const [carregando,setCarregando] =useState(true);
   const [aba,setAba]               =useState("dashboard");
   const [abaEquip,setAbaEquip]     =useState("lista");
@@ -403,12 +498,15 @@ function Sistema({onLogout}){
   const [alertaEstoqueAtivo,setAlertaEstoqueAtivo]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
   const [sidebarAberta,setSidebarAberta]=useState(false);
+  const [itemDetalhe,setItemDetalhe]=useState(null);
+  const [buscaGlobal,setBuscaGlobal]=useState("");
+  const [paginaItens,setPaginaItens]=useState(1);
 
   useEffect(()=>{
     async function init(){
       setCarregando(true);
-      const [eq,hist,pts]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos(),carregarPontos()]);
-      setItens(eq);setHistorico(hist);setPontos(pts);setCarregando(false);
+      const [eq,hist,pts,histPts]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos(),carregarPontos(),carregarHistoricoPontos()]);
+      setItens(eq);setHistorico(hist);setPontos(pts);setHistoricoPontos(histPts);setCarregando(false);
     }
     init();
   },[]);
@@ -437,6 +535,10 @@ function Sistema({onLogout}){
       alertaBaixo:totalDisp<MINIMO_CATEGORIA,
     };
   });
+  const inconsistencias=itens.filter(item=>{
+    const prefixo=PREFIXO_CAT[item.categoria];
+    return !prefixo||!(item.patrimonio||"").toUpperCase().startsWith(`${prefixo}-`);
+  });
   const pontosComEquipamentos=pontos.map(p=>({
     ...p,
     totalEquipamentos:itens.filter(i=>i.localizacao===p.nomeFantasia).length,
@@ -450,6 +552,9 @@ function Sistema({onLogout}){
     const mB=!busca||[i.nome,i.patrimonio,i.responsavel,i.localizacao].some(f=>(f||"").toLowerCase().includes(q));
     return mC&&mS&&mB;
   });
+  const itensOrdenados=ordenarEquipamentos(itensFiltrados);
+  const totalPaginasItens=Math.max(1,Math.ceil(itensOrdenados.length/ITENS_POR_PAGINA));
+  const itensPagina=itensOrdenados.slice((paginaItens-1)*ITENS_POR_PAGINA,paginaItens*ITENS_POR_PAGINA);
   const histFiltrado=historico.filter(h=>{
     const mC=histFCat==="Todas"||h.categoria===histFCat;
     const mT=histFTipo==="Todos"||h.tipo===histFTipo;
@@ -457,6 +562,9 @@ function Sistema({onLogout}){
     const mB=!histBusca||[h.itemNome,h.responsavel,h.observacao].some(f=>(f||"").toLowerCase().includes(q));
     return mC&&mT&&mB;
   });
+
+  useEffect(()=>{setPaginaItens(1);},[busca,filtroSt,filtroCatEquip]);
+  useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
 
   function abrirNovo(){
     const cat=CATEGORIAS[0];
@@ -466,25 +574,31 @@ function Sistema({onLogout}){
   }
   function abrirEditar(i){setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
-  function abrirMov(item){setModalMov(item);setMov({...movVazio,ponto:item.localizacao||""});setErroMov("");}
+  function abrirMov(item){
+    const inconsistencia=validarItem(item,itens,item.id);
+    if(inconsistencia){window.alert(`Corrija o cadastro antes de movimentar este equipamento. ${inconsistencia}`);return;}
+    setModalMov(item);setMov({...movVazio,ponto:item.localizacao||""});setErroMov("");
+  }
   function fecharMov(){setModalMov(null);}
 
   async function salvarItem(){
     const localizacao=form.status==="Em rota"?form.localizacao:form.status==="Em conserto"?"Em conserto":"";
     const ff={...form,nome:padronizarNome(form.nome),quantidade:1,minimo:5,localizacao,dataCadastro:form.dataCadastro||hoje()};
-    const erro=validarItem(ff);if(erro){setErroForm(erro);return;}
+    const erro=validarItem(ff,itens,itemEdit?.id);if(erro){setErroForm(erro);return;}
     if(ff.status==="Em rota"&&!ff.localizacao){setErroForm("Selecione o ponto onde este equipamento ficará.");return;}
     if(itemEdit){
-      await salvarEquipamento({...ff,id:itemEdit.id});
-      setItens(itens.map(i=>i.id===itemEdit.id?{...ff,id:itemEdit.id}:i));
+      await salvarEquipamento({...ff,patrimonio:ff.patrimonio.toUpperCase(),id:itemEdit.id});
+      setItens(itens.map(i=>i.id===itemEdit.id?{...ff,patrimonio:ff.patrimonio.toUpperCase(),id:itemEdit.id}:i));
       const d=[];
       if(itemEdit.status!==ff.status)d.push(`Status: ${itemEdit.status}→${ff.status}`);
       const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }else{
-      const novoId=await salvarEquipamento(ff);
-      setItens(prev=>[...prev,{...ff,id:novoId}]);
-      const h={id:Date.now(),tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:`Patrimônio: ${ff.patrimonio}`,data:agora()};
+      const itemNovo={...ff,patrimonio:ff.patrimonio.toUpperCase()};
+      const novoId=await salvarEquipamento(itemNovo);
+      if(!novoId){setErroForm("Não foi possível salvar o equipamento no banco.");return;}
+      setItens(prev=>[...prev,{...itemNovo,id:novoId}]);
+      const h={id:Date.now(),tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:`Patrimônio: ${itemNovo.patrimonio}`,data:agora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }
     fecharForm();
@@ -498,6 +612,7 @@ function Sistema({onLogout}){
     setForm(prev=>({...prev,status:"Em rota",localizacao:novoPonto.nomeFantasia}));
     const h={id:Date.now(),tipo:"cadastro",nome:novoPonto.nomeFantasia,gerente:novoPonto.gerente,observacao:"Ponto cadastrado durante inclusão de equipamento",data:agora()};
     await adicionarHistoricoPonto(h);
+    setHistoricoPontos(prev=>[h,...prev]);
     setModalPontoRapido(false);
   }
 
@@ -517,8 +632,12 @@ function Sistema({onLogout}){
     const upd={...modalMov,quantidade:1,status:tipo.novoStatus,localizacao,responsavel:mov.responsavel||modalMov.responsavel};
     await salvarEquipamento(upd);
     setItens(prev=>prev.map(i=>i.id===modalMov.id?upd:i));
-    const detalhe=tipo.id==="ponto"?`Destino: ${mov.ponto}`:tipo.label;
-    const h={id:Date.now(),tipo:tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||"—",observacao:[detalhe,mov.observacao].filter(Boolean).join(" | "),data:agora()};
+    const detalhe=tipo.id==="ponto"?`Destino: ${mov.ponto}`:tipo.id==="conserto"?`Defeito: ${mov.defeito}`:tipo.label;
+    const informacoesConserto=tipo.id==="conserto"?[
+      mov.assistencia&&`Assistência: ${mov.assistencia}`,
+      mov.previsao&&`Previsão: ${mov.previsao}`,
+    ]:[];
+    const h={id:Date.now(),tipo:tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
     await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     fecharMov();
   }
@@ -566,6 +685,7 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><span>📊</span> Dashboard</button>
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span>📦</span> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span>📍</span> Pontos</button>
+          <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span>🔎</span> Busca Geral</button>
           <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span>📄</span> Relatórios</button>
           <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
             <span>📋</span> Histórico
@@ -754,6 +874,12 @@ function Sistema({onLogout}){
 
           {abaEquip==="lista"&&(
             <section className="secao equip-lista">
+              {inconsistencias.length>0&&(
+                <div className="erro-msg alerta-inconsistencia">
+                  ⚠️ {inconsistencias.length} equipamento{inconsistencias.length!==1?"s":""} com cadastro inconsistente. Corrija o código conforme a categoria antes de novas movimentações:
+                  <strong>{inconsistencias.map(i=>i.patrimonio||i.nome).join(", ")}</strong>
+                </div>
+              )}
               <div className="tabela-header">
                 <div className="equip-titulo">
                   <h2>Equipamentos cadastrados</h2>
@@ -775,7 +901,7 @@ function Sistema({onLogout}){
                   <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Status</th><th>Ponto / Localização</th><th>Movimentar</th><th>⚙️</th></tr></thead>
                   <tbody>
                     {itensFiltrados.length===0?<tr><td colSpan={7} className="tabela-vazia">Nenhum item encontrado.</td></tr>
-                    :itensFiltrados.map(item=>{
+                    :itensPagina.map(item=>{
                       const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").length;
                       const emAlerta=totalCat<MINIMO_CATEGORIA;
                       return(
@@ -787,6 +913,7 @@ function Sistema({onLogout}){
                           <td className="td-obs">{item.localizacao||"Sem ponto"}</td>
                           <td><button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button></td>
                           <td className="td-acoes">
+                            <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎</button>
                             <button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>
                             <button className="btn-excluir" onClick={()=>setExcluindo(item.id)}>🗑️</button>
                           </td>
@@ -798,7 +925,7 @@ function Sistema({onLogout}){
               </div>
               <div className="equip-cards">
                 {itensFiltrados.length===0?<div className="tabela-vazia">Nenhum item encontrado.</div>
-                :itensFiltrados.map(item=>(
+                :itensPagina.map(item=>(
                   <article className="equip-card" key={item.id}>
                     <div className="equip-card-topo">
                       <div><span className="equip-codigo">{item.patrimonio||"—"}</span><h3>{ICONES[item.categoria]} {item.nome}</h3></div>
@@ -810,12 +937,20 @@ function Sistema({onLogout}){
                     </div>
                     <div className="equip-card-acoes">
                       <button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>
+                      <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎 Ficha</button>
                       <button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>
                       <button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir">🗑️</button>
                     </div>
                   </article>
                 ))}
               </div>
+              {itensFiltrados.length>ITENS_POR_PAGINA&&(
+                <div className="paginacao">
+                  <button className="btn-secundario" disabled={paginaItens===1} onClick={()=>setPaginaItens(p=>p-1)}>Anterior</button>
+                  <span>Página <strong>{paginaItens}</strong> de <strong>{totalPaginasItens}</strong> · {itensFiltrados.length} itens</span>
+                  <button className="btn-secundario" disabled={paginaItens===totalPaginasItens} onClick={()=>setPaginaItens(p=>p+1)}>Próxima</button>
+                </div>
+              )}
             </section>
           )}
 
@@ -904,9 +1039,19 @@ function Sistema({onLogout}){
                 <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
               </div>
             </header>
-            <PointsPage equipamentos={itens} onPontosChange={setPontos} onEquipamentosChange={setItens}/>
+            <PointsPage equipamentos={itens} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
           </>
         )}
+
+        {aba==="busca"&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Busca Geral</h1><p className="page-sub">Patrimônios, pontos, gerentes, status e movimentações</p></div>
+            </div>
+          </header>
+          <BuscaGlobalPage consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itens} pontos={pontos} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
+        </>)}
 
         {aba==="relatorios"&&(<>
           <header className="topbar">
@@ -915,7 +1060,7 @@ function Sistema({onLogout}){
               <div><h1 className="page-title">Relatórios</h1><p className="page-sub">Central de PDFs profissionais</p></div>
             </div>
           </header>
-          <RelatoriosPage itens={itens} pontos={pontos}/>
+          <RelatoriosPage itens={itens} pontos={pontos} historico={historico} historicoPontos={historicoPontos}/>
         </>)}
 
         {aba==="historico"&&(<>
@@ -1072,6 +1217,18 @@ function Sistema({onLogout}){
                   {pontos.length===0&&<span className="campo-hint">Cadastre um ponto antes de enviar o equipamento.</span>}
                 </div>
               )}
+              {tipoMovSel?.id==="conserto"&&(
+                <div className="conserto-campos">
+                  <div className="campo">
+                    <label>Defeito identificado *</label>
+                    <textarea placeholder="Ex: tela apagando, fonte queimada..." rows={2} value={mov.defeito} onChange={e=>setMov({...mov,defeito:e.target.value})}/>
+                  </div>
+                  <div className="campos-duplos">
+                    <div className="campo"><label>Assistência / Técnico</label><input type="text" placeholder="Ex: Assistência Central" value={mov.assistencia} onChange={e=>setMov({...mov,assistencia:e.target.value})}/></div>
+                    <div className="campo"><label>Previsão de retorno</label><input type="date" value={mov.previsao} onChange={e=>setMov({...mov,previsao:e.target.value})}/></div>
+                  </div>
+                </div>
+              )}
               <div className="mov-status-resultado">Novo status: <span className={`badge-status ${STATUS_CFG[tipoMovSel.novoStatus]?.cor||""}`}>{tipoMovSel.novoStatus}</span></div>
               <div className="campos-duplos">
                 <div className="campo"><label>Responsável</label><input type="text" placeholder="Ex: Carlos" value={mov.responsavel} onChange={e=>setMov({...mov,responsavel:e.target.value})}/></div>
@@ -1091,6 +1248,16 @@ function Sistema({onLogout}){
             <div className="modal-footer"><button className="btn-secundario" onClick={()=>setExcluindo(null)}>Cancelar</button><button className="btn-danger" onClick={()=>excluir(excluindo)}>Excluir</button></div>
           </div>
         </div>
+      )}
+
+      {itemDetalhe&&(
+        <FichaEquipamento
+          item={itemDetalhe}
+          historico={historico}
+          onFechar={()=>setItemDetalhe(null)}
+          onEditar={abrirEditar}
+          onMovimentar={abrirMov}
+        />
       )}
 
       {confirmLogout&&(

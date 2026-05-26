@@ -304,6 +304,8 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos }) {
 function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onExportExcel, onExportPDF }) {
   const [busca, setBusca] = useState("");
   const [filtroGerente, setFiltroGerente] = useState("Todos");
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA=10;
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
     const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
@@ -311,6 +313,11 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
     const mD=filtroDespesa==="todos"||p.possuiDespesa===filtroDespesa;
     return mB&&mD&&(filtroGerente==="Todos"||p.gerente===filtroGerente);
   });
+  const ordenados=[...filtrados].sort((a,b)=>(a.gerente||"").localeCompare(b.gerente||"","pt-BR")||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
+  const totalPaginas=Math.max(1,Math.ceil(ordenados.length/POR_PAGINA));
+  const paginaAtual=Math.min(pagina,totalPaginas);
+  const visiveis=ordenados.slice((paginaAtual-1)*POR_PAGINA,paginaAtual*POR_PAGINA);
+  useEffect(()=>setPagina(1),[busca,filtroGerente,filtroDespesa]);
   const tituloFiltro=filtroDespesa==="sim"?"Com despesa":filtroDespesa==="nao"?"Sem despesa":"Todos";
 
   return (
@@ -334,7 +341,7 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
           <tbody>
             {filtrados.length===0
               ?<tr><td colSpan={9} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
-              :filtrados.map(p=>{
+              :visiveis.map(p=>{
                 const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
                 return <tr key={p.id}>
                   <td className="td-nome">🏪 {p.nomeFantasia}</td>
@@ -360,7 +367,7 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
       </div>
       <div className="ponto-cards">
         {filtrados.length===0?<div className="tabela-vazia">Nenhum ponto encontrado.</div>
-        :filtrados.map(p=>{
+        :visiveis.map(p=>{
           const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
           return(
             <article className="ponto-card" key={p.id}>
@@ -380,6 +387,13 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
           );
         })}
       </div>
+      {filtrados.length>POR_PAGINA&&(
+        <div className="paginacao">
+          <button className="btn-secundario" disabled={paginaAtual===1} onClick={()=>setPagina(p=>p-1)}>Anterior</button>
+          <span>Página <strong>{paginaAtual}</strong> de <strong>{totalPaginas}</strong> · {filtrados.length} pontos</span>
+          <button className="btn-secundario" disabled={paginaAtual===totalPaginas} onClick={()=>setPagina(p=>p+1)}>Próxima</button>
+        </div>
+      )}
     </section>
   );
 }
@@ -606,7 +620,7 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage({ equipamentos=[], onPontosChange, onEquipamentosChange }) {
+export default function PointsPage({ equipamentos=[], onPontosChange, onEquipamentosChange, onHistoricoChange }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [loading,    setLoading]   = useState(true);
@@ -621,7 +635,7 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
     async function carregar(){
       setLoading(true);
       const [pts, hist] = await Promise.all([carregarPontos(), carregarHistoricoPontos()]);
-      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); setLoading(false);
+      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setLoading(false);
     }
     carregar();
   },[]);
@@ -650,20 +664,22 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
       if(alterados.length>0) onEquipamentosChange?.(equipamentosAtualizados);
       const h={id:Date.now(),tipo:pontoEdit?"edicao":"cadastro",nome:form.nomeFantasia,gerente:form.gerente,observacao:pontoEdit?"Ponto editado":"Ponto cadastrado",data:agoraStr()};
       await adicionarHistoricoPonto(h);
-      setHistorico(prev=>[h,...prev]);
+      setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
       setModalForm(false);setPontoEdit(null);
     }catch(e){console.error("Erro ao salvar ponto:",e);}
   }
 
   async function excluirHandler(id){
     const p=pontos.find(x=>x.id===id);
+    const vinculados=equipamentos.filter(item=>item.localizacao===p.nomeFantasia);
+    if(vinculados.length>0)return;
     try{
       await excluirPonto(id);
       const atualizados=pontos.filter(x=>x.id!==id);
       setPontos(atualizados);onPontosChange?.(atualizados);
       const h={id:Date.now(),tipo:"exclusao",nome:p.nomeFantasia,gerente:p.gerente,observacao:"Ponto removido",data:agoraStr()};
       await adicionarHistoricoPonto(h);
-      setHistorico(prev=>[h,...prev]);
+      setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
       setExcluindo(null);
     }catch(e){console.error("Erro ao excluir ponto:",e);}
   }
@@ -679,6 +695,8 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
     setFiltroDespesa(filtro);
     setAbaInterna("pontos");
   }
+  const pontoExcluindo=pontos.find(p=>p.id===excluindo);
+  const equipamentosNoPonto=pontoExcluindo?equipamentos.filter(i=>i.localizacao===pontoExcluindo.nomeFantasia):[];
 
   return(
     <div className="points-page">
@@ -720,10 +738,14 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
         <div className="modal-overlay" onClick={()=>setExcluindo(null)}>
           <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
             <div className="modal-header"><h3>Confirmar Exclusão</h3><button className="modal-fechar" onClick={()=>setExcluindo(null)}>✕</button></div>
-            <div className="modal-body"><p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja excluir este ponto?</p></div>
+            <div className="modal-body">
+              {equipamentosNoPonto.length>0
+                ?<div className="erro-msg">⚠️ Este ponto não pode ser excluído porque possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.patrimonio||i.nome).join(", ")}</strong>. Movimente primeiro para outro ponto ou disponibilize o equipamento.</div>
+                :<p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja excluir este ponto?</p>}
+            </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={()=>setExcluindo(null)}>Cancelar</button>
-              <button className="btn-danger" onClick={()=>excluirHandler(excluindo)}>Excluir</button>
+              {equipamentosNoPonto.length===0&&<button className="btn-danger" onClick={()=>excluirHandler(excluindo)}>Excluir</button>}
             </div>
           </div>
         </div>
