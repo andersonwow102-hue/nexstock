@@ -820,14 +820,14 @@ function Sistema({onLogout}){
         </div>
         <nav className="sidebar-nav">
           <span className="nav-section-label">Principal</span>
-          <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><span>📊</span> Dashboard</button>
-          <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span>📦</span> Equipamentos</button>
-          <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span>📍</span> Pontos</button>
-          <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span>🔎</span> Busca Geral</button>
-          <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span>📄</span> Relatórios</button>
-          <button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span>💰</span> Despesas & Acessos</button>
+          <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><span className="nav-icon">📊</span> Dashboard</button>
+          <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span className="nav-icon">📦</span> Equipamentos</button>
+          <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span className="nav-icon">📍</span> Pontos</button>
+          <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span className="nav-icon">🔎</span> Busca Geral</button>
+          <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span className="nav-icon">📄</span> Relatórios</button>
+          <button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">💰</span> Despesas & Acessos</button>
           <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
-            <span>📋</span> Histórico
+            <span className="nav-icon">📋</span> Histórico
             {historico.length>0&&<span className="nav-badge">{historico.length>99?"99+":historico.length}</span>}
           </button>
         </nav>
