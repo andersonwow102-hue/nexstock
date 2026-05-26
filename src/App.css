@@ -937,6 +937,8 @@ body {
   padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--verde-border);
   background: var(--verde-bg); color: var(--verde); font-weight: 600; font-size: 13.5px;
 }
+.sessao-verificando { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.sessao-verificando p { color: var(--txt-secondary); font-size: 13px; }
 .carga-erro-page { min-height: 100vh; align-items: center; justify-content: center; padding: 20px; }
 .carga-erro-card {
   width: min(430px, 100%); padding: 28px 24px; text-align: center;

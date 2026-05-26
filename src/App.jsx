@@ -421,10 +421,10 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, p
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
-function TelaLogin({onLogin}){
+function TelaLogin({onLogin, avisoInicial=""}){
   const [email,setEmail]=useState("");
   const [senha,setSenha]=useState("");
-  const [erro,setErro]=useState("");
+  const [erro,setErro]=useState(avisoInicial);
   const [visivel,setVisivel]=useState(false);
   const [carregando,setCarregando]=useState(false);
 
@@ -520,19 +520,37 @@ function ModalAlterarSenha({onFechar}) {
 export default function App(){
   const [logado,setLogado]=useState(false);
   const [verificando,setVerificando]=useState(true);
+  const [erroSessao,setErroSessao]=useState("");
 
   useEffect(()=>{
-    supabase.auth.getSession().then(({data:{session}})=>{
-      setLogado(!!session);setVerificando(false);
-    });
+    let ativo=true;
+    comPrazo(supabase.auth.getSession(),"seu login",8000)
+      .then(({data:{session}})=>{
+        if(!ativo)return;
+        setLogado(!!session);
+        setVerificando(false);
+      })
+      .catch(()=>{
+        if(!ativo)return;
+        setErroSessao("Não foi possível recuperar seu acesso salvo. Informe seu e-mail e senha novamente.");
+        setLogado(false);
+        setVerificando(false);
+      });
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
+      if(!ativo)return;
       setLogado(!!session);
+      if(session)setErroSessao("");
     });
-    return()=>subscription.unsubscribe();
+    return()=>{ativo=false;subscription.unsubscribe();};
   },[]);
 
-  if(verificando)return null;
-  if(!logado)return<TelaLogin onLogin={()=>setLogado(true)}/>;
+  if(verificando)return(
+    <div className="login-page sessao-verificando">
+      <div className="loading-dots"><span/><span/><span/></div>
+      <p>Preparando acesso...</p>
+    </div>
+  );
+  if(!logado)return<TelaLogin avisoInicial={erroSessao} onLogin={()=>setLogado(true)}/>;
   return<Sistema onLogout={async()=>{await Auth.deslogar();setLogado(false);}}/>;
 }
 
