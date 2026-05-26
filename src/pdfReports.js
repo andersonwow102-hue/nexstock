@@ -35,7 +35,7 @@ function baixarDocumento(doc, nomeArquivo) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, colunas, linhas, total, secoes }) {
+export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, colunas, linhas, total, secoes, resumo=[] }) {
   try {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const largura = doc.internal.pageSize.getWidth();
@@ -68,8 +68,31 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
     doc.text(descricao, inicioTitulo, 21);
     doc.text(`Emitido em: ${agora()}  |  Total de registros: ${total}`, inicioTitulo, 27);
 
-    const tabelas = secoes?.length ? secoes : [{ colunas, linhas }];
     let inicioTabela = 41;
+    if (resumo.length > 0) {
+      const espaco = 3;
+      const larguraCard = (largura - 24 - (Math.min(resumo.length, 6) - 1) * espaco) / Math.min(resumo.length, 6);
+      const linhasResumo = Math.ceil(resumo.length / 6);
+      resumo.forEach((item, indice) => {
+        const linha = Math.floor(indice / 6);
+        const coluna = indice % 6;
+        const x = 12 + coluna * (larguraCard + espaco);
+        const y = 41 + linha * 21;
+        doc.setFillColor(247, 249, 253);
+        doc.setDrawColor(219, 228, 240);
+        doc.roundedRect(x, y, larguraCard, 17, 2, 2, "FD");
+        doc.setTextColor(...CINZA);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.text(String(item.label).toUpperCase(), x + 4, y + 6);
+        doc.setTextColor(...(item.destaque || AZUL));
+        doc.setFontSize(12);
+        doc.text(String(item.valor), x + 4, y + 13);
+      });
+      inicioTabela = 41 + linhasResumo * 21 + 5;
+    }
+
+    const tabelas = secoes?.length ? secoes : [{ colunas, linhas }];
     tabelas.forEach((secao) => {
       if (secao.titulo) {
         if (inicioTabela > altura - 32) {

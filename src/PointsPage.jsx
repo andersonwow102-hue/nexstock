@@ -49,13 +49,24 @@ function exportarPontosExcel(pontos){
 
 // ── Exportar PDF Pontos ───────────────────────────────────────────────────────
 async function exportarPontosPDF(pontos){
+  const ordenados=[...pontos].sort((a,b)=>
+    (a.gerente||"").localeCompare(b.gerente||"", "pt-BR") ||
+    a.nomeFantasia.localeCompare(b.nomeFantasia, "pt-BR")
+  );
+  const totalDespesas=pontos.reduce((total,p)=>total+(p.possuiDespesa==="sim"?Number(p.valorDespesa||0):0),0);
   await gerarRelatorioPDF({
     titulo:"Relatório de Pontos",
     descricao:"Estabelecimentos cadastrados, responsáveis e despesas",
     nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
     total:pontos.length,
+    resumo:[
+      {label:"Pontos",valor:pontos.length},
+      {label:"Com despesa",valor:pontos.filter(p=>p.possuiDespesa==="sim").length,destaque:[201,125,0]},
+      {label:"Sem despesa",valor:pontos.filter(p=>p.possuiDespesa!=="sim").length,destaque:[5,150,82]},
+      {label:"Despesa total",valor:formatarReais(totalDespesas),destaque:[201,125,0]},
+    ],
     colunas:["Nome Fantasia","Dono","Telefone","Gerente","Modalidades","Despesa","Valor"],
-    linhas:pontos.map(p=>[
+    linhas:ordenados.map(p=>[
       p.nomeFantasia,
       p.nomeDono,
       p.telefone,
@@ -89,6 +100,12 @@ async function exportarHistoricoPontosPDF(historico){
     descricao:"Registro de cadastros, alterações e exclusões de pontos",
     nomeArquivo:`stock-on_historico_pontos_${hoje()}.pdf`,
     total:historico.length,
+    resumo:[
+      {label:"Movimentações",valor:historico.length},
+      {label:"Cadastros",valor:historico.filter(h=>h.tipo==="cadastro").length,destaque:[5,150,82]},
+      {label:"Edições",valor:historico.filter(h=>h.tipo==="edicao").length,destaque:[37,99,235]},
+      {label:"Exclusões",valor:historico.filter(h=>h.tipo==="exclusao").length,destaque:[201,48,48]},
+    ],
     colunas:["Tipo","Nome Fantasia","Gerente","Observação","Data"],
     linhas:historico.map(h=>[
       h.tipo==="cadastro"?"Cadastro":h.tipo==="edicao"?"Edição":"Exclusão",

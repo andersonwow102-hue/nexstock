@@ -64,6 +64,21 @@ const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponíve
 const movVazio={tipoId:"ponto",ponto:"",responsavel:"",observacao:""};
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
+const formatarMoedaPDF=valor=>Number(valor||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+function ordenarEquipamentos(lista){
+  return [...lista].sort((a,b)=>{
+    const categoriaA=CATEGORIAS.indexOf(a.categoria);
+    const categoriaB=CATEGORIAS.indexOf(b.categoria);
+    if(categoriaA!==categoriaB)return categoriaA-categoriaB;
+    return (a.patrimonio||"").localeCompare(b.patrimonio||"", "pt-BR", {numeric:true}) || a.nome.localeCompare(b.nome, "pt-BR");
+  });
+}
+function ordenarPontos(lista){
+  return [...lista].sort((a,b)=>
+    (a.gerente||"").localeCompare(b.gerente||"", "pt-BR") ||
+    a.nomeFantasia.localeCompare(b.nomeFantasia, "pt-BR")
+  );
+}
 
 const Auth={ deslogar:async()=>{ await supabase.auth.signOut(); } };
 
@@ -93,13 +108,20 @@ function exportarEquipamentosExcel(itens){
 }
 
 async function exportarEquipamentosPDF(itens){
+  const ordenados=ordenarEquipamentos(itens);
   await gerarRelatorioPDF({
     titulo:"Relatório de Equipamentos",
     descricao:"Inventário operacional e localização atual dos equipamentos",
     nomeArquivo:`stock-on_equipamentos_${hoje()}.pdf`,
     total:itens.length,
+    resumo:[
+      {label:"Cadastrados",valor:itens.length},
+      {label:"Disponíveis",valor:itens.filter(i=>i.status==="Disponível").length,destaque:[5,150,82]},
+      {label:"Em rota",valor:itens.filter(i=>i.status==="Em rota").length,destaque:[37,99,235]},
+      {label:"Em conserto",valor:itens.filter(i=>i.status==="Em conserto").length,destaque:[201,125,0]},
+    ],
     colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
-    linhas:itens.map(i=>[i.patrimonio||"-",i.nome,i.categoria,i.status,i.localizacao||"Sem ponto",i.responsavel||"-"]),
+    linhas:ordenados.map(i=>[i.patrimonio||"-",i.nome,i.categoria,i.status,i.localizacao||"Sem ponto",i.responsavel||"-"]),
   });
 }
 
@@ -121,6 +143,11 @@ async function exportarHistoricoPDF(historico){
     descricao:"Rastreabilidade de cadastros e movimentações operacionais",
     nomeArquivo:`stock-on_historico_equipamentos_${hoje()}.pdf`,
     total:historico.length,
+    resumo:[
+      {label:"Movimentações",valor:historico.length},
+      {label:"Envios a ponto",valor:historico.filter(h=>h.tipo==="ponto").length,destaque:[37,99,235]},
+      {label:"Cadastros",valor:historico.filter(h=>h.tipo==="cadastro").length,destaque:[5,150,82]},
+    ],
     colunas:["Tipo","Equipamento","Categoria","Responsável","Detalhe","Data"],
     linhas:historico.map(h=>[HIST_CFG[h.tipo]?.label||h.tipo,h.itemNome,h.categoria,h.responsavel||"-",h.observacao||"-",h.data]),
   });
@@ -134,15 +161,15 @@ function RelatoriosPage({ itens, pontos }) {
   const pontosGerente = pontos.filter(p=>p.gerente===gerente);
   const locaisGerente = new Set(pontosGerente.map(p=>p.nomeFantasia));
   const equipamentosGerente = itens.filter(i=>locaisGerente.has(i.localizacao));
-  const formatarValor = valor => Number(valor||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-  const linhasEquipamentos = lista => lista.map(i=>[
+  const despesas = lista => lista.reduce((total,p)=>total+(p.possuiDespesa==="sim"?Number(p.valorDespesa||0):0),0);
+  const linhasEquipamentos = lista => ordenarEquipamentos(lista).map(i=>[
     i.patrimonio||"-", i.nome, i.categoria, i.status, i.localizacao||"Sem ponto", i.responsavel||"-",
   ]);
-  const linhasPontos = lista => lista.map(p=>[
+  const linhasPontos = lista => ordenarPontos(lista).map(p=>[
     p.nomeFantasia, p.nomeDono, p.gerente,
     itens.filter(i=>i.localizacao===p.nomeFantasia).length,
     p.possuiDespesa==="sim"?"Sim":"Não",
-    p.possuiDespesa==="sim"?formatarValor(p.valorDespesa):"-",
+    p.possuiDespesa==="sim"?formatarMoedaPDF(p.valorDespesa):"-",
   ]);
 
   async function gerarCompleto() {
@@ -151,18 +178,15 @@ function RelatoriosPage({ itens, pontos }) {
       descricao:"Visão completa da operação, equipamentos e pontos cadastrados",
       nomeArquivo:`stock-on_relatorio_geral_${hoje()}.pdf`,
       total:itens.length+pontos.length,
+      resumo:[
+        {label:"Equipamentos",valor:itens.length},
+        {label:"Disponíveis",valor:disponiveis.length,destaque:[5,150,82]},
+        {label:"Em rota",valor:itens.filter(i=>i.status==="Em rota").length,destaque:[37,99,235]},
+        {label:"Em conserto",valor:itens.filter(i=>i.status==="Em conserto").length,destaque:[201,125,0]},
+        {label:"Pontos",valor:pontos.length},
+        {label:"Despesas",valor:formatarMoedaPDF(despesas(pontos)),destaque:[201,125,0]},
+      ],
       secoes:[
-        {
-          titulo:"Resumo operacional",
-          colunas:["Indicador","Quantidade"],
-          linhas:[
-            ["Equipamentos cadastrados", itens.length],
-            ["Equipamentos disponíveis", disponiveis.length],
-            ["Equipamentos em rota", itens.filter(i=>i.status==="Em rota").length],
-            ["Equipamentos em conserto", itens.filter(i=>i.status==="Em conserto").length],
-            ["Pontos cadastrados", pontos.length],
-          ],
-        },
         {
           titulo:"Equipamentos",
           colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
@@ -183,6 +207,12 @@ function RelatoriosPage({ itens, pontos }) {
       descricao:"Pontos cadastrados, gerentes, equipamentos vinculados e despesas",
       nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
       total:pontos.length,
+      resumo:[
+        {label:"Pontos",valor:pontos.length},
+        {label:"Com despesa",valor:pontos.filter(p=>p.possuiDespesa==="sim").length,destaque:[201,125,0]},
+        {label:"Sem despesa",valor:pontos.filter(p=>p.possuiDespesa!=="sim").length,destaque:[5,150,82]},
+        {label:"Despesa total",valor:formatarMoedaPDF(despesas(pontos)),destaque:[201,125,0]},
+      ],
       colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Despesa","Valor"],
       linhas:linhasPontos(pontos),
     });
@@ -194,6 +224,13 @@ function RelatoriosPage({ itens, pontos }) {
       descricao:"Equipamentos prontos para serem enviados a um ponto",
       nomeArquivo:`stock-on_disponiveis_${hoje()}.pdf`,
       total:disponiveis.length,
+      resumo:[
+        {label:"Disponíveis",valor:disponiveis.length,destaque:[5,150,82]},
+        ...CATEGORIAS.map(categoria=>({
+          label:categoria,
+          valor:disponiveis.filter(i=>i.categoria===categoria).length,
+        })),
+      ],
       colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
       linhas:linhasEquipamentos(disponiveis),
     });
@@ -205,6 +242,12 @@ function RelatoriosPage({ itens, pontos }) {
       descricao:"Pontos sob responsabilidade e equipamentos atualmente vinculados",
       nomeArquivo:`stock-on_gerente_${gerente.toLowerCase().replace(/\s+/g,"-")}_${hoje()}.pdf`,
       total:pontosGerente.length+equipamentosGerente.length,
+      resumo:[
+        {label:"Gerente",valor:gerente},
+        {label:"Pontos",valor:pontosGerente.length},
+        {label:"Equipamentos",valor:equipamentosGerente.length,destaque:[37,99,235]},
+        {label:"Despesas",valor:formatarMoedaPDF(despesas(pontosGerente)),destaque:[201,125,0]},
+      ],
       secoes:[
         {
           titulo:`Pontos de ${gerente}`,
