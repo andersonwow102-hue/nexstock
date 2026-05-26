@@ -68,6 +68,12 @@ const ITENS_POR_PAGINA=12;
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
 const formatarMoedaPDF=valor=>Number(valor||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+function comPrazo(promise, descricao, tempo=15000) {
+  return Promise.race([
+    promise,
+    new Promise((_, rejeitar)=>setTimeout(()=>rejeitar(new Error(`Tempo excedido ao carregar ${descricao}.`)),tempo)),
+  ]);
+}
 function ordenarEquipamentos(lista){
   return [...lista].sort((a,b)=>{
     const categoriaA=CATEGORIAS.indexOf(a.categoria);
@@ -537,6 +543,8 @@ function Sistema({onLogout}){
   const [pontos,setPontos]         =useState([]);
   const [historicoPontos,setHistoricoPontos]=useState([]);
   const [carregando,setCarregando] =useState(true);
+  const [erroCarregamento,setErroCarregamento]=useState("");
+  const [tentativaCarga,setTentativaCarga]=useState(0);
   const [aba,setAba]               =useState("dashboard");
   const [abaEquip,setAbaEquip]     =useState("lista");
   const [filtroCatEquip,setFiltroCatEquip]=useState("Todas");
@@ -565,13 +573,37 @@ function Sistema({onLogout}){
   const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta"});
 
   useEffect(()=>{
+    let ativo=true;
     async function init(){
       setCarregando(true);
-      const [eq,hist,pts,histPts,perfil]=await Promise.all([carregarEquipamentos(),carregarHistoricoEquipamentos(),carregarPontos(),carregarHistoricoPontos(),carregarPerfilAtual()]);
-      setItens(eq);setHistorico(hist);setPontos(pts);setHistoricoPontos(histPts);setPerfilAtual(perfil);setCarregando(false);
+      setErroCarregamento("");
+      try{
+        const [eq,pts]=await Promise.all([
+          comPrazo(carregarEquipamentos(),"os equipamentos"),
+          comPrazo(carregarPontos(),"os pontos"),
+        ]);
+        if(!ativo)return;
+        setItens(eq);
+        setPontos(pts);
+        setCarregando(false);
+        const complementos=await Promise.allSettled([
+          comPrazo(carregarHistoricoEquipamentos(),"o histórico de equipamentos"),
+          comPrazo(carregarHistoricoPontos(),"o histórico de pontos"),
+          comPrazo(carregarPerfilAtual(),"seu perfil de acesso"),
+        ]);
+        if(!ativo)return;
+        if(complementos[0].status==="fulfilled")setHistorico(complementos[0].value);
+        if(complementos[1].status==="fulfilled")setHistoricoPontos(complementos[1].value);
+        if(complementos[2].status==="fulfilled")setPerfilAtual(complementos[2].value);
+      }catch(e){
+        if(!ativo)return;
+        setErroCarregamento(e.message||"Não foi possível buscar os dados do sistema.");
+        setCarregando(false);
+      }
     }
     init();
-  },[]);
+    return()=>{ativo=false;};
+  },[tentativaCarga]);
 
   function toggleTema(){const n=!temaClaro;setTemaClaro(n);try{localStorage.setItem("sc_tema",n?"claro":"escuro");}catch{}}
   function fecharSidebar(){setSidebarAberta(false);}
@@ -738,6 +770,23 @@ function Sistema({onLogout}){
             <div style={{fontSize:"13px",color:"var(--txt-secondary)"}}>Carregando o sistema...</div>
           </div>
           <div className="loading-dots"><span/><span/><span/></div>
+        </div>
+      </div>
+    );
+  }
+
+  if(erroCarregamento){
+    return(
+      <div className={`app${temaClaro?" tema-claro":""} carga-erro-page`}>
+        <div className="carga-erro-card">
+          <img src={temaClaro?logoLight:logo} alt="Stock-ON"/>
+          <h2>Não foi possível carregar o sistema</h2>
+          <p>{erroCarregamento}</p>
+          <p className="carga-erro-dica">Verifique sua internet e tente novamente. Se continuar, envie uma foto desta mensagem.</p>
+          <div>
+            <button className="btn-primario" onClick={()=>setTentativaCarga(t=>t+1)}>Tentar novamente</button>
+            <button className="btn-secundario" onClick={onLogout}>Voltar ao login</button>
+          </div>
         </div>
       </div>
     );

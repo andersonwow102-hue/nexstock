@@ -937,6 +937,17 @@ body {
   padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--verde-border);
   background: var(--verde-bg); color: var(--verde); font-weight: 600; font-size: 13.5px;
 }
+.carga-erro-page { min-height: 100vh; align-items: center; justify-content: center; padding: 20px; }
+.carga-erro-card {
+  width: min(430px, 100%); padding: 28px 24px; text-align: center;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+}
+.carga-erro-card img { width: 130px; height: auto; }
+.carga-erro-card h2 { font-size: 19px; color: var(--txt-primary); }
+.carga-erro-card p { font-size: 13.5px; color: var(--txt-secondary); line-height: 1.55; }
+.carga-erro-dica { font-size: 12px !important; color: var(--txt-muted) !important; }
+.carga-erro-card > div { display: flex; gap: 8px; width: 100%; justify-content: center; }
 .modal-footer { padding: 14px 22px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
 
 /* ══════════════════════════════════════════════════════
