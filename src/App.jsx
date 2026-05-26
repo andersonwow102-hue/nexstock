@@ -2,7 +2,7 @@ import logo from "./assets/stock-on-dark.png";
 import logoLight from "./assets/stock-on-light.png";
 import { useState, useEffect } from "react";
 import "./App.css";
-import PointsPage from "./PointsPage.jsx";
+import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import { supabase } from "./supabase.js";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -10,7 +10,7 @@ import autoTable from "jspdf-autotable";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
-  carregarPontos,
+  carregarPontos, salvarPonto, adicionarHistoricoPonto,
 } from "./db.js";
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
@@ -196,6 +196,7 @@ function Sistema({onLogout}){
   const [abaEquip,setAbaEquip]     =useState("lista");
   const [filtroCatEquip,setFiltroCatEquip]=useState("Todas");
   const [modalForm,setModalForm]   =useState(false);
+  const [modalPontoRapido,setModalPontoRapido]=useState(false);
   const [modalMov,setModalMov]     =useState(null);
   const [itemEdit,setItemEdit]     =useState(null);
   const [form,setForm]             =useState(formVazio);
@@ -278,8 +279,10 @@ function Sistema({onLogout}){
   function fecharMov(){setModalMov(null);}
 
   async function salvarItem(){
-    const ff={...form,nome:padronizarNome(form.nome),quantidade:1,minimo:5,dataCadastro:form.dataCadastro||hoje()};
+    const localizacao=form.status==="Em rota"?form.localizacao:form.status==="Em conserto"?"Em conserto":"";
+    const ff={...form,nome:padronizarNome(form.nome),quantidade:1,minimo:5,localizacao,dataCadastro:form.dataCadastro||hoje()};
     const erro=validarItem(ff);if(erro){setErroForm(erro);return;}
+    if(ff.status==="Em rota"&&!ff.localizacao){setErroForm("Selecione o ponto onde este equipamento ficará.");return;}
     if(itemEdit){
       await salvarEquipamento({...ff,id:itemEdit.id});
       setItens(itens.map(i=>i.id===itemEdit.id?{...ff,id:itemEdit.id}:i));
@@ -294,6 +297,17 @@ function Sistema({onLogout}){
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }
     fecharForm();
+  }
+
+  async function salvarPontoRapido(ponto){
+    const novoId=await salvarPonto(ponto);
+    if(!novoId){setErroForm("Não foi possível cadastrar o ponto. Tente novamente.");return;}
+    const novoPonto={...ponto,id:novoId};
+    setPontos(prev=>[...prev,novoPonto]);
+    setForm(prev=>({...prev,status:"Em rota",localizacao:novoPonto.nomeFantasia}));
+    const h={id:Date.now(),tipo:"cadastro",nome:novoPonto.nomeFantasia,gerente:novoPonto.gerente,observacao:"Ponto cadastrado durante inclusão de equipamento",data:agora()};
+    await adicionarHistoricoPonto(h);
+    setModalPontoRapido(false);
   }
 
   async function excluir(id){
@@ -779,10 +793,26 @@ function Sistema({onLogout}){
                     setForm({...form,categoria:c,patrimonio:!itemEdit?gerarPatrimonio(c,itens):form.patrimonio});
                   }}>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></div>
                 <div className="campo"><label>Status *</label>
-                  <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>
+                  <select value={form.status} onChange={e=>{
+                    const status=e.target.value;
+                    setForm({...form,status,localizacao:status==="Em rota"?form.localizacao:""});
+                  }}>
                     {STATUS_LISTA.map(s=><option key={s}>{s}</option>)}
                   </select></div>
               </div>
+              {form.status==="Em rota"&&(
+                <div className="campo ponto-destino-form">
+                  <label>Ponto onde ficará o equipamento *</label>
+                  <div className="ponto-destino-linha">
+                    <select value={form.localizacao} onChange={e=>setForm({...form,localizacao:e.target.value})}>
+                      <option value="">Selecione um ponto...</option>
+                      {pontos.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
+                    </select>
+                    <button type="button" className="btn-secundario" onClick={()=>setModalPontoRapido(true)}>+ Criar ponto agora</button>
+                  </div>
+                  <span className="campo-hint">Ao salvar, o equipamento já ficará vinculado ao ponto escolhido.</span>
+                </div>
+              )}
               <div className="campo-info-minimo">🔒 Alerta de estoque por categoria: <strong>menos de 5 equipamentos disponíveis</strong></div>
             </div>
             <div className="modal-footer">
@@ -791,6 +821,16 @@ function Sistema({onLogout}){
             </div>
           </div>
         </div>
+      )}
+
+      {modalPontoRapido&&(
+        <PointFormModal
+          ponto={null}
+          equipamentos={[]}
+          mostrarEquipamentos={false}
+          onSalvar={salvarPontoRapido}
+          onFechar={()=>setModalPontoRapido(false)}
+        />
       )}
 
       {modalMov&&(

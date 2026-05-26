@@ -127,7 +127,7 @@ function mascaraMoeda(v) {
 }
 
 // ─── Modal Formulário ─────────────────────────────────────────────────────────
-function PointFormModal({ ponto, equipamentos, onSalvar, onFechar }) {
+export function PointFormModal({ ponto, equipamentos=[], onSalvar, onFechar, mostrarEquipamentos=true }) {
   const [form, setForm] = useState(ponto ? {...ponto,
     valorDespesa: ponto.valorDespesa ? mascaraMoeda(String(Math.round(ponto.valorDespesa*100))) : ""
   } : {...pontoFormVazio});
@@ -185,20 +185,22 @@ function PointFormModal({ ponto, equipamentos, onSalvar, onFechar }) {
               ))}
             </div>
           </div>
-          <div className="campo">
-            <label>Equipamentos disponíveis para este ponto</label>
-            {equipamentosDisponiveis.length===0
-              ?<span className="campo-hint">Nenhum equipamento livre. Para trocar de ponto, use a aba Movimentar.</span>
-              :<div className="modalidades-grid">
-                {equipamentosDisponiveis.map(item=>(
-                  <label key={item.id} className={`modalidade-item ${equipamentosSelecionados.includes(item.id)?"modalidade-ativa":""}`}>
-                    <input type="checkbox" checked={equipamentosSelecionados.includes(item.id)} onChange={()=>setEquipamentosSelecionados(prev=>prev.includes(item.id)?prev.filter(id=>id!==item.id):[...prev,item.id])}/>
-                    {item.patrimonio||item.nome}
-                  </label>
-                ))}
-              </div>}
-            <span className="campo-hint">Equipamentos que já estão em outro ponto só podem ser transferidos em Movimentar.</span>
-          </div>
+          {mostrarEquipamentos&&(
+            <div className="campo">
+              <label>Equipamentos disponíveis para este ponto</label>
+              {equipamentosDisponiveis.length===0
+                ?<span className="campo-hint">Nenhum equipamento livre. Para trocar de ponto, use a aba Movimentar.</span>
+                :<div className="modalidades-grid">
+                  {equipamentosDisponiveis.map(item=>(
+                    <label key={item.id} className={`modalidade-item ${equipamentosSelecionados.includes(item.id)?"modalidade-ativa":""}`}>
+                      <input type="checkbox" checked={equipamentosSelecionados.includes(item.id)} onChange={()=>setEquipamentosSelecionados(prev=>prev.includes(item.id)?prev.filter(id=>id!==item.id):[...prev,item.id])}/>
+                      {item.patrimonio||item.nome}
+                    </label>
+                  ))}
+                </div>}
+              <span className="campo-hint">Equipamentos que já estão em outro ponto só podem ser transferidos em Movimentar.</span>
+            </div>
+          )}
           <div className="campo">
             <label>Possui Despesa? *</label>
             <div className="despesa-opcoes">

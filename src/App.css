@@ -776,6 +776,13 @@ body {
 .campos-duplos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .campo-hint { font-size: 11.5px; color: var(--txt-muted); }
 .campo-hint strong { color: var(--verde); }
+.ponto-destino-form {
+  background: var(--azul-bg); border: 1px solid var(--azul-border);
+  border-radius: var(--radius-md); padding: 12px;
+}
+.ponto-destino-linha { display: flex; align-items: center; gap: 8px; }
+.ponto-destino-linha select { flex: 1; }
+.ponto-destino-linha .btn-secundario { white-space: nowrap; }
 .erro-msg {
   background: var(--vermelho-bg); color: var(--vermelho);
   border: 1px solid var(--vermelho-border);
@@ -1029,6 +1036,7 @@ body {
   /* Formulários */
   .campos-duplos { grid-template-columns: 1fr; }
   .tipos-mov-grid { grid-template-columns: repeat(2, 1fr); }
+  .ponto-destino-linha { flex-direction: column; align-items: stretch; }
 
   /* Filtros */
   .filtros { width: 100%; }
