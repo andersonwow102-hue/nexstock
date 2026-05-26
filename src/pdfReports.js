@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable from "jspdf-autotable/es";
 import logo from "./assets/stock-on-light.png";
 
 const AZUL = [15, 35, 72];
