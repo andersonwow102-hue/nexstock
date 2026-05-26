@@ -40,22 +40,33 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const largura = doc.internal.pageSize.getWidth();
     const altura = doc.internal.pageSize.getHeight();
-    const imagem = await carregarImagem(logo);
 
     doc.setFillColor(...AZUL);
     doc.rect(0, 0, largura, 33, "F");
     doc.setFillColor(...DOURADO);
     doc.rect(0, 32, largura, 1, "F");
-    doc.addImage(imagem, "PNG", 12, 4, 35, 23, undefined, "FAST");
+
+    let inicioTitulo = 54;
+    try {
+      const imagem = await carregarImagem(logo);
+      doc.addImage(imagem, "PNG", 12, 4, 35, 23, undefined, "FAST");
+    } catch (erroLogo) {
+      console.warn("Logo nao incorporada ao PDF; usando assinatura textual.", erroLogo);
+      inicioTitulo = 46;
+      doc.setTextColor(...DOURADO);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(17);
+      doc.text("Stock-ON", 12, 19);
+    }
 
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(17);
-    doc.text(titulo, 54, 14);
+    doc.text(titulo, inicioTitulo, 14);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(descricao, 54, 21);
-    doc.text(`Emitido em: ${agora()}  |  Total de registros: ${total}`, 54, 27);
+    doc.text(descricao, inicioTitulo, 21);
+    doc.text(`Emitido em: ${agora()}  |  Total de registros: ${total}`, inicioTitulo, 27);
 
     autoTable(doc, {
       startY: 41,
@@ -78,6 +89,7 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
     baixarDocumento(doc, nomeArquivo);
   } catch (erro) {
     console.error("Erro ao gerar PDF:", erro);
-    window.alert("Nao foi possivel gerar o PDF. Atualize a pagina e tente novamente.");
+    const detalhe = erro instanceof Error ? erro.message : "erro desconhecido";
+    window.alert(`Nao foi possivel gerar o PDF. Motivo: ${detalhe}`);
   }
 }
