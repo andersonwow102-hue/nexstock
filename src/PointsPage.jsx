@@ -135,6 +135,9 @@ function PointFormModal({ ponto, equipamentos, onSalvar, onFechar }) {
     equipamentos.filter(i=>ponto&&i.localizacao===ponto.nomeFantasia).map(i=>i.id)
   );
   const [erro, setErro] = useState("");
+  const equipamentosDisponiveis = equipamentos.filter(item=>
+    !item.localizacao || (ponto && item.localizacao===ponto.nomeFantasia)
+  );
 
   function toggleModalidade(m) {
     setForm({...form, modalidades: form.modalidades.includes(m)
@@ -183,18 +186,18 @@ function PointFormModal({ ponto, equipamentos, onSalvar, onFechar }) {
             </div>
           </div>
           <div className="campo">
-            <label>Equipamentos neste ponto</label>
-            {equipamentos.length===0
-              ?<span className="campo-hint">Nenhum equipamento cadastrado ainda.</span>
+            <label>Equipamentos disponíveis para este ponto</label>
+            {equipamentosDisponiveis.length===0
+              ?<span className="campo-hint">Nenhum equipamento livre. Para trocar de ponto, use a aba Movimentar.</span>
               :<div className="modalidades-grid">
-                {equipamentos.map(item=>(
+                {equipamentosDisponiveis.map(item=>(
                   <label key={item.id} className={`modalidade-item ${equipamentosSelecionados.includes(item.id)?"modalidade-ativa":""}`}>
                     <input type="checkbox" checked={equipamentosSelecionados.includes(item.id)} onChange={()=>setEquipamentosSelecionados(prev=>prev.includes(item.id)?prev.filter(id=>id!==item.id):[...prev,item.id])}/>
                     {item.patrimonio||item.nome}
-                    {item.localizacao&&item.localizacao!==ponto?.nomeFantasia&&<span className="campo-hint"> - atual: {item.localizacao}</span>}
                   </label>
                 ))}
               </div>}
+            <span className="campo-hint">Equipamentos que já estão em outro ponto só podem ser transferidos em Movimentar.</span>
           </div>
           <div className="campo">
             <label>Possui Despesa? *</label>
@@ -602,8 +605,9 @@ export default function PointsPage({ equipamentos=[], onPontosChange, onEquipame
         const atualizados=[...pontos,{...form,id:novoId}];
         setPontos(atualizados);onPontosChange?.(atualizados);
       }
-      const idsSelecionados=new Set(equipamentosSelecionados);
       const nomeAnterior=pontoEdit?.nomeFantasia;
+      const idsPermitidos=new Set(equipamentos.filter(item=>!item.localizacao||item.localizacao===nomeAnterior).map(item=>item.id));
+      const idsSelecionados=new Set(equipamentosSelecionados.filter(id=>idsPermitidos.has(id)));
       const equipamentosAtualizados=equipamentos.map(item=>{
         if(idsSelecionados.has(item.id)) return {...item,quantidade:1,status:"Em rota",localizacao:form.nomeFantasia};
         if(nomeAnterior&&item.localizacao===nomeAnterior) return {...item,quantidade:1,status:"Disponível",localizacao:""};

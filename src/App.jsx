@@ -246,6 +246,10 @@ function Sistema({onLogout}){
       alertaBaixo:totalDisp<MINIMO_CATEGORIA,
     };
   });
+  const pontosComEquipamentos=pontos.map(p=>({
+    ...p,
+    totalEquipamentos:itens.filter(i=>i.localizacao===p.nomeFantasia).length,
+  })).filter(p=>p.totalEquipamentos>0).sort((a,b)=>b.totalEquipamentos-a.totalEquipamentos);
 
   const itensFiltrados=itens.filter(i=>{
     const mC=filtroCatEquip==="Todas"||i.categoria===filtroCatEquip;
@@ -387,98 +391,95 @@ function Sistema({onLogout}){
             </div>
             <img src={temaClaro?logoLight:logo} alt="Stock-ON" className="logo-topbar"/>
           </header>
-          <div className="dashboard-grid">
-            <div className="dashboard-col">
-              <section className="secao">
-                <h2 className="secao-titulo">Resumo Geral</h2>
-                <div className="resumo-grid">
-                  <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Equipamentos</div></div>
-                  <div className="resumo-card resumo-disponivel clickable" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
-                  <div className="resumo-card resumo-uso clickable" onClick={()=>{navegar("itens");setFiltroSt("Em rota");}}><div className="resumo-num">{totalEmRota}</div><div className="resumo-label">Em Rota</div></div>
-                  <div className="resumo-card resumo-conserto clickable" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>
-                  <div className={`resumo-card ${alertas.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertas.length}</div><div className="resumo-label">Alertas</div></div>
+          <div className="painel-dashboard">
+            <section className="dash-hero">
+              <div>
+                <span className="dash-kicker">Controle operacional</span>
+                <h2>Onde está cada equipamento?</h2>
+                <p>Acompanhe disponibilidade, equipamentos em pontos e itens em conserto em uma única tela.</p>
+              </div>
+              <div className="dash-acoes">
+                <button className="btn-primario" onClick={()=>navegar("itens")}>Ver equipamentos</button>
+                <button className="btn-secundario" onClick={()=>navegar("pontos")}>Ver pontos</button>
+              </div>
+            </section>
+
+            <section className="dash-indicadores">
+              <button className="dash-kpi kpi-total" onClick={()=>navegar("itens")}><span>Cadastrados</span><strong>{totalGeral}</strong><small>equipamentos</small></button>
+              <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><span>Disponíveis</span><strong>{totalDisponivel}</strong><small>prontos para envio</small></button>
+              <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>em operação</small></button>
+              <button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><span>Conserto</span><strong>{totalConserto}</strong><small>fora de operação</small></button>
+            </section>
+
+            <div className="dash-conteudo">
+              <section className="secao dash-categorias">
+                <h2 className="secao-titulo">Disponibilidade por Categoria</h2>
+                <div className="dash-lista-categorias">
+                  {porCategoria.map(c=>{
+                    const percentual=c.total?Math.round((c.disponivel/c.total)*100):0;
+                    return(
+                      <button key={c.categoria} className={`dash-categoria ${c.alertaBaixo?"em-alerta":""}`}
+                        onClick={()=>{navegar("itens");setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
+                        <span className="dash-cat-icone">{ICONES[c.categoria]}</span>
+                        <span className="dash-cat-info">
+                          <strong>{c.categoria}</strong>
+                          <span className="dash-barra"><i style={{width:`${percentual}%`}}/></span>
+                        </span>
+                        <span className="dash-cat-numeros"><strong>{c.disponivel}</strong> / {c.total}<small> disponíveis</small></span>
+                        {c.alertaBaixo&&<span className="dash-aviso">Baixo</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
-              {alertas.length>0&&(
-                <section className="secao">
-                  <h2 className="secao-titulo">⚠️ Estoque Baixo por Categoria</h2>
-                  <div className="alertas-section">
-                    {alertas.map(a=>(
-                      <div key={a.categoria} className="alerta-card">
-                        <span className="alerta-icon">{ICONES[a.categoria]}</span>
-                        <div className="alerta-info">
-                          <div className="alerta-nome"><strong>{a.categoria}</strong><span className="badge-cat">Categoria</span></div>
-                          <div className="alerta-detalhe">
-                            Disponível: <strong style={{color:"var(--vermelho)"}}>{a.totalDisponivel}</strong>
-                            &nbsp;·&nbsp;Mínimo: {MINIMO_CATEGORIA}
-                            &nbsp;·&nbsp;Faltam: <strong style={{color:"var(--vermelho)"}}>{a.faltam}</strong> un.
-                          </div>
-                        </div>
-                        <div className="alerta-acoes">
-                          <button className="btn-alerta-editar" onClick={()=>{navegar("itens");setFiltroCatEquip(a.categoria);setAbaEquip("lista");}}>🔍 Ver</button>
-                        </div>
-                      </div>
+
+              <div className="dash-lateral">
+                <section className={`secao dash-atencao ${alertas.length===0?"ok":""}`}>
+                  <h2 className="secao-titulo">Atenção</h2>
+                  {alertas.length===0
+                    ?<p className="dash-vazio">Tudo certo: nenhuma categoria está abaixo do mínimo.</p>
+                    :alertas.map(a=>(
+                      <button key={a.categoria} className="dash-alerta" onClick={()=>{navegar("itens");setFiltroCatEquip(a.categoria);setAbaEquip("lista");}}>
+                        <span>{ICONES[a.categoria]}</span>
+                        <strong>{a.categoria}</strong>
+                        <small>faltam {a.faltam}</small>
+                      </button>
                     ))}
-                  </div>
                 </section>
-              )}
-            </div>
-            <div className="dashboard-col">
-              <section className="secao">
-                <h2 className="secao-titulo">Por Categoria</h2>
-                <div className="cat-detalhe-grid">
-                  {porCategoria.map(c=>(
-                    <div key={c.categoria} className={`cat-detalhe-card ${c.alertaBaixo?"cat-detalhe-alerta":""}`}
-                      onClick={()=>{navegar("itens");setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
-                      <div className="cat-detalhe-header">
-                        <span className="cat-detalhe-icone">{ICONES[c.categoria]}</span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div className="cat-detalhe-nome">{c.categoria}</div>
-                          <div className="cat-detalhe-registros">{c.qtdItens} registro{c.qtdItens!==1?"s":""}</div>
-                          {c.alertaBaixo&&<div className="cat-detalhe-badge-alerta">⚠ Estoque Baixo</div>}
-                        </div>
-                        <div className="cat-detalhe-total">
-                          <span className="cat-total-num">{c.total}</span>
-                          <span className="cat-total-label">equipamentos</span>
-                        </div>
-                      </div>
-                      <div className="cat-detalhe-status">
-                        {c.disponivel>0&&<div className="cat-st-linha cat-st-disp"><span>✅ Disponível</span><strong>{c.disponivel}</strong></div>}
-                        {c.emRota>0&&   <div className="cat-st-linha cat-st-uso"> <span>📍 Em rota</span>   <strong>{c.emRota}</strong></div>}
-                        {c.conserto>0&& <div className="cat-st-linha cat-st-con"> <span>🔧 Conserto</span>  <strong>{c.conserto}</strong></div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-            {historico.length>0&&(
-              <div className="dashboard-full">
-                <section className="secao">
-                  <div className="tabela-header">
-                    <h2 className="secao-titulo" style={{margin:0}}>Últimas Movimentações</h2>
-                    <button className="btn-link" onClick={()=>navegar("historico")}>Ver todas →</button>
-                  </div>
-                  <div className="tabela-wrapper">
-                    <table className="tabela">
-                      <thead><tr><th>Tipo</th><th>Equipamento</th><th>Categoria</th><th>Antes</th><th>Depois</th><th>Data</th></tr></thead>
-                      <tbody>
-                        {historico.slice(0,8).map(h=>{
-                          const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
-                          return(<tr key={h.id}>
-                            <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
-                            <td className="td-nome">{ICONES[h.categoria]} {h.itemNome}</td>
-                            <td><span className="badge-cat">{h.categoria}</span></td>
-                            <td className="td-minimo">{h.qtdAntes}</td>
-                            <td className="td-minimo">{h.qtdDepois}</td>
-                            <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
-                          </tr>);
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                <section className="secao dash-pontos">
+                  <div className="dash-titulo-acao"><h2 className="secao-titulo">Pontos Ativos</h2><button className="btn-link" onClick={()=>navegar("pontos")}>Ver todos</button></div>
+                  {pontosComEquipamentos.length===0
+                    ?<p className="dash-vazio">Nenhum equipamento está ligado a um ponto.</p>
+                    :pontosComEquipamentos.slice(0,5).map(p=>(
+                      <div key={p.id} className="dash-ponto-linha"><span>📍 {p.nomeFantasia}</span><strong>{p.totalEquipamentos}</strong></div>
+                    ))}
                 </section>
               </div>
+            </div>
+
+            {historico.length>0&&(
+              <section className="secao dash-historico">
+                <div className="tabela-header">
+                  <h2 className="secao-titulo" style={{margin:0}}>Movimentações Recentes</h2>
+                  <button className="btn-link" onClick={()=>navegar("historico")}>Ver todas →</button>
+                </div>
+                <div className="tabela-wrapper">
+                  <table className="tabela">
+                    <thead><tr><th>Movimento</th><th>Equipamento</th><th>Detalhe</th><th>Data</th></tr></thead>
+                    <tbody>
+                      {historico.slice(0,5).map(h=>{
+                        const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
+                        return(<tr key={h.id}>
+                          <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
+                          <td className="td-nome">{ICONES[h.categoria]} {h.itemNome}</td>
+                          <td className="td-obs">{h.observacao||"—"}</td>
+                          <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
+                        </tr>);
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             )}
           </div>
         </>)}
