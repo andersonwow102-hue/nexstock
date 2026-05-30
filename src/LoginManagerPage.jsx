@@ -45,6 +45,8 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
   const [modalSenha, setModalSenha] = useState(null);
   const [formSenha, setFormSenha] = useState({ email: "", senha: "", confirmar: "" });
+  const [modalNovo, setModalNovo] = useState(false);
+  const [formNovo, setFormNovo] = useState({ email: "", perfil: "consulta", senha: "", confirmar: "" });
   const administrador = perfilAtual?.perfil === "administrador";
 
   async function carregar() {
@@ -104,6 +106,35 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
     setErro("");
   }
 
+  function abrirNovoLogin() {
+    const senha = senhaAleatoria();
+    setFormNovo({ email: "", perfil: "consulta", senha, confirmar: senha });
+    setErro("");
+    setModalNovo(true);
+  }
+
+  async function criarLogin(e) {
+    e.preventDefault();
+    const email = formNovo.email.trim().toLowerCase();
+    if (!email || !email.includes("@") || !email.includes(".")) { setErro("Informe um e-mail verdadeiro para o novo login."); return; }
+    if (/@(nexstock|stockon)\.com$/i.test(email)) { setErro("Use um e-mail real, como Gmail ou Outlook, para permitir recuperação de senha."); return; }
+    if (formNovo.senha.length < 8) { setErro("A senha provisória precisa ter pelo menos 8 caracteres."); return; }
+    if (formNovo.senha !== formNovo.confirmar) { setErro("A confirmação da senha está diferente."); return; }
+    try {
+      const resposta = await gerenciarLogins({
+        action: "criar",
+        email,
+        senha: formNovo.senha,
+        perfil: formNovo.perfil,
+      });
+      setMensagem(resposta.mensagem || "Novo login criado.");
+      setModalNovo(false);
+      await carregar();
+    } catch (e) {
+      setErro(`Não foi possível criar o login: ${e.message}`);
+    }
+  }
+
   async function salvarSenha(e) {
     e.preventDefault();
     const email = formSenha.email.trim().toLowerCase();
@@ -154,7 +185,10 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
 
       <section className="secao login-manager-toolbar">
         <input className="input-busca" placeholder="Buscar por e-mail, nome, perfil ou status..." value={busca} onChange={e => setBusca(e.target.value)} />
-        <button className="btn-secundario" onClick={carregar}>Atualizar lista</button>
+        <div className="login-toolbar-actions">
+          <button className="btn-secundario" onClick={carregar}>Atualizar lista</button>
+          <button className="btn-primario" onClick={abrirNovoLogin}>+ Novo login</button>
+        </div>
       </section>
 
       <section className="login-manager-grid">
@@ -250,6 +284,31 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                 }}>Gerar outra senha provisória</button>
               </div>
               <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalSenha(null)}>Cancelar</button><button type="submit" className="btn-primario">Salvar acesso</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalNovo && (
+        <div className="modal-overlay" onClick={() => setModalNovo(false)}>
+          <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
+            <form onSubmit={criarLogin}>
+              <div className="modal-body">
+                <p className="senha-texto">Crie um acesso novo para sócio ou funcionário. Por segurança, prefira e-mail real para permitir recuperação de senha.</p>
+                {erro && <div className="erro-msg">⚠️ {erro}</div>}
+                <div className="campo"><label>E-mail de login *</label><input type="email" placeholder="socio@gmail.com" value={formNovo.email} onChange={e => setFormNovo({ ...formNovo, email: e.target.value })} autoFocus /></div>
+                <div className="campo"><label>Perfil *</label><select value={formNovo.perfil} onChange={e => setFormNovo({ ...formNovo, perfil: e.target.value })}>
+                  {perfisDisponiveis.map(p => <option key={p.valor} value={p.valor}>{p.label}</option>)}
+                </select></div>
+                <div className="campo"><label>Senha provisória *</label><input type="text" value={formNovo.senha} onChange={e => setFormNovo({ ...formNovo, senha: e.target.value })} /></div>
+                <div className="campo"><label>Confirmar senha *</label><input type="text" value={formNovo.confirmar} onChange={e => setFormNovo({ ...formNovo, confirmar: e.target.value })} /></div>
+                <button type="button" className="btn-secundario" onClick={() => {
+                  const senha = senhaAleatoria();
+                  setFormNovo(prev => ({ ...prev, senha, confirmar: senha }));
+                }}>Gerar outra senha provisória</button>
+              </div>
+              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalNovo(false)}>Cancelar</button><button type="submit" className="btn-primario">Criar login</button></div>
             </form>
           </div>
         </div>

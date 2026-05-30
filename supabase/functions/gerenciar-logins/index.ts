@@ -77,6 +77,33 @@ Deno.serve(async (req) => {
       return resposta({ usuarios });
     }
 
+    if (action === "criar") {
+      const email = String(body.email || "").trim().toLowerCase();
+      const senha = String(body.senha || "");
+      const perfilNovo = String(body.perfil || "consulta");
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta({ error: "Informe um e-mail verdadeiro." }, 400);
+      if (/@(nexstock|stockon)\.com$/i.test(email)) return resposta({ error: "Informe um e-mail real que receba mensagens." }, 400);
+      if (senha.length < 8) return resposta({ error: "A senha precisa ter ao menos 8 caracteres." }, 400);
+      if (!["administrador", "operador", "consulta"].includes(perfilNovo)) return resposta({ error: "Perfil invalido." }, 400);
+
+      const { data: criado, error: createError } = await admin.auth.admin.createUser({
+        email,
+        password: senha,
+        email_confirm: true,
+        user_metadata: { name: email },
+      });
+      if (createError) return resposta({ error: createError.message }, 400);
+      if (!criado.user) return resposta({ error: "Usuario criado nao retornou identificacao." }, 500);
+
+      const { error: perfilError } = await admin
+        .from("perfis")
+        .upsert({ user_id: criado.user.id, nome: email, perfil: perfilNovo }, { onConflict: "user_id" });
+      if (perfilError) return resposta({ error: "Login criado, mas nao foi possivel salvar o perfil." }, 500);
+
+      return resposta({ ok: true, userId: criado.user.id, mensagem: "Novo login criado com sucesso." });
+    }
+
     const userId = String(body.userId || "");
     if (!userId) return resposta({ error: "Usuario nao informado." }, 400);
 
