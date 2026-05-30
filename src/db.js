@@ -146,7 +146,13 @@ export async function gerenciarLogins(payload = { action: 'listar' }) {
   const { data, error } = await supabase.functions.invoke('gerenciar-logins', {
     body: payload,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    const detalhe = error.message || '';
+    const fetchFalhou = detalhe.toLowerCase().includes('failed to send');
+    throw new Error(fetchFalhou
+      ? 'A função gerenciar-logins não respondeu. Confirme se ela foi publicada no Supabase Edge Functions com o nome exatamente gerenciar-logins.'
+      : detalhe);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }

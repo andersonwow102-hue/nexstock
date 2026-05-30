@@ -36,87 +36,91 @@ async function exigirAdmin(req: Request) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return resposta({ error: "Metodo nao permitido." }, 405);
+  try {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+    if (req.method !== "POST") return resposta({ error: "Metodo nao permitido." }, 405);
 
-  const contexto = await exigirAdmin(req);
-  if (contexto.error) return contexto.error;
-  const { admin, usuarioAtual } = contexto;
-  const body = await req.json().catch(() => ({}));
-  const action = String(body.action || "listar");
+    const contexto = await exigirAdmin(req);
+    if (contexto.error) return contexto.error;
+    const { admin, usuarioAtual } = contexto;
+    const body = await req.json().catch(() => ({}));
+    const action = String(body.action || "listar");
 
-  if (action === "listar") {
-    const { data: authUsers, error: authError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (authError) return resposta({ error: authError.message }, 400);
+    if (action === "listar") {
+      const { data: authUsers, error: authError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (authError) return resposta({ error: authError.message }, 400);
 
-    const { data: perfis, error: perfisError } = await admin
-      .from("perfis")
-      .select("user_id,nome,perfil,criado_em");
-    if (perfisError) return resposta({ error: perfisError.message }, 400);
+      const { data: perfis, error: perfisError } = await admin
+        .from("perfis")
+        .select("user_id,nome,perfil,criado_em");
+      if (perfisError) return resposta({ error: perfisError.message }, 400);
 
-    const mapaPerfis = new Map((perfis || []).map((p) => [p.user_id, p]));
-    const agora = Date.now();
-    const usuarios = (authUsers.users || []).map((user) => {
-      const perfil = mapaPerfis.get(user.id);
-      const bloqueadoAte = (user as any).banned_until || "";
-      const bloqueado = Boolean(bloqueadoAte && new Date(bloqueadoAte).getTime() > agora);
-      return {
-        userId: user.id,
-        email: user.email || perfil?.nome || "sem-email",
-        nome: perfil?.nome || user.email || "Usuario",
-        perfil: perfil?.perfil || "consulta",
-        criadoEm: user.created_at || perfil?.criado_em || "",
-        ultimoAcesso: user.last_sign_in_at || "",
-        bloqueado,
-        bloqueadoAte,
-        status: bloqueado ? "bloqueado" : "ativo",
-      };
-    }).sort((a, b) => String(a.email).localeCompare(String(b.email)));
+      const mapaPerfis = new Map((perfis || []).map((p) => [p.user_id, p]));
+      const agora = Date.now();
+      const usuarios = (authUsers.users || []).map((user) => {
+        const perfil = mapaPerfis.get(user.id);
+        const bloqueadoAte = user.banned_until || "";
+        const bloqueado = Boolean(bloqueadoAte && new Date(bloqueadoAte).getTime() > agora);
+        return {
+          userId: user.id,
+          email: user.email || perfil?.nome || "sem-email",
+          nome: perfil?.nome || user.email || "Usuario",
+          perfil: perfil?.perfil || "consulta",
+          criadoEm: user.created_at || perfil?.criado_em || "",
+          ultimoAcesso: user.last_sign_in_at || "",
+          bloqueado,
+          bloqueadoAte,
+          status: bloqueado ? "bloqueado" : "ativo",
+        };
+      }).sort((a, b) => String(a.email).localeCompare(String(b.email)));
 
-    return resposta({ usuarios });
+      return resposta({ usuarios });
+    }
+
+    const userId = String(body.userId || "");
+    if (!userId) return resposta({ error: "Usuario nao informado." }, 400);
+
+    if (action === "bloquear" || action === "desbloquear") {
+      if (userId === usuarioAtual.id && action === "bloquear") return resposta({ error: "Voce nao pode bloquear o proprio administrador logado." }, 400);
+      const { error } = await admin.auth.admin.updateUserById(userId, {
+        ban_duration: action === "bloquear" ? "876000h" : "none",
+      });
+      if (error) return resposta({ error: error.message }, 400);
+      return resposta({ ok: true, mensagem: action === "bloquear" ? "Login bloqueado." : "Login desbloqueado." });
+    }
+
+    if (action === "perfil") {
+      const perfil = String(body.perfil || "");
+      if (!["administrador", "operador", "consulta"].includes(perfil)) return resposta({ error: "Perfil invalido." }, 400);
+      const { error } = await admin.from("perfis").update({ perfil }).eq("user_id", userId);
+      if (error) return resposta({ error: error.message }, 400);
+      return resposta({ ok: true, mensagem: "Perfil atualizado." });
+    }
+
+    if (action === "redefinir") {
+      const email = String(body.novoEmail || "").trim().toLowerCase();
+      const senha = String(body.novaSenha || "");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta({ error: "Informe um e-mail verdadeiro." }, 400);
+      if (/@(nexstock|stockon)\.com$/i.test(email)) return resposta({ error: "Informe um e-mail real que receba mensagens." }, 400);
+      if (senha.length < 8) return resposta({ error: "A senha precisa ter ao menos 8 caracteres." }, 400);
+
+      const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+        email,
+        password: senha,
+        email_confirm: true,
+      });
+      if (updateError) return resposta({ error: updateError.message }, 400);
+
+      const { error: profileError } = await admin
+        .from("perfis")
+        .update({ nome: email })
+        .eq("user_id", userId);
+      if (profileError) return resposta({ error: "Login atualizado, mas nao foi possivel atualizar o perfil." }, 500);
+      return resposta({ ok: true, mensagem: "Login, e-mail e senha atualizados." });
+    }
+
+    return resposta({ error: "Acao nao reconhecida." }, 400);
+  } catch (error) {
+    return resposta({ error: error instanceof Error ? error.message : "Erro interno na funcao gerenciar-logins." }, 500);
   }
-
-  const userId = String(body.userId || "");
-  if (!userId) return resposta({ error: "Usuario nao informado." }, 400);
-
-  if (action === "bloquear" || action === "desbloquear") {
-    if (userId === usuarioAtual.id && action === "bloquear") return resposta({ error: "Voce nao pode bloquear o proprio administrador logado." }, 400);
-    const { error } = await admin.auth.admin.updateUserById(userId, {
-      ban_duration: action === "bloquear" ? "876000h" : "none",
-    } as any);
-    if (error) return resposta({ error: error.message }, 400);
-    return resposta({ ok: true, mensagem: action === "bloquear" ? "Login bloqueado." : "Login desbloqueado." });
-  }
-
-  if (action === "perfil") {
-    const perfil = String(body.perfil || "");
-    if (!["administrador", "operador", "consulta"].includes(perfil)) return resposta({ error: "Perfil invalido." }, 400);
-    const { error } = await admin.from("perfis").update({ perfil }).eq("user_id", userId);
-    if (error) return resposta({ error: error.message }, 400);
-    return resposta({ ok: true, mensagem: "Perfil atualizado." });
-  }
-
-  if (action === "redefinir") {
-    const email = String(body.novoEmail || "").trim().toLowerCase();
-    const senha = String(body.novaSenha || "");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta({ error: "Informe um e-mail verdadeiro." }, 400);
-    if (/@(nexstock|stockon)\.com$/i.test(email)) return resposta({ error: "Informe um e-mail real que receba mensagens." }, 400);
-    if (senha.length < 8) return resposta({ error: "A senha precisa ter ao menos 8 caracteres." }, 400);
-
-    const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
-      email,
-      password: senha,
-      email_confirm: true,
-    });
-    if (updateError) return resposta({ error: updateError.message }, 400);
-
-    const { error: profileError } = await admin
-      .from("perfis")
-      .update({ nome: email })
-      .eq("user_id", userId);
-    if (profileError) return resposta({ error: "Login atualizado, mas nao foi possivel atualizar o perfil." }, 500);
-    return resposta({ ok: true, mensagem: "Login, e-mail e senha atualizados." });
-  }
-
-  return resposta({ error: "Acao nao reconhecida." }, 400);
 });
