@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
+import LoginManagerPage from "./LoginManagerPage.jsx";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
@@ -906,6 +907,7 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span className="nav-icon">🔎</span> Busca Geral</button>
           <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span className="nav-icon">📄</span> Relatórios</button>
           <button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">💰</span> Despesas & Acessos</button>
+          {administrador&&<button className={`nav-item ${aba==="logins"?"active":""}`} onClick={()=>navegar("logins")}><span className="nav-icon">🔐</span> Gerenciar Logins</button>}
           <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
             <span className="nav-icon">📋</span> Histórico
             {historico.length>0&&<span className="nav-badge">{historico.length>99?"99+":historico.length}</span>}
@@ -1295,6 +1297,16 @@ function Sistema({onLogout}){
             </div>
           </header>
           <ManagementPage pontos={pontos} perfilAtual={perfilAtual} onPerfilAtualChange={setPerfilAtual}/>
+        </>)}
+
+        {aba==="logins"&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Gerenciar Logins</h1><p className="page-sub">Área exclusiva do administrador</p></div>
+            </div>
+          </header>
+          <LoginManagerPage perfilAtual={perfilAtual} historico={historico} historicoPontos={historicoPontos} onPerfilAtualChange={setPerfilAtual}/>
         </>)}
 
         {aba==="historico"&&(<>
