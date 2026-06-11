@@ -1,10 +1,34 @@
 import { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
-import { gerarRelatorioPDF } from "./pdfReports.js";
-import { GERENTES, GERENTE_CORES, MODALIDADES, formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto } from "./pointsData.js";
-import { carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento } from "./db.js";
+import {
+  GERENTES, GERENTE_CORES, MODALIDADES, ROTAS, ROTAS_POR_GERENTE,
+  formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto,
+  gerenteDaRota, rotaCanonica, rotaPertenceAoGerente,
+} from "./pointsData.js";
+import {
+  carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
+  carregarDespesasMensais, salvarDespesaMensal, excluirDespesaMensal,
+} from "./db.js";
 
-const hoje=()=>new Date().toISOString().slice(0,10);
+const partesDataLocal=()=>{
+  const d = new Date();
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth()+1).padStart(2,"0");
+  const dia = String(d.getDate()).padStart(2,"0");
+  return { ano, mes, dia };
+};
+const hoje=()=>{
+  const { ano, mes, dia } = partesDataLocal();
+  return `${ano}-${mes}-${dia}`;
+};
+const competenciaAtual=()=>{
+  const { ano, mes } = partesDataLocal();
+  return `${ano}-${mes}`;
+};
+const diaAtual=()=>Number(partesDataLocal().dia);
+const mesLabel=data=>new Date(`${String(data||"").slice(0,7)}-02T00:00:00`).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric"});
+const valorDespesa=d=>Number(d.valorReal || d.valorPrevisto || 0);
+const gerentePodeLancarDespesas=()=>diaAtual()>=10;
+const slugArquivo=t=>String(t||"geral").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
 
 const MODALIDADE_COR = {
   "Viapix":             "badge-mod-viapix",
@@ -20,45 +44,29 @@ function BadgeModalidade({ m }) {
 }
 
 export function BadgeGerente({ gerente }) {
-  const c = GERENTE_CORES[gerente] || { bg:"rgba(107,122,153,0.15)", color:"#6b7a99", border:"rgba(107,122,153,0.3)" };
+  const rota = rotaCanonica(gerente);
+  const c = GERENTE_CORES[rota] || { bg:"rgba(107,122,153,0.15)", color:"#6b7a99", border:"rgba(107,122,153,0.3)" };
   return (
     <span style={{ display:"inline-block", background:c.bg, color:c.color, border:`1px solid ${c.border}`,
       fontSize:"11px", fontWeight:700, padding:"3px 10px", borderRadius:"20px", whiteSpace:"nowrap" }}>
-      {gerente}
+      {rota || gerente}
     </span>
   );
 }
 
-const PIX_STORAGE_KEY = "sc_pix_envio";
-const PIX_DURATION_MS = 24 * 60 * 60 * 1000;
-const PIX_CHAVE = "pix@stockon.com";
-
-function formatTempoRestante(ms) {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const horas = Math.floor(total / 3600);
-  const minutos = Math.floor((total % 3600) / 60);
-  const segundos = total % 60;
-  return `${horas}h ${String(minutos).padStart(2,'0')}m ${String(segundos).padStart(2,'0')}s`;
-}
-
-function getRotaLabel(ponto) {
-  return ponto.rota || ponto.nomeFantasia || "Rota desconhecida";
-}
-
-function agruparRotasGerente(pontos, gerente) {
-  return [...new Set(pontos
-    .filter(p=>p.gerente===gerente)
-    .map(getRotaLabel)
-  )];
-}
-
 // ── Exportar Excel Pontos ─────────────────────────────────────────────────────
-function exportarPontosExcel(pontos){
+async function gerarPDF(configuracao) {
+  const { gerarRelatorioPDF } = await import("./pdfReports.js");
+  return gerarRelatorioPDF(configuracao);
+}
+
+async function exportarPontosExcel(pontos){
+  const XLSX = await import("xlsx");
   const dados = pontos.map(p=>({
     "Nome Fantasia":  p.nomeFantasia,
     "Nome do Dono":   p.nomeDono,
     "Telefone":       p.telefone,
-    "Gerente":        p.gerente,
+    "Rota":           rotaCanonica(p.gerente),
     "Modalidades":    p.modalidades.join(", "),
     "Possui Despesa": p.possuiDespesa==="sim"?"Sim":"Não",
     "Valor Despesa":  p.possuiDespesa==="sim"?p.valorDespesa:0,
@@ -77,7 +85,7 @@ async function exportarPontosPDF(pontos){
     a.nomeFantasia.localeCompare(b.nomeFantasia, "pt-BR")
   );
   const totalDespesas=pontos.reduce((total,p)=>total+(p.possuiDespesa==="sim"?Number(p.valorDespesa||0):0),0);
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Relatório de Pontos",
     descricao:"Estabelecimentos cadastrados, responsáveis e despesas",
     nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
@@ -88,12 +96,12 @@ async function exportarPontosPDF(pontos){
       {label:"Sem despesa",valor:pontos.filter(p=>p.possuiDespesa!=="sim").length,destaque:[5,150,82]},
       {label:"Despesa total",valor:formatarReais(totalDespesas),destaque:[201,125,0]},
     ],
-    colunas:["Nome Fantasia","Dono","Telefone","Gerente","Modalidades","Despesa","Valor"],
+    colunas:["Nome Fantasia","Dono","Telefone","Rota","Modalidades","Despesa","Valor"],
     linhas:ordenados.map(p=>[
       p.nomeFantasia,
       p.nomeDono,
       p.telefone,
-      p.gerente,
+      rotaCanonica(p.gerente),
       p.modalidades.join(", "),
       p.possuiDespesa==="sim"?"Sim":"Não",
       p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"-",
@@ -102,7 +110,8 @@ async function exportarPontosPDF(pontos){
 }
 
 // ── Exportar Excel Histórico Pontos ───────────────────────────────────────────
-function exportarHistoricoPontosExcel(historico){
+async function exportarHistoricoPontosExcel(historico){
+  const XLSX = await import("xlsx");
   const dados = historico.map(h=>({
     "Tipo":          h.tipo==="cadastro"?"Cadastro":h.tipo==="edicao"?"Edição":"Exclusão",
     "Nome Fantasia": h.nome,
@@ -118,7 +127,7 @@ function exportarHistoricoPontosExcel(historico){
 
 // ── Exportar PDF Histórico Pontos ─────────────────────────────────────────────
 async function exportarHistoricoPontosPDF(historico){
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Histórico de Pontos",
     descricao:"Registro de cadastros, alterações e exclusões de pontos",
     nomeArquivo:`stock-on_historico_pontos_${hoje()}.pdf`,
@@ -140,6 +149,44 @@ async function exportarHistoricoPontosPDF(historico){
   });
 }
 
+async function exportarHistoricoDespesasPDF({ linhas, competencia, busca }) {
+  const total = linhas.reduce((s,d)=>s+d.valor,0);
+  const pontos = new Set(linhas.map(d=>d.pontoNome)).size;
+  const gerentes = new Set(linhas.map(d=>d.gerente)).size;
+  const colunas = ["Ponto","Rota","Descrição","Valor","Mês","Data","Observação"];
+  const grupos = [...new Set(linhas.map(d=>d.gerente || "Sem gerente"))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  await gerarPDF({
+    titulo:"Histórico de Despesas",
+    descricao:`Conferência mensal dos lançamentos por ponto e gerente${busca?` | Busca: ${busca}`:""}`,
+    nomeArquivo:`stock-on_historico-despesas_${competencia||"todos"}_${slugArquivo(busca||"geral")}.pdf`,
+    total:linhas.length,
+    resumo:[
+      {label:"Total",valor:formatarReais(total),destaque:[222,147,0]},
+      {label:"Lançamentos",valor:linhas.length},
+      {label:"Pontos",valor:pontos},
+      {label:"Rotas",valor:gerentes},
+      {label:"Mês",valor:competencia?mesLabel(`${competencia}-01`):"Todos"},
+    ],
+    secoes:grupos.map(gerente=>{
+      const lista = linhas.filter(d=>(d.gerente || "Sem gerente")===gerente);
+      const subtotal = lista.reduce((s,d)=>s+d.valor,0);
+      return {
+        titulo:`${gerente} | ${formatarReais(subtotal)} | ${lista.length} lançamento${lista.length!==1?"s":""}`,
+        colunas,
+        linhas:lista.map(d=>[
+          d.pontoNome,
+          d.gerente || "-",
+          d.descricao || "-",
+          formatarReais(d.valor),
+          mesLabel(d.competencia),
+          d.criadoEm ? new Date(d.criadoEm).toLocaleDateString("pt-BR") : "-",
+          d.observacao || "-",
+        ]),
+      };
+    }),
+  });
+}
+
 // ─── Máscaras ─────────────────────────────────────────────────────────────────
 function mascaraTelefone(v) {
   const d = v.replace(/\D/g,"").slice(0,11);
@@ -157,8 +204,10 @@ function mascaraMoeda(v) {
 // ─── Modal Formulário ─────────────────────────────────────────────────────────
 export function PointFormModal({ ponto, pontos=[], equipamentos=[], onSalvar, onFechar, mostrarEquipamentos=true }) {
   const [form, setForm] = useState(ponto ? {...ponto,
+    gerente: rotaCanonica(ponto.gerente),
     valorDespesa: ponto.valorDespesa ? mascaraMoeda(String(Math.round(ponto.valorDespesa*100))) : ""
   } : {...pontoFormVazio});
+  const [gerenteSelecionado, setGerenteSelecionado] = useState(() => gerenteDaRota(ponto?.gerente) || "");
   const [equipamentosSelecionados, setEquipamentosSelecionados] = useState(
     equipamentos.filter(i=>ponto&&i.localizacao===ponto.nomeFantasia).map(i=>i.id)
   );
@@ -202,11 +251,21 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], onSalvar, on
           <div className="campos-duplos">
             <div className="campo"><label>Telefone *</label>
               <input type="text" placeholder="(00) 00000-0000" value={form.telefone} onChange={e=>setForm({...form,telefone:mascaraTelefone(e.target.value)})}/></div>
-            <div className="campo"><label>Gerente Responsável *</label>
-              <select value={form.gerente} onChange={e=>setForm({...form,gerente:e.target.value})}>
-                <option value="">Selecione...</option>
+            <div className="campo"><label>Gerente *</label>
+              <select value={gerenteSelecionado} onChange={e=>{setGerenteSelecionado(e.target.value);setForm({...form,gerente:""});}}>
+                <option value="">Selecione o gerente...</option>
                 {GERENTES.map(g=><option key={g} value={g}>{g}</option>)}
               </select></div>
+          </div>
+          <div className="campo">
+            <label>Rota *</label>
+            <select value={form.gerente} disabled={!gerenteSelecionado} onChange={e=>setForm({...form,gerente:e.target.value})}>
+              <option value="">{gerenteSelecionado ? "Selecione a rota..." : "Selecione um gerente primeiro..."}</option>
+              {(ROTAS_POR_GERENTE[gerenteSelecionado] || []).map(rota=><option key={rota} value={rota}>{rota}</option>)}
+            </select>
+            {gerenteSelecionado && (ROTAS_POR_GERENTE[gerenteSelecionado] || []).length===0&&(
+              <span className="campo-hint">Este gerente ainda não possui rota cadastrada.</span>
+            )}
           </div>
           <div className="campo">
             <label>Modalidades * (selecione uma ou mais)</label>
@@ -273,7 +332,7 @@ function PointExpensesModal({ pontos, onFechar }) {
           <div className="despesas-total-banner">Total Geral: <strong>{formatarReais(total)}</strong></div>
           <div className="tabela-wrapper">
             <table className="tabela">
-              <thead><tr><th>Nome Fantasia</th><th>Dono</th><th>Gerente</th><th>Telefone</th><th>Valor</th></tr></thead>
+              <thead><tr><th>Nome Fantasia</th><th>Dono</th><th>Rota</th><th>Telefone</th><th>Valor</th></tr></thead>
               <tbody>
                 {comDespesa.length===0
                   ?<tr><td colSpan={5} className="tabela-vazia">Nenhum ponto com despesa.</td></tr>
@@ -291,98 +350,6 @@ function PointExpensesModal({ pontos, onFechar }) {
           </div>
         </div>
         <div className="modal-footer"><button className="btn-primario" onClick={onFechar}>Fechar</button></div>
-      </div>
-    </div>
-  );
-}
-
-function GerenteRouteSelectorModal({ gerente, rotas, onSelect, onFechar }) {
-  return (
-    <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Selecione a rota de {gerente}</h3>
-          <button className="modal-fechar" onClick={onFechar}>✕</button>
-        </div>
-        <div className="modal-body">
-          <p style={{color:"var(--txt-secondary)",lineHeight:1.7}}>Este gerente opera mais de uma rota. Escolha a rota para ver o demonstrativo de despesas.</p>
-          <div className="rota-selector-grid">
-            {rotas.map(rota=>(
-              <button key={rota} className="rota-item" onClick={()=>onSelect(rota)}>{rota}</button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ManagerExpensesModal({ gerente, rota, pontos, onFechar }) {
-  const pontosRota = pontos
-    .filter(p=>p.gerente===gerente && getRotaLabel(p)===rota)
-    .sort((a,b)=>b.valorDespesa-a.valorDespesa);
-  const totalDespesa = pontosRota.reduce((s,p)=>s+(p.valorDespesa||0),0);
-  const comDespesa = pontosRota.filter(p=>p.possuiDespesa==="sim"&&p.valorDespesa>0);
-
-  return (
-    <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-largo" onClick={e=>e.stopPropagation()} style={{maxWidth:"760px"}}>
-        <div className="modal-header">
-          <h3>Demonstrativo de despesas</h3>
-          <button className="modal-fechar" onClick={onFechar}>✕</button>
-        </div>
-        <div className="modal-body manager-expenses-body">
-          <div className="manager-expenses-hero">
-            <div>
-              <span className="manager-expenses-label">Gerente</span>
-              <h2>{gerente}</h2>
-              <p>Rota selecionada: <strong>{rota}</strong></p>
-            </div>
-            <div className="manager-expenses-stats">
-              <div>
-                <span>Total de pontos</span>
-                <strong>{pontosRota.length}</strong>
-              </div>
-              <div>
-                <span>Despesas registradas</span>
-                <strong>{comDespesa.length}</strong>
-              </div>
-              <div>
-                <span>Despesa total</span>
-                <strong>{formatarReais(totalDespesa)}</strong>
-              </div>
-            </div>
-          </div>
-          {comDespesa.length===0 ? (
-            <div className="hist-vazio" style={{padding:"28px 24px",marginTop:"16px"}}>
-              <div className="hist-vazio-icone">💼</div>
-              <div>Nenhuma despesa registrada para esta rota.</div>
-            </div>
-          ) : (
-            <div className="tabela-wrapper manager-expenses-table">
-              <table className="tabela">
-                <thead>
-                  <tr>
-                    <th>Ponto</th>
-                    <th>Telefone</th>
-                    <th>Modalidades</th>
-                    <th>Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {comDespesa.map(p=>(
-                    <tr key={p.id}>
-                      <td className="td-nome">🏪 {p.nomeFantasia}</td>
-                      <td className="td-obs">{p.telefone}</td>
-                      <td><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></td>
-                      <td style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:"var(--accent)"}}>{formatarReais(p.valorDespesa)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -421,19 +388,18 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos, pode
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onExportExcel, onExportPDF, podeEditar }) {
-  const [busca, setBusca] = useState("");
+function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onExportExcel, onExportPDF, podeEditar, podeEditarDespesas }) {
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA=10;
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
     const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
-    const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,...vinculados.map(i=>i.patrimonio)].some(f=>(f||"").toLowerCase().includes(q));
+    const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),...vinculados.map(i=>i.patrimonio)].some(f=>(f||"").toLowerCase().includes(q));
     const mD=filtroDespesa==="todos"||p.possuiDespesa===filtroDespesa;
-    return mB&&mD&&(filtroGerente==="Todos"||p.gerente===filtroGerente);
+    return mB&&mD&&(filtroGerente==="Todos"||rotaCanonica(p.gerente)===filtroGerente);
   });
-  const ordenados=[...filtrados].sort((a,b)=>(a.gerente||"").localeCompare(b.gerente||"","pt-BR")||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
+  const ordenados=[...filtrados].sort((a,b)=>rotaCanonica(a.gerente).localeCompare(rotaCanonica(b.gerente),"pt-BR")||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
   const totalPaginas=Math.max(1,Math.ceil(ordenados.length/POR_PAGINA));
   const paginaAtual=Math.min(pagina,totalPaginas);
   const visiveis=ordenados.slice((paginaAtual-1)*POR_PAGINA,paginaAtual*POR_PAGINA);
@@ -445,19 +411,18 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
       <div className="tabela-header">
         <h2 className="secao-titulo" style={{margin:0}}>Pontos: {tituloFiltro} <span className="badge-count">{filtrados.length}</span></h2>
         <div className="filtros">
-          <input className="input-busca" type="text" placeholder="🔍 Nome, dono, gerente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
           <select className="select-filtro" value={filtroGerente} onChange={e=>setFiltroGerente(e.target.value)}>
-            <option value="Todos">Todos os gerentes</option>
-            {GERENTES.map(g=><option key={g} value={g}>{g}</option>)}
+            <option value="Todos">Todas as rotas</option>
+            {ROTAS.map(r=><option key={r} value={r}>{r}</option>)}
           </select>
-          {(busca||filtroGerente!=="Todos"||filtroDespesa!=="todos")&&<button className="btn-limpar" onClick={()=>{setBusca("");setFiltroGerente("Todos");onLimparFiltro();}}>✕ Limpar</button>}
+          {(busca||filtroGerente!=="Todos"||filtroDespesa!=="todos")&&<button className="btn-limpar" onClick={()=>{onLimparBusca();setFiltroGerente("Todos");onLimparFiltro();}}>✕ Limpar</button>}
           <button className="btn-secundario" onClick={onExportExcel}>📊 Excel</button>
           <button className="btn-secundario" onClick={onExportPDF}>📄 PDF</button>
         </div>
       </div>
       <div className="tabela-wrapper pontos-tabela">
         <table className="tabela">
-          <thead><tr><th>Nome Fantasia</th><th>Equipamentos</th><th>Dono</th><th>Telefone</th><th>Gerente</th><th>Modalidades</th><th>Despesa</th><th>Valor</th><th>⚙️</th></tr></thead>
+          <thead><tr><th>Nome Fantasia</th><th>Equipamentos</th><th>Dono</th><th>Telefone</th><th>Rota</th><th>Modalidades</th><th>Despesa</th><th>Valor</th><th>⚙️</th></tr></thead>
           <tbody>
             {filtrados.length===0
               ?<tr><td colSpan={9} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
@@ -477,6 +442,7 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
                   <td><span className={`badge-status ${p.possuiDespesa==="sim"?"status-defeito":"status-disponivel"}`}>{p.possuiDespesa==="sim"?"Sim":"Não"}</span></td>
                   <td className={p.possuiDespesa==="sim"?"qtd-baixa":"td-minimo"}>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—"}</td>
                   <td className="td-acoes">
+                    {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)} title="Despesas mensais">💰</button>}
                     {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)} title="Editar">✏️</button>}
                     {podeEditar&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)} title="Excluir">🗑️</button>}
                   </td>
@@ -495,11 +461,12 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
                 <div><h3>🏪 {p.nomeFantasia}</h3><p>{p.nomeDono} · {p.telefone}</p></div>
                 <span className={`badge-status ${p.possuiDespesa==="sim"?"status-defeito":"status-disponivel"}`}>{p.possuiDespesa==="sim"?"Com despesa":"Sem despesa"}</span>
               </div>
-              <div className="ponto-card-linha"><span>Gerente</span><BadgeGerente gerente={p.gerente}/></div>
+              <div className="ponto-card-linha"><span>Rota</span><BadgeGerente gerente={p.gerente}/></div>
               <div className="ponto-card-linha"><span>Modalidades</span><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></div>
               <div className="ponto-card-linha"><span>Equipamentos</span><div className="equipamentos-ponto">{vinculados.length? vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>) : <span className="td-obs">Nenhum</span>}</div></div>
               {p.possuiDespesa==="sim"&&<div className="ponto-card-valor">{formatarReais(p.valorDespesa)}</div>}
               <div className="ponto-card-acoes">
+                {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)}>💰 Despesas</button>}
                 {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)}>✏️ Editar</button>}
                 {podeEditar&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)}>🗑️ Excluir</button>}
               </div>
@@ -518,206 +485,212 @@ function AbaPontos({ pontos, equipamentos, filtroDespesa, onLimparFiltro, onEdit
   );
 }
 
-// ─── ABA: Análise de Despesas ─────────────────────────────────────────────────
-function AbaAnalise({ pontos }) {
-  if (pontos.length===0) return <div className="hist-vazio"><div className="hist-vazio-icone">📊</div><div>Nenhum dado para analisar ainda.</div></div>;
+function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
+  const gerente = perfilAtual?.perfil === "gerente";
+  const [competencia, setCompetencia] = useState(competenciaAtual());
+  const criarLinha = () => ({ id:null, descricao:"", valor:"", observacao:"" });
+  const [linhas, setLinhas] = useState([]);
+  const [erro, setErro] = useState("");
+  const mesAtual = competenciaAtual();
+  const gerenteNoMesAtual = !gerente || competencia === mesAtual;
+  const gerenteDentroPrazo = !gerente || gerentePodeLancarDespesas();
+  const podeEditarAgora = podeEditar && gerenteNoMesAtual && gerenteDentroPrazo;
+  const despesasMes = despesas.filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0,7) === competencia);
 
-  const porGerente = GERENTES.map(g=>{
-    const pts=pontos.filter(p=>p.gerente===g);
-    const totalDespesa=pts.filter(p=>p.possuiDespesa==="sim").reduce((s,p)=>s+(p.valorDespesa||0),0);
-    return{gerente:g,total:pts.length,totalDespesa};
-  }).filter(g=>g.totalDespesa>0).sort((a,b)=>b.totalDespesa-a.totalDespesa);
+  useEffect(() => {
+    const base = despesas
+      .filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0,7) === competencia)
+      .map(d => ({
+        id:d.id, descricao:d.descricao || "",
+        valor:valorDespesa(d) ? mascaraMoeda(String(Math.round(valorDespesa(d)*100))) : "",
+        observacao:d.observacao || "",
+      }));
+    setLinhas(base.length ? [...base, criarLinha()] : [criarLinha(), criarLinha(), criarLinha(), criarLinha()]);
+    setErro("");
+  }, [ponto.id, competencia, despesas]);
 
-  const totalGeral=porGerente.reduce((s,g)=>s+g.totalDespesa,0);
-  const alertas50=porGerente.filter(g=>(g.totalDespesa/totalGeral)>=0.5);
-  const rankingPontos=[...pontos].filter(p=>p.possuiDespesa==="sim"&&p.valorDespesa>0).sort((a,b)=>b.valorDespesa-a.valorDespesa);
-  const lider=porGerente[0];
+  const totalMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
 
-  if (!lider) return <div className="hist-vazio"><div className="hist-vazio-icone">💰</div><div>Nenhum ponto com despesa cadastrado.</div></div>;
+  function alterarLinha(index, campo, valor) {
+    setLinhas(prev => prev.map((linha,i)=>i===index?{...linha,[campo]:valor}:linha));
+  }
 
-  const c=GERENTE_CORES[lider.gerente]||{color:"#f05252",border:"rgba(240,82,82,0.3)"};
+  async function removerLinha(index) {
+    if (!podeEditarAgora) return;
+    const linha = linhas[index];
+    if (linha.id && !window.confirm("Remover esta despesa mensal?")) return;
+    if (linha.id) await onRemover?.(linha.id);
+    setLinhas(prev => {
+      const novas = prev.filter((_,i)=>i!==index);
+      return novas.length ? novas : [criarLinha()];
+    });
+  }
 
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:"20px"}}>
-      <section className="secao">
-        <h2 className="secao-titulo">🚨 Gerente com maior despesa</h2>
-        <div className="alerta-gerente-card" style={{borderColor:c.border}}>
-          <div className="alerta-gerente-topo">
-            <span className="alerta-gerente-icone">🚨</span>
-            <div>
-              <div className="alerta-gerente-titulo">Gerente com maior despesa acumulada</div>
-              <BadgeGerente gerente={lider.gerente}/>
-            </div>
-            <div className="alerta-gerente-valor" style={{color:c.color}}>{formatarReais(lider.totalDespesa)}</div>
-          </div>
-          <div className="alerta-gerente-texto">
-            O gerente <strong style={{color:c.color}}>{lider.gerente}</strong> possui{" "}
-            <strong>{lider.total}</strong> ponto{lider.total!==1?"s":""} instalado{lider.total!==1?"s":""}, com um total de{" "}
-            <strong style={{color:c.color}}>{formatarReais(lider.totalDespesa)}</strong> em despesas —
-            representando <strong style={{color:c.color}}>{Math.round((lider.totalDespesa/totalGeral)*100)}%</strong> do total ({formatarReais(totalGeral)}).
-          </div>
-          <div className="alerta-gerente-aviso">⚠️ Gerente com despesa elevada — verificar situação com o mesmo.</div>
+  async function salvar() {
+    if (gerente && competencia !== mesAtual) {
+      setErro("Gerente só pode lançar despesas do mês atual. Meses anteriores ficam disponíveis apenas para conferência do administrador.");
+      return;
+    }
+    if (gerente && !gerenteDentroPrazo) {
+      setErro("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
+      return;
+    }
+    const validas = linhas
+      .map(l => ({...l, descricao:l.descricao.trim(), observacao:String(l.observacao||"").trim(), valorNumero:parseMoeda(l.valor)}))
+      .filter(l => l.descricao || l.valorNumero>0 || l.observacao);
+    const erroLinha = validas.find(l => !l.descricao || l.valorNumero<=0);
+    if (erroLinha) { setErro("Preencha descrição e valor somente nas linhas que deseja salvar. Linhas vazias podem ficar em branco."); return; }
+    await onSalvar(ponto, competencia, validas.map(l => ({
+      ...l,
+      tipo:"fixa",
+      pontoId:ponto.id,
+      competencia:`${competencia}-01`,
+      valorPrevisto:l.valorNumero,
+      valorReal:l.valorNumero,
+    })));
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onFechar}>
+      <div className="modal modal-extra-largo" onClick={e=>e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>💰 Despesas mensais · {ponto.nomeFantasia}</h3>
+          <button className="modal-fechar" onClick={onFechar}>✕</button>
         </div>
-      </section>
-
-      {alertas50.length>0&&(
-        <section className="secao">
-          <h2 className="secao-titulo">🔴 Concentração crítica (≥ 50%)</h2>
-          {alertas50.map(g=>{
-            const pct=Math.round((g.totalDespesa/totalGeral)*100);
-            const cg=GERENTE_CORES[g.gerente]||{color:"#f05252"};
-            return(
-              <div key={g.gerente} className="alerta-50-card">
-                <div className="alerta-50-topo">
-                  <span>🔴</span>
-                  <strong>Concentração crítica detectada</strong>
-                  <span className="alerta-50-pct" style={{color:cg.color}}>{pct}% do total</span>
-                </div>
-                <div className="alerta-50-texto">
-                  <BadgeGerente gerente={g.gerente}/>{" "}
-                  concentra <strong style={{color:cg.color}}>{pct}%</strong> de todas as despesas com{" "}
-                  <strong>{formatarReais(g.totalDespesa)}</strong> em {g.total} ponto{g.total!==1?"s":""}.
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
-
-      <section className="secao">
-        <h2 className="secao-titulo">📊 Ranking por Gerente</h2>
-        <div className="alerta-gerente-card">
-          <div className="alerta-gerente-ranking">
-            {porGerente.map((g,i)=>{
-              const pct=Math.round((g.totalDespesa/totalGeral)*100);
-              const cg=GERENTE_CORES[g.gerente]||{color:"var(--amarelo)"};
-              return(
-                <div key={g.gerente} className="ranking-linha">
-                  <span className="ranking-pos">#{i+1}</span>
-                  <BadgeGerente gerente={g.gerente}/>
-                  <span className="ranking-pts">{g.total} ponto{g.total!==1?"s":""}</span>
-                  <div className="ranking-bar-wrap"><div className="ranking-bar" style={{width:`${pct}%`,background:cg.color}}/></div>
-                  <span className="ranking-pct" style={{color:cg.color}}>{pct}%</span>
-                  <span className="ranking-val" style={{color:cg.color}}>{formatarReais(g.totalDespesa)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {rankingPontos.length>0&&(
-        <section className="secao">
-          <h2 className="secao-titulo">🏪 Ranking de Pontos por Despesa</h2>
-          <div className="alerta-gerente-card">
-            <div className="ranking-pontos-lista">
-              {rankingPontos.map((p,i)=>{
-                const cg=GERENTE_CORES[p.gerente]||{color:"var(--amarelo)"};
-                const pct=Math.round((p.valorDespesa/totalGeral)*100);
-                const alto=pct>=30;
-                return(
-                  <div key={p.id} className={`ranking-ponto-item ${alto?"ranking-ponto-alto":""}`}>
-                    <span className="ranking-pos">#{i+1}</span>
-                    <div className="ranking-ponto-info">
-                      <span className="ranking-ponto-nome">🏪 {p.nomeFantasia}</span>
-                      <BadgeGerente gerente={p.gerente}/>
-                    </div>
-                    <div className="ranking-bar-wrap">
-                      <div className="ranking-bar" style={{width:`${Math.min(pct*2,100)}%`,background:alto?"var(--vermelho)":cg.color}}/>
-                    </div>
-                    <span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:"13px",textAlign:"right",color:alto?"var(--vermelho)":cg.color}}>
-                      {formatarReais(p.valorDespesa)}{alto&&<span className="ranking-tag-alto"> ⚠️</span>}
-                    </span>
-                  </div>
-                );
-              })}
+        <div className="modal-body">
+          {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+          {gerente&&(
+            <div className={podeEditarAgora?"acessos-nota":"erro-msg"}>
+              {podeEditarAgora
+                ? "Você está lançando as despesas do mês atual. O envio fica liberado do dia 10 até o último dia do mês."
+                : "Despesa bloqueada para gerente: só é possível lançar o mês atual entre o dia 10 e o último dia do mês."}
             </div>
+          )}
+          <div className="despesa-planilha-topo">
+            <div className="campo despesa-mes-campo">
+              <label>📅 Mês de referência</label>
+              <input type="month" value={competencia} min={gerente?mesAtual:undefined} max={gerente?mesAtual:undefined} disabled={gerente} onChange={e=>setCompetencia(e.target.value)}/>
+              <small>{gerente?"Gerente lança somente o mês atual.":"Clique no campo para escolher o mês."}</small>
+            </div>
+            <div className="despesas-total-banner">Total do mês: <strong>{formatarReais(totalMes)}</strong></div>
           </div>
-        </section>
-      )}
+          <div className="tabela-wrapper despesa-planilha">
+            <table className="tabela">
+              <thead><tr><th>Descrição</th><th>Valor</th><th>Observação</th><th></th></tr></thead>
+              <tbody>
+                {linhas.map((linha,index)=>(
+                  <tr key={`${linha.id||"nova"}-${index}`}>
+                    <td><input value={linha.descricao} disabled={!podeEditarAgora} placeholder="Ex: Internet" onChange={e=>alterarLinha(index,"descricao",e.target.value)}/></td>
+                    <td><input value={linha.valor} disabled={!podeEditarAgora} placeholder="R$ 0,00" onChange={e=>alterarLinha(index,"valor",mascaraMoeda(e.target.value))}/></td>
+                    <td><input value={linha.observacao} disabled={!podeEditarAgora} placeholder="Opcional" onChange={e=>alterarLinha(index,"observacao",e.target.value)}/></td>
+                    <td>{podeEditarAgora&&<button className="btn-remover-linha" title="Remover linha" onClick={()=>removerLinha(index)}>×</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {podeEditarAgora&&<button className="btn-secundario" onClick={()=>setLinhas(prev=>[...prev,criarLinha()])}>+ Adicionar linha</button>}
+          {despesasMes.length===0&&<p className="acessos-nota">Nenhuma despesa lançada para este ponto neste mês. Preencha como uma planilha e salve.</p>}
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secundario" onClick={onFechar}>Fechar</button>
+          {podeEditarAgora&&<button className="btn-primario" onClick={salvar}>Salvar despesas</button>}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── ABA: Gerentes ────────────────────────────────────────────────────────────
-function AbaGerentes({ pontos }) {
-  const [rotasModal, setRotasModal] = useState(null);
-  const [despesasModal, setDespesasModal] = useState(null);
-
-  const porGerente = GERENTES.map(g=>{
-    const pontosGerente = pontos.filter(p=>p.gerente===g);
-    const rotas = agruparRotasGerente(pontos, g);
-    return {
-      gerente:g,
-      total:pontosGerente.length,
-      comDespesa:pontosGerente.filter(p=>p.possuiDespesa==="sim").length,
-      totalDespesa:pontosGerente.reduce((s,p)=>s+(p.valorDespesa||0),0),
-      rotasCount:rotas.length,
-      rotas,
-    };
-  }).filter(g=>g.total>0).sort((a,b)=>b.total-a.total);
-
-  function abrirGerente(gerente) {
-    const rotas = agruparRotasGerente(pontos, gerente);
-    if (rotas.length <= 1) {
-      setDespesasModal({ gerente, rota: rotas[0] || "Geral" });
+// ─── ABA: Histórico de Despesas ───────────────────────────────────────────────
+function AbaHistoricoDespesas({ pontos, despesas, administrador=false }) {
+  const [competencia, setCompetencia] = useState(administrador ? "" : competenciaAtual());
+  const [busca, setBusca] = useState("");
+  const pontoPorId = new Map(pontos.map(p=>[Number(p.id),p]));
+  const linhas = despesas
+    .filter(d=>pontoPorId.has(Number(d.pontoId)))
+    .map(d=>{
+      const ponto = pontoPorId.get(Number(d.pontoId));
+      return {
+        ...d,
+        pontoNome:ponto?.nomeFantasia || "Ponto removido",
+        gerente:rotaCanonica(ponto?.gerente) || "Sem rota",
+        valor:valorDespesa(d),
+      };
+    })
+    .filter(d=>{
+      const q = busca.trim().toLowerCase();
+      const bateMes = !competencia || String(d.competencia || "").slice(0,7) === competencia;
+      const bateBusca = !q || [d.pontoNome,d.gerente,d.descricao,d.observacao,formatarReais(d.valor)].some(v=>String(v||"").toLowerCase().includes(q));
+      return bateMes && bateBusca;
+    })
+    .sort((a,b)=>
+      String(b.competencia).localeCompare(String(a.competencia)) ||
+      String(a.gerente).localeCompare(String(b.gerente),"pt-BR") ||
+      String(a.pontoNome).localeCompare(String(b.pontoNome),"pt-BR") ||
+      String(b.criadoEm).localeCompare(String(a.criadoEm))
+    );
+  const total = linhas.reduce((s,d)=>s+valorDespesa(d),0);
+  const totalPontos = new Set(linhas.map(d=>d.pontoNome)).size;
+  const totalGerentes = new Set(linhas.map(d=>d.gerente)).size;
+  const meses = [...new Set(despesas.map(d=>String(d.competencia||"").slice(0,7)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  const baixarPDF = () => {
+    if (linhas.length===0) {
+      window.alert("Nenhuma despesa encontrada para gerar o PDF.");
       return;
     }
-    setRotasModal({ gerente, rotas });
-  }
-
-  function handleSelecionarRota(rota) {
-    if (!rotasModal) return;
-    setDespesasModal({ gerente: rotasModal.gerente, rota });
-    setRotasModal(null);
-  }
-
-  function fecharModais() {
-    setRotasModal(null);
-    setDespesasModal(null);
-  }
-
+    exportarHistoricoDespesasPDF({ linhas, competencia, busca });
+  };
   return(
-    <section className="secao">
-      <h2 className="secao-titulo">👤 Fechamento por gerente</h2>
-      {porGerente.length===0
-        ?<div className="hist-vazio"><div className="hist-vazio-icone">👤</div><div>Nenhum dado disponível.</div></div>
-        :<>
-          <p className="gerente-card-intro">Clique no gerente para abrir o demonstrativo de despesas. Se houver mais de uma rota, será exibido um seletor de rota.</p>
-          <div className="gerente-card-grid">
-            {porGerente.map(g=>{
-              const c = GERENTE_CORES[g.gerente] || {color:"#94a3b8",border:"rgba(148,163,184,0.3)"};
-              return (
-                <button key={g.gerente} className="gerente-card" style={{borderLeft:`4px solid ${c.color}`}} onClick={()=>abrirGerente(g.gerente)}>
-                  <div className="gerente-card-topo">
-                    <BadgeGerente gerente={g.gerente}/>
-                    <span className="gerente-card-badge">{g.rotasCount} rota{g.rotasCount!==1?"s":""}</span>
-                  </div>
-                  <div className="gerente-card-metrics">
-                    <div>
-                      <strong>{g.total}</strong>
-                      <span>Pontos</span>
-                    </div>
-                    <div>
-                      <strong>{g.comDespesa}</strong>
-                      <span>Com despesa</span>
-                    </div>
-                    <div>
-                      <strong>{formatarReais(g.totalDespesa)}</strong>
-                      <span>Total</span>
-                    </div>
-                  </div>
-                  <div className="gerente-card-footer">Clique para visualizar despesas{g.rotasCount>1?" por rota":""}.</div>
-                </button>
-              );
-            })}
+    <div style={{display:"flex",flexDirection:"column",gap:"20px"}}>
+      <section className="secao">
+        <div className="tabela-header">
+          <div>
+            <h2 className="secao-titulo" style={{margin:0}}>Histórico de Despesas</h2>
+            <p className="td-obs">Filtre por mês, ponto, gerente, descrição ou valor.</p>
           </div>
-
-          {rotasModal && <GerenteRouteSelectorModal gerente={rotasModal.gerente} rotas={rotasModal.rotas} onSelect={handleSelecionarRota} onFechar={fecharModais}/>}          
-          {despesasModal && <ManagerExpensesModal gerente={despesasModal.gerente} rota={despesasModal.rota} pontos={pontos} onFechar={fecharModais}/>}          
-        </>
-      }
-    </section>
+          <button className="btn-primario" onClick={baixarPDF}>📄 Gerar PDF</button>
+        </div>
+        <div className="filtros historico-despesas-filtros">
+          <input className="input-busca" type="text" placeholder="🔍 Buscar ponto, gerente, descrição..." value={busca} onChange={e=>setBusca(e.target.value)}/>
+          <input className="select-filtro" type="month" value={competencia} onChange={e=>setCompetencia(e.target.value)} list="meses-despesas"/>
+          <datalist id="meses-despesas">
+            {meses.map(m=><option key={m} value={m}>{mesLabel(`${m}-01`)}</option>)}
+          </datalist>
+          {administrador&&<button className="btn-secundario" onClick={()=>setCompetencia("")}>Todos os meses</button>}
+          {(busca||competencia)&&<button className="btn-limpar" onClick={()=>{setBusca("");setCompetencia(administrador?"":competenciaAtual());}}>✕ Limpar</button>}
+        </div>
+      </section>
+      <section className="secao">
+        <div className="ponto-resumo-grid">
+          <div className="resumo-card resumo-conserto"><div className="resumo-num" style={{fontSize:"18px"}}>{formatarReais(total)}</div><div className="resumo-label">Total Filtrado</div></div>
+          <div className="resumo-card resumo-total"><div className="resumo-num">{linhas.length}</div><div className="resumo-label">Lançamentos</div></div>
+          <div className="resumo-card resumo-uso"><div className="resumo-num">{totalPontos}</div><div className="resumo-label">Pontos</div></div>
+          <div className="resumo-card resumo-disponivel"><div className="resumo-num">{totalGerentes}</div><div className="resumo-label">Gerentes</div></div>
+        </div>
+      </section>
+      <section className="secao">
+        <div className="tabela-wrapper">
+          <table className="tabela">
+            <thead><tr><th>Ponto</th><th>Rota</th><th>Descrição</th><th>Valor</th><th>Mês</th><th>Data</th><th>Observação</th></tr></thead>
+            <tbody>
+              {linhas.length===0
+                ?<tr><td colSpan={7} className="tabela-vazia">Nenhuma despesa encontrada para os filtros atuais.</td></tr>
+                :linhas.map(d=>(
+                  <tr key={d.id}>
+                    <td className="td-nome">🏪 {d.pontoNome}</td>
+                    <td><BadgeGerente gerente={d.gerente}/></td>
+                    <td>{d.descricao || "—"}</td>
+                    <td className="qtd-baixa">{formatarReais(d.valor)}</td>
+                    <td className="td-minimo">{mesLabel(d.competencia)}</td>
+                    <td className="td-obs">{d.criadoEm ? new Date(d.criadoEm).toLocaleDateString("pt-BR") : "—"}</td>
+                    <td className="td-obs">{d.observacao || "—"}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -762,78 +735,38 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage({ equipamentos=[], podeEditar=false, onPontosChange, onEquipamentosChange, onHistoricoChange }) {
+export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
+  const [despesas,   setDespesas]  = useState([]);
   const [loading,    setLoading]   = useState(true);
   const [abaInterna, setAbaInterna]= useState("geral");
   const [modalForm,  setModalForm] = useState(false);
   const [pontoEdit,  setPontoEdit] = useState(null);
   const [excluindo,  setExcluindo] = useState(null);
   const [verDespesas,setVerDespesas]=useState(false);
+  const [pontoDespesas,setPontoDespesas]=useState(null);
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
-  const [pixEnvio, setPixEnvio] = useState(() => {
-    try {
-      const stored = localStorage.getItem(PIX_STORAGE_KEY);
-      if (!stored) return null;
-      const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed.sentAt === 'number' && parsed.chave) return parsed;
-    } catch (e) { }
-    return null;
-  });
-  const [pixRestante, setPixRestante] = useState(0);
-  const [pixCopiado, setPixCopiado] = useState(false);
+  const [buscaPontos,setBuscaPontos]=useState("");
 
   useEffect(()=>{
     async function carregar(){
       setLoading(true);
-      const [pts, hist] = await Promise.all([carregarPontos(), carregarHistoricoPontos()]);
-      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setLoading(false);
+      const [pts, hist, desp] = await Promise.all([carregarPontos(), carregarHistoricoPontos(), carregarDespesasMensais()]);
+      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setLoading(false);
     }
     carregar();
   },[]);
 
-  useEffect(()=>{
-    if (!pixEnvio) {
-      setPixRestante(0);
-      return;
-    }
-    const update = () => {
-      const diff = PIX_DURATION_MS - (Date.now() - pixEnvio.sentAt);
-      if (diff <= 0) {
-        localStorage.removeItem(PIX_STORAGE_KEY);
-        setPixEnvio(null);
-        setPixRestante(0);
-        return;
-      }
-      setPixRestante(diff);
-    };
-    update();
-    const interval = window.setInterval(update, 1000);
-    return ()=>window.clearInterval(interval);
-  },[pixEnvio]);
-
-  useEffect(()=>{
-    if (!pixCopiado) return;
-    const timer = window.setTimeout(()=>setPixCopiado(false), 1500);
-    return ()=>window.clearTimeout(timer);
-  },[pixCopiado]);
-
-  function enviarPix() {
-    const novoPix = { sentAt: Date.now(), chave: PIX_CHAVE };
-    localStorage.setItem(PIX_STORAGE_KEY, JSON.stringify(novoPix));
-    setPixEnvio(novoPix);
-  }
-
-  async function copiarChavePix() {
-    if (!pixEnvio) return;
-    try {
-      await navigator.clipboard.writeText(pixEnvio.chave);
-      setPixCopiado(true);
-    } catch (e) {
-      console.error('Erro ao copiar chave PIX:', e);
-    }
-  }
+  const gerenteAtual = perfilAtual?.perfil === "gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
+  const pontosVisiveis = gerenteAtual ? pontos.filter(p=>rotaPertenceAoGerente(p.gerente, gerenteAtual)) : pontos;
+  const nomesPontosVisiveis = new Set(pontosVisiveis.map(p=>p.nomeFantasia));
+  const equipamentosVisiveis = gerenteAtual ? equipamentos.filter(i=>nomesPontosVisiveis.has(i.localizacao)) : equipamentos;
+  const despesasVisiveis = despesas.filter(d=>
+    pontosVisiveis.some(p=>Number(p.id)===Number(d.pontoId)) &&
+    (!gerenteAtual || String(d.competencia || "").slice(0,7) === competenciaAtual())
+  );
+  const podeEditarDespesas = podeEditar || perfilAtual?.perfil === "gerente";
 
   async function salvarPontoHandler(form, equipamentosSelecionados){
     if(!podeEditar)return;
@@ -881,12 +814,43 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, onPontos
     }catch(e){console.error("Erro ao excluir ponto:",e);}
   }
 
+  async function salvarDespesasPonto(ponto, competencia, linhas) {
+    if(!podeEditarDespesas)return;
+    if(gerenteAtual && competencia !== competenciaAtual()) {
+      window.alert("Gerente só pode lançar despesas do mês atual.");
+      return;
+    }
+    if(gerenteAtual && !gerentePodeLancarDespesas()) {
+      window.alert("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
+      return;
+    }
+    try{
+      await Promise.all(linhas.map(linha=>salvarDespesaMensal(linha)));
+      const atualizadas = await carregarDespesasMensais();
+      setDespesas(atualizadas);
+      const totalMes = atualizadas
+        .filter(d=>Number(d.pontoId)===Number(ponto.id)&&String(d.competencia||"").slice(0,7)===competencia)
+        .reduce((s,d)=>s+valorDespesa(d),0);
+      const pontoAtualizado = {...ponto, possuiDespesa: totalMes>0?"sim":"nao", valorDespesa: totalMes};
+      await salvarPonto(pontoAtualizado);
+      const pontosAtualizados = pontos.map(p=>p.id===ponto.id?pontoAtualizado:p);
+      setPontos(pontosAtualizados); onPontosChange?.(pontosAtualizados);
+      setPontoDespesas(null);
+    }catch(e){console.error("Erro ao salvar despesas do ponto:",e);}
+  }
+
+  async function removerDespesaPonto(id) {
+    if(!podeEditarDespesas)return;
+    try{
+      await excluirDespesaMensal(id);
+      setDespesas(prev=>prev.filter(d=>Number(d.id)!==Number(id)));
+    }catch(e){console.error("Erro ao remover despesa mensal:",e);}
+  }
+
   const ABAS = [
     {id:"geral",    label:"📊 Visão Geral"},
-    {id:"pontos",   label:`🏪 Pontos (${pontos.length})`},
-    {id:"analise",  label:"💰 Análise de Despesas"},
-    {id:"gerentes", label:"👤 Gerentes & Modalidades"},
-    {id:"historico",label:`📋 Histórico (${historico.length})`},
+    {id:"pontos",   label:`🏪 Pontos (${pontosVisiveis.length})`},
+    {id:"analise",  label:"💰 Histórico de Despesas"},
   ];
   function abrirPontosFiltrados(filtro){
     setFiltroDespesa(filtro);
@@ -898,38 +862,16 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, onPontos
   return(
     <div className="points-page">
       <div className="points-toolbar">
+        <input
+          className="input-busca points-busca-topo"
+          type="text"
+          placeholder="🔍 Digite qualquer coisa: ponto, dono, telefone, gerente ou patrimônio..."
+          value={buscaPontos}
+          onChange={e=>{setBuscaPontos(e.target.value);if(e.target.value.trim())setAbaInterna("pontos");}}
+        />
         <p>Consulte estabelecimentos, despesas e equipamentos vinculados.</p>
         {podeEditar&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
       </div>
-
-      {(pixEnvio || podeEditar) && (
-        <section className="secao">
-          {pixEnvio ? (
-            <div className="pix-card pix-card-active">
-              <div>
-                <div className="pix-card-label">PIX enviado</div>
-                <h3 className="pix-card-title">Chave disponível por 24 horas</h3>
-                <div className="pix-card-chave">{pixEnvio.chave}</div>
-                <div className="pix-card-meta">Este cartão ficará visível por até 24h a partir do envio. Expira em <strong>{formatTempoRestante(pixRestante)}</strong>.</div>
-              </div>
-              <div className="pix-card-actions">
-                <button className="btn-primario btn-copiar-pix" onClick={copiarChavePix}>
-                  📋 {pixCopiado?"Copiado":"Copiar chave"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="pix-card pix-card-ready">
-              <div>
-                <div className="pix-card-label">Enviar PIX</div>
-                <h3 className="pix-card-title">Ative o comprovante por 24 horas</h3>
-                <div className="pix-card-meta">Apenas o administrador pode enviar novamente após o cartão expirar.</div>
-              </div>
-              <button className="btn-primario btn-enviar-pix" onClick={enviarPix}>Enviar PIX</button>
-            </div>
-          )}
-        </section>
-      )}
 
       <div className="points-abas">
         {ABAS.map(a=>(
@@ -948,17 +890,15 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, onPontos
       )}
 
       {!loading&&(<>
-        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontos} podeEditar={podeEditar} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontos} equipamentos={equipamentos} podeEditar={podeEditar} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo}
-            onExportExcel={()=>exportarPontosExcel(pontos)} onExportPDF={()=>exportarPontosPDF(pontos)}/>}
-        {abaInterna==="analise"  &&<AbaAnalise pontos={pontos}/>}
-        {abaInterna==="gerentes" &&<AbaGerentes pontos={pontos}/>}
-        {abaInterna==="historico"&&<AbaHistorico historico={historico}
-            onExportExcel={()=>exportarHistoricoPontosExcel(historico)} onExportPDF={()=>exportarHistoricoPontosPDF(historico)}/>}
+        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} podeEditar={podeEditar} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditar} podeEditarDespesas={podeEditarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas}
+            onExportExcel={()=>exportarPontosExcel(pontosVisiveis)} onExportPDF={()=>exportarPontosPDF(pontosVisiveis)}/>}
+        {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={perfilAtual?.perfil==="administrador"}/>}
       </>)}
 
       {modalForm&&podeEditar&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
-      {verDespesas&&<PointExpensesModal pontos={pontos} onFechar={()=>setVerDespesas(false)}/>}
+      {verDespesas&&<PointExpensesModal pontos={pontosVisiveis} onFechar={()=>setVerDespesas(false)}/>}
+      {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
 
       {excluindo&&(
         <div className="modal-overlay" onClick={()=>setExcluindo(null)}>

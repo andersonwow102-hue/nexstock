@@ -1,23 +1,93 @@
 // ─── Constantes de Pontos ─────────────────────────────────────────────────────
 export const GERENTES = [
-  "Alex SG","Maynarden","Maynarden Jussara","Queixo","Wene",
-  "João Luis","Beu","Yago Mirorós","Yago IBT","Yago Lapão","Vitor América","Vitor"
+  "Alex","Maynarden","Yago","Vitor","Eliana","Queixo","Wene","João Luis","Beu"
 ];
 
-// Cor única por gerente
+export const ROTAS_POR_GERENTE = {
+  "Alex": ["Alex"],
+  "Maynarden": ["Central/Uibai", "Jussara"],
+  "Yago": ["Lapão", "Mirorós", "Ibititá"],
+  "Vitor": ["América Dourada"],
+  "Eliana": ["Eliana"],
+  "Queixo": ["Queixo"],
+  "Wene": ["Wene"],
+  "João Luis": ["João Luis"],
+  "Beu": ["Beu"],
+};
+
+export const ROTAS = Object.values(ROTAS_POR_GERENTE).flat();
+
+const ROTA_ALIASES = {
+  "maynarden": "Central/Uibai",
+  "alex": "Alex",
+  "alex sg": "Alex",
+  "central/uibai": "Central/Uibai",
+  "central uibai": "Central/Uibai",
+  "uibai": "Central/Uibai",
+  "maynarden jussara": "Jussara",
+  "jussara": "Jussara",
+  "yago lapao": "Lapão",
+  "yago lapão": "Lapão",
+  "lapao": "Lapão",
+  "lapão": "Lapão",
+  "yago miroros": "Mirorós",
+  "yago mirorós": "Mirorós",
+  "miroros": "Mirorós",
+  "mirorós": "Mirorós",
+  "yago ibt": "Ibititá",
+  "ibitita": "Ibititá",
+  "ibititá": "Ibititá",
+  "vitor": "América Dourada",
+  "vitor america": "América Dourada",
+  "vitor américa": "América Dourada",
+  "america dourada": "América Dourada",
+  "américa dourada": "América Dourada",
+  "queixo": "Queixo",
+  "wene": "Wene",
+  "joao luis": "João Luis",
+  "joão luis": "João Luis",
+  "beu": "Beu",
+  "eliana": "Eliana",
+};
+
+export const normalizarNome = (valor) =>
+  String(valor || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+export function rotaCanonica(valor) {
+  const original = String(valor || "").trim();
+  return ROTA_ALIASES[normalizarNome(original)] || original;
+}
+
+export function gerenteDaRota(rota) {
+  const canonica = rotaCanonica(rota);
+  return Object.entries(ROTAS_POR_GERENTE).find(([, rotas]) => rotas.includes(canonica))?.[0] || "";
+}
+
+export function rotasDoGerente(gerente) {
+  const key = normalizarNome(gerente);
+  const nome = GERENTES.find(g => normalizarNome(g) === key) || gerenteDaRota(gerente);
+  return ROTAS_POR_GERENTE[nome] || [];
+}
+
+export function rotaPertenceAoGerente(rota, gerente) {
+  const rotas = rotasDoGerente(gerente).map(r => normalizarNome(r));
+  return rotas.includes(normalizarNome(rotaCanonica(rota)));
+}
+
+// Cor única por rota
 export const GERENTE_CORES = {
-  "Alex SG":          { bg:"rgba(77,142,240,0.15)",  color:"#4d8ef0", border:"rgba(77,142,240,0.3)"   },
-  "Maynarden":        { bg:"rgba(34,211,122,0.15)",  color:"#22d37a", border:"rgba(34,211,122,0.3)"   },
-  "Maynarden Jussara":{ bg:"rgba(157,110,245,0.15)", color:"#9d6ef5", border:"rgba(157,110,245,0.3)"  },
+  "Alex":            { bg:"rgba(77,142,240,0.15)",  color:"#4d8ef0", border:"rgba(77,142,240,0.3)"   },
+  "Central/Uibai":    { bg:"rgba(34,211,122,0.15)",  color:"#22d37a", border:"rgba(34,211,122,0.3)"   },
+  "Jussara":          { bg:"rgba(157,110,245,0.15)", color:"#9d6ef5", border:"rgba(157,110,245,0.3)"  },
+  "Lapão":            { bg:"rgba(168,85,247,0.15)",  color:"#a855f7", border:"rgba(168,85,247,0.3)"   },
+  "Mirorós":          { bg:"rgba(236,72,153,0.15)",  color:"#ec4899", border:"rgba(236,72,153,0.3)"   },
+  "Ibititá":          { bg:"rgba(239,68,68,0.15)",   color:"#ef4444", border:"rgba(239,68,68,0.3)"    },
+  "América Dourada":  { bg:"rgba(6,182,212,0.15)",   color:"#06b6d4", border:"rgba(6,182,212,0.3)"    },
   "Queixo":           { bg:"rgba(245,197,66,0.15)",  color:"#f5c542", border:"rgba(245,197,66,0.3)"   },
   "Wene":             { bg:"rgba(240,82,82,0.15)",   color:"#f05252", border:"rgba(240,82,82,0.3)"    },
   "João Luis":        { bg:"rgba(249,115,22,0.15)",  color:"#f97316", border:"rgba(249,115,22,0.3)"   },
   "Beu":              { bg:"rgba(20,184,166,0.15)",  color:"#14b8a6", border:"rgba(20,184,166,0.3)"   },
-  "Yago Mirorós":     { bg:"rgba(236,72,153,0.15)",  color:"#ec4899", border:"rgba(236,72,153,0.3)"   },
-  "Yago IBT":         { bg:"rgba(239,68,68,0.15)",   color:"#ef4444", border:"rgba(239,68,68,0.3)"    },
-  "Yago Lapão":       { bg:"rgba(168,85,247,0.15)",  color:"#a855f7", border:"rgba(168,85,247,0.3)"   },
-  "Vitor América":    { bg:"rgba(6,182,212,0.15)",   color:"#06b6d4", border:"rgba(6,182,212,0.3)"    },
-  "Vitor":            { bg:"rgba(132,204,22,0.15)",  color:"#84cc16", border:"rgba(132,204,22,0.3)"   },
+  "Eliana":           { bg:"rgba(14,165,233,0.15)",  color:"#0ea5e9", border:"rgba(14,165,233,0.3)"   },
 };
 
 export const MODALIDADES = [
@@ -51,7 +121,7 @@ export function validarPonto(form) {
   if (!form.nomeFantasia.trim())   return "Nome fantasia é obrigatório.";
   if (!form.nomeDono.trim())       return "Nome do dono é obrigatório.";
   if (!form.telefone.trim())       return "Telefone é obrigatório.";
-  if (!form.gerente)               return "Gerente responsável é obrigatório.";
+  if (!form.gerente)               return "Rota é obrigatória.";
   if (form.modalidades.length===0) return "Selecione pelo menos uma modalidade.";
   if (!form.possuiDespesa)         return "Informe se o ponto possui despesa.";
   if (form.possuiDespesa==="sim" && (!form.valorDespesa || parseMoeda(form.valorDespesa)<=0))

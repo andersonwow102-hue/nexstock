@@ -108,29 +108,98 @@ export async function carregarPerfilAtual() {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const user = authData?.user;
   if (authError || !user) return { userId: '', nome: '', perfil: 'consulta' };
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('perfis')
-    .select('user_id,nome,perfil')
+    .select('user_id,nome,perfil,gerente_nome,login_nome,email_temporario,email_temporario_expira_em')
     .eq('user_id', user.id)
     .maybeSingle();
+  if (error?.message?.includes('gerente_nome') || error?.message?.includes('email_temporario') || error?.message?.includes('login_nome')) {
+    const fallback = await supabase
+      .from('perfis')
+      .select('user_id,nome,perfil')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    data = fallback.data ? { ...fallback.data, gerente_nome: '', login_nome: '', email_temporario: false, email_temporario_expira_em: null } : null;
+    error = fallback.error;
+  }
   if (error) {
     console.error('Erro ao carregar perfil atual:', error);
     return { userId: user.id, nome: user.email || '', perfil: 'consulta' };
   }
   return data
-    ? { userId: data.user_id, nome: data.nome || user.email || '', perfil: data.perfil }
+    ? { userId: data.user_id, nome: data.nome || user.email || '', perfil: data.perfil, gerenteNome: data.gerente_nome || '', loginNome: data.login_nome || '', emailTemporario: Boolean(data.email_temporario), emailTemporarioExpiraEm: data.email_temporario_expira_em || '' }
     : { userId: user.id, nome: user.email || '', perfil: 'consulta' };
 }
 
 export async function carregarPerfis() {
-  const { data, error } = await supabase.from('perfis').select('user_id,nome,perfil,criado_em').order('nome', { ascending: true });
+  let { data, error } = await supabase.from('perfis').select('user_id,nome,perfil,gerente_nome,login_nome,email_temporario,email_temporario_expira_em,criado_em').order('nome', { ascending: true });
+  if (error?.message?.includes('gerente_nome') || error?.message?.includes('email_temporario') || error?.message?.includes('login_nome')) {
+    const fallback = await supabase.from('perfis').select('user_id,nome,perfil,criado_em').order('nome', { ascending: true });
+    data = fallback.data?.map(p => ({ ...p, gerente_nome: '', login_nome: '', email_temporario: false, email_temporario_expira_em: null })) || [];
+    error = fallback.error;
+  }
   if (error) { console.error('Erro ao carregar perfis:', error); return []; }
-  return data.map(p => ({ userId: p.user_id, nome: p.nome || 'Usuario', perfil: p.perfil, criadoEm: p.criado_em }));
+  return data.map(p => ({ userId: p.user_id, nome: p.nome || 'Usuario', perfil: p.perfil, gerenteNome: p.gerente_nome || '', loginNome: p.login_nome || '', emailTemporario: Boolean(p.email_temporario), emailTemporarioExpiraEm: p.email_temporario_expira_em || '', criadoEm: p.criado_em }));
 }
 
 export async function salvarPerfil(perfil) {
-  const { error } = await supabase.from('perfis').update({ perfil: perfil.perfil }).eq('user_id', perfil.userId);
+  const { error } = await supabase.from('perfis').update({ perfil: perfil.perfil, gerente_nome: perfil.gerenteNome || '' }).eq('user_id', perfil.userId);
   if (error) throw new Error(error.message);
+}
+
+export async function redefinirAcessoUsuario({ userId, novoEmail, novaSenha }) {
+  const { data, error } = await supabase.functions.invoke('redefinir-acesso-usuario', {
+    body: { userId, novoEmail, novaSenha },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function excluirAcessoUsuario({ userId }) {
+  return gerenciarLogins({ action: 'excluir', userId });
+}
+
+async function mensagemErroFuncao(error) {
+  const response = error?.context;
+  if (response?.clone) {
+    try {
+      const body = await response.clone().json();
+      if (body?.error) return body.error;
+      if (body?.message) return body.message;
+    } catch {
+      try {
+        const text = await response.clone().text();
+        if (text) return text;
+      } catch {
+        // Mantem a mensagem padrao abaixo.
+      }
+    }
+  }
+  return error?.message || 'Erro inesperado na Edge Function.';
+}
+
+export async function gerenciarLogins(payload = { action: 'listar' }) {
+  const { data, error } = await supabase.functions.invoke('gerenciar-logins', {
+    body: payload,
+  });
+  if (error) {
+    const detalhe = await mensagemErroFuncao(error);
+    const fetchFalhou = detalhe.toLowerCase().includes('failed to send');
+    throw new Error(fetchFalhou
+      ? 'A função gerenciar-logins não respondeu. Confirme se ela foi publicada no Supabase Edge Functions com o nome exatamente gerenciar-logins.'
+      : detalhe);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function resolverEmailPorLogin(login) {
+  const valor = String(login || '').trim().toLowerCase();
+  if (!valor) return '';
+  const { data, error } = await supabase.rpc('email_por_login', { login_input: valor });
+  if (error) throw new Error(error.message);
+  return data || '';
 }
 
 export async function carregarDespesasMensais() {
@@ -161,12 +230,187 @@ export async function excluirDespesaMensal(id) {
   if (error) throw new Error(error.message);
 }
 
+export async function carregarMensagensInternas(gerenteNome = '') {
+  let query = supabase
+    .from('mensagens_internas')
+    .select('*')
+    .order('created_at', { ascending: true })
+    .limit(500);
+  if (gerenteNome) query = query.eq('gerente_nome', gerenteNome);
+  const { data, error } = await query;
+  if (error) {
+    console.error('Erro ao carregar mensagens internas:', error);
+    return [];
+  }
+  return data.map(mapMensagemInterna);
+}
+
+export async function enviarMensagemInterna({ perfilAtual, gerenteNome, mensagem, destinoTipo }) {
+  const texto = String(mensagem || '').trim();
+  if (!texto) throw new Error('Digite uma mensagem antes de enviar.');
+  if (!gerenteNome) throw new Error('Selecione o gerente da conversa.');
+  const row = {
+    remetente_id: perfilAtual.userId,
+    remetente_nome: perfilAtual.nome || perfilAtual.loginNome || perfilAtual.perfil || 'Usuário',
+    remetente_perfil: perfilAtual.perfil || 'consulta',
+    gerente_nome: gerenteNome,
+    destino_tipo: destinoTipo,
+    mensagem: texto,
+  };
+  const { data, error } = await supabase.from('mensagens_internas').insert([row]).select().single();
+  if (error) throw new Error(error.message);
+  return mapMensagemInterna(data);
+}
+
+export async function marcarMensagensInternasLidas({ ids = [] }) {
+  const lista = ids.filter(Boolean);
+  if (lista.length === 0) return;
+  const { error } = await supabase
+    .from('mensagens_internas')
+    .update({ lida_em: new Date().toISOString() })
+    .in('id', lista);
+  if (error) console.error('Erro ao marcar mensagens como lidas:', error);
+}
+
+// ── Chaves PIX e avisos para gerentes ────────────────────────────────────────
+export async function carregarPixChaves() {
+  const { data, error } = await supabase
+    .from('pix_chaves')
+    .select('*')
+    .order('criado_em', { ascending: false });
+  if (error) {
+    console.error('Erro ao carregar chaves PIX:', error);
+    return [];
+  }
+  return data.map(mapPixChave);
+}
+
+export async function salvarPixChave(chave) {
+  const row = {
+    nome: String(chave.nome || '').trim(),
+    tipo: chave.tipo || 'Chave PIX',
+    chave: String(chave.chave || '').trim(),
+    banco: String(chave.banco || '').trim(),
+    observacao: String(chave.observacao || '').trim(),
+    ativa: chave.ativa !== false,
+  };
+  if (!row.nome || !row.chave) throw new Error('Informe o nome da conta e a chave PIX.');
+
+  if (chave.id) {
+    const { data, error } = await supabase
+      .from('pix_chaves')
+      .update({ ...row, atualizado_em: new Date().toISOString() })
+      .eq('id', chave.id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return mapPixChave(data);
+  }
+
+  const { data, error } = await supabase
+    .from('pix_chaves')
+    .insert([row])
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return mapPixChave(data);
+}
+
+export async function excluirPixChave(id) {
+  const { error } = await supabase.from('pix_chaves').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+export async function carregarPixEnvios() {
+  const { data, error } = await supabase
+    .from('pix_envios')
+    .select('*')
+    .order('enviado_em', { ascending: false })
+    .limit(100);
+  if (error) {
+    console.error('Erro ao carregar avisos PIX:', error);
+    return [];
+  }
+  return data.map(mapPixEnvio);
+}
+
+export async function enviarPixParaGerente({ chave, gerente, rota, mensagem }) {
+  if (!chave?.chave) throw new Error('Selecione uma chave PIX.');
+  if (!gerente) throw new Error('Selecione o gerente que receberá o aviso.');
+  const row = {
+    pix_chave_id: typeof chave.id === 'number' ? chave.id : null,
+    pix_nome: chave.nome,
+    pix_tipo: chave.tipo,
+    pix_chave: chave.chave,
+    pix_banco: chave.banco || '',
+    gerente,
+    rota: rota || '',
+    mensagem: String(mensagem || '').trim(),
+  };
+  const { data, error } = await supabase
+    .from('pix_envios')
+    .insert([row])
+    .select()
+    .single();
+  if (error) {
+    const msg = String(error.message || '');
+    if (msg.includes('pix_envios') || msg.includes('schema cache')) {
+      throw new Error('A tabela de avisos PIX ainda não existe no Supabase. Rode o SQL pix_envios_cartoes.sql no SQL Editor e tente novamente.');
+    }
+    throw new Error(error.message);
+  }
+  return mapPixEnvio(data);
+}
+
 function mapDespesaMensal(row) {
   return {
     id: row.id, pontoId: row.ponto_id, competencia: row.competencia,
     descricao: row.descricao, tipo: row.tipo,
     valorPrevisto: Number(row.valor_previsto) || 0, valorReal: Number(row.valor_real) || 0,
+    observacao: row.observacao || '', criadoEm: row.criado_em || '',
+  };
+}
+
+function mapPixChave(row) {
+  return {
+    id: row.id,
+    nome: row.nome || '',
+    tipo: row.tipo || 'Chave PIX',
+    chave: row.chave || '',
+    banco: row.banco || '',
     observacao: row.observacao || '',
+    ativa: row.ativa !== false,
+    criadoEm: row.criado_em || '',
+    atualizadoEm: row.atualizado_em || '',
+  };
+}
+
+function mapPixEnvio(row) {
+  return {
+    id: row.id,
+    pixChaveId: row.pix_chave_id,
+    pixNome: row.pix_nome || '',
+    pixTipo: row.pix_tipo || 'Chave PIX',
+    pixChave: row.pix_chave || '',
+    pixBanco: row.pix_banco || '',
+    gerente: row.gerente || '',
+    rota: row.rota || '',
+    mensagem: row.mensagem || '',
+    enviadoEm: row.enviado_em || '',
+  };
+}
+
+function mapMensagemInterna(row) {
+  return {
+    id: row.id,
+    remetenteId: row.remetente_id,
+    remetenteNome: row.remetente_nome || '',
+    remetentePerfil: row.remetente_perfil || '',
+    gerenteNome: row.gerente_nome || '',
+    destinoTipo: row.destino_tipo || '',
+    mensagem: row.mensagem || '',
+    lidaEm: row.lida_em || '',
+    criadoEm: row.created_at || '',
   };
 }
 
@@ -177,6 +421,10 @@ function mapEquipamento(row) {
     observacao: row.observacao || '', localizacao: row.localizacao || '',
     responsavel: row.responsavel || '', patrimonio: row.patrimonio || '',
     dataCadastro: row.data_cadastro || '',
+    gerenteResponsavel: row.gerente_responsavel || '',
+    transferenciaStatus: row.transferencia_status || '',
+    transferenciaEnviadaEm: row.transferencia_enviada_em || '',
+    transferenciaRecebidaEm: row.transferencia_recebida_em || '',
   };
 }
 
@@ -186,6 +434,10 @@ function desmapEquipamento(item) {
     status: item.status, minimo: item.minimo, observacao: item.observacao || '',
     localizacao: item.localizacao || '', responsavel: item.responsavel || '',
     patrimonio: item.patrimonio || '', data_cadastro: item.dataCadastro || '',
+    gerente_responsavel: item.gerenteResponsavel || '',
+    transferencia_status: item.transferenciaStatus || '',
+    transferencia_enviada_em: item.transferenciaEnviadaEm || null,
+    transferencia_recebida_em: item.transferenciaRecebidaEm || null,
   };
 }
 
@@ -200,7 +452,6 @@ function mapPonto(row) {
     id: row.id, nomeFantasia: row.nome_fantasia, nomeDono: row.nome_dono,
     telefone: row.telefone, gerente: row.gerente,
     modalidades: row.modalidades || [],
-    rota: row.rota || row.route || "",
     possuiDespesa: row.possui_despesa, valorDespesa: Number(row.valor_despesa) || 0,
     observacao: row.observacao || '',
   };
@@ -211,7 +462,6 @@ function desmapPonto(ponto) {
     nome_fantasia: ponto.nomeFantasia, nome_dono: ponto.nomeDono,
     telefone: ponto.telefone, gerente: ponto.gerente,
     modalidades: ponto.modalidades || [],
-    rota: ponto.rota || "",
     possui_despesa: ponto.possuiDespesa, valor_despesa: ponto.valorDespesa || 0,
     observacao: ponto.observacao || '',
   };

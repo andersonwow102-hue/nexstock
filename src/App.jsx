@@ -1,24 +1,27 @@
 import logo from "./assets/stock-on-dark.png";
 import logoLight from "./assets/stock-on-light.png";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
-import { supabase } from "./supabase.js";
-import * as XLSX from "xlsx";
-import { gerarRelatorioPDF } from "./pdfReports.js";
+import LoginManagerPage from "./LoginManagerPage.jsx";
+import { GERENTES, ROTAS_POR_GERENTE, gerenteDaRota, rotaCanonica, rotaPertenceAoGerente } from "./pointsData.js";
+import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
   carregarPontos, salvarPonto, adicionarHistoricoPonto, carregarHistoricoPontos,
-  carregarPerfilAtual,
+  carregarPerfilAtual, resolverEmailPorLogin, carregarDespesasMensais,
+  carregarMensagensInternas, enviarMensagemInterna, marcarMensagensInternasLidas,
+  carregarPixEnvios, enviarPixParaGerente,
 } from "./db.js";
 
-const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores"];
+const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Totens","Noteiro","PDV Touchscreen"];
 const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
-const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌"};
+const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌","Totens":"🗼","Noteiro":"💵","PDV Touchscreen":"🧾"};
 const MINIMO_CATEGORIA = 5;
+const CATEGORIA_COM_ALERTA = "Terminais";
 const STATUS_CFG = {
   "Disponível": {cor:"status-disponivel"},
   "Em rota":    {cor:"status-em-rota"},
@@ -26,6 +29,7 @@ const STATUS_CFG = {
 };
 const TIPOS_MOV = [
   {id:"ponto",     label:"Enviar para Ponto",   icone:"📍",novoStatus:"Em rota",     exigePonto:true },
+  {id:"gerente",   label:"Enviar p/ Gerente",   icone:"🧑‍💼",novoStatus:"Em rota",  exigePonto:false},
   {id:"conserto",  label:"Enviar p/ Conserto",  icone:"🔧",novoStatus:"Em conserto",exigePonto:false},
   {id:"disponivel",label:"Disponibilizar",       icone:"✅",novoStatus:"Disponível",  exigePonto:false},
 ];
@@ -41,33 +45,27 @@ const HIST_CFG = {
   "disponivel":{cor:"hist-disponivel",icone:"🟢",label:"Disponível"},
   "baixa":     {cor:"hist-baixa",     icone:"⬇️",label:"Baixa"    },
   "ponto":     {cor:"hist-rota",      icone:"📍",label:"Enviado ao ponto"},
+  "envio_gerente": {cor:"hist-rota",  icone:"📦",label:"Enviado ao gerente"},
+  "recebimento_gerente": {cor:"hist-entrada", icone:"✅",label:"Recebido pelo gerente"},
 };
 
-const PALAVRAS_MAIUSCULAS=["LG","POS","USB","USB-C","TV","LED","LCD","OLED","QLED","HP","IBM","CPU","GPS","HD","SSD","RAM","HDMI","VGA","PC","65W","45W","20W","4K","8K"];
-function padronizarNome(t){
-  if(!t)return"";
-  return t.trim().replace(/\s+/g," ").split(" ").map(p=>{
-    const u=p.toUpperCase();
-    if(PALAVRAS_MAIUSCULAS.includes(u))return u;
-    if(p.includes("-"))return p.split("-").map(x=>PALAVRAS_MAIUSCULAS.includes(x.toUpperCase())?x.toUpperCase():x.charAt(0).toUpperCase()+x.slice(1).toLowerCase()).join("-");
-    return p.charAt(0).toUpperCase()+p.slice(1).toLowerCase();
-  }).join(" ");
+function padronizarNomenclaturaEquipamento(t){
+  return String(t||"").trim().replace(/\s+/g," ").toUpperCase();
 }
 
-const PREFIXO_CAT={"Televisões":"TV","Terminais":"TRM","Impressoras":"IMP","Tablets":"TAB","Carregadores":"CAR"};
-function gerarPatrimonio(cat,itens){
-  const pref=PREFIXO_CAT[cat]||"EQP";
-  const nums=itens.filter(i=>i.categoria===cat&&i.patrimonio).map(i=>{const m=i.patrimonio.match(/(\d+)$/);return m?parseInt(m[1]):0;});
-  const prox=nums.length>0?Math.max(...nums)+1:1;
-  return`${pref}-${String(prox).padStart(3,"0")}`;
-}
-
-const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponível",minimo:5,observacao:"",localizacao:"",responsavel:"",patrimonio:"",dataCadastro:""};
-const movVazio={tipoId:"ponto",ponto:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:""};
+const TRANSFERENCIA_GERENTE = {
+  aguardando: "aguardando_confirmacao",
+  recebido: "recebido",
+};
+const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponível",minimo:5,observacao:"",localizacao:"",responsavel:"",patrimonio:"",dataCadastro:"",gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""};
+const movVazio={tipoId:"ponto",ponto:"",gerente:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:""};
 const ITENS_POR_PAGINA=12;
+const BACKUP_INTERVALO_DIAS=7;
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
+const isoAgora=()=>new Date().toISOString();
 const formatarMoedaPDF=valor=>Number(valor||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const normalizarTexto=v=>String(v||"").trim().toLowerCase();
 function comPrazo(promise, descricao, tempo=15000) {
   return Promise.race([
     promise,
@@ -95,11 +93,9 @@ function validarItem(f,itens=[],itemId=null){
   if(!f.nome.trim())       return"Nome do equipamento é obrigatório.";
   if(!f.categoria)         return"Categoria é obrigatória.";
   if(!f.status)            return"Status é obrigatório.";
-  if(!f.patrimonio.trim()) return"Código / Patrimônio é obrigatório.";
-  const patrimonio=f.patrimonio.trim().toUpperCase();
-  const prefixo=PREFIXO_CAT[f.categoria];
-  if(!patrimonio.startsWith(`${prefixo}-`)) return`Código incompatível: equipamentos da categoria ${f.categoria} devem começar com ${prefixo}-.`;
-  if(!new RegExp(`^${prefixo}-\\d{3,}$`).test(patrimonio)) return`Código inválido: use o formato ${prefixo}-001.`;
+  if(!padronizarNomenclaturaEquipamento(f.nome)) return"Nomenclatura do equipamento é obrigatória.";
+  if(!padronizarNomenclaturaEquipamento(f.patrimonio)) return"Código / Patrimônio é obrigatório.";
+  const patrimonio=padronizarNomenclaturaEquipamento(f.patrimonio);
   if(itens.some(i=>i.id!==itemId&&(i.patrimonio||"").trim().toUpperCase()===patrimonio)) return`Código duplicado: o patrimônio ${patrimonio} já está cadastrado.`;
   return null;
 }
@@ -109,6 +105,26 @@ function validarMov(mov,tipo){
   return null;
 }
 
+function textoLocalizacaoEquipamento(item){
+  if(item.localizacao)return item.localizacao;
+  if(item.gerenteResponsavel&&item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando)return`Enviado para ${item.gerenteResponsavel}`;
+  if(item.gerenteResponsavel&&item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido)return`Estoque de ${item.gerenteResponsavel}`;
+  return"Sem ponto";
+}
+
+function LocalizacaoGerenteCell({ item }) {
+  const ponto = item.localizacao || "";
+  const gerente = item.gerenteResponsavel || "";
+  return (
+    <div className="localizacao-gerente-cell">
+      <span><strong>Ponto:</strong> {ponto || "Sem ponto"}</span>
+      {gerente&&<span><strong>Gerente:</strong> {gerente}</span>}
+      {!ponto&&gerente&&item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&<small>Em estoque do gerente</small>}
+      {!ponto&&gerente&&item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&<small>Aguardando confirmação</small>}
+    </div>
+  );
+}
+
 function baixarJSON(nomeArquivo, dados){
   const url=URL.createObjectURL(new Blob([JSON.stringify(dados,null,2)],{type:"application/json"}));
   const link=document.createElement("a");
@@ -116,7 +132,38 @@ function baixarJSON(nomeArquivo, dados){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-function exportarEquipamentosExcel(itens){
+function chaveBackupPerfil(perfil){
+  return `stockon_backup_obrigatorio_${perfil?.userId||perfil?.loginNome||perfil?.nome||"usuario"}`;
+}
+function diasDesde(dataISO){
+  if(!dataISO)return Infinity;
+  const data=new Date(dataISO);
+  if(Number.isNaN(data.getTime()))return Infinity;
+  return Math.floor((Date.now()-data.getTime())/(1000*60*60*24));
+}
+function ultimoBackupPerfil(perfil){
+  try{return localStorage.getItem(chaveBackupPerfil(perfil))||"";}catch{return"";}
+}
+function registrarBackupPerfil(perfil){
+  const agoraISO=isoAgora();
+  try{localStorage.setItem(chaveBackupPerfil(perfil),agoraISO);}catch{}
+  return agoraISO;
+}
+function backupObrigatorioVencido(perfil){
+  if(!["administrador","operador","gerente"].includes(perfil?.perfil))return false;
+  return diasDesde(ultimoBackupPerfil(perfil))>=BACKUP_INTERVALO_DIAS;
+}
+function slugArquivoBackup(texto){
+  return String(texto||"stock-on").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40)||"stock-on";
+}
+
+async function gerarPDF(configuracao) {
+  const { gerarRelatorioPDF } = await import("./pdfReports.js");
+  return gerarRelatorioPDF(configuracao);
+}
+
+async function exportarEquipamentosExcel(itens){
+  const XLSX=await import("xlsx");
   const dados=itens.map(i=>({
     "Patrimônio":i.patrimonio||"—","Nome":i.nome,"Categoria":i.categoria,
     "Status":i.status,"Ponto / Localização":i.localizacao||"—",
@@ -131,7 +178,7 @@ function exportarEquipamentosExcel(itens){
 
 async function exportarEquipamentosPDF(itens){
   const ordenados=ordenarEquipamentos(itens);
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Relatório de Equipamentos",
     descricao:"Inventário operacional e localização atual dos equipamentos",
     nomeArquivo:`stock-on_equipamentos_${hoje()}.pdf`,
@@ -147,7 +194,8 @@ async function exportarEquipamentosPDF(itens){
   });
 }
 
-function exportarHistoricoExcel(historico){
+async function exportarHistoricoExcel(historico){
+  const XLSX=await import("xlsx");
   const dados=historico.map(h=>({
     "Tipo":HIST_CFG[h.tipo]?.label||h.tipo,"Equipamento":h.itemNome,"Categoria":h.categoria,
     "Qtd Antes":h.qtdAntes,"Qtd Depois":h.qtdDepois,
@@ -160,7 +208,7 @@ function exportarHistoricoExcel(historico){
 }
 
 async function exportarHistoricoPDF(historico){
-  await gerarRelatorioPDF({
+  await gerarPDF({
     titulo:"Histórico de Equipamentos",
     descricao:"Rastreabilidade de cadastros e movimentações operacionais",
     nomeArquivo:`stock-on_historico_equipamentos_${hoje()}.pdf`,
@@ -175,27 +223,41 @@ async function exportarHistoricoPDF(historico){
   });
 }
 
-function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
-  const gerentes = [...new Set(pontos.map(p=>p.gerente).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual }) {
+  const gerentes = [...new Set([...GERENTES, ...pontos.map(p=>gerenteDaRota(p.gerente)).filter(Boolean)])].sort((a,b)=>a.localeCompare(b));
   const [gerenteSelecionado, setGerenteSelecionado] = useState("");
   const gerente = gerentes.includes(gerenteSelecionado) ? gerenteSelecionado : gerentes[0]||"";
   const disponiveis = itens.filter(i=>i.status==="Disponível");
-  const pontosGerente = pontos.filter(p=>p.gerente===gerente);
+  const despesas = lista => lista.reduce((total,p)=>total+(p.possuiDespesa==="sim"?Number(p.valorDespesa||0):0),0);
+  const emConserto = itens.filter(i=>i.status==="Em conserto");
+  const pendentesConfirmacao = itens.filter(i=>i.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando);
+  const terminaisDisponiveis = itens.filter(i=>i.categoria===CATEGORIA_COM_ALERTA&&i.status==="Disponível").length;
+  const alertaTerminais = Math.max(0, MINIMO_CATEGORIA-terminaisDisponiveis);
+  const pontosComEquipamento = new Set(itens.filter(i=>i.localizacao).map(i=>normalizarTexto(i.localizacao)));
+  const pontosSemEquipamento = pontos.filter(p=>!pontosComEquipamento.has(normalizarTexto(p.nomeFantasia)));
+  const historicoRecente = historico.slice(0, 6);
+  const rankingGerentes = gerentes.map(nome=>{
+    const listaPontos = pontos.filter(p=>rotaPertenceAoGerente(p.gerente,nome));
+    const locais = new Set(listaPontos.map(p=>normalizarTexto(p.nomeFantasia)));
+    const listaEquipamentos = itens.filter(i=>locais.has(normalizarTexto(i.localizacao))||normalizarTexto(i.gerenteResponsavel)===normalizarTexto(nome));
+    const pendentes = itens.filter(i=>normalizarTexto(i.gerenteResponsavel)===normalizarTexto(nome)&&i.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando).length;
+    return {nome, pontos:listaPontos.length, equipamentos:listaEquipamentos.length, pendentes, despesas:despesas(listaPontos)};
+  }).sort((a,b)=>b.pendentes-a.pendentes||b.equipamentos-a.equipamentos||a.nome.localeCompare(b.nome));
+  const pontosGerente = pontos.filter(p=>rotaPertenceAoGerente(p.gerente,gerente));
   const locaisGerente = new Set(pontosGerente.map(p=>p.nomeFantasia));
   const equipamentosGerente = itens.filter(i=>locaisGerente.has(i.localizacao));
-  const despesas = lista => lista.reduce((total,p)=>total+(p.possuiDespesa==="sim"?Number(p.valorDespesa||0):0),0);
   const linhasEquipamentos = lista => ordenarEquipamentos(lista).map(i=>[
     i.patrimonio||"-", i.nome, i.categoria, i.status, i.localizacao||"Sem ponto", i.responsavel||"-",
   ]);
   const linhasPontos = lista => ordenarPontos(lista).map(p=>[
-    p.nomeFantasia, p.nomeDono, p.gerente,
+    p.nomeFantasia, p.nomeDono, rotaCanonica(p.gerente),
     itens.filter(i=>i.localizacao===p.nomeFantasia).length,
     p.possuiDespesa==="sim"?"Sim":"Não",
     p.possuiDespesa==="sim"?formatarMoedaPDF(p.valorDespesa):"-",
   ]);
 
   async function gerarCompleto() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:"Relatório Geral",
       descricao:"Visão completa da operação, equipamentos e pontos cadastrados",
       nomeArquivo:`stock-on_relatorio_geral_${hoje()}.pdf`,
@@ -224,7 +286,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   }
 
   async function gerarPontos() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:"Relatório de Pontos",
       descricao:"Pontos cadastrados, gerentes, equipamentos vinculados e despesas",
       nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
@@ -241,7 +303,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   }
 
   async function gerarDisponiveis() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:"Equipamentos Disponíveis",
       descricao:"Equipamentos prontos para serem enviados a um ponto",
       nomeArquivo:`stock-on_disponiveis_${hoje()}.pdf`,
@@ -259,7 +321,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
   }
 
   async function gerarPorGerente() {
-    await gerarRelatorioPDF({
+    await gerarPDF({
       titulo:`Relatório do Gerente - ${gerente}`,
       descricao:"Pontos sob responsabilidade e equipamentos atualmente vinculados",
       nomeArquivo:`stock-on_gerente_${gerente.toLowerCase().replace(/\s+/g,"-")}_${hoje()}.pdf`,
@@ -300,9 +362,9 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
     <div className="relatorios-painel">
       <section className="relatorios-intro">
         <div>
-          <span className="dash-kicker">Exportação rápida</span>
-          <h2>Escolha o relatório que precisa enviar</h2>
-          <p>Todos os documentos saem em PDF com a identidade Stock-ON e os dados atualizados do sistema.</p>
+          <span className="dash-kicker">Central operacional</span>
+          <h2>O que precisa de atenção agora?</h2>
+          <p>Um painel rápido para ver pendências, rotas, estoque crítico e gerar documentos quando precisar prestar conta.</p>
         </div>
         <div className="relatorios-resumo">
           <strong>{itens.length}</strong><small>equipamentos</small>
@@ -310,6 +372,91 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
         </div>
       </section>
 
+      <section className="central-kpis">
+        <article className={`central-kpi ${pendentesConfirmacao.length?"central-kpi-alerta":""}`}>
+          <span>📨</span>
+          <div><strong>{pendentesConfirmacao.length}</strong><small>envios aguardando gerente</small></div>
+        </article>
+        <article className={alertaTerminais?"central-kpi central-kpi-alerta":"central-kpi"}>
+          <span>💻</span>
+          <div><strong>{terminaisDisponiveis}</strong><small>terminais disponíveis{alertaTerminais?` · faltam ${alertaTerminais}`:""}</small></div>
+        </article>
+        <article className="central-kpi">
+          <span>🔧</span>
+          <div><strong>{emConserto.length}</strong><small>equipamentos em conserto</small></div>
+        </article>
+        <article className="central-kpi">
+          <span>📍</span>
+          <div><strong>{pontosSemEquipamento.length}</strong><small>pontos sem equipamento vinculado</small></div>
+        </article>
+      </section>
+
+      <section className="central-grid">
+        <article className="central-card central-card-prioridade">
+          <div className="central-card-topo">
+            <span className="dash-kicker">Prioridades</span>
+            <strong>Ação imediata</strong>
+          </div>
+          {pendentesConfirmacao.length===0&&emConserto.length===0&&alertaTerminais===0
+            ?<p className="dash-vazio">Sem pendências críticas no momento. Operação respirando bem.</p>
+            :<div className="central-lista">
+              {pendentesConfirmacao.slice(0,4).map(item=><div key={item.id} className="central-item">
+                <span>📨</span><div><strong>{item.patrimonio||item.nome}</strong><small>Aguardando confirmação de {item.gerenteResponsavel||"gerente"}</small></div>
+              </div>)}
+              {alertaTerminais>0&&<div className="central-item">
+                <span>⚠️</span><div><strong>Terminais abaixo do mínimo</strong><small>{terminaisDisponiveis} disponíveis de {MINIMO_CATEGORIA} necessários</small></div>
+              </div>}
+              {emConserto.slice(0,3).map(item=><div key={item.id} className="central-item">
+                <span>🔧</span><div><strong>{item.patrimonio||item.nome}</strong><small>{item.nome} está em conserto</small></div>
+              </div>)}
+            </div>}
+        </article>
+
+        <article className="central-card">
+          <div className="central-card-topo">
+            <span className="dash-kicker">Gerentes</span>
+            <strong>Rotas e carteira</strong>
+          </div>
+          {rankingGerentes.length===0
+            ?<p className="dash-vazio">Nenhum gerente cadastrado ainda.</p>
+            :<div className="central-lista">
+              {rankingGerentes.slice(0,5).map(g=><div key={g.nome} className="central-item central-item-gerente">
+                <span>👤</span>
+                <div><strong>{g.nome}</strong><small>{g.pontos} pontos · {g.equipamentos} equipamentos · {formatarMoedaPDF(g.despesas)}</small></div>
+                {g.pendentes>0&&<em>{g.pendentes} pend.</em>}
+              </div>)}
+            </div>}
+        </article>
+
+        <article className="central-card">
+          <div className="central-card-topo">
+            <span className="dash-kicker">Checklist</span>
+            <strong>Conferência do dia</strong>
+          </div>
+          <div className="central-checklist">
+            <label><input type="checkbox" readOnly checked={pendentesConfirmacao.length===0}/> Confirmar envios pendentes</label>
+            <label><input type="checkbox" readOnly checked={alertaTerminais===0}/> Manter terminais acima do mínimo</label>
+            <label><input type="checkbox" readOnly checked={pontosSemEquipamento.length===0}/> Revisar pontos sem equipamento</label>
+            <label><input type="checkbox" readOnly checked={emConserto.length===0}/> Acompanhar itens em conserto</label>
+          </div>
+        </article>
+
+        <article className="central-card">
+          <div className="central-card-topo">
+            <span className="dash-kicker">Movimento</span>
+            <strong>Últimas ações</strong>
+          </div>
+          {historicoRecente.length===0
+            ?<p className="dash-vazio">Nenhum histórico registrado.</p>
+            :<div className="central-lista">
+              {historicoRecente.map(h=><div key={h.id} className="central-item">
+                <span>{HIST_CFG[h.tipo]?.icone||"📋"}</span><div><strong>{h.itemNome}</strong><small>{HIST_CFG[h.tipo]?.label||h.tipo} · {h.data}</small></div>
+              </div>)}
+            </div>}
+        </article>
+      </section>
+
+      <div className="secao-titulo-linha"><span>Exportações e backup</span></div>
       <section className="relatorios-grid">
         <article className="relatorio-card relatorio-destaque">
           <span className="relatorio-icone">📑</span>
@@ -346,12 +493,12 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
           </select>
           <button className="btn-secundario" onClick={gerarPorGerente} disabled={!gerente}>Gerar por gerente</button>
         </article>
-        <article className="relatorio-card relatorio-backup">
+        {perfilAtual?.perfil==="administrador"&&<article className="relatorio-card relatorio-backup">
           <span className="relatorio-icone">💾</span>
           <h3>Backup completo</h3>
           <p>Baixa equipamentos, pontos e históricos em arquivo de segurança para guardar fora do sistema.</p>
           <button className="btn-secundario" onClick={exportarBackup}>Baixar backup</button>
-        </article>
+        </article>}
       </section>
     </div>
   );
@@ -360,7 +507,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos }) {
 function BuscaGlobalPage({ consulta, onConsulta, itens, pontos, historico, onVerEquipamento, onAbrirPontos }) {
   const termo=consulta.trim().toLowerCase();
   const equipamentos=termo?itens.filter(i=>[i.patrimonio,i.nome,i.categoria,i.status,i.localizacao,i.responsavel].some(v=>(v||"").toLowerCase().includes(termo))):[];
-  const pontosEncontrados=termo?pontos.filter(p=>[p.nomeFantasia,p.nomeDono,p.gerente,p.telefone,...p.modalidades].some(v=>(v||"").toLowerCase().includes(termo))):[];
+  const pontosEncontrados=termo?pontos.filter(p=>[p.nomeFantasia,p.nomeDono,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),p.telefone,...p.modalidades].some(v=>(v||"").toLowerCase().includes(termo))):[];
   const movimentos=termo?historico.filter(h=>[h.itemNome,h.categoria,h.tipo,h.responsavel,h.observacao].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,20):[];
   return(
     <div className="busca-global-page">
@@ -378,13 +525,661 @@ function BuscaGlobalPage({ consulta, onConsulta, itens, pontos, historico, onVer
           </section>
           <section className="secao busca-bloco">
             <h2 className="secao-titulo">Pontos <span className="badge-count">{pontosEncontrados.length}</span></h2>
-            {pontosEncontrados.length===0?<p className="dash-vazio">Nenhum ponto encontrado.</p>:pontosEncontrados.map(p=><button key={p.id} className="busca-item" onClick={onAbrirPontos}><strong>{p.nomeFantasia}</strong><span>{p.gerente}</span><small>{p.telefone}</small></button>)}
+            {pontosEncontrados.length===0?<p className="dash-vazio">Nenhum ponto encontrado.</p>:pontosEncontrados.map(p=><button key={p.id} className="busca-item" onClick={onAbrirPontos}><strong>{p.nomeFantasia}</strong><span>{rotaCanonica(p.gerente)}</span><small>{p.telefone}</small></button>)}
           </section>
           <section className="secao busca-bloco">
             <h2 className="secao-titulo">Movimentações <span className="badge-count">{movimentos.length}</span></h2>
             {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação encontrada.</p>:movimentos.map(h=><div key={h.id} className="busca-item sem-clique"><strong>{h.itemNome}</strong><span>{HIST_CFG[h.tipo]?.label||h.tipo}</span><small>{h.data}</small></div>)}
           </section>
         </div>}
+    </div>
+  );
+}
+
+function valorDespesaPrestacao(despesa) {
+  return Number(despesa.valorReal || despesa.valorPrevisto || 0);
+}
+
+function perfilBancoPix(banco = "") {
+  const b = normalizarTexto(banco);
+  if (b.includes("dig")) return { nome: "Digio", icone: "D", classe: "pix-banco-digio" };
+  if (b.includes("neon")) return { nome: "Neon", icone: "neon", classe: "pix-banco-neon" };
+  if (b.includes("nu pagamentos") || b.includes("nubank") || b === "nu") return { nome: "Nu", icone: "Nu", classe: "pix-banco-nu" };
+  if (b.includes("bradesco")) return { nome: "Bradesco", icone: "B", classe: "pix-banco-bradesco" };
+  if (b.includes("itau") || b.includes("itaú")) return { nome: "Itaú", icone: "I", classe: "pix-banco-itau" };
+  if (b.includes("santander")) return { nome: "Santander", icone: "S", classe: "pix-banco-santander" };
+  if (b.includes("caixa")) return { nome: "Caixa", icone: "Cx", classe: "pix-banco-caixa" };
+  if (b.includes("brasil")) return { nome: "Banco do Brasil", icone: "BB", classe: "pix-banco-bb" };
+  return { nome: banco || "Banco", icone: "PIX", classe: "pix-banco-outro" };
+}
+
+const PIX_CARTOES_PADRAO = [
+  { id:"pix-digio-anderson", banco:"Banco Digío S.A.", nome:"Anderson", tipo:"Aleatória", chave:"b1dcb47f-2859-4688-836c-419b056361ba", visual:{ nome:"Digio", icone:"digio", classe:"pix-banco-digio" } },
+  { id:"pix-nu-albertino", banco:"Nu Pagamentos S.A", nome:"Albertino", tipo:"Aleatória", chave:"4c0bb510-b006-4e61-a753-7cc0e9e3d391", visual:{ nome:"Nu", icone:"Nu", classe:"pix-banco-nu" } },
+  { id:"pix-neon-sabrina", banco:"Neon Pagamentos S.A", nome:"Sabrina", tipo:"Aleatória", chave:"7aeaf6f5-d457-4b21-b0d3-2cb2956ea7fa", visual:{ nome:"Neon", icone:"neon", classe:"pix-banco-neon" } },
+];
+
+function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = [], onPixEnviosChange }) {
+  const [cartaoPix,setCartaoPix]=useState(null);
+  const [pixEnvio,setPixEnvio]=useState({gerente:GERENTES[0]||"",rota:"",mensagem:""});
+  const [pixErro,setPixErro]=useState("");
+  const [pixOk,setPixOk]=useState("");
+  const [pixSalvando,setPixSalvando]=useState(false);
+  const dados = GERENTES.map(gerente => {
+    const rotas = ROTAS_POR_GERENTE[gerente] || [];
+    const pontosGerente = pontos.filter(p => rotaPertenceAoGerente(p.gerente, gerente));
+    const nomesPontos = new Set(pontosGerente.map(p => p.nomeFantasia));
+    const equipamentos = itens.filter(i =>
+      nomesPontos.has(i.localizacao) ||
+      normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerente) ||
+      rotaPertenceAoGerente(i.gerenteResponsavel, gerente)
+    );
+    const idsPontos = new Set(pontosGerente.map(p => Number(p.id)));
+    const totalDespesas = despesas
+      .filter(d => idsPontos.has(Number(d.pontoId)))
+      .reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+    return { gerente, rotas, pontos:pontosGerente.length, equipamentos:equipamentos.length, totalDespesas };
+  });
+  const rotasEnvio=ROTAS_POR_GERENTE[pixEnvio.gerente]||[];
+
+  async function enviarAvisoPix(e){
+    e.preventDefault();
+    setPixErro("");
+    setPixOk("");
+    if(!cartaoPix){
+      setPixErro("Escolha um cartão PIX para enviar.");
+      return;
+    }
+    setPixSalvando(true);
+    try{
+      const envio=await enviarPixParaGerente({
+        chave:cartaoPix,
+        gerente:pixEnvio.gerente,
+        rota:pixEnvio.rota,
+        mensagem:pixEnvio.mensagem,
+      });
+      onPixEnviosChange?.([envio,...pixEnvios]);
+      setPixEnvio(v=>({...v,mensagem:""}));
+      setCartaoPix(null);
+      setPixOk(`Aviso PIX enviado para ${envio.gerente}${envio.rota?` · ${envio.rota}`:""}.`);
+    }catch(err){
+      setPixErro(err.message||"Não foi possível enviar o aviso PIX.");
+    }finally{
+      setPixSalvando(false);
+    }
+  }
+
+  return (
+    <section className="secao fechamento-page">
+      <div className="fechamento-hero">
+        <div>
+          <span className="dash-kicker">Fechamento por rota</span>
+          <h2>Controle de fechamento dos gerentes</h2>
+          <p>Área especial para acompanhar rotas, pontos, equipamentos e despesas antes do fechamento.</p>
+        </div>
+        <span className="perfil-selo perfil-administrador">Especial</span>
+      </div>
+      <div className="prestacao-gerentes-grid">
+        {dados.map(g=>(
+          <article key={g.gerente} className="prestacao-gerente-card fechamento-card">
+            <div className="prestacao-gerente-avatar">{g.gerente.slice(0,1).toUpperCase()}</div>
+            <span>{g.gerente}</span>
+            <strong>{formatarMoedaPDF(g.totalDespesas)}</strong>
+            <small>{g.pontos} ponto{g.pontos!==1?"s":""} · {g.equipamentos} equipamento{g.equipamentos!==1?"s":""}</small>
+            <div className="modalidades-badges">
+              {g.rotas.length ? g.rotas.map(rota=><span key={rota} className="badge-cat">{rota}</span>) : <span className="td-obs">Sem rota cadastrada</span>}
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="pix-admin-panel">
+        <div className="pix-admin-head">
+          <div>
+            <span className="dash-kicker">PIX reservado</span>
+            <h3>Cartões PIX para prestação de contas</h3>
+            <p>Escolha um cartão, selecione o gerente/rota e envie o aviso PIX direto para ele.</p>
+          </div>
+          <span className="perfil-selo perfil-administrador">{PIX_CARTOES_PADRAO.length} cartões</span>
+        </div>
+        {(pixErro||pixOk)&&<div className={pixErro?"erro-box":"sucesso-box"}>{pixErro||pixOk}</div>}
+        <div className="pix-card-grid">
+          {PIX_CARTOES_PADRAO.map(chave=>{
+            const banco=chave.visual||perfilBancoPix(chave.banco);
+            return <article className={`pix-credit-card ${banco.classe}`} key={chave.id}>
+              <div className="pix-card-top">
+                <span className="pix-chip"/>
+                <span className="pix-contactless">)))</span>
+                <strong>{banco.nome}</strong>
+              </div>
+              <button className="pix-send-link" type="button" onClick={()=>setCartaoPix(chave)}>Enviar para o gerente</button>
+              <div className="pix-card-brand">{banco.icone}</div>
+              <div className="pix-card-info">
+                <strong>{chave.nome}</strong>
+                <span>{chave.banco}</span>
+                <small>{chave.tipo}: {chave.chave}</small>
+              </div>
+            </article>;
+          })}
+        </div>
+        {cartaoPix&&(
+          <form className="pix-send-panel" onSubmit={enviarAvisoPix}>
+            <div>
+              <span className="dash-kicker">Enviar PIX</span>
+              <h4>{cartaoPix.nome} · {perfilBancoPix(cartaoPix.banco).nome}</h4>
+              <p>{cartaoPix.tipo}: {cartaoPix.chave}</p>
+            </div>
+            <label>Gerente<select value={pixEnvio.gerente} onChange={e=>setPixEnvio({gerente:e.target.value,rota:"",mensagem:pixEnvio.mensagem})}>{GERENTES.map(g=><option key={g}>{g}</option>)}</select></label>
+            <label>Rota<select value={pixEnvio.rota} onChange={e=>setPixEnvio({...pixEnvio,rota:e.target.value})}><option value="">Todas as rotas</option>{rotasEnvio.map(r=><option key={r}>{r}</option>)}</select></label>
+            <label>Mensagem<textarea value={pixEnvio.mensagem} onChange={e=>setPixEnvio({...pixEnvio,mensagem:e.target.value})} placeholder="Ex: use esta chave para prestar conta deste fechamento."/></label>
+            <div className="pix-send-actions">
+              <button className="btn-ghost" type="button" onClick={()=>setCartaoPix(null)}>Cancelar</button>
+              <button className="btn-primary" disabled={pixSalvando}>{pixSalvando?"Enviando...":"Enviar aviso PIX"}</button>
+            </div>
+          </form>
+        )}
+        <div className="pix-listas-grid pix-lista-envios">
+          <section>
+            <h4>Últimos avisos enviados</h4>
+            {pixEnvios.length===0?<p className="dash-vazio">Nenhum aviso PIX enviado ainda.</p>:pixEnvios.slice(0,6).map(envio=>{
+              const banco=perfilBancoPix(envio.pixBanco);
+              return <article className="pix-chave-card" key={envio.id}>
+                <span className={`pix-banco-logo ${banco.classe}`}>{banco.icone}</span>
+                <div><strong>{envio.gerente}{envio.rota?` · ${envio.rota}`:""}</strong><span>{banco.nome} · {envio.pixNome} · {envio.pixTipo}</span><small>{envio.enviadoEm?new Date(envio.enviadoEm).toLocaleString("pt-BR"):"Agora"}</small></div>
+              </article>;
+            })}
+          </section>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function mesDespesaPrestacao(data) {
+  return String(data || "").slice(0, 7);
+}
+
+function diaDespesaPrestacao(data) {
+  if (!data) return "";
+  const dt = new Date(data);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toISOString().slice(0, 10);
+}
+
+const MESES_PRESTACAO = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+
+function formatarMesPrestacao(valor) {
+  if (!valor) return "Todos os meses";
+  const [ano, mes] = String(valor).split("-");
+  const nomeMes = MESES_PRESTACAO[Number(mes) - 1];
+  return nomeMes && ano ? `${nomeMes.toLowerCase()} de ${ano}` : "Selecionar mês";
+}
+
+function formatarDiaPrestacao(valor) {
+  if (!valor) return "Todos os dias";
+  const [ano, mes, dia] = String(valor).split("-");
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : "Selecionar dia";
+}
+
+function periodoPrestacaoLabel(mes, dia) {
+  if (dia) return `Dia ${formatarDiaPrestacao(dia)}`;
+  if (mes) return `Mês ${formatarMesPrestacao(mes)}`;
+  return "Todos os períodos";
+}
+
+function diasDoMesPrestacao(anoMes) {
+  const [anoTxt, mesTxt] = String(anoMes || hoje().slice(0, 7)).split("-");
+  const ano = Number(anoTxt);
+  const mes = Number(mesTxt);
+  if (!ano || !mes) return [];
+  const total = new Date(ano, mes, 0).getDate();
+  const primeiroDia = new Date(ano, mes - 1, 1).getDay();
+  const vazios = Array.from({ length: primeiroDia }, () => null);
+  const dias = Array.from({ length: total }, (_, i) => `${anoTxt}-${String(mes).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`);
+  return [...vazios, ...dias];
+}
+
+function PrestacaoContasPage({ pontos = [], despesas = [] }) {
+  const [aba, setAba] = useState("geral");
+  const [competencia, setCompetencia] = useState(hoje().slice(0, 7));
+  const [dia, setDia] = useState("");
+  const [busca, setBusca] = useState("");
+  const [gerenteFiltro, setGerenteFiltro] = useState("Todos");
+  const [seletorPeriodo, setSeletorPeriodo] = useState(null);
+  const [anoMesPicker, setAnoMesPicker] = useState(Number(hoje().slice(0, 4)));
+  const [mesDiaPicker, setMesDiaPicker] = useState(hoje().slice(0, 7));
+  const [gerentePDF, setGerentePDF] = useState("Todos");
+
+  const pontoPorId = useMemo(() => new Map(pontos.map(p => [Number(p.id), p])), [pontos]);
+  const gerentes = useMemo(() => [...new Set(pontos.map(p => p.gerente).filter(Boolean))].sort((a,b)=>a.localeCompare(b, "pt-BR")), [pontos]);
+
+  const despesasDetalhadas = useMemo(() => despesas.map(d => {
+    const ponto = pontoPorId.get(Number(d.pontoId));
+    return {
+      ...d,
+      pontoNome: ponto?.nomeFantasia || `Ponto ${d.pontoId}`,
+      dono: ponto?.nomeDono || "",
+      gerente: ponto?.gerente || "Sem gerente",
+      valor: valorDespesaPrestacao(d),
+      mes: mesDespesaPrestacao(d.competencia),
+      diaLancamento: diaDespesaPrestacao(d.criadoEm),
+    };
+  }), [despesas, pontoPorId]);
+
+  const despesasFiltradas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return despesasDetalhadas.filter(d => {
+      const bateMes = !competencia || d.mes === competencia;
+      const bateDia = !dia || d.diaLancamento === dia;
+      const bateGerente = gerenteFiltro === "Todos" || d.gerente === gerenteFiltro;
+      const bateBusca = !q || [d.pontoNome, d.dono, d.gerente, d.descricao, d.observacao].some(v => String(v || "").toLowerCase().includes(q));
+      return bateMes && bateDia && bateGerente && bateBusca;
+    }).sort((a,b)=>
+      String(a.gerente).localeCompare(String(b.gerente), "pt-BR") ||
+      String(a.pontoNome).localeCompare(String(b.pontoNome), "pt-BR") ||
+      String(a.descricao).localeCompare(String(b.descricao), "pt-BR")
+    );
+  }, [despesasDetalhadas, competencia, dia, gerenteFiltro, busca]);
+
+  const totalGeral = despesasFiltradas.reduce((s,d)=>s+d.valor,0);
+  const pontosComDespesa = new Set(despesasFiltradas.map(d=>d.pontoId)).size;
+  const gerentesComDespesa = new Set(despesasFiltradas.map(d=>d.gerente)).size;
+  const porGerente = gerentes.map(gerente => {
+    const lista = despesasFiltradas.filter(d => d.gerente === gerente);
+    const total = lista.reduce((s,d)=>s+d.valor,0);
+    return {
+      gerente,
+      total,
+      despesas: lista.length,
+      pontos: new Set(lista.map(d=>d.pontoId)).size,
+      maiorDespesa: lista.reduce((maior,d)=>d.valor>maior.valor?d:maior,{valor:0,pontoNome:"-"}),
+    };
+  }).filter(g=>g.despesas>0).sort((a,b)=>b.total-a.total);
+  const gerentesComLancamento = porGerente.map(g=>g.gerente);
+  const gerenteSelecionadoPDF = gerentePDF==="Todos" ? (gerenteFiltro==="Todos"?"":gerenteFiltro) : gerentePDF;
+
+  function limparFiltros() {
+    setCompetencia(hoje().slice(0, 7));
+    setDia("");
+    setBusca("");
+    setGerenteFiltro("Todos");
+    setGerentePDF("Todos");
+  }
+
+  function abrirSeletorMes() {
+    setAnoMesPicker(Number((competencia || hoje().slice(0, 7)).slice(0, 4)));
+    setSeletorPeriodo("mes");
+  }
+
+  function selecionarMes(numeroMes) {
+    const novoMes = `${anoMesPicker}-${String(numeroMes).padStart(2, "0")}`;
+    setCompetencia(novoMes);
+    setDia("");
+    setSeletorPeriodo(null);
+  }
+
+  function abrirSeletorDia() {
+    setMesDiaPicker((dia || competencia || hoje()).slice(0, 7));
+    setSeletorPeriodo("dia");
+  }
+
+  function selecionarDia(novoDia) {
+    setDia(novoDia);
+    setCompetencia(novoDia.slice(0, 7));
+    setSeletorPeriodo(null);
+  }
+
+  function linhasPrestacaoPDF(lista) {
+    return lista.map(d=>[
+      d.gerente||"-",
+      d.pontoNome||"-",
+      d.descricao||"-",
+      d.mes?formatarMesPrestacao(d.mes):"-",
+      d.diaLancamento?formatarDiaPrestacao(d.diaLancamento):"-",
+      formatarMoedaPDF(d.valor),
+      d.observacao||"-",
+    ]);
+  }
+
+  function resumoPrestacaoPDF(lista, tituloEscopo) {
+    return [
+      {label:"Escopo",valor:tituloEscopo},
+      {label:"Período",valor:periodoPrestacaoLabel(competencia,dia)},
+      {label:"Total",valor:formatarMoedaPDF(lista.reduce((s,d)=>s+d.valor,0)),destaque:[201,125,0]},
+      {label:"Lançamentos",valor:lista.length},
+      {label:"Gerentes",valor:new Set(lista.map(d=>d.gerente)).size,destaque:[37,99,235]},
+      {label:"Pontos",valor:new Set(lista.map(d=>d.pontoId)).size,destaque:[5,150,82]},
+    ];
+  }
+
+  async function baixarPrestacaoPDF(tipo) {
+    if (despesasFiltradas.length===0) {
+      window.alert("Nenhuma despesa encontrada para gerar o PDF.");
+      return;
+    }
+    const colunas = ["Gerente","Ponto","Descrição","Mês","Data","Valor","Observação"];
+    if (tipo==="gerente") {
+      if (!gerenteSelecionadoPDF) {
+        window.alert("Selecione um gerente com lançamentos para gerar o PDF.");
+        return;
+      }
+      const lista = despesasFiltradas.filter(d=>d.gerente===gerenteSelecionadoPDF);
+      await gerarPDF({
+        titulo:`Prestação de Contas - ${gerenteSelecionadoPDF}`,
+        descricao:`Conferência individual do gerente | ${periodoPrestacaoLabel(competencia,dia)}`,
+        nomeArquivo:`stock-on_prestacao_${slugArquivoBackup(gerenteSelecionadoPDF)}_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+        total:lista.length,
+        resumo:resumoPrestacaoPDF(lista, gerenteSelecionadoPDF),
+        colunas,
+        linhas:linhasPrestacaoPDF(lista),
+      });
+      return;
+    }
+    if (tipo==="todos-gerentes") {
+      const secoes = porGerente.map(g=>{
+        const lista = despesasFiltradas.filter(d=>d.gerente===g.gerente);
+        return {
+          titulo:`Gerente: ${g.gerente} | Total: ${formatarMoedaPDF(g.total)}`,
+          colunas,
+          linhas:linhasPrestacaoPDF(lista),
+        };
+      });
+      await gerarPDF({
+        titulo:"Prestação de Contas por Gerente",
+        descricao:`PDF separado por seções de gerente | ${periodoPrestacaoLabel(competencia,dia)}`,
+        nomeArquivo:`stock-on_prestacao_por-gerente_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+        total:despesasFiltradas.length,
+        resumo:resumoPrestacaoPDF(despesasFiltradas, "Todos os gerentes"),
+        secoes,
+      });
+      return;
+    }
+    await gerarPDF({
+      titulo:"Prestação de Contas Geral",
+      descricao:`Conferência geral das despesas lançadas | ${periodoPrestacaoLabel(competencia,dia)}`,
+      nomeArquivo:`stock-on_prestacao_geral_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+      total:despesasFiltradas.length,
+      resumo:resumoPrestacaoPDF(despesasFiltradas, gerenteFiltro==="Todos"?"Geral":gerenteFiltro),
+      ...(porGerente.length ? { secoes: porGerente.map(g=>{
+        const lista = despesasFiltradas.filter(d=>d.gerente===g.gerente);
+        return {
+          titulo:`Gerente: ${g.gerente} | Total: ${formatarMoedaPDF(g.total)}`,
+          colunas,
+          linhas:linhasPrestacaoPDF(lista),
+        };
+      }) } : { colunas, linhas: linhasPrestacaoPDF(despesasFiltradas) }),
+    });
+  }
+
+  return (
+    <div className="prestacao-page">
+      <section className="gestao-intro prestacao-intro">
+        <div className="prestacao-faixas" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div className="prestacao-intro-texto">
+          <span className="gestao-kicker">Área administrativa</span>
+          <h2>Prestação de contas dos gerentes</h2>
+          <p>Conferência individual e geral das despesas lançadas por ponto, gerente, mês e dia.</p>
+        </div>
+        <div className="prestacao-intro-resumo">
+          <span className="perfil-selo perfil-administrador">Somente Administrador</span>
+          <strong>{formatarMoedaPDF(totalGeral)}</strong>
+          <small>{despesasFiltradas.length} lançamento{despesasFiltradas.length!==1?"s":""} no recorte atual</small>
+        </div>
+      </section>
+
+      <section className="prestacao-filtros">
+        <div className="prestacao-filtros-titulo">
+          <span>🔎</span>
+          <div>
+            <strong>Filtros da conferência</strong>
+            <small>Escolha o período, gerente ou pesquise por ponto/descrição.</small>
+          </div>
+        </div>
+        <div className="campo">
+          <label>Mês da prestação</label>
+          <button type="button" className="periodo-trigger" onClick={abrirSeletorMes}>
+            <span>{formatarMesPrestacao(competencia)}</span>
+            <small>📅 Escolher</small>
+          </button>
+        </div>
+        <div className="campo">
+          <label>Dia do lançamento</label>
+          <button type="button" className="periodo-trigger" onClick={abrirSeletorDia}>
+            <span>{formatarDiaPrestacao(dia)}</span>
+            <small>📆 Escolher</small>
+          </button>
+        </div>
+        <div className="campo">
+          <label>Gerente</label>
+          <select value={gerenteFiltro} onChange={e=>setGerenteFiltro(e.target.value)}>
+            <option value="Todos">Todos os gerentes</option>
+            {gerentes.map(g=><option key={g} value={g}>{g}</option>)}
+          </select>
+        </div>
+        <div className="campo prestacao-busca">
+          <label>Buscar</label>
+          <input type="text" placeholder="Ponto, gerente, descrição..." value={busca} onChange={e=>setBusca(e.target.value)} />
+        </div>
+        <button className="btn-secundario" onClick={limparFiltros}>Limpar</button>
+      </section>
+
+      <section className="prestacao-pdf-box">
+        <div className="prestacao-pdf-icone">📄</div>
+        <div className="prestacao-pdf-info">
+          <span className="gestao-kicker">Backup físico</span>
+          <h3>Baixar prestação em PDF</h3>
+          <p>Use os filtros acima para escolher mês, dia, gerente ou busca. O PDF será gerado exatamente com esse recorte.</p>
+        </div>
+        <div className="prestacao-pdf-acoes">
+          <select value={gerentePDF} onChange={e=>setGerentePDF(e.target.value)}>
+            <option value="Todos">Selecionar gerente</option>
+            {gerentesComLancamento.map(g=><option key={g} value={g}>{g}</option>)}
+          </select>
+          <button className="btn-primario" onClick={()=>baixarPrestacaoPDF("geral")}>📄 PDF geral</button>
+          <button className="btn-secundario" onClick={()=>baixarPrestacaoPDF("gerente")} disabled={!gerenteSelecionadoPDF}>👤 PDF do gerente</button>
+          <button className="btn-secundario" onClick={()=>baixarPrestacaoPDF("todos-gerentes")}>📚 PDF por gerentes</button>
+        </div>
+      </section>
+
+      {seletorPeriodo==="mes"&&(
+        <div className="modal-overlay periodo-overlay" onClick={()=>setSeletorPeriodo(null)}>
+          <div className="modal modal-periodo" onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Escolher mês da prestação</h3>
+              <button className="modal-fechar" onClick={()=>setSeletorPeriodo(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="periodo-ano-controle">
+                <button type="button" className="btn-secundario" onClick={()=>setAnoMesPicker(a=>a-1)}>← Ano anterior</button>
+                <strong>{anoMesPicker}</strong>
+                <button type="button" className="btn-secundario" onClick={()=>setAnoMesPicker(a=>a+1)}>Próximo ano →</button>
+              </div>
+              <div className="periodo-meses-grid">
+                {MESES_PRESTACAO.map((mesNome, idx) => {
+                  const valor = `${anoMesPicker}-${String(idx + 1).padStart(2, "0")}`;
+                  return (
+                    <button
+                      key={mesNome}
+                      type="button"
+                      className={competencia===valor?"ativo":""}
+                      onClick={()=>selecionarMes(idx + 1)}
+                    >
+                      {mesNome}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secundario" onClick={()=>setSeletorPeriodo(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {seletorPeriodo==="dia"&&(
+        <div className="modal-overlay periodo-overlay" onClick={()=>setSeletorPeriodo(null)}>
+          <div className="modal modal-periodo" onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Escolher dia do lançamento</h3>
+              <button className="modal-fechar" onClick={()=>setSeletorPeriodo(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="periodo-ano-controle">
+                <button
+                  type="button"
+                  className="btn-secundario"
+                  onClick={()=>setMesDiaPicker(m=>{
+                    const [ano, mes] = m.split("-").map(Number);
+                    return new Date(ano, mes - 2, 1).toISOString().slice(0, 7);
+                  })}
+                >
+                  ← Mês anterior
+                </button>
+                <strong>{formatarMesPrestacao(mesDiaPicker)}</strong>
+                <button
+                  type="button"
+                  className="btn-secundario"
+                  onClick={()=>setMesDiaPicker(m=>{
+                    const [ano, mes] = m.split("-").map(Number);
+                    return new Date(ano, mes, 1).toISOString().slice(0, 7);
+                  })}
+                >
+                  Próximo mês →
+                </button>
+              </div>
+              <div className="periodo-semana-grid">
+                {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(diaSemana=><span key={diaSemana}>{diaSemana}</span>)}
+              </div>
+              <div className="periodo-dias-grid">
+                {diasDoMesPrestacao(mesDiaPicker).map((valor, idx) => valor ? (
+                  <button
+                    key={valor}
+                    type="button"
+                    className={dia===valor?"ativo":""}
+                    onClick={()=>selecionarDia(valor)}
+                  >
+                    {Number(valor.slice(8, 10))}
+                  </button>
+                ) : <span key={`vazio-${idx}`} />)}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secundario" onClick={()=>{setDia("");setSeletorPeriodo(null);}}>Ver todos os dias</button>
+              <button type="button" className="btn-secundario" onClick={()=>setSeletorPeriodo(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="gestao-abas prestacao-abas">
+        <button className={aba==="geral"?"ativo":""} onClick={()=>setAba("geral")}>💰 Valor geral</button>
+        <button className={aba==="gerentes"?"ativo":""} onClick={()=>setAba("gerentes")}>👤 Gerente por gerente</button>
+        <button className={aba==="todos"?"ativo":""} onClick={()=>setAba("todos")}>📋 Todos os lançamentos</button>
+      </div>
+
+      {aba==="geral"&&(
+        <>
+          <section className="prestacao-kpis">
+            <article className="prestacao-kpi-total"><span>💰</span><small>Total filtrado</small><strong>{formatarMoedaPDF(totalGeral)}</strong></article>
+            <article><span>🧾</span><small>Lançamentos</small><strong>{despesasFiltradas.length}</strong></article>
+            <article><span>👤</span><small>Gerentes</small><strong>{gerentesComDespesa}</strong></article>
+            <article><span>📍</span><small>Pontos</small><strong>{pontosComDespesa}</strong></article>
+          </section>
+          <section className="secao">
+            <h2 className="secao-titulo">Resumo por gerente</h2>
+            {porGerente.length===0 ? <p className="tabela-vazia">Nenhuma despesa encontrada para os filtros atuais.</p> : (
+              <div className="prestacao-gerentes-grid">
+                {porGerente.map(g=>(
+                  <button key={g.gerente} className="prestacao-gerente-card" onClick={()=>{setGerenteFiltro(g.gerente);setAba("gerentes");}}>
+                    <div className="prestacao-gerente-avatar">{g.gerente.slice(0,1).toUpperCase()}</div>
+                    <span>{g.gerente}</span>
+                    <strong>{formatarMoedaPDF(g.total)}</strong>
+                    <small>{g.despesas} lançamento{g.despesas!==1?"s":""} · {g.pontos} ponto{g.pontos!==1?"s":""}</small>
+                    <div className="prestacao-gerente-barra"><i style={{width:`${Math.max(8, Math.min(100, totalGeral ? (g.total/totalGeral)*100 : 0))}%`}} /></div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {aba==="gerentes"&&(
+        <section className="secao">
+          <h2 className="secao-titulo">Prestação individual por gerente</h2>
+          {porGerente.length===0 ? <p className="tabela-vazia">Nenhum gerente com despesa nos filtros atuais.</p> : (
+            <div className="prestacao-gerente-lista">
+              {porGerente.map(g=>(
+                <article key={g.gerente} className="prestacao-gerente-detalhe">
+                  <div className="prestacao-gerente-topo">
+                    <div>
+                      <span className="gestao-kicker">Gerente</span>
+                      <h3>{g.gerente}</h3>
+                    </div>
+                    <strong>{formatarMoedaPDF(g.total)}</strong>
+                  </div>
+                  <div className="prestacao-mini-kpis">
+                    <span>{g.despesas} despesas</span>
+                    <span>{g.pontos} pontos</span>
+                    <span>Maior: {g.maiorDespesa.pontoNome}</span>
+                  </div>
+                  <div className="tabela-wrapper">
+                    <table className="tabela">
+                      <thead><tr><th>Ponto</th><th>Descrição</th><th>Mês</th><th>Data</th><th>Valor</th><th>Observação</th></tr></thead>
+                      <tbody>
+                        {despesasFiltradas.filter(d=>d.gerente===g.gerente).map(d=>(
+                          <tr key={d.id}>
+                            <td className="td-nome">{d.pontoNome}</td>
+                            <td>{d.descricao||"-"}</td>
+                            <td className="td-minimo">{d.mes||"-"}</td>
+                            <td className="td-minimo">{d.diaLancamento||"-"}</td>
+                            <td className="qtd-baixa">{formatarMoedaPDF(d.valor)}</td>
+                            <td className="td-obs">{d.observacao||"-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {aba==="todos"&&(
+        <section className="secao">
+          <div className="tabela-header">
+            <h2 className="secao-titulo" style={{margin:0}}>Todos os lançamentos</h2>
+            <strong className="prestacao-total-inline">{formatarMoedaPDF(totalGeral)}</strong>
+          </div>
+          {despesasFiltradas.length===0 ? <p className="tabela-vazia">Nenhuma despesa encontrada.</p> : (
+            <div className="tabela-wrapper">
+              <table className="tabela">
+                <thead><tr><th>Gerente</th><th>Ponto</th><th>Descrição</th><th>Mês</th><th>Data</th><th>Valor</th><th>Observação</th></tr></thead>
+                <tbody>
+                  {despesasFiltradas.map(d=>(
+                    <tr key={d.id}>
+                      <td><span className="badge-cat">{d.gerente}</span></td>
+                      <td className="td-nome">{d.pontoNome}</td>
+                      <td>{d.descricao||"-"}</td>
+                      <td className="td-minimo">{d.mes||"-"}</td>
+                      <td className="td-minimo">{d.diaLancamento||"-"}</td>
+                      <td className="qtd-baixa">{formatarMoedaPDF(d.valor)}</td>
+                      <td className="td-obs">{d.observacao||"-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -402,8 +1197,10 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, p
           </div>
           <div className="ficha-dados">
             <div><small>Categoria</small><strong>{item.categoria}</strong></div>
-            <div><small>Local atual</small><strong>{item.localizacao||"Sem ponto"}</strong></div>
+            <div><small>Local atual</small><strong>{textoLocalizacaoEquipamento(item)}</strong></div>
             <div><small>Responsável</small><strong>{item.responsavel||"-"}</strong></div>
+            {item.gerenteResponsavel&&<div><small>Gerente vinculado</small><strong>{item.gerenteResponsavel}</strong></div>}
+            {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&<div><small>Recebimento</small><strong>Aguardando confirmação</strong></div>}
             <div><small>Cadastro</small><strong>{item.dataCadastro||"-"}</strong></div>
           </div>
           <h4 className="ficha-subtitulo">Linha do tempo</h4>
@@ -420,21 +1217,268 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, p
   );
 }
 
+function formatarHoraMensagem(data) {
+  if (!data) return "";
+  const dt = new Date(data);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+
+function pareceEmail(valor) {
+  return String(valor || "").includes("@");
+}
+
+function notificacaoDisponivel() {
+  return typeof window !== "undefined" && "Notification" in window;
+}
+
+function ChatInterno({ perfilAtual, gerentes = [] }) {
+  const [aberto, setAberto] = useState(false);
+  const [mensagens, setMensagens] = useState([]);
+  const [gerenteSelecionado, setGerenteSelecionado] = useState("");
+  const [texto, setTexto] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [permissaoNotificacao, setPermissaoNotificacao] = useState(()=>notificacaoDisponivel() ? Notification.permission : "unsupported");
+  const [apelidoAdmin, setApelidoAdmin] = useState(()=>{
+    try{return localStorage.getItem("stockon_chat_apelido_admin") || "Administração";}catch{return "Administração";}
+  });
+  const notificacoesIniciadas = useRef(false);
+  const ultimoIdNotificado = useRef(0);
+  const admin = ["administrador","operador"].includes(perfilAtual?.perfil);
+  const gerenteAtual = perfilAtual?.perfil==="gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
+  const gerentesDisponiveis = useMemo(() => [...new Set(gerentes.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR")), [gerentes]);
+  const gerenteConversa = admin ? gerenteSelecionado : gerenteAtual;
+  const apelidoAdminFinal = apelidoAdmin.trim() || "Administração";
+
+  useEffect(()=>{
+    try{localStorage.setItem("stockon_chat_apelido_admin", apelidoAdminFinal);}catch{}
+  },[apelidoAdminFinal]);
+
+  useEffect(() => {
+    if (admin && !gerenteSelecionado && gerentesDisponiveis.length > 0) setGerenteSelecionado(gerentesDisponiveis[0]);
+  }, [admin, gerenteSelecionado, gerentesDisponiveis]);
+
+  async function carregar() {
+    if (!gerenteConversa) return;
+    const dados = await carregarMensagensInternas(gerenteConversa);
+    setMensagens(dados);
+  }
+
+  useEffect(() => {
+    if (!gerenteConversa) return;
+    let ativo = true;
+    async function atualizar() {
+      const dados = await carregarMensagensInternas(gerenteConversa);
+      if (ativo) setMensagens(dados);
+    }
+    atualizar();
+    const timer = setInterval(atualizar, aberto ? 8000 : 20000);
+    return () => { ativo = false; clearInterval(timer); };
+  }, [gerenteConversa, aberto]);
+
+  useEffect(() => {
+    if (!aberto || !perfilAtual?.userId) return;
+    const ids = mensagens
+      .filter(m => m.remetenteId !== perfilAtual.userId && !m.lidaEm)
+      .map(m => m.id);
+    if (ids.length) marcarMensagensInternasLidas({ ids });
+  }, [aberto, mensagens, perfilAtual?.userId]);
+
+  const mensagensNaoLidas = mensagens.filter(m => m.remetenteId !== perfilAtual?.userId && !m.lidaEm).length;
+
+  useEffect(() => {
+    if (!perfilAtual?.userId || !notificacaoDisponivel()) return;
+    const maiorId = mensagens.reduce((maior, m) => Math.max(maior, Number(m.id) || 0), 0);
+    if (!notificacoesIniciadas.current) {
+      ultimoIdNotificado.current = maiorId;
+      notificacoesIniciadas.current = true;
+      return;
+    }
+    const novas = mensagens.filter(m =>
+      Number(m.id) > ultimoIdNotificado.current &&
+      m.remetenteId !== perfilAtual.userId
+    );
+    if (maiorId > ultimoIdNotificado.current) ultimoIdNotificado.current = maiorId;
+    if (!novas.length || Notification.permission !== "granted") return;
+    if (aberto && !document.hidden) return;
+    const ultima = novas[novas.length - 1];
+    const autor = ultima.remetentePerfil === "gerente"
+      ? (ultima.gerenteNome || "Gerente")
+      : (pareceEmail(ultima.remetenteNome) ? "Administração" : (ultima.remetenteNome || "Administração"));
+    try {
+      new Notification(`Stock-ON • ${autor}`, {
+        body: ultima.mensagem,
+        icon: "/icons/icon-192.png",
+        tag: `stock-on-chat-${gerenteConversa || "geral"}`,
+      });
+    } catch {}
+  }, [mensagens, perfilAtual?.userId, aberto, gerenteConversa]);
+
+  async function ativarNotificacoes() {
+    setErro("");
+    if (!notificacaoDisponivel()) {
+      setErro("Este navegador não permite notificações do sistema.");
+      setPermissaoNotificacao("unsupported");
+      return;
+    }
+    const permissao = await Notification.requestPermission();
+    setPermissaoNotificacao(permissao);
+    if (permissao !== "granted") setErro("Permissão de notificação não foi liberada no navegador.");
+  }
+
+  async function enviar(e) {
+    e.preventDefault();
+    setErro("");
+    if (!gerenteConversa) { setErro("Selecione um gerente para iniciar a conversa."); return; }
+    setEnviando(true);
+    try {
+      const nova = await enviarMensagemInterna({
+        perfilAtual: {
+          ...perfilAtual,
+          nome: admin ? apelidoAdminFinal : gerenteConversa,
+        },
+        gerenteNome: gerenteConversa,
+        destinoTipo: admin ? "gerente" : "administracao",
+        mensagem: texto,
+      });
+      setMensagens(prev => [...prev, nova]);
+      setTexto("");
+      await carregar();
+    } catch (err) {
+      setErro(err.message || "Não foi possível enviar a mensagem.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  if (!["administrador","operador","gerente"].includes(perfilAtual?.perfil)) return null;
+
+  return (
+    <div className={`chat-flutuante ${aberto ? "aberto" : ""}`}>
+      {!aberto && (
+        <button className="chat-bolha" onClick={()=>setAberto(true)} title="Abrir chat interno">
+          💬
+          {mensagensNaoLidas>0 && <span>{mensagensNaoLidas>9?"9+":mensagensNaoLidas}</span>}
+        </button>
+      )}
+      {aberto && (
+        <section className="chat-painel">
+          <header className="chat-header">
+            <div>
+              <span>{admin ? "Administração" : "Canal com a administração"}</span>
+              <strong>Chat interno</strong>
+            </div>
+            <button onClick={()=>setAberto(false)}>✕</button>
+          </header>
+          {admin && (
+            <div className="chat-gerente">
+              <label>Conversa com</label>
+              <select value={gerenteSelecionado} onChange={e=>setGerenteSelecionado(e.target.value)}>
+                {gerentesDisponiveis.length===0 && <option value="">Nenhum gerente encontrado</option>}
+                {gerentesDisponiveis.map(g=><option key={g} value={g}>{g}</option>)}
+              </select>
+              <label>Seu apelido no chat</label>
+              <input type="text" value={apelidoAdmin} onChange={e=>setApelidoAdmin(e.target.value)} placeholder="Ex: Anderson, Administração, Central..." />
+            </div>
+          )}
+          {!admin && <div className="chat-gerente chat-gerente-fixo"><span>Gerente</span><strong>{gerenteConversa||"Sem gerente vinculado"}</strong></div>}
+          {permissaoNotificacao!=="granted" && (
+            <div className="chat-notificacao">
+              <span>🔔 Receber aviso no celular quando chegar mensagem</span>
+              <button type="button" onClick={ativarNotificacoes}>
+                {permissaoNotificacao==="denied" ? "Bloqueado" : "Ativar"}
+              </button>
+            </div>
+          )}
+          <div className="chat-lista">
+            {!gerenteConversa ? (
+              <p className="chat-vazio">Selecione um gerente para ver a conversa.</p>
+            ) : mensagens.length===0 ? (
+              <p className="chat-vazio">Nenhuma mensagem ainda. Use este canal para deixar tudo registrado.</p>
+            ) : mensagens.map(m => {
+              const minha = m.remetenteId === perfilAtual.userId;
+              const nomeExibido = minha
+                ? "Você"
+                : m.remetentePerfil==="gerente"
+                  ? (m.gerenteNome || m.remetenteNome || "Gerente")
+                  : (pareceEmail(m.remetenteNome) ? "Administração" : (m.remetenteNome || "Administração"));
+              return (
+                <article key={m.id} className={`chat-msg ${minha ? "minha" : ""}`}>
+                  <div>
+                    <strong>{nomeExibido}</strong>
+                    <small>{formatarHoraMensagem(m.criadoEm)}</small>
+                  </div>
+                  <p>{m.mensagem}</p>
+                </article>
+              );
+            })}
+          </div>
+          {erro && <div className="chat-erro">{erro}</div>}
+          <form className="chat-form" onSubmit={enviar}>
+            <textarea value={texto} onChange={e=>setTexto(e.target.value)} placeholder="Digite sua mensagem..." maxLength={2000}/>
+            <button className="btn-primario" disabled={enviando || !texto.trim()}>{enviando ? "Enviando..." : "Enviar"}</button>
+          </form>
+        </section>
+      )}
+    </div>
+  );
+}
+
 // ── Login ─────────────────────────────────────────────────────────────────────
-function TelaLogin({onLogin, avisoInicial=""}){
-  const [email,setEmail]=useState("");
+function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
+  const [identificador,setIdentificador]=useState("");
   const [senha,setSenha]=useState("");
   const [erro,setErro]=useState(avisoInicial);
+  const [mensagem,setMensagem]=useState(mensagemInicial);
   const [visivel,setVisivel]=useState(false);
   const [carregando,setCarregando]=useState(false);
+  const [recuperacaoAberta,setRecuperacaoAberta]=useState(false);
+  const [emailConfirmado,setEmailConfirmado]=useState(false);
 
   async function tentar(e){
     e.preventDefault();setCarregando(true);setErro("");
+    let email=identificador.trim().toLowerCase();
+    try{
+      if(!email.includes("@")){
+        const encontrado=await resolverEmailPorLogin(email);
+        if(!encontrado){
+          setCarregando(false);
+          setErro("Login não encontrado. Confira o nome de login informado.");
+          setSenha("");
+          return;
+        }
+        email=encontrado;
+      }
+    }catch{
+      setCarregando(false);
+      setErro("Não foi possível localizar este login agora. Tente novamente.");
+      return;
+    }
     const {error}=await supabase.auth.signInWithPassword({email,password:senha});
     setCarregando(false);
-    if(error){setErro("Email ou senha incorretos.");setSenha("");}
+    if(error){setErro("Login ou senha incorretos.");setSenha("");}
     else{onLogin();}
   }
+
+  async function recuperarSenha() {
+    setErro("");
+    setMensagem("");
+    if(!identificador.trim()||!identificador.includes("@")){setErro("Para recuperar senha, informe o e-mail real completo.");return;}
+    if(/@(nexstock|stockon)\.com$/i.test(identificador.trim())){
+      setErro("Este login foi criado apenas no app e não recebe e-mail. Peça ao administrador para trocar seu acesso por um e-mail verdadeiro.");
+      return;
+    }
+    if(!emailConfirmado){setErro("Confirme que este e-mail existe e recebe mensagens antes de continuar.");return;}
+    setCarregando(true);
+    const {error}=await supabase.auth.resetPasswordForEmail(identificador.trim(), { redirectTo: window.location.origin });
+    setCarregando(false);
+    if(error){setErro("Não foi possível enviar a recuperação agora. Tente novamente.");return;}
+    setMensagem("Enviamos um link para seu e-mail real. Abra-o para cadastrar uma nova senha.");
+    setRecuperacaoAberta(false);
+    setEmailConfirmado(false);
+  }
+
   return(
     <div className="login-page">
       <div className="login-card">
@@ -443,16 +1487,63 @@ function TelaLogin({onLogin, avisoInicial=""}){
         <div className="login-subtitulo">Entre com suas credenciais para continuar</div>
         <form className="login-form" onSubmit={tentar}>
           {erro&&<div className="login-erro">🔒 {erro}</div>}
-          <div className="campo"><label>Email</label><input type="email" placeholder="seu@email.com" value={email} onChange={e=>setEmail(e.target.value)} autoFocus/></div>
+          {mensagem&&<div className="login-sucesso">✅ {mensagem}</div>}
+          <div className="campo"><label>Login ou e-mail</label><input type="text" placeholder="ex: beu ou seu@email.com" value={identificador} onChange={e=>setIdentificador(e.target.value)} autoFocus/></div>
           <div className="campo"><label>Senha</label>
             <div className="input-senha-wrapper">
               <input type={visivel?"text":"password"} placeholder="Digite sua senha" value={senha} onChange={e=>setSenha(e.target.value)}/>
               <button type="button" className="btn-ver-senha" onClick={()=>setVisivel(!visivel)}>{visivel?"🙈":"👁️"}</button>
             </div>
           </div>
-          <button type="submit" className="btn-login" disabled={carregando||!email||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
+          <button type="submit" className="btn-login" disabled={carregando||!identificador||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
+          <button type="button" className="btn-esqueci" disabled={carregando} onClick={()=>{setRecuperacaoAberta(!recuperacaoAberta);setErro("");setMensagem("");}}>Esqueci minha senha</button>
+          {recuperacaoAberta&&<div className="recuperacao-box">
+            <strong>Recuperação somente por e-mail real</strong>
+            <p>O e-mail usado no login precisa possuir caixa de entrada. Se ele foi criado apenas dentro do app, peça ao administrador para trocar seu acesso por um e-mail verdadeiro.</p>
+            <label className="recuperacao-check">
+              <input type="checkbox" checked={emailConfirmado} onChange={e=>setEmailConfirmado(e.target.checked)}/>
+              Confirmo que tenho acesso à caixa de entrada deste e-mail.
+            </label>
+            <button type="button" className="btn-secundario btn-recuperar" disabled={carregando||!emailConfirmado} onClick={recuperarSenha}>{carregando?"Enviando...":"Enviar link de recuperação"}</button>
+          </div>}
         </form>
         <div className="login-rodape">Stock-ON · Controle Inteligente de Equipamentos</div>
+      </div>
+    </div>
+  );
+}
+
+function TelaNovaSenha({onConcluir}) {
+  const [novaSenha,setNovaSenha]=useState("");
+  const [confirmacao,setConfirmacao]=useState("");
+  const [erro,setErro]=useState("");
+  const [carregando,setCarregando]=useState(false);
+
+  async function salvar(e) {
+    e.preventDefault();
+    setErro("");
+    if(novaSenha.length<8){setErro("A nova senha precisa ter pelo menos 8 caracteres.");return;}
+    if(novaSenha!==confirmacao){setErro("A confirmação da senha está diferente.");return;}
+    setCarregando(true);
+    const {error}=await supabase.auth.updateUser({password:novaSenha});
+    setCarregando(false);
+    if(error){setErro("Não foi possível cadastrar a nova senha. Solicite outro link de recuperação.");return;}
+    await supabase.auth.signOut();
+    onConcluir();
+  }
+
+  return(
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo"><img src={logo} alt="Stock-ON" className="login-logo-img"/></div>
+        <div className="login-titulo">Cadastrar Nova Senha</div>
+        <div className="login-subtitulo">Crie uma senha nova para continuar</div>
+        <form className="login-form" onSubmit={salvar}>
+          {erro&&<div className="login-erro">🔒 {erro}</div>}
+          <div className="campo"><label>Nova senha</label><input type="password" placeholder="Mínimo de 8 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} autoFocus/></div>
+          <div className="campo"><label>Confirmar nova senha</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
+          <button type="submit" className="btn-login" disabled={carregando||!novaSenha||!confirmacao}>{carregando?"Salvando...":"Salvar nova senha"}</button>
+        </form>
       </div>
     </div>
   );
@@ -516,11 +1607,38 @@ function ModalAlterarSenha({onFechar}) {
   );
 }
 
+function prazoEmailTemporario(data) {
+  if (!data) return "sem data limite configurada";
+  const diff = new Date(data).getTime() - Date.now();
+  if (diff <= 0) return "vencido";
+  const dias = Math.ceil(diff / 86400000);
+  return `${dias} dia${dias !== 1 ? "s" : ""}`;
+}
+
+function nomeBaseGerente(nome) {
+  return String(nome || "Gerente").trim().split(/\s+/)[0] || "Gerente";
+}
+
+function avatarLendario(nome) {
+  const base = nomeBaseGerente(nome);
+  const avatares = [
+    { titulo:"Guardião Dourado", simbolo:"⚡", classe:"avatar-raio" },
+    { titulo:"Sentinela Azul", simbolo:"◆", classe:"avatar-azul" },
+    { titulo:"Comandante Solar", simbolo:"☀", classe:"avatar-solar" },
+    { titulo:"Mestre da Rota", simbolo:"✦", classe:"avatar-rota" },
+    { titulo:"Capitão do Estoque", simbolo:"⬢", classe:"avatar-estoque" },
+  ];
+  const soma = [...base].reduce((total, letra) => total + letra.charCodeAt(0), 0);
+  return avatares[soma % avatares.length];
+}
+
 // ── App principal ─────────────────────────────────────────────────────────────
 export default function App(){
   const [logado,setLogado]=useState(false);
   const [verificando,setVerificando]=useState(true);
   const [erroSessao,setErroSessao]=useState("");
+  const [mensagemLogin,setMensagemLogin]=useState("");
+  const [recuperandoSenha,setRecuperandoSenha]=useState(()=>recuperacaoIniciada());
 
   useEffect(()=>{
     let ativo=true;
@@ -536,9 +1654,11 @@ export default function App(){
         setLogado(false);
         setVerificando(false);
       });
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((evento,session)=>{
       if(!ativo)return;
+      if(evento==="PASSWORD_RECOVERY"){setRecuperandoSenha(true);setVerificando(false);return;}
       setLogado(!!session);
+      setVerificando(false);
       if(session)setErroSessao("");
     });
     return()=>{ativo=false;subscription.unsubscribe();};
@@ -550,7 +1670,8 @@ export default function App(){
       <p>Preparando acesso...</p>
     </div>
   );
-  if(!logado)return<TelaLogin avisoInicial={erroSessao} onLogin={()=>setLogado(true)}/>;
+  if(recuperandoSenha)return<TelaNovaSenha onConcluir={()=>{limparRecuperacao();setRecuperandoSenha(false);setLogado(false);setMensagemLogin("Senha alterada com sucesso. Entre com sua nova senha.");}}/>;
+  if(!logado)return<TelaLogin avisoInicial={erroSessao} mensagemInicial={mensagemLogin} onLogin={()=>{setMensagemLogin("");setLogado(true);}}/>;
   return<Sistema onLogout={async()=>{await Auth.deslogar();setLogado(false);}}/>;
 }
 
@@ -560,6 +1681,8 @@ function Sistema({onLogout}){
   const [historico,setHistorico]   =useState([]);
   const [pontos,setPontos]         =useState([]);
   const [historicoPontos,setHistoricoPontos]=useState([]);
+  const [despesasBackup,setDespesasBackup]=useState([]);
+  const [pixEnvios,setPixEnvios]=useState([]);
   const [carregando,setCarregando] =useState(true);
   const [erroCarregamento,setErroCarregamento]=useState("");
   const [tentativaCarga,setTentativaCarga]=useState(0);
@@ -588,7 +1711,8 @@ function Sistema({onLogout}){
   const [itemDetalhe,setItemDetalhe]=useState(null);
   const [buscaGlobal,setBuscaGlobal]=useState("");
   const [paginaItens,setPaginaItens]=useState(1);
-  const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta"});
+  const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",emailTemporario:false,emailTemporarioExpiraEm:""});
+  const [backupFeitoAgora,setBackupFeitoAgora]=useState(false);
 
   useEffect(()=>{
     let ativo=true;
@@ -608,11 +1732,15 @@ function Sistema({onLogout}){
           comPrazo(carregarHistoricoEquipamentos(),"o histórico de equipamentos"),
           comPrazo(carregarHistoricoPontos(),"o histórico de pontos"),
           comPrazo(carregarPerfilAtual(),"seu perfil de acesso"),
+          comPrazo(carregarDespesasMensais(),"as despesas mensais"),
+          comPrazo(carregarPixEnvios(),"os avisos PIX"),
         ]);
         if(!ativo)return;
         if(complementos[0].status==="fulfilled")setHistorico(complementos[0].value);
         if(complementos[1].status==="fulfilled")setHistoricoPontos(complementos[1].value);
         if(complementos[2].status==="fulfilled")setPerfilAtual(complementos[2].value);
+        if(complementos[3].status==="fulfilled")setDespesasBackup(complementos[3].value);
+        if(complementos[4].status==="fulfilled")setPixEnvios(complementos[4].value);
       }catch(e){
         if(!ativo)return;
         setErroCarregamento(e.message||"Não foi possível buscar os dados do sistema.");
@@ -627,49 +1755,107 @@ function Sistema({onLogout}){
   function fecharSidebar(){setSidebarAberta(false);}
   function navegar(novaAba){setAba(novaAba);fecharSidebar();}
 
-  const totalGeral     =itens.length;
-  const totalDisponivel=itens.filter(i=>i.status==="Disponível").length;
-  const totalEmRota    =itens.filter(i=>i.status==="Em rota").length;
-  const totalConserto  =itens.filter(i=>i.status==="Em conserto").length;
+  const mensagemDoDia=getMensagemMotivacionalDoDia();
+  const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
+  const administrador=perfilAtual.perfil==="administrador";
+  const gerentesChat=[...new Set([
+    ...GERENTES,
+    ...pontos.map(p=>gerenteDaRota(p.gerente)).filter(Boolean),
+  ])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const gerenteAtual=perfilAtual.perfil==="gerente"?(perfilAtual.gerenteNome||perfilAtual.nome||""):"";
+  const gerenteAtualKey=normalizarTexto(gerenteAtual);
+  const podeCadastrarEquipamento=podeEditar||perfilAtual.perfil==="gerente";
+  const gerenteNomeBase=nomeBaseGerente(gerenteAtual);
+  const gerenteAvatar=avatarLendario(gerenteAtual);
+  const pontosOperacionais=gerenteAtual?pontos.filter(p=>rotaPertenceAoGerente(p.gerente, gerenteAtual)):pontos;
+  const pontosOperacionaisNomes=new Set(pontosOperacionais.map(p=>p.nomeFantasia));
+  const itensOperacionaisBase=gerenteAtual
+    ?itens.filter(i=>pontosOperacionaisNomes.has(i.localizacao)||normalizarTexto(i.gerenteResponsavel)===gerenteAtualKey)
+    :itens;
+  const itensOperacionais=gerenteAtual
+    ?itensOperacionaisBase.filter(i=>i.status!=="Em conserto")
+    :itensOperacionaisBase;
+  const statusListaVisivel=gerenteAtual?STATUS_LISTA.filter(s=>s!=="Em conserto"):STATUS_LISTA;
+  const itensOperacionaisIds=new Set(itensOperacionais.map(i=>i.id));
+  const itensOperacionaisNomes=new Set(itensOperacionais.map(i=>i.nome));
+  const historicoOperacional=gerenteAtual?historico.filter(h=>itensOperacionaisIds.has(h.itemId)||itensOperacionaisNomes.has(h.itemNome)):historico;
+  const historicoPontosOperacional=gerenteAtual?historicoPontos.filter(h=>pontosOperacionaisNomes.has(h.nome)):historicoPontos;
+  const recebimentosPendentes=gerenteAtual?itensOperacionais.filter(i=>normalizarTexto(i.gerenteResponsavel)===gerenteAtualKey&&i.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando):[];
+  const podeMovimentarEquipamento=item=>podeEditar||(
+    perfilAtual.perfil==="gerente"&&
+    normalizarTexto(item.gerenteResponsavel)===gerenteAtualKey&&
+    item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido
+  );
+  const despesasOperacionais=gerenteAtual
+    ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId))
+    :despesasBackup;
+  const backupBloqueante=backupObrigatorioVencido(perfilAtual)&&!backupFeitoAgora;
+  const [pixAvisosFechados,setPixAvisosFechados]=useState([]);
+  const pixAvisosKey=`stockon_pix_avisos_lidos_${perfilAtual.userId||"anon"}`;
+  const gerentePixNome=gerenteDaRota(gerenteAtual)||gerenteAtual;
+  const pixAvisoAtual=gerenteAtual?pixEnvios.find(aviso=>
+    normalizarTexto(aviso.gerente)===normalizarTexto(gerentePixNome)&&
+    !pixAvisosFechados.includes(String(aviso.id))
+  ):null;
 
-  const alertas = CATEGORIAS.map(cat=>{
-    const totalDisp=itens.filter(i=>i.categoria===cat&&i.status==="Disponível").length;
+  useEffect(()=>{
+    try{setPixAvisosFechados(JSON.parse(localStorage.getItem(pixAvisosKey)||"[]"));}catch{setPixAvisosFechados([]);}
+  },[pixAvisosKey]);
+
+  function fecharPixAviso(id){
+    const nova=[...new Set([...pixAvisosFechados,String(id)])];
+    setPixAvisosFechados(nova);
+    try{localStorage.setItem(pixAvisosKey,JSON.stringify(nova));}catch{}
+  }
+
+  async function copiarPixAviso(chave){
+    try{
+      await navigator.clipboard.writeText(chave);
+      alert("Chave PIX copiada.");
+    }catch{
+      alert(`Chave PIX: ${chave}`);
+    }
+  }
+
+  const totalGeral     =itensOperacionais.length;
+  const totalDisponivel=itensOperacionais.filter(i=>i.status==="Disponível").length;
+  const totalEmRota    =itensOperacionais.filter(i=>i.status==="Em rota").length;
+  const totalConserto  =itensOperacionais.filter(i=>i.status==="Em conserto").length;
+
+  const alertas = [CATEGORIA_COM_ALERTA].map(cat=>{
+    const totalDisp=itensOperacionais.filter(i=>i.categoria===cat&&i.status==="Disponível").length;
     return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
   }).filter(a=>a.totalDisponivel<MINIMO_CATEGORIA);
 
   const porCategoria=CATEGORIAS.map(cat=>{
-    const ci=itens.filter(i=>i.categoria===cat);
+    const ci=itensOperacionais.filter(i=>i.categoria===cat);
     const totalDisp=ci.filter(i=>i.status==="Disponível").length;
     return{categoria:cat,total:ci.length,qtdItens:ci.length,
       disponivel:totalDisp,
       emRota:ci.filter(i=>i.status==="Em rota").length,
       conserto:ci.filter(i=>i.status==="Em conserto").length,
-      alertaBaixo:totalDisp<MINIMO_CATEGORIA,
+      alertaBaixo:cat===CATEGORIA_COM_ALERTA&&totalDisp<MINIMO_CATEGORIA,
     };
   });
-  const inconsistencias=itens.filter(item=>{
-    const prefixo=PREFIXO_CAT[item.categoria];
-    return !prefixo||!(item.patrimonio||"").toUpperCase().startsWith(`${prefixo}-`);
-  });
-  const pontosComEquipamentos=pontos.map(p=>({
+  const inconsistencias=itensOperacionais.filter(item=>
+    !padronizarNomenclaturaEquipamento(item.nome)||!padronizarNomenclaturaEquipamento(item.patrimonio)
+  );
+  const pontosComEquipamentos=pontosOperacionais.map(p=>({
     ...p,
-    totalEquipamentos:itens.filter(i=>i.localizacao===p.nomeFantasia).length,
+    totalEquipamentos:itensOperacionais.filter(i=>i.localizacao===p.nomeFantasia).length,
   })).filter(p=>p.totalEquipamentos>0).sort((a,b)=>b.totalEquipamentos-a.totalEquipamentos);
-  const mensagemDoDia=getMensagemMotivacionalDoDia();
-  const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
-  const administrador=perfilAtual.perfil==="administrador";
 
-  const itensFiltrados=itens.filter(i=>{
+  const itensFiltrados=itensOperacionais.filter(i=>{
     const mC=filtroCatEquip==="Todas"||i.categoria===filtroCatEquip;
     const mS=filtroSt==="Todos"||i.status===filtroSt;
     const q=busca.toLowerCase();
-    const mB=!busca||[i.nome,i.patrimonio,i.responsavel,i.localizacao].some(f=>(f||"").toLowerCase().includes(q));
+    const mB=!busca||[i.nome,i.patrimonio,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>(f||"").toLowerCase().includes(q));
     return mC&&mS&&mB;
   });
   const itensOrdenados=ordenarEquipamentos(itensFiltrados);
   const totalPaginasItens=Math.max(1,Math.ceil(itensOrdenados.length/ITENS_POR_PAGINA));
   const itensPagina=itensOrdenados.slice((paginaItens-1)*ITENS_POR_PAGINA,paginaItens*ITENS_POR_PAGINA);
-  const histFiltrado=historico.filter(h=>{
+  const histFiltrado=historicoOperacional.filter(h=>{
     const mC=histFCat==="Todas"||h.categoria===histFCat;
     const mT=histFTipo==="Todos"||h.tipo===histFTipo;
     const q=histBusca.toLowerCase();
@@ -678,40 +1864,64 @@ function Sistema({onLogout}){
   });
 
   useEffect(()=>{setPaginaItens(1);},[busca,filtroSt,filtroCatEquip]);
+  useEffect(()=>{
+    if(gerenteAtual&&filtroSt==="Em conserto")setFiltroSt("Todos");
+  },[gerenteAtual,filtroSt]);
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
 
   function abrirNovo(){
-    if(!podeEditar)return;
-    const cat=CATEGORIAS[0];
+    if(!podeCadastrarEquipamento)return;
     setItemEdit(null);
-    setForm({...formVazio,quantidade:1,dataCadastro:hoje(),patrimonio:gerarPatrimonio(cat,itens),minimo:5});
+    setForm({
+      ...formVazio,
+      quantidade:1,
+      dataCadastro:hoje(),
+      minimo:5,
+      responsavel:gerenteAtual||"",
+      gerenteResponsavel:gerenteAtual||"",
+      transferenciaStatus:gerenteAtual?TRANSFERENCIA_GERENTE.recebido:"",
+      transferenciaRecebidaEm:gerenteAtual?isoAgora():"",
+    });
     setErroForm("");setModalForm(true);
   }
-  function abrirEditar(i){if(!podeEditar)return;setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
+  function abrirEditar(i){if(!podeMovimentarEquipamento(i))return;setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
   function abrirMov(item){
-    if(!podeEditar)return;
+    if(!podeMovimentarEquipamento(item))return;
     const inconsistencia=validarItem(item,itens,item.id);
     if(inconsistencia){window.alert(`Corrija o cadastro antes de movimentar este equipamento. ${inconsistencia}`);return;}
-    setModalMov(item);setMov({...movVazio,ponto:item.localizacao||""});setErroMov("");
+    setModalMov(item);setMov({...movVazio,ponto:item.localizacao||"",gerente:item.gerenteResponsavel||""});setErroMov("");
   }
   function fecharMov(){setModalMov(null);}
 
   async function salvarItem(){
-    if(!podeEditar){setErroForm("Seu perfil permite somente consulta.");return;}
+    if(!podeCadastrarEquipamento){setErroForm("Seu perfil permite somente consulta.");return;}
+    if(itemEdit&&!podeMovimentarEquipamento(itemEdit)){setErroForm("Este equipamento ainda não está liberado para seu perfil.");return;}
     const localizacao=form.status==="Em rota"?form.localizacao:form.status==="Em conserto"?"Em conserto":"";
-    const ff={...form,nome:padronizarNome(form.nome),quantidade:1,minimo:5,localizacao,dataCadastro:form.dataCadastro||hoje()};
+    const ff={
+      ...form,
+      nome:padronizarNomenclaturaEquipamento(form.nome),
+      patrimonio:padronizarNomenclaturaEquipamento(form.patrimonio),
+      quantidade:1,
+      minimo:5,
+      localizacao,
+      dataCadastro:form.dataCadastro||hoje(),
+      responsavel:gerenteAtual?gerenteAtual:form.responsavel,
+      gerenteResponsavel:gerenteAtual?gerenteAtual:(form.gerenteResponsavel||""),
+      transferenciaStatus:gerenteAtual?TRANSFERENCIA_GERENTE.recebido:(form.transferenciaStatus||""),
+      transferenciaRecebidaEm:gerenteAtual?(form.transferenciaRecebidaEm||isoAgora()):(form.transferenciaRecebidaEm||""),
+    };
     const erro=validarItem(ff,itens,itemEdit?.id);if(erro){setErroForm(erro);return;}
     if(ff.status==="Em rota"&&!ff.localizacao){setErroForm("Selecione o ponto onde este equipamento ficará.");return;}
     if(itemEdit){
-      await salvarEquipamento({...ff,patrimonio:ff.patrimonio.toUpperCase(),id:itemEdit.id});
-      setItens(itens.map(i=>i.id===itemEdit.id?{...ff,patrimonio:ff.patrimonio.toUpperCase(),id:itemEdit.id}:i));
+      await salvarEquipamento({...ff,id:itemEdit.id});
+      setItens(itens.map(i=>i.id===itemEdit.id?{...ff,id:itemEdit.id}:i));
       const d=[];
       if(itemEdit.status!==ff.status)d.push(`Status: ${itemEdit.status}→${ff.status}`);
       const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }else{
-      const itemNovo={...ff,patrimonio:ff.patrimonio.toUpperCase()};
+      const itemNovo={...ff};
       const novoId=await salvarEquipamento(itemNovo);
       if(!novoId){setErroForm("Não foi possível salvar o equipamento no banco.");return;}
       setItens(prev=>[...prev,{...itemNovo,id:novoId}]);
@@ -719,6 +1929,15 @@ function Sistema({onLogout}){
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }
     fecharForm();
+  }
+
+  async function confirmarRecebimento(item){
+    if(!gerenteAtual||normalizarTexto(item.gerenteResponsavel)!==gerenteAtualKey)return;
+    const upd={...item,status:"Disponível",localizacao:"",responsavel:gerenteAtual,transferenciaStatus:TRANSFERENCIA_GERENTE.recebido,transferenciaRecebidaEm:isoAgora()};
+    await salvarEquipamento(upd);
+    setItens(prev=>prev.map(i=>i.id===item.id?upd:i));
+    const h={id:Date.now(),tipo:"recebimento_gerente",itemId:item.id,itemNome:item.nome,categoria:item.categoria,qtdAntes:1,qtdDepois:1,responsavel:gerenteAtual,observacao:`Equipamento recebido por ${gerenteAtual}`,data:agora()};
+    await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
   }
 
   async function salvarPontoRapido(ponto){
@@ -745,21 +1964,127 @@ function Sistema({onLogout}){
   }
 
   async function confirmarMov(){
-    if(!podeEditar)return;
+    if(!modalMov||!podeMovimentarEquipamento(modalMov))return;
     const tipo=TIPOS_MOV.find(t=>t.id===mov.tipoId);
     const erro=validarMov(mov,tipo);if(erro){setErroMov(erro);return;}
+    if(tipo.id==="gerente"&&!mov.gerente){setErroMov("Selecione o gerente que vai receber este equipamento.");return;}
     const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
-    const upd={...modalMov,quantidade:1,status:tipo.novoStatus,localizacao,responsavel:mov.responsavel||modalMov.responsavel};
+    const upd=tipo.id==="gerente"
+      ?{...modalMov,quantidade:1,status:"Em rota",localizacao:"",responsavel:mov.responsavel||mov.gerente,gerenteResponsavel:mov.gerente,transferenciaStatus:TRANSFERENCIA_GERENTE.aguardando,transferenciaEnviadaEm:isoAgora(),transferenciaRecebidaEm:""}
+      :tipo.id==="disponivel"&&!gerenteAtual
+        ?{...modalMov,quantidade:1,status:tipo.novoStatus,localizacao:"",responsavel:mov.responsavel||modalMov.responsavel,gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""}
+        :{...modalMov,quantidade:1,status:tipo.novoStatus,localizacao,responsavel:mov.responsavel||modalMov.responsavel,transferenciaStatus:modalMov.transferenciaStatus,gerenteResponsavel:modalMov.gerenteResponsavel};
     await salvarEquipamento(upd);
     setItens(prev=>prev.map(i=>i.id===modalMov.id?upd:i));
-    const detalhe=tipo.id==="ponto"?`Destino: ${mov.ponto}`:tipo.id==="conserto"?`Defeito: ${mov.defeito}`:tipo.label;
+    const detalhe=tipo.id==="ponto"?`Destino: ${mov.ponto}`:tipo.id==="conserto"?`Defeito: ${mov.defeito}`:tipo.id==="gerente"?`Enviado para gerente: ${mov.gerente}`:tipo.label;
     const informacoesConserto=tipo.id==="conserto"?[
       mov.assistencia&&`Assistência: ${mov.assistencia}`,
       mov.previsao&&`Previsão: ${mov.previsao}`,
     ]:[];
-    const h={id:Date.now(),tipo:tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
+    const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
     await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     fecharMov();
+  }
+
+  async function baixarBackupObrigatorio(){
+    const geradoEm=isoAgora();
+    const escopo=perfilAtual.perfil==="gerente"?`gerente-${gerenteAtual||perfilAtual.nome}`:"completo";
+    const titulo=perfilAtual.perfil==="gerente"
+      ?`Backup do Gerente - ${gerenteAtual||perfilAtual.nome}`
+      :"Backup Completo Stock-ON";
+    await gerarPDF({
+      titulo,
+      descricao:`Arquivo obrigatório de segurança emitido para ${perfilAtual.nome||perfilAtual.loginNome||perfilAtual.perfil}. Guarde fora do sistema.`,
+      nomeArquivo:`stock-on_backup_${slugArquivoBackup(escopo)}_${hoje()}.pdf`,
+      total:itensOperacionais.length+pontosOperacionais.length+despesasOperacionais.length+historicoOperacional.length+historicoPontosOperacional.length,
+      resumo:[
+        {label:"Equipamentos",valor:itensOperacionais.length,destaque:[37,99,235]},
+        {label:"Pontos",valor:pontosOperacionais.length,destaque:[15,35,72]},
+        {label:"Despesas",valor:despesasOperacionais.length,destaque:[222,147,0]},
+        {label:"Mov. Equip.",valor:historicoOperacional.length,destaque:[5,150,82]},
+        {label:"Mov. Pontos",valor:historicoPontosOperacional.length,destaque:[100,116,139]},
+        {label:"Periodo",valor:`${BACKUP_INTERVALO_DIAS} dias`,destaque:[222,147,0]},
+      ],
+      secoes:[
+        {
+          titulo:"Resumo do backup",
+          colunas:["Campo","Informação"],
+          linhas:[
+            ["Sistema","Stock-ON"],
+            ["Gerado em",new Date(geradoEm).toLocaleString("pt-BR")],
+            ["Perfil",perfilAtual.perfil||"-"],
+            ["Usuário",perfilAtual.nome||perfilAtual.loginNome||"-"],
+            ["Login",perfilAtual.loginNome||"-"],
+            ["Gerente vinculado",perfilAtual.gerenteNome||gerenteAtual||"-"],
+            ["Escopo",perfilAtual.perfil==="gerente"?"Somente dados deste gerente":"Dados completos disponíveis ao perfil"],
+          ],
+        },
+        {
+          titulo:"Equipamentos",
+          colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Gerente"],
+          linhas:ordenarEquipamentos(itensOperacionais).map(i=>[
+            i.patrimonio||"-",
+            i.nome||"-",
+            i.categoria||"-",
+            i.status||"-",
+            textoLocalizacaoEquipamento(i),
+            i.gerenteResponsavel||"-",
+          ]),
+        },
+        {
+          titulo:"Pontos",
+          colunas:["Ponto","Dono","Telefone","Gerente","Despesa","Valor"],
+          linhas:ordenarPontos(pontosOperacionais).map(p=>[
+            p.nomeFantasia||"-",
+            p.nomeDono||"-",
+            p.telefone||"-",
+            p.gerente||"-",
+            p.possuiDespesa==="sim"?"Sim":"Não",
+            formatarMoedaPDF(p.valorDespesa||0),
+          ]),
+        },
+        {
+          titulo:"Despesas mensais",
+          colunas:["Ponto","Mês","Descrição","Previsto","Real","Observação"],
+          linhas:despesasOperacionais.map(d=>{
+            const ponto=pontosOperacionais.find(p=>p.id===d.pontoId);
+            return [
+              ponto?.nomeFantasia||`Ponto ${d.pontoId}`,
+              d.competencia?new Date(d.competencia).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric",timeZone:"UTC"}):"-",
+              d.descricao||"-",
+              formatarMoedaPDF(d.valorPrevisto||0),
+              formatarMoedaPDF(d.valorReal||0),
+              d.observacao||"-",
+            ];
+          }),
+        },
+        {
+          titulo:"Histórico de equipamentos",
+          colunas:["Tipo","Equipamento","Categoria","Responsável","Observação","Data"],
+          linhas:historicoOperacional.map(h=>[
+            HIST_CFG[h.tipo]?.label||h.tipo||"-",
+            h.itemNome||"-",
+            h.categoria||"-",
+            h.responsavel||"-",
+            h.observacao||"-",
+            h.data||"-",
+          ]),
+        },
+        {
+          titulo:"Histórico de pontos",
+          colunas:["Tipo","Ponto","Gerente","Observação","Data"],
+          linhas:historicoPontosOperacional.map(h=>[
+            h.tipo||"-",
+            h.nome||"-",
+            h.gerente||"-",
+            h.observacao||"-",
+            h.data||"-",
+          ]),
+        },
+      ],
+    });
+    registrarBackupPerfil(perfilAtual);
+    setBackupFeitoAgora(true);
   }
 
   async function limparHistorico(){
@@ -770,9 +2095,9 @@ function Sistema({onLogout}){
 
   const tipoMovSel=TIPOS_MOV.find(t=>t.id===mov.tipoId);
   const ABAS_EQUIP=[
-    {id:"lista",label:`📦 Todos (${itens.length})`},
+    {id:"lista",label:`📦 Todos (${itensOperacionais.length})`},
     {id:"resumo",label:"📊 Resumo por Status"},
-    {id:"historico",label:`📋 Histórico (${historico.length})`},
+    {id:"historico",label:`📋 Histórico (${historicoOperacional.length})`},
   ];
 
   if(carregando){
@@ -824,17 +2149,20 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span className="nav-icon">📦</span> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span className="nav-icon">📍</span> Pontos</button>
           <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span className="nav-icon">🔎</span> Busca Geral</button>
-          <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span className="nav-icon">📄</span> Relatórios</button>
-          <button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">💰</span> Despesas & Acessos</button>
+          <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span className="nav-icon">🧭</span> Central Operacional</button>
+          {administrador&&<button className={`nav-item ${aba==="prestacao"?"active":""}`} onClick={()=>navegar("prestacao")}><span className="nav-icon">💳</span> Prestação de Contas</button>}
+          {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><span className="nav-icon">✅</span> Fechamento</button>}
+          {podeEditar&&<button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">🔑</span> Central de Acessos</button>}
+          {administrador&&<button className={`nav-item ${aba==="logins"?"active":""}`} onClick={()=>navegar("logins")}><span className="nav-icon">🔐</span> Gerenciar Logins</button>}
           <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
             <span className="nav-icon">📋</span> Histórico
-            {historico.length>0&&<span className="nav-badge">{historico.length>99?"99+":historico.length}</span>}
+            {historicoOperacional.length>0&&<span className="nav-badge">{historicoOperacional.length>99?"99+":historicoOperacional.length}</span>}
           </button>
         </nav>
         <div className="sidebar-footer">
           {alertas.length>0&&(
             <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
-              ⚠️ {alertas.length} categoria{alertas.length>1?"s":""} em alerta
+              ⚠️ Terminais em alerta
               <span className="sidebar-alerta-arrow">→</span>
             </button>
           )}
@@ -846,6 +2174,9 @@ function Sistema({onLogout}){
             <span>{temaClaro?"☀️ Tema Claro":"🌙 Tema Escuro"}</span>
             <div className={`tema-toggle ${temaClaro?"ativo":""}`}/>
           </button>
+          {["administrador","operador","gerente"].includes(perfilAtual.perfil)&&(
+            <button className="btn-senha" onClick={baixarBackupObrigatorio}>💾 Baixar backup</button>
+          )}
           <button className="btn-senha" onClick={()=>setModalSenha(true)}>🔒 Alterar minha senha</button>
           <button className="btn-logout" onClick={()=>setConfirmLogout(true)}>🚪 Sair do sistema</button>
           <div className="sidebar-version">Stock-ON v1.0 · Supabase ☁️</div>
@@ -853,6 +2184,54 @@ function Sistema({onLogout}){
       </aside>
 
       <main className="main">
+        {perfilAtual.emailTemporario&&(
+          <div className={`email-temp-banner ${prazoEmailTemporario(perfilAtual.emailTemporarioExpiraEm)==="vencido"?"email-temp-vencido":""}`}>
+            <strong>Login com e-mail temporário</strong>
+            <span>Este acesso precisa ser atualizado para um e-mail real pelo administrador. Prazo: {prazoEmailTemporario(perfilAtual.emailTemporarioExpiraEm)}.</span>
+          </div>
+        )}
+        {perfilAtual.perfil==="gerente"&&(
+          <section className="gerente-welcome">
+            <div className={`gerente-avatar ${gerenteAvatar.classe}`}>
+              <span className="gerente-avatar-aura"/>
+              <strong>{gerenteAvatar.simbolo}</strong>
+            </div>
+            <div>
+              <span className="gerente-welcome-kicker">Acesso do gerente</span>
+              <h2>Bem-vindo, {gerenteNomeBase}</h2>
+              <p>{gerenteAvatar.titulo} · seus pontos, equipamentos e despesas estão filtrados para sua carteira.</p>
+            </div>
+          </section>
+        )}
+        {pixAvisoAtual&&(
+          <div className="pix-recebido-wrap">
+            <div className="pix-recebido-card">
+              <article className={`pix-credit-card pix-recebido-credit ${perfilBancoPix(pixAvisoAtual.pixBanco).classe}`}>
+                <div className="pix-card-top">
+                  <span className="pix-chip"/>
+                  <span className="pix-contactless">)))</span>
+                  <strong>{perfilBancoPix(pixAvisoAtual.pixBanco).nome}</strong>
+                </div>
+                <div className="pix-card-brand">{perfilBancoPix(pixAvisoAtual.pixBanco).icone}</div>
+                <div className="pix-card-info">
+                  <strong>{pixAvisoAtual.pixNome}</strong>
+                  <span>{pixAvisoAtual.pixBanco||"Banco não informado"}</span>
+                  <small>{pixAvisoAtual.pixTipo}: {pixAvisoAtual.pixChave}</small>
+                </div>
+              </article>
+            </div>
+            <div className="pix-recebido-info">
+              <span className="dash-kicker">PIX da administração</span>
+              <h2>Chave PIX enviada para prestação de contas</h2>
+              <p>{pixAvisoAtual.mensagem||"A administração enviou uma chave PIX para você usar neste fechamento."}</p>
+              {pixAvisoAtual.rota&&<span className="badge-cat">Rota {pixAvisoAtual.rota}</span>}
+              <div className="pix-alerta-acoes">
+                <button className="btn-primary" onClick={()=>copiarPixAviso(pixAvisoAtual.pixChave)}>Copiar chave</button>
+                <button className="btn-ghost" onClick={()=>fecharPixAviso(pixAvisoAtual.id)}>Entendi</button>
+              </div>
+            </div>
+          </div>
+        )}
         {aba==="dashboard"&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
@@ -866,7 +2245,7 @@ function Sistema({onLogout}){
               <div>
                 <span className="dash-kicker">Controle operacional</span>
                 <h2>Onde está cada equipamento?</h2>
-                <p>Acompanhe disponibilidade, equipamentos em pontos e itens em conserto em uma única tela.</p>
+                <p>{gerenteAtual?"Acompanhe seus pontos, equipamentos disponíveis e itens em operação.":"Acompanhe disponibilidade, equipamentos em pontos e itens em conserto em uma única tela."}</p>
                 <div className="dash-biscoito"><span>Mensagem do dia</span><q>{mensagemDoDia}</q></div>
               </div>
               <div className="dash-acoes">
@@ -879,7 +2258,7 @@ function Sistema({onLogout}){
               <button className="dash-kpi kpi-total" onClick={()=>navegar("itens")}><span>Cadastrados</span><strong>{totalGeral}</strong><small>equipamentos</small></button>
               <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><span>Disponíveis</span><strong>{totalDisponivel}</strong><small>prontos para envio</small></button>
               <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>em operação</small></button>
-              <button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><span>Conserto</span><strong>{totalConserto}</strong><small>fora de operação</small></button>
+              {!gerenteAtual&&<button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><span>Conserto</span><strong>{totalConserto}</strong><small>fora de operação</small></button>}
             </section>
 
             <div className="dash-conteudo">
@@ -908,7 +2287,7 @@ function Sistema({onLogout}){
                 <section className={`secao dash-atencao ${alertas.length===0?"ok":""}`}>
                   <h2 className="secao-titulo">Atenção</h2>
                   {alertas.length===0
-                    ?<p className="dash-vazio">Tudo certo: nenhuma categoria está abaixo do mínimo.</p>
+                    ?<p className="dash-vazio">Tudo certo: Terminais dentro do estoque mínimo.</p>
                     :alertas.map(a=>(
                       <button key={a.categoria} className="dash-alerta" onClick={()=>{navegar("itens");setFiltroCatEquip(a.categoria);setAbaEquip("lista");}}>
                         <span>{ICONES[a.categoria]}</span>
@@ -928,7 +2307,7 @@ function Sistema({onLogout}){
               </div>
             </div>
 
-            {historico.length>0&&(
+            {historicoOperacional.length>0&&(
               <section className="secao dash-historico">
                 <div className="tabela-header">
                   <h2 className="secao-titulo" style={{margin:0}}>Movimentações Recentes</h2>
@@ -938,7 +2317,7 @@ function Sistema({onLogout}){
                   <table className="tabela">
                     <thead><tr><th>Movimento</th><th>Equipamento</th><th>Detalhe</th><th>Data</th></tr></thead>
                     <tbody>
-                      {historico.slice(0,5).map(h=>{
+                      {historicoOperacional.slice(0,5).map(h=>{
                         const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
                         return(<tr key={h.id}>
                           <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
@@ -962,9 +2341,9 @@ function Sistema({onLogout}){
               <div><h1 className="page-title">Equipamentos</h1><p className="page-sub">Cadastro e movimentações</p></div>
             </div>
             <div style={{display:"flex",gap:"8px"}}>
-              <button className="btn-secundario" onClick={()=>exportarEquipamentosExcel(itens)}>📊 Excel</button>
-              <button className="btn-secundario" onClick={()=>exportarEquipamentosPDF(itens)}>📄 PDF</button>
-              {podeEditar&&<button className="btn-primario" onClick={abrirNovo}>+ Novo</button>}
+              <button className="btn-secundario" onClick={()=>exportarEquipamentosExcel(itensOperacionais)}>📊 Excel</button>
+              <button className="btn-secundario" onClick={()=>exportarEquipamentosPDF(itensOperacionais)}>📄 PDF</button>
+              {podeCadastrarEquipamento&&<button className="btn-primario" onClick={abrirNovo}>+ Novo</button>}
             </div>
           </header>
           <div className="equip-navegacao">
@@ -990,7 +2369,7 @@ function Sistema({onLogout}){
               <div className="alerta-banner-header">
                 <div className="alerta-banner-titulo">
                   <span className="alerta-banner-emoji">🚨</span>
-                  <strong>{alertas.length} categoria{alertas.length>1?"s":""} com estoque abaixo do mínimo!</strong>
+                  <strong>Terminais com estoque abaixo do mínimo!</strong>
                   <span className="alerta-banner-pulse"/>
                 </div>
                 <button className="alerta-banner-fechar" onClick={()=>setAlertaEstoqueAtivo(false)}>✕</button>
@@ -1018,9 +2397,29 @@ function Sistema({onLogout}){
 
           {abaEquip==="lista"&&(
             <section className="secao equip-lista">
+              {recebimentosPendentes.length>0&&(
+                <div className="recebimentos-pendentes">
+                  <div>
+                    <span className="recebimentos-kicker">Recebimento de equipamentos</span>
+                    <h2>{recebimentosPendentes.length} enviado{recebimentosPendentes.length!==1?"s":""} aguardando confirmação</h2>
+                    <p>Confirme somente quando o equipamento estiver em suas mãos. Depois ele entra no seu estoque disponível para movimentar.</p>
+                  </div>
+                  <div className="recebimentos-lista">
+                    {recebimentosPendentes.map(item=>(
+                      <article key={item.id} className="recebimento-card">
+                        <div>
+                          <strong>{ICONES[item.categoria]} {item.patrimonio||item.nome}</strong>
+                          <small>{item.nome} · enviado pela administração</small>
+                        </div>
+                        <button className="btn-primario" onClick={()=>confirmarRecebimento(item)}>Confirmar recebido</button>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
               {inconsistencias.length>0&&(
                 <div className="erro-msg alerta-inconsistencia">
-                  ⚠️ {inconsistencias.length} equipamento{inconsistencias.length!==1?"s":""} com cadastro inconsistente. Corrija o código conforme a categoria antes de novas movimentações:
+                  ⚠️ {inconsistencias.length} equipamento{inconsistencias.length!==1?"s":""} com cadastro inconsistente. Preencha nome e código/patrimônio antes de novas movimentações:
                   <strong>{inconsistencias.map(i=>i.patrimonio||i.nome).join(", ")}</strong>
                 </div>
               )}
@@ -1030,10 +2429,10 @@ function Sistema({onLogout}){
                   <p>{itensFiltrados.length} resultado{itensFiltrados.length!==1?"s":""} encontrado{itensFiltrados.length!==1?"s":""}</p>
                 </div>
                 <div className="filtros equip-filtros">
-                  <input className="input-busca" type="text" placeholder="Buscar nome, código ou ponto..." value={busca} onChange={e=>setBusca(e.target.value)}/>
+                  <input className="input-busca" type="text" placeholder="Buscar nome, código, ponto ou gerente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
                   <select className="select-filtro" value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}>
                     <option value="Todos">Todos os status</option>
-                    {STATUS_LISTA.map(s=><option key={s}>{s}</option>)}
+                    {statusListaVisivel.map(s=><option key={s}>{s}</option>)}
                   </select>
                   {(filtroCatEquip!=="Todas"||filtroSt!=="Todos"||busca)&&(
                     <button className="btn-limpar" onClick={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setBusca("");}}>✕ Limpar</button>
@@ -1042,23 +2441,32 @@ function Sistema({onLogout}){
               </div>
               <div className="tabela-wrapper equip-tabela">
                 <table className="tabela tabela-equipamentos">
-                  <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Status</th><th>Ponto / Localização</th><th>Movimentar</th><th>⚙️</th></tr></thead>
+                  <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Status</th><th>Ponto / Gerente</th><th>Movimentar</th><th>⚙️</th></tr></thead>
                   <tbody>
                     {itensFiltrados.length===0?<tr><td colSpan={7} className="tabela-vazia">Nenhum item encontrado.</td></tr>
                     :itensPagina.map(item=>{
                       const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").length;
-                      const emAlerta=totalCat<MINIMO_CATEGORIA;
+                      const emAlerta=item.categoria===CATEGORIA_COM_ALERTA&&totalCat<MINIMO_CATEGORIA;
+                      const pendente=item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando;
+                      const recebido=item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao;
                       return(
                         <tr key={item.id} className={emAlerta?"row-alerta":""}>
                           <td className="td-minimo">{item.patrimonio||"—"}</td>
                           <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
                           <td><span className="badge-cat">{item.categoria}</span></td>
-                          <td><span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span></td>
-                          <td className="td-obs">{item.localizacao||"Sem ponto"}</td>
-                          <td>{podeEditar?<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>:<span className="td-obs">Consulta</span>}</td>
+                          <td>
+                            <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
+                            {pendente&&<span className="badge-transferencia">Aguardando confirmação</span>}
+                            {recebido&&<span className="badge-transferencia badge-transferencia-ok">Estoque do gerente</span>}
+                          </td>
+                          <td><LocalizacaoGerenteCell item={item}/></td>
+                          <td>
+                            {pendente&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar</button>:
+                              podeMovimentarEquipamento(item)?<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>:<span className="td-obs">Consulta</span>}
+                          </td>
                           <td className="td-acoes">
                             <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎</button>
-                            {podeEditar&&<button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>}
+                            {podeMovimentarEquipamento(item)&&<button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>}
                             {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)}>🗑️</button>}
                           </td>
                         </tr>
@@ -1075,14 +2483,17 @@ function Sistema({onLogout}){
                       <div><span className="equip-codigo">{item.patrimonio||"—"}</span><h3>{ICONES[item.categoria]} {item.nome}</h3></div>
                       <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
                     </div>
+                    {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&<span className="badge-transferencia">Aguardando confirmação</span>}
+                    {item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao&&<span className="badge-transferencia badge-transferencia-ok">Estoque do gerente</span>}
                     <div className="equip-card-meta">
                       <span className="badge-cat">{item.categoria}</span>
-                      <span>📍 {item.localizacao||"Sem ponto"}</span>
+                      <span>📍 {textoLocalizacaoEquipamento(item)}</span>
+                      {item.gerenteResponsavel&&<span>👤 {item.gerenteResponsavel}</span>}
                     </div>
                     <div className="equip-card-acoes">
-                      {podeEditar&&<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>}
+                      {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar recebido</button>:podeMovimentarEquipamento(item)&&<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>}
                       <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎 Ficha</button>
-                      {podeEditar&&<button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>}
+                      {podeMovimentarEquipamento(item)&&<button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>}
                       {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir">🗑️</button>}
                     </div>
                   </article>
@@ -1106,7 +2517,7 @@ function Sistema({onLogout}){
                   <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Equipamentos</div></div>
                   <div className="resumo-card resumo-disponivel"><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
                   <div className="resumo-card resumo-uso"><div className="resumo-num">{totalEmRota}</div><div className="resumo-label">Em Rota</div></div>
-                  <div className="resumo-card resumo-conserto"><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>
+                  {!gerenteAtual&&<div className="resumo-card resumo-conserto"><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>}
                   <div className={`resumo-card ${alertas.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertas.length}</div><div className="resumo-label">Alertas</div></div>
                 </div>
               </section>
@@ -1131,7 +2542,7 @@ function Sistema({onLogout}){
                       <div className="cat-detalhe-status">
                         {c.disponivel>0&&<div className="cat-st-linha cat-st-disp"><span>✅ Disponível</span><strong>{c.disponivel}</strong></div>}
                         {c.emRota>0&&   <div className="cat-st-linha cat-st-uso"> <span>📍 Em rota</span>   <strong>{c.emRota}</strong></div>}
-                        {c.conserto>0&& <div className="cat-st-linha cat-st-con"> <span>🔧 Conserto</span>  <strong>{c.conserto}</strong></div>}
+                        {!gerenteAtual&&c.conserto>0&& <div className="cat-st-linha cat-st-con"> <span>🔧 Conserto</span>  <strong>{c.conserto}</strong></div>}
                       </div>
                     </div>
                   ))}
@@ -1145,17 +2556,17 @@ function Sistema({onLogout}){
               <div className="tabela-header">
                 <h2 className="secao-titulo" style={{margin:0}}>Histórico de Equipamentos</h2>
                 <div style={{display:"flex",gap:"8px"}}>
-                  <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historico)}>📊 Excel</button>
-                  <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historico)}>📄 PDF</button>
+                  <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historicoOperacional)}>📊 Excel</button>
+                  <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historicoOperacional)}>📄 PDF</button>
                 </div>
               </div>
-              {historico.length===0
+              {historicoOperacional.length===0
                 ?<div className="hist-vazio"><div className="hist-vazio-icone">📋</div><div>Nenhuma movimentação registrada.</div></div>
                 :<div className="tabela-wrapper">
                   <table className="tabela">
                     <thead><tr><th>Tipo</th><th>Equipamento</th><th>Categoria</th><th>Antes</th><th>Depois</th><th>Observação</th><th>Data</th></tr></thead>
                     <tbody>
-                      {historico.map(h=>{
+                      {historicoOperacional.map(h=>{
                         const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
                         return(<tr key={h.id}>
                           <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
@@ -1183,7 +2594,7 @@ function Sistema({onLogout}){
                 <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
               </div>
             </header>
-            <PointsPage equipamentos={itens} podeEditar={podeEditar} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
+            <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
           </>
         )}
 
@@ -1194,39 +2605,75 @@ function Sistema({onLogout}){
               <div><h1 className="page-title">Busca Geral</h1><p className="page-sub">Patrimônios, pontos, gerentes, status e movimentações</p></div>
             </div>
           </header>
-          <BuscaGlobalPage consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itens} pontos={pontos} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
+          <BuscaGlobalPage consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
         </>)}
 
         {aba==="relatorios"&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Relatórios</h1><p className="page-sub">Central de PDFs profissionais</p></div>
+              <div><h1 className="page-title">Central Operacional</h1><p className="page-sub">Pendências, alertas, rotas e PDFs profissionais</p></div>
             </div>
           </header>
-          <RelatoriosPage itens={itens} pontos={pontos} historico={historico} historicoPontos={historicoPontos}/>
+          <RelatoriosPage itens={itensOperacionais} pontos={pontosOperacionais} historico={historicoOperacional} historicoPontos={historicoPontosOperacional} perfilAtual={perfilAtual}/>
+        </>)}
+
+        {aba==="prestacao"&&administrador&&(<>
+          <header className="topbar topbar-prestacao">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Prestação de Contas</h1><p className="page-sub">Conferência financeira dos gerentes</p></div>
+            </div>
+          </header>
+          <PrestacaoContasPage pontos={pontos} despesas={despesasBackup}/>
+        </>)}
+
+        {aba==="fechamento"&&administrador&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Fechamento</h1><p className="page-sub">Rotas, gerentes e conferência operacional</p></div>
+            </div>
+          </header>
+          <FechamentoPage
+            pontos={pontos}
+            itens={itens}
+            despesas={despesasBackup}
+            pixEnvios={pixEnvios}
+            onPixEnviosChange={setPixEnvios}
+          />
         </>)}
 
         {aba==="gestao"&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Despesas & Acessos</h1><p className="page-sub">Controle mensal e permissões do sistema</p></div>
+              <div><h1 className="page-title">Central de Acessos</h1><p className="page-sub">Usuários, permissões e redefinição de login</p></div>
             </div>
           </header>
-          <ManagementPage pontos={pontos} perfilAtual={perfilAtual} onPerfilAtualChange={setPerfilAtual}/>
+          <ManagementPage perfilAtual={perfilAtual} onPerfilAtualChange={setPerfilAtual}/>
+        </>)}
+
+        {aba==="logins"&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Gerenciar Logins</h1><p className="page-sub">Área exclusiva do administrador</p></div>
+            </div>
+          </header>
+          <LoginManagerPage perfilAtual={perfilAtual} historico={historicoOperacional} historicoPontos={historicoPontosOperacional} onPerfilAtualChange={setPerfilAtual}/>
         </>)}
 
         {aba==="historico"&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Histórico</h1><p className="page-sub">{historico.length} movimentação{historico.length!==1?"ões":""} registrada{historico.length!==1?"s":""}</p></div>
+              <div><h1 className="page-title">Histórico</h1><p className="page-sub">{historicoOperacional.length} movimentação{historicoOperacional.length!==1?"ões":""} registrada{historicoOperacional.length!==1?"s":""}</p></div>
             </div>
             <div style={{display:"flex",gap:"8px"}}>
-              {historico.length>0&&<>
-                <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historico)}>📊 Excel</button>
-                <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historico)}>📄 PDF</button>
+              {historicoOperacional.length>0&&<>
+                <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historicoOperacional)}>📊 Excel</button>
+                <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historicoOperacional)}>📄 PDF</button>
               </>}
               {administrador&&historico.length>0&&<button className="btn-danger-outline" onClick={limparHistorico}>🗑️ Limpar</button>}
             </div>
@@ -1282,24 +2729,24 @@ function Sistema({onLogout}){
               {erroForm&&<div className="erro-msg">⚠️ {erroForm}</div>}
               <div className="campos-duplos">
                 <div className="campo"><label>Nome do Equipamento *</label>
-                  <input type="text" placeholder='Ex: tv samsung 55' value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})}/>
-                  <span className="campo-hint">Formatado automaticamente ao salvar</span></div>
+                  <input type="text" placeholder='Ex: TV HQ 32 BALCÃO' value={form.nome} onChange={e=>setForm({...form,nome:e.target.value.toUpperCase()})}/>
+                  <span className="campo-hint">Obrigatório. Será salvo em CAIXA ALTA para manter o padrão.</span></div>
                 <div className="campo"><label>Código / Patrimônio *</label>
-                  <input type="text" placeholder="Ex: TV-001" value={form.patrimonio} onChange={e=>setForm({...form,patrimonio:e.target.value})}/>
-                  {!itemEdit&&<span className="campo-hint">✨ Gerado automaticamente</span>}</div>
+                  <input type="text" placeholder="Ex: TV-SALA-001" value={form.patrimonio} onChange={e=>setForm({...form,patrimonio:e.target.value.toUpperCase()})}/>
+                  <span className="campo-hint">Você define a nomenclatura. O sistema bloqueia duplicados.</span></div>
               </div>
               <div className="campos-duplos">
                 <div className="campo"><label>Categoria *</label>
                   <select value={form.categoria} onChange={e=>{
                     const c=e.target.value;
-                    setForm({...form,categoria:c,patrimonio:!itemEdit?gerarPatrimonio(c,itens):form.patrimonio});
+                    setForm({...form,categoria:c});
                   }}>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></div>
                 <div className="campo"><label>Status *</label>
                   <select value={form.status} onChange={e=>{
                     const status=e.target.value;
                     setForm({...form,status,localizacao:status==="Em rota"?form.localizacao:""});
                   }}>
-                    {STATUS_LISTA.map(s=><option key={s}>{s}</option>)}
+                    {statusListaVisivel.map(s=><option key={s}>{s}</option>)}
                   </select></div>
               </div>
               {form.status==="Em rota"&&(
@@ -1308,14 +2755,14 @@ function Sistema({onLogout}){
                   <div className="ponto-destino-linha">
                     <select value={form.localizacao} onChange={e=>setForm({...form,localizacao:e.target.value})}>
                       <option value="">Selecione um ponto...</option>
-                      {pontos.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
+                      {pontosOperacionais.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
                     </select>
                     <button type="button" className="btn-secundario" onClick={()=>setModalPontoRapido(true)}>+ Criar ponto agora</button>
                   </div>
                   <span className="campo-hint">Ao salvar, o equipamento já ficará vinculado ao ponto escolhido.</span>
                 </div>
               )}
-              <div className="campo-info-minimo">🔒 Alerta de estoque por categoria: <strong>menos de 5 equipamentos disponíveis</strong></div>
+              <div className="campo-info-minimo">🔒 Alerta operacional somente para <strong>Terminais com menos de 5 disponíveis</strong></div>
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={fecharForm}>Cancelar</button>
@@ -1354,7 +2801,7 @@ function Sistema({onLogout}){
               <div className="campo">
                 <label>Tipo de Movimentação *</label>
                 <div className="tipos-mov-grid">
-                  {TIPOS_MOV.map(t=>(
+                  {TIPOS_MOV.filter(t=>podeEditar||t.id!=="gerente").map(t=>(
                     <button key={t.id} className={`tipo-mov-btn ${mov.tipoId===t.id?"tipo-mov-ativo":""}`} onClick={()=>setMov({...mov,tipoId:t.id})}>
                       <span className="tipo-mov-icone">{t.icone}</span>
                       <span className="tipo-mov-label">{t.label}</span>
@@ -1367,9 +2814,19 @@ function Sistema({onLogout}){
                   <label>Ponto de destino *</label>
                   <select value={mov.ponto} onChange={e=>setMov({...mov,ponto:e.target.value})}>
                     <option value="">Selecione um ponto...</option>
-                    {pontos.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
+                    {pontosOperacionais.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
                   </select>
-                  {pontos.length===0&&<span className="campo-hint">Cadastre um ponto antes de enviar o equipamento.</span>}
+                  {pontosOperacionais.length===0&&<span className="campo-hint">Cadastre um ponto antes de enviar o equipamento.</span>}
+                </div>
+              )}
+              {tipoMovSel?.id==="gerente"&&(
+                <div className="campo">
+                  <label>Gerente que vai receber *</label>
+                  <select value={mov.gerente} onChange={e=>setMov({...mov,gerente:e.target.value,responsavel:e.target.value})}>
+                    <option value="">Selecione o gerente...</option>
+                    {GERENTES.map(g=><option key={g} value={g}>{g}</option>)}
+                  </select>
+                  <span className="campo-hint">O item ficará como enviado aguardando confirmação no acesso deste gerente.</span>
                 </div>
               )}
               {tipoMovSel?.id==="conserto"&&(
@@ -1412,7 +2869,7 @@ function Sistema({onLogout}){
           onFechar={()=>setItemDetalhe(null)}
           onEditar={abrirEditar}
           onMovimentar={abrirMov}
-          podeEditar={podeEditar}
+          podeEditar={podeMovimentarEquipamento(itemDetalhe)}
         />
       )}
 
@@ -1427,6 +2884,35 @@ function Sistema({onLogout}){
       )}
 
       {modalSenha&&<ModalAlterarSenha onFechar={()=>setModalSenha(false)}/>}
+      <ChatInterno perfilAtual={perfilAtual} gerentes={gerentesChat}/>
+      {backupBloqueante&&(
+        <div className="modal-overlay backup-obrigatorio-overlay">
+          <div className="modal modal-pequeno backup-obrigatorio-modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>💾 Backup obrigatório</h3>
+            </div>
+            <div className="modal-body">
+              <p className="backup-obrigatorio-texto">
+                Por segurança, este acesso precisa baixar um backup a cada {BACKUP_INTERVALO_DIAS} dias.
+              </p>
+              <div className="backup-resumo">
+                <span><strong>{itensOperacionais.length}</strong> equipamentos</span>
+                <span><strong>{pontosOperacionais.length}</strong> pontos</span>
+                <span><strong>{despesasOperacionais.length}</strong> despesas</span>
+                <span><strong>{historicoOperacional.length}</strong> movimentos</span>
+              </div>
+              <p className="campo-hint">
+                {perfilAtual.perfil==="gerente"
+                  ?"O arquivo contém somente os dados deste gerente."
+                  :"O arquivo contém o backup completo disponível para seu perfil."}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-primario" onClick={baixarBackupObrigatorio}>Baixar backup e continuar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
