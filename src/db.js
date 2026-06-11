@@ -200,6 +200,7 @@ function mapPonto(row) {
     id: row.id, nomeFantasia: row.nome_fantasia, nomeDono: row.nome_dono,
     telefone: row.telefone, gerente: row.gerente,
     modalidades: row.modalidades || [],
+    rota: row.rota || row.route || "",
     possuiDespesa: row.possui_despesa, valorDespesa: Number(row.valor_despesa) || 0,
     observacao: row.observacao || '',
   };
@@ -210,6 +211,7 @@ function desmapPonto(ponto) {
     nome_fantasia: ponto.nomeFantasia, nome_dono: ponto.nomeDono,
     telefone: ponto.telefone, gerente: ponto.gerente,
     modalidades: ponto.modalidades || [],
+    rota: ponto.rota || "",
     possui_despesa: ponto.possuiDespesa, valor_despesa: ponto.valorDespesa || 0,
     observacao: ponto.observacao || '',
   };

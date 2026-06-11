@@ -29,6 +29,29 @@ export function BadgeGerente({ gerente }) {
   );
 }
 
+const PIX_STORAGE_KEY = "sc_pix_envio";
+const PIX_DURATION_MS = 24 * 60 * 60 * 1000;
+const PIX_CHAVE = "pix@stockon.com";
+
+function formatTempoRestante(ms) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const horas = Math.floor(total / 3600);
+  const minutos = Math.floor((total % 3600) / 60);
+  const segundos = total % 60;
+  return `${horas}h ${String(minutos).padStart(2,'0')}m ${String(segundos).padStart(2,'0')}s`;
+}
+
+function getRotaLabel(ponto) {
+  return ponto.rota || ponto.nomeFantasia || "Rota desconhecida";
+}
+
+function agruparRotasGerente(pontos, gerente) {
+  return [...new Set(pontos
+    .filter(p=>p.gerente===gerente)
+    .map(getRotaLabel)
+  )];
+}
+
 // ── Exportar Excel Pontos ─────────────────────────────────────────────────────
 function exportarPontosExcel(pontos){
   const dados = pontos.map(p=>({
@@ -268,6 +291,98 @@ function PointExpensesModal({ pontos, onFechar }) {
           </div>
         </div>
         <div className="modal-footer"><button className="btn-primario" onClick={onFechar}>Fechar</button></div>
+      </div>
+    </div>
+  );
+}
+
+function GerenteRouteSelectorModal({ gerente, rotas, onSelect, onFechar }) {
+  return (
+    <div className="modal-overlay" onClick={onFechar}>
+      <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Selecione a rota de {gerente}</h3>
+          <button className="modal-fechar" onClick={onFechar}>✕</button>
+        </div>
+        <div className="modal-body">
+          <p style={{color:"var(--txt-secondary)",lineHeight:1.7}}>Este gerente opera mais de uma rota. Escolha a rota para ver o demonstrativo de despesas.</p>
+          <div className="rota-selector-grid">
+            {rotas.map(rota=>(
+              <button key={rota} className="rota-item" onClick={()=>onSelect(rota)}>{rota}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManagerExpensesModal({ gerente, rota, pontos, onFechar }) {
+  const pontosRota = pontos
+    .filter(p=>p.gerente===gerente && getRotaLabel(p)===rota)
+    .sort((a,b)=>b.valorDespesa-a.valorDespesa);
+  const totalDespesa = pontosRota.reduce((s,p)=>s+(p.valorDespesa||0),0);
+  const comDespesa = pontosRota.filter(p=>p.possuiDespesa==="sim"&&p.valorDespesa>0);
+
+  return (
+    <div className="modal-overlay" onClick={onFechar}>
+      <div className="modal modal-largo" onClick={e=>e.stopPropagation()} style={{maxWidth:"760px"}}>
+        <div className="modal-header">
+          <h3>Demonstrativo de despesas</h3>
+          <button className="modal-fechar" onClick={onFechar}>✕</button>
+        </div>
+        <div className="modal-body manager-expenses-body">
+          <div className="manager-expenses-hero">
+            <div>
+              <span className="manager-expenses-label">Gerente</span>
+              <h2>{gerente}</h2>
+              <p>Rota selecionada: <strong>{rota}</strong></p>
+            </div>
+            <div className="manager-expenses-stats">
+              <div>
+                <span>Total de pontos</span>
+                <strong>{pontosRota.length}</strong>
+              </div>
+              <div>
+                <span>Despesas registradas</span>
+                <strong>{comDespesa.length}</strong>
+              </div>
+              <div>
+                <span>Despesa total</span>
+                <strong>{formatarReais(totalDespesa)}</strong>
+              </div>
+            </div>
+          </div>
+          {comDespesa.length===0 ? (
+            <div className="hist-vazio" style={{padding:"28px 24px",marginTop:"16px"}}>
+              <div className="hist-vazio-icone">💼</div>
+              <div>Nenhuma despesa registrada para esta rota.</div>
+            </div>
+          ) : (
+            <div className="tabela-wrapper manager-expenses-table">
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th>Ponto</th>
+                    <th>Telefone</th>
+                    <th>Modalidades</th>
+                    <th>Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comDespesa.map(p=>(
+                    <tr key={p.id}>
+                      <td className="td-nome">🏪 {p.nomeFantasia}</td>
+                      <td className="td-obs">{p.telefone}</td>
+                      <td><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></td>
+                      <td style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:"var(--accent)"}}>{formatarReais(p.valorDespesa)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -526,61 +641,83 @@ function AbaAnalise({ pontos }) {
 
 // ─── ABA: Gerentes ────────────────────────────────────────────────────────────
 function AbaGerentes({ pontos }) {
-  const porGerente = GERENTES.map(g=>({
-    gerente:g,
-    total:pontos.filter(p=>p.gerente===g).length,
-    comDespesa:pontos.filter(p=>p.gerente===g&&p.possuiDespesa==="sim").length,
-    totalDespesa:pontos.filter(p=>p.gerente===g).reduce((s,p)=>s+(p.valorDespesa||0),0),
-  })).filter(g=>g.total>0).sort((a,b)=>b.total-a.total);
+  const [rotasModal, setRotasModal] = useState(null);
+  const [despesasModal, setDespesasModal] = useState(null);
 
-  const porModalidade = MODALIDADES.map(m=>({
-    modalidade:m,
-    total:pontos.filter(p=>p.modalidades.includes(m)).length,
-  })).filter(m=>m.total>0).sort((a,b)=>b.total-a.total);
+  const porGerente = GERENTES.map(g=>{
+    const pontosGerente = pontos.filter(p=>p.gerente===g);
+    const rotas = agruparRotasGerente(pontos, g);
+    return {
+      gerente:g,
+      total:pontosGerente.length,
+      comDespesa:pontosGerente.filter(p=>p.possuiDespesa==="sim").length,
+      totalDespesa:pontosGerente.reduce((s,p)=>s+(p.valorDespesa||0),0),
+      rotasCount:rotas.length,
+      rotas,
+    };
+  }).filter(g=>g.total>0).sort((a,b)=>b.total-a.total);
+
+  function abrirGerente(gerente) {
+    const rotas = agruparRotasGerente(pontos, gerente);
+    if (rotas.length <= 1) {
+      setDespesasModal({ gerente, rota: rotas[0] || "Geral" });
+      return;
+    }
+    setRotasModal({ gerente, rotas });
+  }
+
+  function handleSelecionarRota(rota) {
+    if (!rotasModal) return;
+    setDespesasModal({ gerente: rotasModal.gerente, rota });
+    setRotasModal(null);
+  }
+
+  function fecharModais() {
+    setRotasModal(null);
+    setDespesasModal(null);
+  }
 
   return(
-    <div className="pontos-grid-inferior">
-      <section className="secao">
-        <h2 className="secao-titulo">👤 Por Gerente</h2>
-        {porGerente.length===0
-          ?<div className="hist-vazio"><div className="hist-vazio-icone">👤</div><div>Nenhum dado.</div></div>
-          :<div className="tabela-wrapper">
-            <table className="tabela">
-              <thead><tr><th>Gerente</th><th>Pontos</th><th>C/ Despesa</th><th>Total Despesas</th></tr></thead>
-              <tbody>
-                {porGerente.map(g=>(
-                  <tr key={g.gerente}>
-                    <td><BadgeGerente gerente={g.gerente}/></td>
-                    <td className="qtd-normal">{g.total}</td>
-                    <td className="td-minimo">{g.comDespesa}</td>
-                    <td className={g.totalDespesa>0?"qtd-baixa":"td-minimo"}>{g.totalDespesa>0?formatarReais(g.totalDespesa):"—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <section className="secao">
+      <h2 className="secao-titulo">👤 Fechamento por gerente</h2>
+      {porGerente.length===0
+        ?<div className="hist-vazio"><div className="hist-vazio-icone">👤</div><div>Nenhum dado disponível.</div></div>
+        :<>
+          <p className="gerente-card-intro">Clique no gerente para abrir o demonstrativo de despesas. Se houver mais de uma rota, será exibido um seletor de rota.</p>
+          <div className="gerente-card-grid">
+            {porGerente.map(g=>{
+              const c = GERENTE_CORES[g.gerente] || {color:"#94a3b8",border:"rgba(148,163,184,0.3)"};
+              return (
+                <button key={g.gerente} className="gerente-card" style={{borderLeft:`4px solid ${c.color}`}} onClick={()=>abrirGerente(g.gerente)}>
+                  <div className="gerente-card-topo">
+                    <BadgeGerente gerente={g.gerente}/>
+                    <span className="gerente-card-badge">{g.rotasCount} rota{g.rotasCount!==1?"s":""}</span>
+                  </div>
+                  <div className="gerente-card-metrics">
+                    <div>
+                      <strong>{g.total}</strong>
+                      <span>Pontos</span>
+                    </div>
+                    <div>
+                      <strong>{g.comDespesa}</strong>
+                      <span>Com despesa</span>
+                    </div>
+                    <div>
+                      <strong>{formatarReais(g.totalDespesa)}</strong>
+                      <span>Total</span>
+                    </div>
+                  </div>
+                  <div className="gerente-card-footer">Clique para visualizar despesas{g.rotasCount>1?" por rota":""}.</div>
+                </button>
+              );
+            })}
           </div>
-        }
-      </section>
-      <section className="secao">
-        <h2 className="secao-titulo">🎮 Por Modalidade</h2>
-        {porModalidade.length===0
-          ?<div className="hist-vazio"><div className="hist-vazio-icone">🎮</div><div>Nenhum dado.</div></div>
-          :<div className="tabela-wrapper">
-            <table className="tabela">
-              <thead><tr><th>Modalidade</th><th>Pontos</th></tr></thead>
-              <tbody>
-                {porModalidade.map(m=>(
-                  <tr key={m.modalidade}>
-                    <td><BadgeModalidade m={m.modalidade}/></td>
-                    <td className="qtd-normal">{m.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        }
-      </section>
-    </div>
+
+          {rotasModal && <GerenteRouteSelectorModal gerente={rotasModal.gerente} rotas={rotasModal.rotas} onSelect={handleSelecionarRota} onFechar={fecharModais}/>}          
+          {despesasModal && <ManagerExpensesModal gerente={despesasModal.gerente} rota={despesasModal.rota} pontos={pontos} onFechar={fecharModais}/>}          
+        </>
+      }
+    </section>
   );
 }
 
@@ -635,6 +772,17 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, onPontos
   const [excluindo,  setExcluindo] = useState(null);
   const [verDespesas,setVerDespesas]=useState(false);
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
+  const [pixEnvio, setPixEnvio] = useState(() => {
+    try {
+      const stored = localStorage.getItem(PIX_STORAGE_KEY);
+      if (!stored) return null;
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed.sentAt === 'number' && parsed.chave) return parsed;
+    } catch (e) { }
+    return null;
+  });
+  const [pixRestante, setPixRestante] = useState(0);
+  const [pixCopiado, setPixCopiado] = useState(false);
 
   useEffect(()=>{
     async function carregar(){
@@ -644,6 +792,48 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, onPontos
     }
     carregar();
   },[]);
+
+  useEffect(()=>{
+    if (!pixEnvio) {
+      setPixRestante(0);
+      return;
+    }
+    const update = () => {
+      const diff = PIX_DURATION_MS - (Date.now() - pixEnvio.sentAt);
+      if (diff <= 0) {
+        localStorage.removeItem(PIX_STORAGE_KEY);
+        setPixEnvio(null);
+        setPixRestante(0);
+        return;
+      }
+      setPixRestante(diff);
+    };
+    update();
+    const interval = window.setInterval(update, 1000);
+    return ()=>window.clearInterval(interval);
+  },[pixEnvio]);
+
+  useEffect(()=>{
+    if (!pixCopiado) return;
+    const timer = window.setTimeout(()=>setPixCopiado(false), 1500);
+    return ()=>window.clearTimeout(timer);
+  },[pixCopiado]);
+
+  function enviarPix() {
+    const novoPix = { sentAt: Date.now(), chave: PIX_CHAVE };
+    localStorage.setItem(PIX_STORAGE_KEY, JSON.stringify(novoPix));
+    setPixEnvio(novoPix);
+  }
+
+  async function copiarChavePix() {
+    if (!pixEnvio) return;
+    try {
+      await navigator.clipboard.writeText(pixEnvio.chave);
+      setPixCopiado(true);
+    } catch (e) {
+      console.error('Erro ao copiar chave PIX:', e);
+    }
+  }
 
   async function salvarPontoHandler(form, equipamentosSelecionados){
     if(!podeEditar)return;
@@ -711,6 +901,35 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, onPontos
         <p>Consulte estabelecimentos, despesas e equipamentos vinculados.</p>
         {podeEditar&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
       </div>
+
+      {(pixEnvio || podeEditar) && (
+        <section className="secao">
+          {pixEnvio ? (
+            <div className="pix-card pix-card-active">
+              <div>
+                <div className="pix-card-label">PIX enviado</div>
+                <h3 className="pix-card-title">Chave disponível por 24 horas</h3>
+                <div className="pix-card-chave">{pixEnvio.chave}</div>
+                <div className="pix-card-meta">Este cartão ficará visível por até 24h a partir do envio. Expira em <strong>{formatTempoRestante(pixRestante)}</strong>.</div>
+              </div>
+              <div className="pix-card-actions">
+                <button className="btn-primario btn-copiar-pix" onClick={copiarChavePix}>
+                  📋 {pixCopiado?"Copiado":"Copiar chave"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="pix-card pix-card-ready">
+              <div>
+                <div className="pix-card-label">Enviar PIX</div>
+                <h3 className="pix-card-title">Ative o comprovante por 24 horas</h3>
+                <div className="pix-card-meta">Apenas o administrador pode enviar novamente após o cartão expirar.</div>
+              </div>
+              <button className="btn-primario btn-enviar-pix" onClick={enviarPix}>Enviar PIX</button>
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="points-abas">
         {ABAS.map(a=>(
