@@ -710,8 +710,9 @@ body {
 .email-temp-vencido strong { color: var(--vermelho); }
 
 .gerente-welcome {
-  position: relative; overflow: hidden; display: flex; align-items: center; gap: 18px;
-  margin: 0 0 18px; padding: 18px 22px;
+  position: relative; overflow: visible; display: flex; align-items: center; gap: 18px;
+  margin: 0 0 18px; padding: 16px 22px;
+  min-height: 108px;
   background: linear-gradient(110deg, rgba(255,179,0,0.14), rgba(37,99,235,0.10), var(--bg-card));
   border: 1px solid var(--azul-border); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm); animation: gerenteWelcomeIn .55s ease both;
@@ -722,7 +723,7 @@ body {
   pointer-events: none; animation: gerenteGlow 5s ease-in-out infinite;
 }
 .gerente-avatar {
-  position: relative; width: 76px; height: 76px; flex-shrink: 0;
+  position: relative; width: 74px; height: 74px; flex-shrink: 0;
   display: grid; place-items: center; border-radius: 24px;
   background: linear-gradient(145deg, #0b1f45, #061128);
   border: 1px solid rgba(255,255,255,0.22);
@@ -739,8 +740,8 @@ body {
   --hero-glow: rgba(20,184,166,.35);
   position: relative;
   z-index: 1;
-  width: 54px;
-  height: 62px;
+  width: 50px;
+  height: 58px;
   display: block;
   filter: drop-shadow(0 12px 18px rgba(0,0,0,.34));
 }
