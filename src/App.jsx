@@ -5,7 +5,7 @@ import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
-import { GERENTES, ROTAS_POR_GERENTE, gerenteDaRota, rotaCanonica, rotaPertenceAoGerente } from "./pointsData.js";
+import { GERENTES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
@@ -559,12 +559,39 @@ const PIX_CARTOES_PADRAO = [
   { id:"pix-neon-sabrina", banco:"Neon Pagamentos S.A", nome:"Sabrina", tipo:"Aleatória", chave:"7aeaf6f5-d457-4b21-b0d3-2cb2956ea7fa", visual:{ nome:"Neon", icone:"neon", classe:"pix-banco-neon" } },
 ];
 
+const PIX_VALIDADE_MS = 24 * 60 * 60 * 1000;
+
+function pixDentroDoPrazo(aviso, agora = Date.now()) {
+  const criado = new Date(aviso?.enviadoEm || 0).getTime();
+  return Boolean(criado) && agora - criado <= PIX_VALIDADE_MS;
+}
+
+function formatarPrazoPix(enviadoEm) {
+  const criado = new Date(enviadoEm || 0).getTime();
+  if (!criado) return "válido por 24 horas";
+  const restante = Math.max(0, PIX_VALIDADE_MS - (Date.now() - criado));
+  const horas = Math.floor(restante / (60 * 60 * 1000));
+  const minutos = Math.max(1, Math.ceil((restante % (60 * 60 * 1000)) / (60 * 1000)));
+  if (horas <= 0) return `${minutos} min restantes`;
+  return `${horas}h ${minutos}min restantes`;
+}
+
+const FECHAMENTO_CORES = ["Alex", "Central/Uibai", "Lapão", "América Dourada", "Eliana", "Queixo", "Wene", "João Luis", "Beu"];
+
+function corFechamento(gerente) {
+  const rotas = ROTAS_POR_GERENTE[gerente] || [];
+  const chave = rotas[0] || gerente || FECHAMENTO_CORES[0];
+  return GERENTE_CORES[chave] || GERENTE_CORES[FECHAMENTO_CORES[0]] || { bg:"rgba(37,99,235,0.12)", color:"#2563eb", border:"rgba(37,99,235,0.28)" };
+}
+
 function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = [], onPixEnviosChange }) {
   const [cartaoPix,setCartaoPix]=useState(null);
   const [pixEnvio,setPixEnvio]=useState({gerente:GERENTES[0]||"",rota:"",mensagem:""});
   const [pixErro,setPixErro]=useState("");
   const [pixOk,setPixOk]=useState("");
   const [pixSalvando,setPixSalvando]=useState(false);
+  const [gerenteSelecionado,setGerenteSelecionado]=useState("");
+  const [rotaSelecionada,setRotaSelecionada]=useState("");
   const dados = GERENTES.map(gerente => {
     const rotas = ROTAS_POR_GERENTE[gerente] || [];
     const pontosGerente = pontos.filter(p => rotaPertenceAoGerente(p.gerente, gerente));
@@ -578,9 +605,33 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     const totalDespesas = despesas
       .filter(d => idsPontos.has(Number(d.pontoId)))
       .reduce((s,d)=>s+valorDespesaPrestacao(d),0);
-    return { gerente, rotas, pontos:pontosGerente.length, equipamentos:equipamentos.length, totalDespesas };
+    return { gerente, rotas, pontos:pontosGerente.length, equipamentos:equipamentos.length, totalDespesas, cor:corFechamento(gerente) };
   });
   const rotasEnvio=ROTAS_POR_GERENTE[pixEnvio.gerente]||[];
+  const gerenteDetalhe = dados.find(g => g.gerente === gerenteSelecionado);
+  const rotasDetalhe = gerenteDetalhe?.rotas || [];
+  const rotaDetalheAtiva = rotaSelecionada || (rotasDetalhe.length === 1 ? rotasDetalhe[0] : "");
+  const pontosDetalhe = gerenteSelecionado
+    ? pontos.filter(p => rotaDetalheAtiva ? rotaCanonica(p.gerente) === rotaDetalheAtiva : rotaPertenceAoGerente(p.gerente, gerenteSelecionado))
+    : [];
+  const idsPontosDetalhe = new Set(pontosDetalhe.map(p => Number(p.id)));
+  const nomesPontosDetalhe = new Set(pontosDetalhe.map(p => p.nomeFantasia));
+  const despesasDetalhe = despesas
+    .filter(d => idsPontosDetalhe.has(Number(d.pontoId)))
+    .map(d => ({ ...d, ponto: pontosDetalhe.find(p => Number(p.id) === Number(d.pontoId)) }))
+    .sort((a,b)=>String(a.ponto?.nomeFantasia||"").localeCompare(String(b.ponto?.nomeFantasia||""), "pt-BR"));
+  const equipamentosDetalhe = itens.filter(i =>
+    nomesPontosDetalhe.has(i.localizacao) ||
+    normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerenteSelecionado) ||
+    (rotaDetalheAtiva && normalizarTexto(i.gerenteResponsavel) === normalizarTexto(rotaDetalheAtiva))
+  );
+  const totalDetalhe = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+  const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
+
+  function selecionarGerenteFechamento(g) {
+    setGerenteSelecionado(g.gerente);
+    setRotaSelecionada(g.rotas.length === 1 ? g.rotas[0] : "");
+  }
 
   async function enviarAvisoPix(e){
     e.preventDefault();
@@ -621,7 +672,13 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       </div>
       <div className="prestacao-gerentes-grid">
         {dados.map(g=>(
-          <article key={g.gerente} className="prestacao-gerente-card fechamento-card">
+          <button
+            key={g.gerente}
+            type="button"
+            className={`prestacao-gerente-card fechamento-card fechamento-card-click ${gerenteSelecionado===g.gerente?"ativo":""}`}
+            style={{"--gerente-cor":g.cor.color,"--gerente-bg":g.cor.bg,"--gerente-border":g.cor.border}}
+            onClick={()=>selecionarGerenteFechamento(g)}
+          >
             <div className="prestacao-gerente-avatar">{g.gerente.slice(0,1).toUpperCase()}</div>
             <span>{g.gerente}</span>
             <strong>{formatarMoedaPDF(g.totalDespesas)}</strong>
@@ -629,9 +686,58 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             <div className="modalidades-badges">
               {g.rotas.length ? g.rotas.map(rota=><span key={rota} className="badge-cat">{rota}</span>) : <span className="td-obs">Sem rota cadastrada</span>}
             </div>
-          </article>
+          </button>
         ))}
       </div>
+      {gerenteSelecionado&&(
+        <section
+          className="fechamento-detalhe"
+          style={{
+            "--gerente-cor":gerenteDetalhe?.cor?.color,
+            "--gerente-bg":gerenteDetalhe?.cor?.bg,
+            "--gerente-border":gerenteDetalhe?.cor?.border,
+          }}
+        >
+          <div className="fechamento-detalhe-head">
+            <div>
+              <span className="dash-kicker">Demonstrativo administrativo</span>
+              <h3>{gerenteSelecionado}{rotaDetalheAtiva?` · ${rotaDetalheAtiva}`:""}</h3>
+              <p>{rotasDetalhe.length>1&&!rotaDetalheAtiva?"Escolha uma rota para abrir a conferência detalhada.":"Resumo refinado da rota selecionada para fechamento."}</p>
+            </div>
+            {rotasDetalhe.length>1&&(
+              <div className="fechamento-rota-tabs">
+                {rotasDetalhe.map(rota=>(
+                  <button key={rota} type="button" className={rotaDetalheAtiva===rota?"ativo":""} onClick={()=>setRotaSelecionada(rota)}>{rota}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="fechamento-kpis">
+            <article><span>Total da rota</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong></article>
+            <article><span>Pontos</span><strong>{pontosDetalhe.length}</strong></article>
+            <article><span>Equipamentos</span><strong>{equipamentosDetalhe.length}</strong></article>
+            <article><span>Média por ponto</span><strong>{formatarMoedaPDF(mediaPorPonto)}</strong></article>
+          </div>
+          <div className="fechamento-despesas-box">
+            <div className="fechamento-despesas-head">
+              <strong>Despesas da conferência</strong>
+              <span>{despesasDetalhe.length} lançamento{despesasDetalhe.length!==1?"s":""}</span>
+            </div>
+            {despesasDetalhe.length===0?(
+              <p className="dash-vazio">Nenhuma despesa encontrada para este recorte.</p>
+            ):despesasDetalhe.map(d=>(
+              <article className="fechamento-despesa-card" key={d.id}>
+                <div>
+                  <strong>{d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`}</strong>
+                  <span>{d.descricao || "Despesa sem descrição"}</span>
+                </div>
+                <small>{formatarMesPrestacao(mesDespesaPrestacao(d.competencia))}</small>
+                <b>{formatarMoedaPDF(valorDespesaPrestacao(d))}</b>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="pix-admin-panel">
         <div className="pix-admin-head">
           <div>
@@ -1790,23 +1896,17 @@ function Sistema({onLogout}){
     ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId))
     :despesasBackup;
   const backupBloqueante=backupObrigatorioVencido(perfilAtual)&&!backupFeitoAgora;
-  const [pixAvisosFechados,setPixAvisosFechados]=useState([]);
-  const pixAvisosKey=`stockon_pix_avisos_lidos_${perfilAtual.userId||"anon"}`;
+  const [agoraPix,setAgoraPix]=useState(Date.now());
   const gerentePixNome=gerenteDaRota(gerenteAtual)||gerenteAtual;
   const pixAvisoAtual=gerenteAtual?pixEnvios.find(aviso=>
     normalizarTexto(aviso.gerente)===normalizarTexto(gerentePixNome)&&
-    !pixAvisosFechados.includes(String(aviso.id))
+    pixDentroDoPrazo(aviso, agoraPix)
   ):null;
 
   useEffect(()=>{
-    try{setPixAvisosFechados(JSON.parse(localStorage.getItem(pixAvisosKey)||"[]"));}catch{setPixAvisosFechados([]);}
-  },[pixAvisosKey]);
-
-  function fecharPixAviso(id){
-    const nova=[...new Set([...pixAvisosFechados,String(id)])];
-    setPixAvisosFechados(nova);
-    try{localStorage.setItem(pixAvisosKey,JSON.stringify(nova));}catch{}
-  }
+    const timer=setInterval(()=>setAgoraPix(Date.now()),60000);
+    return ()=>clearInterval(timer);
+  },[]);
 
   async function copiarPixAviso(chave){
     try{
@@ -2225,9 +2325,16 @@ function Sistema({onLogout}){
               <h2>Chave PIX enviada para prestação de contas</h2>
               <p>{pixAvisoAtual.mensagem||"A administração enviou uma chave PIX para você usar neste fechamento."}</p>
               {pixAvisoAtual.rota&&<span className="badge-cat">Rota {pixAvisoAtual.rota}</span>}
+              <div className="pix-prazo-card">
+                <span>Prazo para usar esta chave</span>
+                <strong>{formatarPrazoPix(pixAvisoAtual.enviadoEm)}</strong>
+                <small>Depois de 24 horas este cartão some e a administração precisa reenviar.</small>
+              </div>
               <div className="pix-alerta-acoes">
-                <button className="btn-primary" onClick={()=>copiarPixAviso(pixAvisoAtual.pixChave)}>Copiar chave</button>
-                <button className="btn-ghost" onClick={()=>fecharPixAviso(pixAvisoAtual.id)}>Entendi</button>
+                <button className="btn-pix-premium" onClick={()=>copiarPixAviso(pixAvisoAtual.pixChave)}>
+                  <span>Copiar chave PIX</span>
+                  <small>para prestação de contas</small>
+                </button>
               </div>
             </div>
           </div>
