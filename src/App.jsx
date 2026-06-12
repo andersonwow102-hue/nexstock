@@ -2249,7 +2249,6 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span className="nav-icon">📦</span> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span className="nav-icon">📍</span> Pontos</button>
           <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span className="nav-icon">🔎</span> Busca Geral</button>
-          <button className={`nav-item ${aba==="relatorios"?"active":""}`} onClick={()=>navegar("relatorios")}><span className="nav-icon">🧭</span> Central Operacional</button>
           {administrador&&<button className={`nav-item ${aba==="prestacao"?"active":""}`} onClick={()=>navegar("prestacao")}><span className="nav-icon">💳</span> Prestação de Contas</button>}
           {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><span className="nav-icon">✅</span> Fechamento</button>}
           {podeEditar&&<button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">🔑</span> Central de Acessos</button>}
@@ -2348,17 +2347,9 @@ function Sistema({onLogout}){
             <img src={temaClaro?logoLight:logo} alt="Stock-ON" className="logo-topbar"/>
           </header>
           <div className="painel-dashboard">
-            <section className="dash-hero">
-              <div>
-                <span className="dash-kicker">Controle operacional</span>
-                <h2>Onde está cada equipamento?</h2>
-                <p>{gerenteAtual?"Acompanhe seus pontos, equipamentos disponíveis e itens em operação.":"Acompanhe disponibilidade, equipamentos em pontos e itens em conserto em uma única tela."}</p>
-                <div className="dash-biscoito"><span>Mensagem do dia</span><q>{mensagemDoDia}</q></div>
-              </div>
-              <div className="dash-acoes">
-                <button className="btn-primario" onClick={()=>navegar("itens")}>Ver equipamentos</button>
-                <button className="btn-secundario" onClick={()=>navegar("pontos")}>Ver pontos</button>
-              </div>
+            <section className="dash-mensagem-compacta">
+              <span>Mensagem do dia</span>
+              <q>{mensagemDoDia}</q>
             </section>
 
             <section className="dash-indicadores">
@@ -2713,16 +2704,6 @@ function Sistema({onLogout}){
             </div>
           </header>
           <BuscaGlobalPage consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
-        </>)}
-
-        {aba==="relatorios"&&(<>
-          <header className="topbar">
-            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Central Operacional</h1><p className="page-sub">Pendências, alertas, rotas e PDFs profissionais</p></div>
-            </div>
-          </header>
-          <RelatoriosPage itens={itensOperacionais} pontos={pontosOperacionais} historico={historicoOperacional} historicoPontos={historicoPontosOperacional} perfilAtual={perfilAtual}/>
         </>)}
 
         {aba==="prestacao"&&administrador&&(<>
