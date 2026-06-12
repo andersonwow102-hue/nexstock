@@ -58,7 +58,7 @@ const TRANSFERENCIA_GERENTE = {
   recebido: "recebido",
 };
 const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponível",minimo:5,observacao:"",localizacao:"",responsavel:"",patrimonio:"",dataCadastro:"",gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""};
-const movVazio={tipoId:"ponto",ponto:"",gerente:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:""};
+const movVazio={tipoId:"ponto",ponto:"",gerente:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:"",notaFiscalNome:"",notaFiscalArquivo:"",consertoPix:"",consertoValor:""};
 const ITENS_POR_PAGINA=12;
 const BACKUP_INTERVALO_DIAS=7;
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
@@ -99,9 +99,14 @@ function validarItem(f,itens=[],itemId=null){
   if(itens.some(i=>i.id!==itemId&&(i.patrimonio||"").trim().toUpperCase()===patrimonio)) return`Código duplicado: o patrimônio ${patrimonio} já está cadastrado.`;
   return null;
 }
-function validarMov(mov,tipo){
+function validarMov(mov,tipo,perfil=""){
   if(tipo.exigePonto&&!mov.ponto)return"Selecione o ponto de destino.";
   if(tipo.id==="conserto"&&!mov.defeito.trim())return"Descreva o defeito antes de enviar o equipamento para conserto.";
+  if(tipo.id==="conserto"&&perfil==="operador"){
+    if(!mov.notaFiscalArquivo)return"Anexe a foto da nota fiscal antes de enviar para conserto.";
+    if(!String(mov.consertoPix||"").trim())return"Informe a chave PIX do conserto.";
+    if(Number(mov.consertoValor||0)<=0)return"Informe o valor do conserto.";
+  }
   return null;
 }
 
@@ -1999,6 +2004,22 @@ function Sistema({onLogout}){
   }
   function fecharMov(){setModalMov(null);}
 
+  function anexarNotaFiscalConserto(arquivo){
+    if(!arquivo)return;
+    if(!arquivo.type.startsWith("image/")){
+      setErroMov("Anexe uma imagem da nota fiscal.");
+      return;
+    }
+    if(arquivo.size>3*1024*1024){
+      setErroMov("A foto da nota fiscal deve ter até 3 MB.");
+      return;
+    }
+    const leitor=new FileReader();
+    leitor.onload=()=>setMov(prev=>({...prev,notaFiscalNome:arquivo.name,notaFiscalArquivo:String(leitor.result||"")}));
+    leitor.onerror=()=>setErroMov("Não foi possível ler a foto da nota fiscal.");
+    leitor.readAsDataURL(arquivo);
+  }
+
   async function salvarItem(){
     if(!podeCadastrarEquipamento){setErroForm("Seu perfil permite somente consulta.");return;}
     if(itemEdit&&!podeMovimentarEquipamento(itemEdit)){setErroForm("Este equipamento ainda não está liberado para seu perfil.");return;}
@@ -2071,7 +2092,7 @@ function Sistema({onLogout}){
   async function confirmarMov(){
     if(!modalMov||!podeMovimentarEquipamento(modalMov))return;
     const tipo=TIPOS_MOV.find(t=>t.id===mov.tipoId);
-    const erro=validarMov(mov,tipo);if(erro){setErroMov(erro);return;}
+    const erro=validarMov(mov,tipo,perfilAtual.perfil);if(erro){setErroMov(erro);return;}
     if(tipo.id==="gerente"&&!mov.gerente){setErroMov("Selecione o gerente que vai receber este equipamento.");return;}
     const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
     const upd=tipo.id==="gerente"
@@ -2085,8 +2106,24 @@ function Sistema({onLogout}){
     const informacoesConserto=tipo.id==="conserto"?[
       mov.assistencia&&`Assistência: ${mov.assistencia}`,
       mov.previsao&&`Previsão: ${mov.previsao}`,
+      mov.consertoPix&&`PIX conserto: ${mov.consertoPix}`,
+      mov.consertoValor&&`Valor conserto: ${formatarMoedaPDF(mov.consertoValor)}`,
+      mov.notaFiscalNome&&`Nota fiscal: ${mov.notaFiscalNome}`,
     ]:[];
     const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
+    if(tipo.id==="conserto"&&mov.notaFiscalArquivo){
+      try{
+        localStorage.setItem(`stockon_nota_conserto_${h.id}`,JSON.stringify({
+          itemId:modalMov.id,
+          itemNome:modalMov.nome,
+          arquivoNome:mov.notaFiscalNome,
+          arquivo:mov.notaFiscalArquivo,
+          pix:mov.consertoPix,
+          valor:mov.consertoValor,
+          criadoEm:isoAgora(),
+        }));
+      }catch{}
+    }
     await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     fecharMov();
   }
@@ -2923,6 +2960,29 @@ function Sistema({onLogout}){
                     <div className="campo"><label>Assistência / Técnico</label><input type="text" placeholder="Ex: Assistência Central" value={mov.assistencia} onChange={e=>setMov({...mov,assistencia:e.target.value})}/></div>
                     <div className="campo"><label>Previsão de retorno</label><input type="date" value={mov.previsao} onChange={e=>setMov({...mov,previsao:e.target.value})}/></div>
                   </div>
+                  {perfilAtual.perfil!=="gerente"&&(
+                    <div className={`conserto-fiscal-card ${perfilAtual.perfil!=="operador"?"conserto-fiscal-bloqueado":""}`}>
+                      <div>
+                        <span className="dash-kicker">Dados fiscais do conserto</span>
+                        <p>{perfilAtual.perfil==="operador"?"Obrigatório para operador antes de enviar o equipamento.":"Somente o operador registra nota, PIX e valor do conserto."}</p>
+                      </div>
+                      <div className="campos-duplos">
+                        <div className="campo">
+                          <label>Foto da nota fiscal {perfilAtual.perfil==="operador"?"*":""}</label>
+                          <input type="file" accept="image/*" disabled={perfilAtual.perfil!=="operador"} onChange={e=>anexarNotaFiscalConserto(e.target.files?.[0])}/>
+                          {mov.notaFiscalNome&&<span className="campo-hint">Anexado: {mov.notaFiscalNome}</span>}
+                        </div>
+                        <div className="campo">
+                          <label>Valor do conserto {perfilAtual.perfil==="operador"?"*":""}</label>
+                          <input type="number" min="0" step="0.01" placeholder="Ex: 150,00" disabled={perfilAtual.perfil!=="operador"} value={mov.consertoValor} onChange={e=>setMov({...mov,consertoValor:e.target.value})}/>
+                        </div>
+                      </div>
+                      <div className="campo">
+                        <label>Chave PIX do conserto {perfilAtual.perfil==="operador"?"*":""}</label>
+                        <input type="text" placeholder="Digite a chave PIX informada na nota/assistência" disabled={perfilAtual.perfil!=="operador"} value={mov.consertoPix} onChange={e=>setMov({...mov,consertoPix:e.target.value})}/>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="mov-status-resultado">Novo status: <span className={`badge-status ${STATUS_CFG[tipoMovSel.novoStatus]?.cor||""}`}>{tipoMovSel.novoStatus}</span></div>
