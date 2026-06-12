@@ -1727,15 +1727,20 @@ function nomeBaseGerente(nome) {
 
 function avatarLendario(nome) {
   const base = nomeBaseGerente(nome);
-  const avatares = [
-    { titulo:"Guardião Dourado", simbolo:"⚡", classe:"avatar-raio" },
-    { titulo:"Sentinela Azul", simbolo:"◆", classe:"avatar-azul" },
-    { titulo:"Comandante Solar", simbolo:"☀", classe:"avatar-solar" },
-    { titulo:"Mestre da Rota", simbolo:"✦", classe:"avatar-rota" },
-    { titulo:"Capitão do Estoque", simbolo:"⬢", classe:"avatar-estoque" },
-  ];
-  const soma = [...base].reduce((total, letra) => total + letra.charCodeAt(0), 0);
-  return avatares[soma % avatares.length];
+  const avatares = {
+    alex: { titulo:"Arqueiro Azul", simbolo:"⌁", classe:"avatar-alex" },
+    maynarden: { titulo:"Guardião Central", simbolo:"⬡", classe:"avatar-maynarden" },
+    yago: { titulo:"Cavaleiro das Rotas", simbolo:"✦", classe:"avatar-yago" },
+    vitor: { titulo:"Titã da América", simbolo:"◆", classe:"avatar-vitor" },
+    eliana: { titulo:"Estrela Neon", simbolo:"✧", classe:"avatar-eliana" },
+    queixo: { titulo:"Escudo Dourado", simbolo:"◈", classe:"avatar-queixo" },
+    wene: { titulo:"Falcão Rubi", simbolo:"▰", classe:"avatar-wene" },
+    joão: { titulo:"Nobre Solar", simbolo:"☀", classe:"avatar-joao" },
+    joao: { titulo:"Nobre Solar", simbolo:"☀", classe:"avatar-joao" },
+    beu: { titulo:"Capitão Turquesa", simbolo:"⬢", classe:"avatar-beu" },
+  };
+  const chave = normalizarTexto(base);
+  return avatares[chave] || { titulo:"Herói do Estoque", simbolo:"✶", classe:"avatar-estoque" };
 }
 
 // ── App principal ─────────────────────────────────────────────────────────────
