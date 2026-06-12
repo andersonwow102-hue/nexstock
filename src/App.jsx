@@ -2264,6 +2264,24 @@ function Sistema({onLogout}){
           </button>
         </nav>
         <div className="sidebar-footer">
+          {pixAvisoAtual&&(
+            <section className={`sidebar-pix-card ${perfilBancoPix(pixAvisoAtual.pixBanco).classe}`}>
+              <div className="sidebar-pix-topo">
+                <span>PIX recebido</span>
+                <strong>{formatarPrazoPix(pixAvisoAtual.enviadoEm)}</strong>
+              </div>
+              <div className="sidebar-pix-banco">
+                <span>{perfilBancoPix(pixAvisoAtual.pixBanco).icone}</span>
+                <div>
+                  <strong>{pixAvisoAtual.pixNome}</strong>
+                  <small>{perfilBancoPix(pixAvisoAtual.pixBanco).nome}</small>
+                </div>
+              </div>
+              {pixAvisoAtual.rota&&<em>Rota {pixAvisoAtual.rota}</em>}
+              <p>{pixAvisoAtual.pixTipo}: {pixAvisoAtual.pixChave}</p>
+              <button type="button" onClick={()=>copiarPixAviso(pixAvisoAtual.pixChave)}>Copiar chave PIX</button>
+            </section>
+          )}
           {alertas.length>0&&(
             <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
               ⚠️ Terminais em alerta
@@ -2315,42 +2333,6 @@ function Sistema({onLogout}){
               <p>{gerenteAvatar.titulo} · seus pontos, equipamentos e despesas estão filtrados para sua carteira.</p>
             </div>
           </section>
-        )}
-        {pixAvisoAtual&&(
-          <div className="pix-recebido-wrap">
-            <div className="pix-recebido-card">
-              <article className={`pix-credit-card pix-recebido-credit ${perfilBancoPix(pixAvisoAtual.pixBanco).classe}`}>
-                <div className="pix-card-top">
-                  <span className="pix-chip"/>
-                  <span className="pix-contactless">)))</span>
-                  <strong>{perfilBancoPix(pixAvisoAtual.pixBanco).nome}</strong>
-                </div>
-                <div className="pix-card-brand">{perfilBancoPix(pixAvisoAtual.pixBanco).icone}</div>
-                <div className="pix-card-info">
-                  <strong>{pixAvisoAtual.pixNome}</strong>
-                  <span>{pixAvisoAtual.pixBanco||"Banco não informado"}</span>
-                  <small>{pixAvisoAtual.pixTipo}: {pixAvisoAtual.pixChave}</small>
-                </div>
-              </article>
-            </div>
-            <div className="pix-recebido-info">
-              <span className="dash-kicker">PIX da administração</span>
-              <h2>Chave PIX enviada para prestação de contas</h2>
-              <p>{pixAvisoAtual.mensagem||"A administração enviou uma chave PIX para você usar neste fechamento."}</p>
-              {pixAvisoAtual.rota&&<span className="badge-cat">Rota {pixAvisoAtual.rota}</span>}
-              <div className="pix-prazo-card">
-                <span>Prazo para usar esta chave</span>
-                <strong>{formatarPrazoPix(pixAvisoAtual.enviadoEm)}</strong>
-                <small>Depois de 24 horas este cartão some e a administração precisa reenviar.</small>
-              </div>
-              <div className="pix-alerta-acoes">
-                <button className="btn-pix-premium" onClick={()=>copiarPixAviso(pixAvisoAtual.pixChave)}>
-                  <span>Copiar chave PIX</span>
-                  <small>para prestação de contas</small>
-                </button>
-              </div>
-            </div>
-          </div>
         )}
         {aba==="dashboard"&&(<>
           <header className="topbar">
