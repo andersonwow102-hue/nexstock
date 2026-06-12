@@ -597,7 +597,14 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [pixSalvando,setPixSalvando]=useState(false);
   const [gerenteSelecionado,setGerenteSelecionado]=useState("");
   const [rotaSelecionada,setRotaSelecionada]=useState("");
-  const dados = GERENTES.map(gerente => {
+  const [competenciaFechamento,setCompetenciaFechamento]=useState(hoje().slice(0,7));
+  const [diaFechamento,setDiaFechamento]=useState("");
+  const despesasFechamento = despesas.filter(d => {
+    const mes = mesDespesaPrestacao(d.competencia);
+    const dia = diaDespesaPrestacao(d.criadoEm);
+    return (!competenciaFechamento || mes === competenciaFechamento) && (!diaFechamento || dia === diaFechamento);
+  });
+  const dadosGerentes = GERENTES.map(gerente => {
     const rotas = ROTAS_POR_GERENTE[gerente] || [];
     const pontosGerente = pontos.filter(p => rotaPertenceAoGerente(p.gerente, gerente));
     const nomesPontos = new Set(pontosGerente.map(p => p.nomeFantasia));
@@ -607,24 +614,45 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       rotaPertenceAoGerente(i.gerenteResponsavel, gerente)
     );
     const idsPontos = new Set(pontosGerente.map(p => Number(p.id)));
-    const totalDespesas = despesas
+    const totalDespesas = despesasFechamento
       .filter(d => idsPontos.has(Number(d.pontoId)))
       .reduce((s,d)=>s+valorDespesaPrestacao(d),0);
     return { gerente, rotas, pontos:pontosGerente.length, equipamentos:equipamentos.length, totalDespesas, cor:corFechamento(gerente) };
   });
+  const dadosRotas = GERENTES.flatMap(gerente => {
+    const rotas = ROTAS_POR_GERENTE[gerente] || [];
+    return rotas.map(rota => {
+      const cor = GERENTE_CORES[rota] || corFechamento(gerente);
+      const pontosRota = pontos.filter(p => rotaCanonica(p.gerente) === rota);
+      const nomesPontos = new Set(pontosRota.map(p => p.nomeFantasia));
+      const idsPontos = new Set(pontosRota.map(p => Number(p.id)));
+      const equipamentos = itens.filter(i =>
+        nomesPontos.has(i.localizacao) ||
+        normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerente) ||
+        normalizarTexto(i.gerenteResponsavel) === normalizarTexto(rota)
+      );
+      const totalDespesas = despesasFechamento
+        .filter(d => idsPontos.has(Number(d.pontoId)))
+        .reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+      return { gerente, rota, pontos:pontosRota.length, equipamentos:equipamentos.length, totalDespesas, cor };
+    });
+  });
   const rotasEnvio=ROTAS_POR_GERENTE[pixEnvio.gerente]||[];
-  const gerenteDetalhe = dados.find(g => g.gerente === gerenteSelecionado);
+  const gerenteDetalhe = dadosGerentes.find(g => g.gerente === gerenteSelecionado);
   const rotasDetalhe = gerenteDetalhe?.rotas || [];
   const rotaDetalheAtiva = rotaSelecionada || (rotasDetalhe.length === 1 ? rotasDetalhe[0] : "");
   const pontosDetalhe = gerenteSelecionado
-    ? pontos.filter(p => rotaDetalheAtiva ? rotaCanonica(p.gerente) === rotaDetalheAtiva : rotaPertenceAoGerente(p.gerente, gerenteSelecionado))
+    ? pontos.filter(p => rotaDetalheAtiva ? rotaCanonica(p.gerente) === rotaDetalheAtiva : false)
     : [];
   const idsPontosDetalhe = new Set(pontosDetalhe.map(p => Number(p.id)));
   const nomesPontosDetalhe = new Set(pontosDetalhe.map(p => p.nomeFantasia));
-  const despesasDetalhe = despesas
+  const despesasDetalhe = despesasFechamento
     .filter(d => idsPontosDetalhe.has(Number(d.pontoId)))
     .map(d => ({ ...d, ponto: pontosDetalhe.find(p => Number(p.id) === Number(d.pontoId)) }))
-    .sort((a,b)=>String(a.ponto?.nomeFantasia||"").localeCompare(String(b.ponto?.nomeFantasia||""), "pt-BR"));
+    .sort((a,b)=>
+      String(a.ponto?.nomeFantasia||"").localeCompare(String(b.ponto?.nomeFantasia||""), "pt-BR") ||
+      String(a.descricao||"").localeCompare(String(b.descricao||""), "pt-BR")
+    );
   const equipamentosDetalhe = itens.filter(i =>
     nomesPontosDetalhe.has(i.localizacao) ||
     normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerenteSelecionado) ||
@@ -633,9 +661,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const totalDetalhe = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
 
-  function selecionarGerenteFechamento(g) {
+  function selecionarRotaFechamento(g) {
     setGerenteSelecionado(g.gerente);
-    setRotaSelecionada(g.rotas.length === 1 ? g.rotas[0] : "");
+    setRotaSelecionada(g.rota);
   }
 
   async function enviarAvisoPix(e){
@@ -675,21 +703,38 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         </div>
         <span className="perfil-selo perfil-administrador">Especial</span>
       </div>
+      <div className="fechamento-filtros">
+        <div className="campo">
+          <label>Mês do fechamento</label>
+          <input type="month" value={competenciaFechamento} onChange={e=>{setCompetenciaFechamento(e.target.value);setDiaFechamento("");}}/>
+        </div>
+        <div className="campo">
+          <label>Dia de lançamento</label>
+          <input type="date" value={diaFechamento} onChange={e=>{setDiaFechamento(e.target.value);if(e.target.value)setCompetenciaFechamento(e.target.value.slice(0,7));}}/>
+        </div>
+        <button className="btn-secundario" type="button" onClick={()=>{setCompetenciaFechamento(hoje().slice(0,7));setDiaFechamento("");}}>
+          Limpar dia
+        </button>
+        <div className="fechamento-periodo-info">
+          <span>Recorte atual</span>
+          <strong>{periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}</strong>
+        </div>
+      </div>
       <div className="prestacao-gerentes-grid">
-        {dados.map(g=>(
+        {dadosRotas.map(g=>(
           <button
-            key={g.gerente}
+            key={`${g.gerente}-${g.rota}`}
             type="button"
-            className={`prestacao-gerente-card fechamento-card fechamento-card-click ${gerenteSelecionado===g.gerente?"ativo":""}`}
+            className={`prestacao-gerente-card fechamento-card fechamento-card-click ${gerenteSelecionado===g.gerente&&rotaSelecionada===g.rota?"ativo":""}`}
             style={{"--gerente-cor":g.cor.color,"--gerente-bg":g.cor.bg,"--gerente-border":g.cor.border}}
-            onClick={()=>selecionarGerenteFechamento(g)}
+            onClick={()=>selecionarRotaFechamento(g)}
           >
             <div className="prestacao-gerente-avatar">{g.gerente.slice(0,1).toUpperCase()}</div>
             <span>{g.gerente}</span>
             <strong>{formatarMoedaPDF(g.totalDespesas)}</strong>
             <small>{g.pontos} ponto{g.pontos!==1?"s":""} · {g.equipamentos} equipamento{g.equipamentos!==1?"s":""}</small>
             <div className="modalidades-badges">
-              {g.rotas.length ? g.rotas.map(rota=><span key={rota} className="badge-cat">{rota}</span>) : <span className="td-obs">Sem rota cadastrada</span>}
+              <span className="badge-cat">{g.rota}</span>
             </div>
           </button>
         ))}
@@ -707,7 +752,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             <div>
               <span className="dash-kicker">Demonstrativo administrativo</span>
               <h3>{gerenteSelecionado}{rotaDetalheAtiva?` · ${rotaDetalheAtiva}`:""}</h3>
-              <p>{rotasDetalhe.length>1&&!rotaDetalheAtiva?"Escolha uma rota para abrir a conferência detalhada.":"Resumo refinado da rota selecionada para fechamento."}</p>
+              <p>Resumo refinado da rota selecionada para fechamento em {periodoPrestacaoLabel(competenciaFechamento,diaFechamento).toLowerCase()}.</p>
             </div>
             {rotasDetalhe.length>1&&(
               <div className="fechamento-rota-tabs">

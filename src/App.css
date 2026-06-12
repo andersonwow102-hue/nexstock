@@ -2360,6 +2360,50 @@ body {
 }
 .fechamento-hero h2 { margin: 4px 0; color: var(--txt-primary); }
 .fechamento-hero p { color: var(--txt-secondary); font-size: 13px; }
+.fechamento-filtros {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(180px, 220px) auto minmax(220px, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 96% 20%, rgba(37,99,235,0.10), transparent 30%),
+    var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.fechamento-filtros .campo { margin: 0; }
+.fechamento-filtros input {
+  height: 42px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--txt-primary);
+  padding: 0 12px;
+  font-weight: 700;
+}
+.fechamento-periodo-info {
+  justify-self: end;
+  min-width: 220px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--azul-border);
+  background: linear-gradient(135deg, var(--azul-bg), rgba(255,255,255,0.72));
+}
+.fechamento-periodo-info span {
+  display: block;
+  color: var(--txt-muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 4px;
+}
+.fechamento-periodo-info strong {
+  color: var(--accent);
+  font-size: 13px;
+}
 .fechamento-card { text-align: left; align-items: flex-start; gap: 8px; }
 .fechamento-card-click {
   border-left: 5px solid var(--gerente-cor, var(--accent));
@@ -3048,6 +3092,8 @@ body {
   .prestacao-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .prestacao-filtros-titulo { grid-column: span 2; }
   .prestacao-filtros .btn-secundario { grid-column: span 2; }
+  .fechamento-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fechamento-periodo-info { justify-self: stretch; min-width: 0; }
   .prestacao-pdf-box { flex-direction: column; align-items: stretch; }
   .prestacao-pdf-icone { width: 48px; height: 48px; }
   .prestacao-pdf-acoes { justify-content: stretch; min-width: 0; }
@@ -3147,6 +3193,8 @@ body {
   .prestacao-filtros { grid-template-columns: 1fr; }
   .prestacao-filtros-titulo { grid-column: auto; align-items: flex-start; }
   .prestacao-filtros .btn-secundario { grid-column: auto; }
+  .fechamento-filtros { grid-template-columns: 1fr; align-items: stretch; }
+  .fechamento-filtros .btn-secundario { width: 100%; }
   .prestacao-gerente-topo { align-items: flex-start; flex-direction: column; }
   .prestacao-pdf-acoes select,
   .prestacao-pdf-acoes button { width: 100%; flex-basis: 100%; }
