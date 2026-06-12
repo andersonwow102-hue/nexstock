@@ -733,10 +733,93 @@ body {
   position: absolute; inset: -7px; border-radius: 28px; opacity: .85;
   filter: blur(1px); animation: gerenteAura 2.2s ease-in-out infinite;
 }
-.gerente-avatar strong {
-  position: relative; z-index: 1; font-size: 32px; color: #fff;
-  text-shadow: 0 0 18px currentColor;
+.gerente-hero {
+  --hero-main: #14b8a6;
+  --hero-secondary: #2563eb;
+  --hero-glow: rgba(20,184,166,.35);
+  position: relative;
+  z-index: 1;
+  width: 54px;
+  height: 62px;
+  display: block;
+  filter: drop-shadow(0 12px 18px rgba(0,0,0,.34));
 }
+.hero-cape {
+  position: absolute;
+  left: 5px;
+  top: 21px;
+  width: 44px;
+  height: 35px;
+  border-radius: 18px 18px 14px 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--hero-secondary) 82%, #111), color-mix(in srgb, var(--hero-main) 64%, #000));
+  opacity: .76;
+  transform: perspective(60px) rotateX(10deg);
+}
+.hero-body {
+  position: absolute;
+  left: 12px;
+  bottom: 1px;
+  width: 30px;
+  height: 30px;
+  border-radius: 14px 14px 10px 10px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.24), transparent 34%),
+    linear-gradient(145deg, var(--hero-main), color-mix(in srgb, var(--hero-secondary) 72%, #000));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), 0 0 22px var(--hero-glow);
+}
+.hero-head {
+  position: absolute;
+  left: 11px;
+  top: 2px;
+  width: 32px;
+  height: 34px;
+  border-radius: 15px 15px 13px 13px;
+  background:
+    radial-gradient(circle at 32% 22%, rgba(255,255,255,.32), transparent 20%),
+    linear-gradient(145deg, #f7c99a, #d98f61);
+  box-shadow: inset 0 -5px 0 rgba(117,57,31,.16), 0 5px 16px rgba(0,0,0,.25);
+}
+.hero-mask {
+  position: absolute;
+  left: 3px;
+  top: 9px;
+  width: 26px;
+  height: 11px;
+  border-radius: 999px 999px 8px 8px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--hero-secondary) 88%, #000), var(--hero-main));
+  box-shadow: 0 0 12px var(--hero-glow);
+}
+.hero-eye {
+  position: absolute;
+  top: 13px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 7px #fff;
+}
+.hero-eye-left { left: 10px; }
+.hero-eye-right { right: 10px; }
+.hero-emblem {
+  position: absolute;
+  left: 22px;
+  bottom: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255,255,255,.72);
+  transform: rotate(45deg);
+}
+.avatar-alex .gerente-hero { --hero-main:#3b82f6; --hero-secondary:#0ea5e9; --hero-glow:rgba(59,130,246,.42); }
+.avatar-maynarden .gerente-hero { --hero-main:#22d37a; --hero-secondary:#2563eb; --hero-glow:rgba(34,211,122,.42); }
+.avatar-yago .gerente-hero { --hero-main:#a855f7; --hero-secondary:#ec4899; --hero-glow:rgba(168,85,247,.42); }
+.avatar-vitor .gerente-hero { --hero-main:#06b6d4; --hero-secondary:#1d4ed8; --hero-glow:rgba(6,182,212,.42); }
+.avatar-eliana .gerente-hero { --hero-main:#2dd4bf; --hero-secondary:#0ea5e9; --hero-glow:rgba(45,212,191,.42); }
+.avatar-queixo .gerente-hero { --hero-main:#f5c542; --hero-secondary:#de9300; --hero-glow:rgba(245,197,66,.42); }
+.avatar-wene .gerente-hero { --hero-main:#f05252; --hero-secondary:#f97316; --hero-glow:rgba(240,82,82,.42); }
+.avatar-joao .gerente-hero { --hero-main:#f97316; --hero-secondary:#fbbf24; --hero-glow:rgba(249,115,22,.42); }
+.avatar-beu .gerente-hero { --hero-main:#14b8a6; --hero-secondary:#2563eb; --hero-glow:rgba(20,184,166,.42); }
 .avatar-raio .gerente-avatar-aura { background: linear-gradient(135deg, rgba(255,179,0,.55), rgba(37,99,235,.18)); }
 .avatar-azul .gerente-avatar-aura { background: linear-gradient(135deg, rgba(59,130,246,.55), rgba(20,184,166,.2)); }
 .avatar-solar .gerente-avatar-aura { background: linear-gradient(135deg, rgba(249,115,22,.52), rgba(255,179,0,.32)); }
@@ -3227,7 +3310,11 @@ body {
     inset: -4px;
     border-radius: 21px;
   }
-  .gerente-avatar strong { font-size: 24px; }
+  .gerente-hero {
+    width: 43px;
+    height: 50px;
+    transform: scale(.92);
+  }
   .gerente-welcome-kicker {
     font-size: 8.5px;
     letter-spacing: .14em;

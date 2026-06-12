@@ -1728,19 +1728,19 @@ function nomeBaseGerente(nome) {
 function avatarLendario(nome) {
   const base = nomeBaseGerente(nome);
   const avatares = {
-    alex: { titulo:"Arqueiro Azul", simbolo:"⌁", classe:"avatar-alex" },
-    maynarden: { titulo:"Guardião Central", simbolo:"⬡", classe:"avatar-maynarden" },
-    yago: { titulo:"Cavaleiro das Rotas", simbolo:"✦", classe:"avatar-yago" },
-    vitor: { titulo:"Titã da América", simbolo:"◆", classe:"avatar-vitor" },
-    eliana: { titulo:"Estrela Neon", simbolo:"✧", classe:"avatar-eliana" },
-    queixo: { titulo:"Escudo Dourado", simbolo:"◈", classe:"avatar-queixo" },
-    wene: { titulo:"Falcão Rubi", simbolo:"▰", classe:"avatar-wene" },
-    joão: { titulo:"Nobre Solar", simbolo:"☀", classe:"avatar-joao" },
-    joao: { titulo:"Nobre Solar", simbolo:"☀", classe:"avatar-joao" },
-    beu: { titulo:"Capitão Turquesa", simbolo:"⬢", classe:"avatar-beu" },
+    alex: { titulo:"Arqueiro Azul", classe:"avatar-alex" },
+    maynarden: { titulo:"Guardião Central", classe:"avatar-maynarden" },
+    yago: { titulo:"Cavaleiro das Rotas", classe:"avatar-yago" },
+    vitor: { titulo:"Titã da América", classe:"avatar-vitor" },
+    eliana: { titulo:"Estrela Neon", classe:"avatar-eliana" },
+    queixo: { titulo:"Escudo Dourado", classe:"avatar-queixo" },
+    wene: { titulo:"Falcão Rubi", classe:"avatar-wene" },
+    joão: { titulo:"Nobre Solar", classe:"avatar-joao" },
+    joao: { titulo:"Nobre Solar", classe:"avatar-joao" },
+    beu: { titulo:"Capitão Turquesa", classe:"avatar-beu" },
   };
   const chave = normalizarTexto(base);
-  return avatares[chave] || { titulo:"Herói do Estoque", simbolo:"✶", classe:"avatar-estoque" };
+  return avatares[chave] || { titulo:"Herói do Estoque", classe:"avatar-estoque" };
 }
 
 // ── App principal ─────────────────────────────────────────────────────────────
@@ -2298,7 +2298,16 @@ function Sistema({onLogout}){
           <section className="gerente-welcome">
             <div className={`gerente-avatar ${gerenteAvatar.classe}`}>
               <span className="gerente-avatar-aura"/>
-              <strong>{gerenteAvatar.simbolo}</strong>
+              <span className="gerente-hero" aria-hidden="true">
+                <span className="hero-cape"/>
+                <span className="hero-body"/>
+                <span className="hero-head">
+                  <span className="hero-mask"/>
+                  <span className="hero-eye hero-eye-left"/>
+                  <span className="hero-eye hero-eye-right"/>
+                </span>
+                <span className="hero-emblem"/>
+              </span>
             </div>
             <div>
               <span className="gerente-welcome-kicker">Acesso do gerente</span>
