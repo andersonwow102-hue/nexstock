@@ -2651,6 +2651,26 @@ body {
   border-radius: 20px 20px 0 0;
   background: linear-gradient(90deg, var(--gerente-cor, var(--accent)), #d89500);
 }
+.fechamento-modalidade-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255,255,255,0.18), transparent 56%),
+    linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.86));
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 12px 22px rgba(15,23,42,0.10);
+}
+.fechamento-modalidade-logo img {
+  display: block;
+  max-width: 100%;
+  max-height: 58px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(0,0,0,0.25));
+}
 .fechamento-modalidade-topo {
   display: flex;
   align-items: flex-start;

@@ -1,5 +1,8 @@
 import logo from "./assets/stock-on-dark.png";
 import logoLight from "./assets/stock-on-light.png";
+import logo90DaSorte from "./assets/modalidade-90-da-sorte.png";
+import logoViapix from "./assets/modalidade-viapix.png";
+import logoLotobanca from "./assets/modalidade-lotobanca.png";
 import { useState, useEffect, useMemo, useRef } from "react";
 import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
@@ -575,9 +578,9 @@ function formatarPrazoPix() {
 
 const FECHAMENTO_CORES = ["Alex", "Central/Uibai", "Lapão", "América Dourada", "Eliana", "Queixo", "Wene", "João Luis", "Beu"];
 const MODALIDADES_FECHAMENTO = [
-  { id: "90-da-sorte", nome: "90 da Sorte", comissao: 0.10, descricao: "10% de comissão" },
-  { id: "viapix", nome: "Viapix", comissao: null, descricao: "Comissão preenchida manualmente" },
-  { id: "lotobanca", nome: "Lotobanca", comissao: 0.20, descricao: "20% de comissão" },
+  { id: "90-da-sorte", nome: "90 da Sorte", comissao: 0.10, descricao: "10% de comissão", logo: logo90DaSorte },
+  { id: "viapix", nome: "Viapix", comissao: null, descricao: "Comissão preenchida manualmente", logo: logoViapix },
+  { id: "lotobanca", nome: "Agência Rio", comissao: 0.20, descricao: "Lotobanca · 20% de comissão", logo: logoLotobanca },
 ];
 
 function criarFechamentoVazio() {
@@ -893,6 +896,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             <div className="fechamento-modalidades-grid">
               {calculosModalidades.map(m=>(
                 <article className="fechamento-modalidade-card" key={m.id}>
+                  <div className="fechamento-modalidade-logo">
+                    <img src={m.logo} alt={m.nome} />
+                  </div>
                   <div className="fechamento-modalidade-topo">
                     <div>
                       <strong>{m.nome}</strong>
