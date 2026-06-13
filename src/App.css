@@ -1123,6 +1123,31 @@ body {
   border-radius: var(--radius-md);
   background: var(--bg-input);
 }
+.login-interno-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-input);
+}
+.login-interno-input input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+.login-interno-input span {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  padding: 0 13px;
+  color: var(--azul);
+  font-size: 13px;
+  font-weight: 900;
+  border-left: 1px solid var(--border);
+  background: var(--azul-bg);
+}
 .btn-acesso { white-space: nowrap; font-size: 12px; padding: 9px 11px; }
 .modal-ficha { max-width: 720px; }
 .ficha-cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

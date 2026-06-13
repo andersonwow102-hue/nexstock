@@ -37,6 +37,16 @@ function rotasPadrao(gerenteNome) {
   return ROTAS_POR_GERENTE[gerenteNome] || [];
 }
 
+function normalizarLoginInterno(valor) {
+  return String(valor || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/@.*$/, "")
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 30);
+}
+
 export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
   const [perfis, setPerfis] = useState([]);
   const [usuarioAcesso, setUsuarioAcesso] = useState(null);
@@ -145,9 +155,8 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
   async function criarLogin(e) {
     e.preventDefault();
     setErro("");
-    const email = formNovo.email.trim().toLowerCase();
-    const loginNome = formNovo.loginNome.trim().toLowerCase();
-    if (!email || !email.includes("@") || !email.includes(".")) { setErro("Informe um e-mail válido para o novo login."); return; }
+    const loginNome = normalizarLoginInterno(formNovo.loginNome || formNovo.email || formNovo.gerenteNome);
+    const email = `${loginNome}@stockon.com`;
     if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) { setErro("Informe um login simples com 3 a 30 caracteres. Use letras, números, ponto, traço ou underline."); return; }
     if (formNovo.perfil === "gerente" && !formNovo.gerenteNome) { setErro("Selecione qual gerente este login representa."); return; }
     if (formNovo.perfil === "gerente" && formNovo.rotasPermitidas.length === 0) { setErro("Marque pelo menos uma rota para este gerente."); return; }
@@ -332,10 +341,16 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
             <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
             <form onSubmit={criarLogin}>
               <div className="modal-body">
-                <p className="senha-texto">Crie o login do gerente, defina a senha provisória e marque quais rotas ele poderá acessar.</p>
+                <p className="senha-texto">Crie o login interno do gerente, defina a senha provisória e marque quais rotas ele poderá acessar. O domínio fica travado em <strong>@stockon.com</strong>.</p>
                 {erro && <div className="erro-msg">⚠️ {erro}</div>}
-                <div className="campo"><label>E-mail de login *</label><input type="email" placeholder="gerente@gmail.com" value={formNovo.email} onChange={e => setFormNovo(prev => ({ ...prev, email: e.target.value, loginNome: prev.loginNome || gerarLoginSugerido(prev.perfil, prev.gerenteNome, e.target.value) }))} autoFocus /></div>
-                <div className="campo"><label>Login de entrada *</label><input type="text" placeholder="ex: maynarden" value={formNovo.loginNome} onChange={e => setFormNovo({ ...formNovo, loginNome: e.target.value.toLowerCase() })} /></div>
+                <div className="campo">
+                  <label>Nome do login *</label>
+                  <div className="login-interno-input">
+                    <input type="text" placeholder="ex: beu" value={formNovo.loginNome} onChange={e => setFormNovo({ ...formNovo, loginNome: normalizarLoginInterno(e.target.value) })} autoFocus />
+                    <span>@stockon.com</span>
+                  </div>
+                  <small className="campo-hint">O gerente pode entrar digitando só <strong>{formNovo.loginNome || "beu"}</strong> ou o login completo <strong>{formNovo.loginNome || "beu"}@stockon.com</strong>.</small>
+                </div>
                 <div className="campo"><label>Perfil *</label><select value={formNovo.perfil} onChange={e => {
                   const perfil = e.target.value;
                   setFormNovo(prev => ({ ...prev, perfil, gerenteNome: perfil === "gerente" ? prev.gerenteNome : "", rotasPermitidas: perfil === "gerente" ? prev.rotasPermitidas : [], loginNome: prev.loginNome || gerarLoginSugerido(perfil, prev.gerenteNome, prev.email) }));
