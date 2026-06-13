@@ -896,10 +896,10 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             <div className="fechamento-modalidades-grid">
               {calculosModalidades.map(m=>(
                 <article className="fechamento-modalidade-card" key={m.id}>
-                  <div className="fechamento-modalidade-logo">
-                    <img src={m.logo} alt={m.nome} />
-                  </div>
                   <div className="fechamento-modalidade-topo">
+                    <div className="fechamento-modalidade-logo">
+                      <img src={m.logo} alt={m.nome} />
+                    </div>
                     <div>
                       <strong>{m.nome}</strong>
                       <span>{m.descricao}</span>
