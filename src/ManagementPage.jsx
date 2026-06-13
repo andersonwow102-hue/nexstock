@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
 import {
-  carregarPerfis, salvarPerfil, redefinirAcessoUsuario, excluirAcessoUsuario,
+  carregarPerfis, salvarPerfil, redefinirAcessoUsuario, excluirAcessoUsuario, gerenciarLogins,
 } from "./db.js";
+import { GERENTES, ROTAS_POR_GERENTE } from "./pointsData.js";
 
 const MASTER_ADMIN_EMAILS = ["andersonwow102@gmail.com", "anderson@nexstock.com"];
+const perfisDisponiveis = [
+  { valor: "administrador", label: "Administrador" },
+  { valor: "operador", label: "Operador" },
+  { valor: "gerente", label: "Gerente" },
+  { valor: "consulta", label: "Apenas consulta" },
+];
 
 function ehAdminMaster(perfilAtual) {
   if (perfilAtual?.perfil !== "administrador") return false;
@@ -11,10 +18,31 @@ function ehAdminMaster(perfilAtual) {
   return identidades.some(v => MASTER_ADMIN_EMAILS.includes(v));
 }
 
+function senhaAleatoria() {
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const numeros = "23456789";
+  const simbolos = "@#$%";
+  const base = `${letras}${numeros}${simbolos}`;
+  let senha = "";
+  for (let i = 0; i < 12; i += 1) senha += base[Math.floor(Math.random() * base.length)];
+  return `${senha}${numeros[Math.floor(Math.random() * numeros.length)]}${simbolos[Math.floor(Math.random() * simbolos.length)]}`;
+}
+
+function gerarLoginSugerido(perfil, gerenteNome, email = "") {
+  const base = perfil === "gerente" && gerenteNome ? gerenteNome : email.split("@")[0] || perfil || "usuario";
+  return base.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
+}
+
+function rotasPadrao(gerenteNome) {
+  return ROTAS_POR_GERENTE[gerenteNome] || [];
+}
+
 export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
   const [perfis, setPerfis] = useState([]);
   const [usuarioAcesso, setUsuarioAcesso] = useState(null);
+  const [modalNovo, setModalNovo] = useState(false);
   const [formAcesso, setFormAcesso] = useState({ novoEmail: "", novaSenha: "", confirmacao: "" });
+  const [formNovo, setFormNovo] = useState({ email: "", loginNome: "", perfil: "gerente", gerenteNome: "", rotasPermitidas: [], senha: "", confirmar: "" });
   const [salvandoAcesso, setSalvandoAcesso] = useState(false);
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
@@ -38,13 +66,46 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
 
   async function alterarPerfil(item, novoPerfil) {
     try {
-      await salvarPerfil({ ...item, perfil: novoPerfil });
-      const atualizados = perfis.map(p => p.userId === item.userId ? { ...p, perfil: novoPerfil } : p);
+      const gerenteNome = novoPerfil === "gerente" ? item.gerenteNome || "" : "";
+      const rotasPermitidas = novoPerfil === "gerente" ? item.rotasPermitidas || rotasPadrao(gerenteNome) : [];
+      await salvarPerfil({ ...item, perfil: novoPerfil, gerenteNome, rotasPermitidas });
+      const atualizados = perfis.map(p => p.userId === item.userId ? { ...p, perfil: novoPerfil, gerenteNome, rotasPermitidas } : p);
       setPerfis(atualizados);
-      if (item.userId === perfilAtual.userId) onPerfilAtualChange?.({ ...perfilAtual, perfil: novoPerfil });
+      if (item.userId === perfilAtual.userId) onPerfilAtualChange?.({ ...perfilAtual, perfil: novoPerfil, gerenteNome, rotasPermitidas });
       setMensagem("Permissão atualizada.");
     } catch (e) {
       setMensagem(`Não foi possível alterar a permissão: ${e.message}`);
+    }
+  }
+
+  async function alterarGerente(item, gerenteNome) {
+    const rotasPermitidas = rotasPadrao(gerenteNome);
+    try {
+      await salvarPerfil({ ...item, perfil: "gerente", gerenteNome, rotasPermitidas });
+      setPerfis(perfis.map(p => p.userId === item.userId ? { ...p, gerenteNome, rotasPermitidas } : p));
+      if (item.userId === perfilAtual.userId) onPerfilAtualChange?.({ ...perfilAtual, gerenteNome, rotasPermitidas });
+      setMensagem("Gerente e rotas atualizados.");
+    } catch (e) {
+      setMensagem(`Não foi possível alterar o gerente: ${e.message}`);
+    }
+  }
+
+  async function alterarRotas(item, rota) {
+    const rotasAtuais = item.rotasPermitidas?.length ? item.rotasPermitidas : rotasPadrao(item.gerenteNome);
+    const rotasPermitidas = rotasAtuais.includes(rota)
+      ? rotasAtuais.filter(r => r !== rota)
+      : [...rotasAtuais, rota];
+    if (rotasPermitidas.length === 0) {
+      setMensagem("O gerente precisa ter pelo menos uma rota marcada.");
+      return;
+    }
+    try {
+      await salvarPerfil({ ...item, perfil: "gerente", rotasPermitidas });
+      setPerfis(perfis.map(p => p.userId === item.userId ? { ...p, rotasPermitidas } : p));
+      if (item.userId === perfilAtual.userId) onPerfilAtualChange?.({ ...perfilAtual, rotasPermitidas });
+      setMensagem("Rotas do gerente atualizadas.");
+    } catch (e) {
+      setMensagem(`Não foi possível salvar as rotas: ${e.message}`);
     }
   }
 
@@ -72,6 +133,51 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
     setUsuarioAcesso(item);
     setFormAcesso({ novoEmail: "", novaSenha: "", confirmacao: "" });
     setErro("");
+  }
+
+  function abrirNovoLogin() {
+    const senha = senhaAleatoria();
+    setFormNovo({ email: "", loginNome: "", perfil: "gerente", gerenteNome: "", rotasPermitidas: [], senha, confirmar: senha });
+    setErro("");
+    setModalNovo(true);
+  }
+
+  async function criarLogin(e) {
+    e.preventDefault();
+    setErro("");
+    const email = formNovo.email.trim().toLowerCase();
+    const loginNome = formNovo.loginNome.trim().toLowerCase();
+    if (!email || !email.includes("@") || !email.includes(".")) { setErro("Informe um e-mail válido para o novo login."); return; }
+    if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) { setErro("Informe um login simples com 3 a 30 caracteres. Use letras, números, ponto, traço ou underline."); return; }
+    if (formNovo.perfil === "gerente" && !formNovo.gerenteNome) { setErro("Selecione qual gerente este login representa."); return; }
+    if (formNovo.perfil === "gerente" && formNovo.rotasPermitidas.length === 0) { setErro("Marque pelo menos uma rota para este gerente."); return; }
+    if (formNovo.senha.length < 8) { setErro("A senha provisória precisa ter pelo menos 8 caracteres."); return; }
+    if (formNovo.senha !== formNovo.confirmar) { setErro("A confirmação da senha está diferente."); return; }
+    try {
+      setSalvandoAcesso(true);
+      const resposta = await gerenciarLogins({
+        action: "criar",
+        email,
+        loginNome,
+        senha: formNovo.senha,
+        perfil: formNovo.perfil,
+        gerenteNome: formNovo.perfil === "gerente" ? formNovo.gerenteNome : "",
+        rotasPermitidas: formNovo.perfil === "gerente" ? formNovo.rotasPermitidas : [],
+        emailTemporario: false,
+      });
+      const listaAtualizada = await carregarPerfis();
+      const criado = listaAtualizada.find(p => [p.nome, p.loginNome].some(v => String(v || "").toLowerCase() === email || String(v || "").toLowerCase() === loginNome));
+      if (criado && formNovo.perfil === "gerente") {
+        await salvarPerfil({ ...criado, perfil: "gerente", gerenteNome: formNovo.gerenteNome, rotasPermitidas: formNovo.rotasPermitidas });
+      }
+      setModalNovo(false);
+      setMensagem(resposta?.mensagem || "Novo login criado.");
+      setPerfis(await carregarPerfis());
+    } catch (e) {
+      setErro(`Não foi possível criar o login: ${e.message}`);
+    } finally {
+      setSalvandoAcesso(false);
+    }
   }
 
   async function confirmarRedefinicaoAcesso(e) {
@@ -142,9 +248,12 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
             <p>Administrador configura tudo. Operador cadastra e movimenta. Gerente vê apenas sua carteira. Consulta apenas visualiza e exporta.</p>
             {adminMaster && <small className="acessos-master-aviso">Modo master ativo: você pode excluir acessos que não sejam o seu próprio login.</small>}
           </div>
-          <button className="btn-secundario" onClick={recarregarPerfis} disabled={!administrador || carregando}>
-            {carregando ? "Atualizando..." : "Atualizar lista"}
-          </button>
+          <div className="acessos-acoes-topo">
+            <button className="btn-secundario" onClick={recarregarPerfis} disabled={!administrador || carregando}>
+              {carregando ? "Atualizando..." : "Atualizar lista"}
+            </button>
+            <button className="btn-primario" onClick={abrirNovoLogin} disabled={!administrador}>+ Novo login</button>
+          </div>
         </div>
 
         {!administrador ? (
@@ -164,11 +273,28 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
                 </div>
                 <div className="acesso-controles">
                   <select value={p.perfil} disabled={p.userId === perfilAtual.userId} title={p.userId === perfilAtual.userId ? "Seu próprio perfil permanece administrador para evitar perda de acesso." : ""} onChange={e => alterarPerfil(p, e.target.value)}>
-                    <option value="administrador">Administrador</option>
-                    <option value="operador">Operador</option>
-                    <option value="gerente">Gerente</option>
-                    <option value="consulta">Apenas consulta</option>
+                    {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
                   </select>
+                  {p.perfil === "gerente" && (
+                    <div className="acesso-rotas-box">
+                      <select value={p.gerenteNome || ""} onChange={e => alterarGerente(p, e.target.value)}>
+                        <option value="">Vincular gerente...</option>
+                        {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                      {p.gerenteNome && (
+                        <div className="rota-chips">
+                          {rotasPadrao(p.gerenteNome).map(rota => {
+                            const ativas = p.rotasPermitidas?.length ? p.rotasPermitidas : rotasPadrao(p.gerenteNome);
+                            return (
+                              <button key={rota} type="button" className={ativas.includes(rota) ? "ativo" : ""} onClick={() => alterarRotas(p, rota)}>
+                                {rota}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <button className="btn-secundario btn-acesso" onClick={() => abrirRedefinirAcesso(p)}>{p.userId === perfilAtual.userId ? "Regularizar meu e-mail" : "Redefinir acesso"}</button>
                   {adminMaster && p.userId !== perfilAtual.userId && (
                     <button className="btn-danger-outline btn-acesso" onClick={() => excluirAcesso(p)}>Excluir acesso</button>
@@ -195,6 +321,59 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
                 <div className="campo"><label>Confirmar senha *</label><input type="password" value={formAcesso.confirmacao} onChange={e => setFormAcesso({ ...formAcesso, confirmacao: e.target.value })} /></div>
               </div>
               <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setUsuarioAcesso(null)}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Salvando..." : "Atualizar acesso"}</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalNovo && (
+        <div className="modal-overlay" onClick={() => setModalNovo(false)}>
+          <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
+            <form onSubmit={criarLogin}>
+              <div className="modal-body">
+                <p className="senha-texto">Crie o login do gerente, defina a senha provisória e marque quais rotas ele poderá acessar.</p>
+                {erro && <div className="erro-msg">⚠️ {erro}</div>}
+                <div className="campo"><label>E-mail de login *</label><input type="email" placeholder="gerente@gmail.com" value={formNovo.email} onChange={e => setFormNovo(prev => ({ ...prev, email: e.target.value, loginNome: prev.loginNome || gerarLoginSugerido(prev.perfil, prev.gerenteNome, e.target.value) }))} autoFocus /></div>
+                <div className="campo"><label>Login de entrada *</label><input type="text" placeholder="ex: maynarden" value={formNovo.loginNome} onChange={e => setFormNovo({ ...formNovo, loginNome: e.target.value.toLowerCase() })} /></div>
+                <div className="campo"><label>Perfil *</label><select value={formNovo.perfil} onChange={e => {
+                  const perfil = e.target.value;
+                  setFormNovo(prev => ({ ...prev, perfil, gerenteNome: perfil === "gerente" ? prev.gerenteNome : "", rotasPermitidas: perfil === "gerente" ? prev.rotasPermitidas : [], loginNome: prev.loginNome || gerarLoginSugerido(perfil, prev.gerenteNome, prev.email) }));
+                }}>
+                  {perfisDisponiveis.map(p => <option key={p.valor} value={p.valor}>{p.label}</option>)}
+                </select></div>
+                {formNovo.perfil === "gerente" && (
+                  <>
+                    <div className="campo"><label>Gerente vinculado *</label><select value={formNovo.gerenteNome} onChange={e => {
+                      const gerenteNome = e.target.value;
+                      setFormNovo(prev => ({ ...prev, gerenteNome, rotasPermitidas: rotasPadrao(gerenteNome), loginNome: prev.loginNome || gerarLoginSugerido(prev.perfil, gerenteNome, prev.email) }));
+                    }}>
+                      <option value="">Selecione o gerente...</option>
+                      {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select></div>
+                    {formNovo.gerenteNome && (
+                      <div className="campo">
+                        <label>Rotas liberadas *</label>
+                        <div className="rota-chips rota-chips-modal">
+                          {rotasPadrao(formNovo.gerenteNome).map(rota => (
+                            <button key={rota} type="button" className={formNovo.rotasPermitidas.includes(rota) ? "ativo" : ""} onClick={() => setFormNovo(prev => {
+                              const lista = prev.rotasPermitidas.includes(rota) ? prev.rotasPermitidas.filter(r => r !== rota) : [...prev.rotasPermitidas, rota];
+                              return { ...prev, rotasPermitidas: lista };
+                            })}>{rota}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div className="campo"><label>Senha provisória *</label><input type="text" value={formNovo.senha} onChange={e => setFormNovo({ ...formNovo, senha: e.target.value })} /></div>
+                <div className="campo"><label>Confirmar senha *</label><input type="text" value={formNovo.confirmar} onChange={e => setFormNovo({ ...formNovo, confirmar: e.target.value })} /></div>
+                <button type="button" className="btn-secundario" onClick={() => {
+                  const senha = senhaAleatoria();
+                  setFormNovo(prev => ({ ...prev, senha, confirmar: senha }));
+                }}>Gerar outra senha provisória</button>
+              </div>
+              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalNovo(false)}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Criando..." : "Criar login"}</button></div>
             </form>
           </div>
         </div>

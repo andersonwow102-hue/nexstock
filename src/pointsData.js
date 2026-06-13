@@ -74,6 +74,20 @@ export function rotaPertenceAoGerente(rota, gerente) {
   return rotas.includes(normalizarNome(rotaCanonica(rota)));
 }
 
+export function rotasPermitidasDoPerfil(perfil) {
+  const marcadas = Array.isArray(perfil?.rotasPermitidas)
+    ? perfil.rotasPermitidas.map(rotaCanonica).filter(Boolean)
+    : [];
+  if (marcadas.length) return [...new Set(marcadas)];
+  return rotasDoGerente(perfil?.gerenteNome || perfil?.nome || "");
+}
+
+export function rotaPermitidaAoPerfil(rota, perfil) {
+  if (perfil?.perfil !== "gerente") return true;
+  const permitidas = rotasPermitidasDoPerfil(perfil).map(r => normalizarNome(r));
+  return permitidas.includes(normalizarNome(rotaCanonica(rota)));
+}
+
 // Cor única por rota
 export const GERENTE_CORES = {
   "Alex":            { bg:"rgba(77,142,240,0.15)",  color:"#4d8ef0", border:"rgba(77,142,240,0.3)"   },

@@ -1040,6 +1040,13 @@ body {
 .acessos-topo {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
 }
+.acessos-acoes-topo {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .acessos-topo p { color: var(--txt-secondary); font-size: 13px; line-height: 1.5; }
 .acessos-master-aviso {
   display: inline-flex;
@@ -1059,7 +1066,7 @@ body {
 .permissao-aviso { color: var(--amarelo); border-color: var(--amarelo-border); background: var(--amarelo-bg); }
 .acessos-lista { display: flex; flex-direction: column; gap: 8px; }
 .acesso-item {
-  display: flex; justify-content: space-between; align-items: center; gap: 18px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 18px;
   padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card);
   box-shadow: var(--shadow-sm);
 }
@@ -1076,6 +1083,46 @@ body {
   border-radius: 15px; font-weight: 900; border: 1px solid var(--border);
 }
 .acesso-controles { display: flex !important; flex-direction: row !important; align-items: center; justify-content: flex-end; gap: 8px !important; flex-wrap: wrap; }
+.acesso-rotas-box {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  min-width: 280px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--bg-input), rgba(37,99,235,.05));
+}
+.acesso-rotas-box select { min-width: 0; width: 100%; }
+.rota-chips {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  gap: 6px !important;
+}
+.rota-chips button {
+  border: 1px solid var(--azul-border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--txt-secondary);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .18s ease;
+}
+.rota-chips button.ativo {
+  color: var(--azul);
+  background: var(--azul-bg);
+  box-shadow: inset 0 0 0 1px rgba(37,99,235,.12);
+}
+.rota-chips button:hover { transform: translateY(-1px); border-color: var(--azul); }
+.rota-chips-modal {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+}
 .btn-acesso { white-space: nowrap; font-size: 12px; padding: 9px 11px; }
 .modal-ficha { max-width: 720px; }
 .ficha-cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

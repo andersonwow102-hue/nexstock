@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   GERENTES, GERENTE_CORES, MODALIDADES, ROTAS, ROTAS_POR_GERENTE,
   formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto,
-  gerenteDaRota, rotaCanonica, rotaPertenceAoGerente,
+  gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil,
 } from "./pointsData.js";
 import {
   carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
@@ -759,7 +759,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   },[]);
 
   const gerenteAtual = perfilAtual?.perfil === "gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
-  const pontosVisiveis = gerenteAtual ? pontos.filter(p=>rotaPertenceAoGerente(p.gerente, gerenteAtual)) : pontos;
+  const pontosVisiveis = gerenteAtual ? pontos.filter(p=>rotaPermitidaAoPerfil(p.gerente, perfilAtual)) : pontos;
   const nomesPontosVisiveis = new Set(pontosVisiveis.map(p=>p.nomeFantasia));
   const equipamentosVisiveis = gerenteAtual ? equipamentos.filter(i=>nomesPontosVisiveis.has(i.localizacao)) : equipamentos;
   const despesasVisiveis = despesas.filter(d=>

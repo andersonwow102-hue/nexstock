@@ -8,7 +8,7 @@ import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
-import { GERENTES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPertenceAoGerente } from "./pointsData.js";
+import { GERENTES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import {
@@ -2080,7 +2080,7 @@ function Sistema({onLogout}){
   const podeCadastrarEquipamento=podeEditar||perfilAtual.perfil==="gerente";
   const gerenteNomeBase=nomeBaseGerente(gerenteAtual);
   const gerenteAvatar=avatarLendario(gerenteAtual);
-  const pontosOperacionais=gerenteAtual?pontos.filter(p=>rotaPertenceAoGerente(p.gerente, gerenteAtual)):pontos;
+  const pontosOperacionais=gerenteAtual?pontos.filter(p=>rotaPermitidaAoPerfil(p.gerente, perfilAtual)):pontos;
   const pontosOperacionaisNomes=new Set(pontosOperacionais.map(p=>p.nomeFantasia));
   const itensOperacionaisBase=gerenteAtual
     ?itens.filter(i=>pontosOperacionaisNomes.has(i.localizacao)||normalizarTexto(i.gerenteResponsavel)===gerenteAtualKey)

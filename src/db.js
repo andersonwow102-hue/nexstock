@@ -110,16 +110,16 @@ export async function carregarPerfilAtual() {
   if (authError || !user) return { userId: '', nome: '', perfil: 'consulta' };
   let { data, error } = await supabase
     .from('perfis')
-    .select('user_id,nome,perfil,gerente_nome,login_nome,email_temporario,email_temporario_expira_em')
+    .select('user_id,nome,perfil,gerente_nome,rotas_permitidas,login_nome,email_temporario,email_temporario_expira_em')
     .eq('user_id', user.id)
     .maybeSingle();
-  if (error?.message?.includes('gerente_nome') || error?.message?.includes('email_temporario') || error?.message?.includes('login_nome')) {
+  if (error?.message?.includes('gerente_nome') || error?.message?.includes('rotas_permitidas') || error?.message?.includes('email_temporario') || error?.message?.includes('login_nome')) {
     const fallback = await supabase
       .from('perfis')
       .select('user_id,nome,perfil')
       .eq('user_id', user.id)
       .maybeSingle();
-    data = fallback.data ? { ...fallback.data, gerente_nome: '', login_nome: '', email_temporario: false, email_temporario_expira_em: null } : null;
+    data = fallback.data ? { ...fallback.data, gerente_nome: '', rotas_permitidas: [], login_nome: '', email_temporario: false, email_temporario_expira_em: null } : null;
     error = fallback.error;
   }
   if (error) {
@@ -127,23 +127,30 @@ export async function carregarPerfilAtual() {
     return { userId: user.id, nome: user.email || '', perfil: 'consulta' };
   }
   return data
-    ? { userId: data.user_id, nome: data.nome || user.email || '', perfil: data.perfil, gerenteNome: data.gerente_nome || '', loginNome: data.login_nome || '', emailTemporario: Boolean(data.email_temporario), emailTemporarioExpiraEm: data.email_temporario_expira_em || '' }
+    ? { userId: data.user_id, nome: data.nome || user.email || '', perfil: data.perfil, gerenteNome: data.gerente_nome || '', rotasPermitidas: data.rotas_permitidas || [], loginNome: data.login_nome || '', emailTemporario: Boolean(data.email_temporario), emailTemporarioExpiraEm: data.email_temporario_expira_em || '' }
     : { userId: user.id, nome: user.email || '', perfil: 'consulta' };
 }
 
 export async function carregarPerfis() {
-  let { data, error } = await supabase.from('perfis').select('user_id,nome,perfil,gerente_nome,login_nome,email_temporario,email_temporario_expira_em,criado_em').order('nome', { ascending: true });
-  if (error?.message?.includes('gerente_nome') || error?.message?.includes('email_temporario') || error?.message?.includes('login_nome')) {
+  let { data, error } = await supabase.from('perfis').select('user_id,nome,perfil,gerente_nome,rotas_permitidas,login_nome,email_temporario,email_temporario_expira_em,criado_em').order('nome', { ascending: true });
+  if (error?.message?.includes('gerente_nome') || error?.message?.includes('rotas_permitidas') || error?.message?.includes('email_temporario') || error?.message?.includes('login_nome')) {
     const fallback = await supabase.from('perfis').select('user_id,nome,perfil,criado_em').order('nome', { ascending: true });
-    data = fallback.data?.map(p => ({ ...p, gerente_nome: '', login_nome: '', email_temporario: false, email_temporario_expira_em: null })) || [];
+    data = fallback.data?.map(p => ({ ...p, gerente_nome: '', rotas_permitidas: [], login_nome: '', email_temporario: false, email_temporario_expira_em: null })) || [];
     error = fallback.error;
   }
   if (error) { console.error('Erro ao carregar perfis:', error); return []; }
-  return data.map(p => ({ userId: p.user_id, nome: p.nome || 'Usuario', perfil: p.perfil, gerenteNome: p.gerente_nome || '', loginNome: p.login_nome || '', emailTemporario: Boolean(p.email_temporario), emailTemporarioExpiraEm: p.email_temporario_expira_em || '', criadoEm: p.criado_em }));
+  return data.map(p => ({ userId: p.user_id, nome: p.nome || 'Usuario', perfil: p.perfil, gerenteNome: p.gerente_nome || '', rotasPermitidas: p.rotas_permitidas || [], loginNome: p.login_nome || '', emailTemporario: Boolean(p.email_temporario), emailTemporarioExpiraEm: p.email_temporario_expira_em || '', criadoEm: p.criado_em }));
 }
 
 export async function salvarPerfil(perfil) {
-  const { error } = await supabase.from('perfis').update({ perfil: perfil.perfil, gerente_nome: perfil.gerenteNome || '' }).eq('user_id', perfil.userId);
+  const rotasPermitidas = perfil.perfil === 'gerente' ? (perfil.rotasPermitidas || []) : [];
+  const payload = { perfil: perfil.perfil, gerente_nome: perfil.gerenteNome || '', rotas_permitidas: rotasPermitidas };
+  const { error } = await supabase.from('perfis').update(payload).eq('user_id', perfil.userId);
+  if (error?.message?.includes('rotas_permitidas')) {
+    const fallback = await supabase.from('perfis').update({ perfil: perfil.perfil, gerente_nome: perfil.gerenteNome || '' }).eq('user_id', perfil.userId);
+    if (fallback.error) throw new Error(fallback.error.message);
+    return;
+  }
   if (error) throw new Error(error.message);
 }
 
