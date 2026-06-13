@@ -877,10 +877,10 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             )}
           </div>
           <div className="fechamento-kpis">
-            <article><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong></article>
-            <article><span>Despesas do sistema</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong></article>
-            <article><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong></article>
-            <article><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong></article>
+            <article className="kpi-bruto"><i>📈</i><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong><small>Entrada menos comissão e saída</small></article>
+            <article className="kpi-despesas"><i>🧾</i><span>Despesas do sistema</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>Puxado automaticamente das despesas</small></article>
+            <article className="kpi-final"><i>💎</i><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong><small>Saldo bruto menos despesas</small></article>
+            <article className="kpi-comissao"><i>🏆</i><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong><small>Calculado sobre o saldo final</small></article>
           </div>
           <div className="fechamento-operacao-box">
             <div className="fechamento-operacao-head">
@@ -911,7 +911,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">
               <p>O saldo final é o saldo bruto menos as despesas já lançadas no sistema. A comissão do gerente é 10% do saldo final.</p>
-              <button className="btn-primary" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
+              <button className="fechamento-save-btn" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
             </div>
           </div>
           <div className="fechamento-despesas-box">
