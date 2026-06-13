@@ -15,6 +15,7 @@ import {
   carregarPerfilAtual, resolverEmailPorLogin, carregarDespesasMensais,
   carregarMensagensInternas, enviarMensagemInterna, marcarMensagensInternasLidas,
   carregarPixEnvios, enviarPixParaGerente,
+  carregarFechamentosRotas, salvarFechamentoRota,
 } from "./db.js";
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Totens","Noteiro","PDV Touchscreen"];
@@ -564,24 +565,32 @@ const PIX_CARTOES_PADRAO = [
   { id:"pix-neon-sabrina", banco:"Neon Pagamentos S.A", nome:"Sabrina", tipo:"Aleatória", chave:"7aeaf6f5-d457-4b21-b0d3-2cb2956ea7fa", visual:{ nome:"Neon", icone:"neon", classe:"pix-banco-neon" } },
 ];
 
-const PIX_VALIDADE_MS = 24 * 60 * 60 * 1000;
-
-function pixDentroDoPrazo(aviso, agora = Date.now()) {
-  const criado = new Date(aviso?.enviadoEm || 0).getTime();
-  return Boolean(criado) && agora - criado <= PIX_VALIDADE_MS;
+function pixDentroDoPrazo(aviso) {
+  return Boolean(aviso?.pixChave);
 }
 
-function formatarPrazoPix(enviadoEm) {
-  const criado = new Date(enviadoEm || 0).getTime();
-  if (!criado) return "válido por 24 horas";
-  const restante = Math.max(0, PIX_VALIDADE_MS - (Date.now() - criado));
-  const horas = Math.floor(restante / (60 * 60 * 1000));
-  const minutos = Math.max(1, Math.ceil((restante % (60 * 60 * 1000)) / (60 * 1000)));
-  if (horas <= 0) return `${minutos} min restantes`;
-  return `${horas}h ${minutos}min restantes`;
+function formatarPrazoPix() {
+  return "sem expiração";
 }
 
 const FECHAMENTO_CORES = ["Alex", "Central/Uibai", "Lapão", "América Dourada", "Eliana", "Queixo", "Wene", "João Luis", "Beu"];
+const MODALIDADES_FECHAMENTO = [
+  { id: "90-da-sorte", nome: "90 da Sorte", comissao: 0.10, descricao: "10% de comissão" },
+  { id: "viapix", nome: "Viapix", comissao: null, descricao: "Comissão preenchida manualmente" },
+  { id: "lotobanca", nome: "Lotobanca", comissao: 0.20, descricao: "20% de comissão" },
+];
+
+function criarFechamentoVazio() {
+  return MODALIDADES_FECHAMENTO.reduce((acc, modalidade) => {
+    acc[modalidade.id] = { entrada: "", comissao: "", saida: "" };
+    return acc;
+  }, {});
+}
+
+function numeroFechamento(valor) {
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+  return Number(String(valor || "").replace(/\./g, "").replace(",", ".")) || 0;
+}
 
 function corFechamento(gerente) {
   const rotas = ROTAS_POR_GERENTE[gerente] || [];
@@ -599,6 +608,11 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [rotaSelecionada,setRotaSelecionada]=useState("");
   const [competenciaFechamento,setCompetenciaFechamento]=useState(hoje().slice(0,7));
   const [diaFechamento,setDiaFechamento]=useState("");
+  const [fechamentosRotas,setFechamentosRotas]=useState([]);
+  const [fechamentoValores,setFechamentoValores]=useState(criarFechamentoVazio);
+  const [fechamentoOk,setFechamentoOk]=useState("");
+  const [fechamentoErro,setFechamentoErro]=useState("");
+  const [fechamentoSalvando,setFechamentoSalvando]=useState(false);
   const despesasFechamento = despesas.filter(d => {
     const mes = mesDespesaPrestacao(d.competencia);
     const dia = diaDespesaPrestacao(d.criadoEm);
@@ -660,10 +674,110 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   );
   const totalDetalhe = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
+  const calculosModalidades = MODALIDADES_FECHAMENTO.map(modalidade => {
+    const valores = fechamentoValores[modalidade.id] || {};
+    const entrada = numeroFechamento(valores.entrada);
+    const comissao = modalidade.comissao === null
+      ? numeroFechamento(valores.comissao)
+      : entrada * modalidade.comissao;
+    const saida = numeroFechamento(valores.saida);
+    const saldoBruto = entrada - comissao - saida;
+    return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
+  });
+  const saldoBrutoFechamento = calculosModalidades.reduce((s,m)=>s+m.saldoBruto,0);
+  const saldoFinalFechamento = saldoBrutoFechamento - totalDetalhe;
+  const comissaoGerenteFechamento = Math.max(0, saldoFinalFechamento) * 0.10;
+
+  useEffect(()=>{
+    let ativo=true;
+    carregarFechamentosRotas()
+      .then(lista=>{ if(ativo) setFechamentosRotas(lista); })
+      .catch(err=>{ if(ativo) setFechamentoErro(err.message||"Não foi possível carregar os fechamentos."); });
+    return ()=>{ativo=false;};
+  },[]);
+
+  useEffect(()=>{
+    const vazio = criarFechamentoVazio();
+    if(!gerenteSelecionado || !rotaDetalheAtiva){
+      setFechamentoValores(vazio);
+      return;
+    }
+    const competencia = competenciaFechamento || hoje().slice(0,7);
+    const dia = diaFechamento || "";
+    fechamentosRotas
+      .filter(f =>
+        f.gerente === gerenteSelecionado &&
+        f.rota === rotaDetalheAtiva &&
+        f.competencia === competencia &&
+        (f.dia || "") === dia
+      )
+      .forEach(f => {
+        vazio[f.modalidade] = {
+          entrada: String(f.entrada || ""),
+          comissao: String(f.comissao || ""),
+          saida: String(f.saida || ""),
+        };
+      });
+    setFechamentoValores(vazio);
+    setFechamentoOk("");
+    setFechamentoErro("");
+  },[gerenteSelecionado, rotaDetalheAtiva, competenciaFechamento, diaFechamento, fechamentosRotas]);
 
   function selecionarRotaFechamento(g) {
     setGerenteSelecionado(g.gerente);
     setRotaSelecionada(g.rota);
+  }
+
+  function alterarFechamentoModalidade(modalidadeId, campo, valor) {
+    setFechamentoValores(atual => ({
+      ...atual,
+      [modalidadeId]: {
+        ...(atual[modalidadeId] || {}),
+        [campo]: valor,
+      },
+    }));
+  }
+
+  async function salvarFechamentoSelecionado() {
+    setFechamentoOk("");
+    setFechamentoErro("");
+    if(!gerenteSelecionado || !rotaDetalheAtiva){
+      setFechamentoErro("Selecione uma rota para salvar o fechamento.");
+      return;
+    }
+    setFechamentoSalvando(true);
+    try{
+      const competencia = competenciaFechamento || hoje().slice(0,7);
+      const salvos = await salvarFechamentoRota({
+        gerente: gerenteSelecionado,
+        rota: rotaDetalheAtiva,
+        competencia,
+        dia: diaFechamento || "",
+        modalidades: calculosModalidades.map(m => ({
+          modalidade: m.id,
+          entrada: m.entrada,
+          comissao: m.comissaoCalculada,
+          saida: m.saida,
+          saldoBruto: m.saldoBruto,
+        })),
+      });
+      setFechamentosRotas(atual => [
+        ...atual.filter(f =>
+          !(
+            f.gerente === gerenteSelecionado &&
+            f.rota === rotaDetalheAtiva &&
+            f.competencia === competencia &&
+            (f.dia || "") === (diaFechamento || "")
+          )
+        ),
+        ...salvos,
+      ]);
+      setFechamentoOk("Fechamento salvo com sucesso.");
+    }catch(err){
+      setFechamentoErro(err.message||"Não foi possível salvar o fechamento.");
+    }finally{
+      setFechamentoSalvando(false);
+    }
   }
 
   async function enviarAvisoPix(e){
@@ -763,10 +877,42 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             )}
           </div>
           <div className="fechamento-kpis">
-            <article><span>Total da rota</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong></article>
-            <article><span>Pontos</span><strong>{pontosDetalhe.length}</strong></article>
-            <article><span>Equipamentos</span><strong>{equipamentosDetalhe.length}</strong></article>
-            <article><span>Média por ponto</span><strong>{formatarMoedaPDF(mediaPorPonto)}</strong></article>
+            <article><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong></article>
+            <article><span>Despesas do sistema</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong></article>
+            <article><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong></article>
+            <article><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong></article>
+          </div>
+          <div className="fechamento-operacao-box">
+            <div className="fechamento-operacao-head">
+              <div>
+                <span className="dash-kicker">Lançamento do fechamento</span>
+                <h4>Entradas, comissões e saídas por modalidade</h4>
+              </div>
+              <small>{pontosDetalhe.length} ponto{pontosDetalhe.length!==1?"s":""} · {equipamentosDetalhe.length} equipamento{equipamentosDetalhe.length!==1?"s":""} · média de despesas {formatarMoedaPDF(mediaPorPonto)}</small>
+            </div>
+            <div className="fechamento-modalidades-grid">
+              {calculosModalidades.map(m=>(
+                <article className="fechamento-modalidade-card" key={m.id}>
+                  <div className="fechamento-modalidade-topo">
+                    <div>
+                      <strong>{m.nome}</strong>
+                      <span>{m.descricao}</span>
+                    </div>
+                    <b>{formatarMoedaPDF(m.saldoBruto)}</b>
+                  </div>
+                  <div className="fechamento-campos-grid">
+                    <label>Entrada<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.entrada||""} onChange={e=>alterarFechamentoModalidade(m.id,"entrada",e.target.value)} placeholder="R$ 0,00"/></label>
+                    <label>Comissão<input type="text" inputMode="decimal" value={m.comissao===null?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} disabled={m.comissao!==null} placeholder="R$ 0,00"/></label>
+                    <label>Saída<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.saida||""} onChange={e=>alterarFechamentoModalidade(m.id,"saida",e.target.value)} placeholder="R$ 0,00"/></label>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
+            <div className="fechamento-salvar-linha">
+              <p>O saldo final é o saldo bruto menos as despesas já lançadas no sistema. A comissão do gerente é 10% do saldo final.</p>
+              <button className="btn-primary" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
+            </div>
           </div>
           <div className="fechamento-despesas-box">
             <div className="fechamento-despesas-head">
@@ -1951,17 +2097,11 @@ function Sistema({onLogout}){
     ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId))
     :despesasBackup;
   const backupBloqueante=backupObrigatorioVencido(perfilAtual)&&!backupFeitoAgora;
-  const [agoraPix,setAgoraPix]=useState(Date.now());
   const gerentePixNome=gerenteDaRota(gerenteAtual)||gerenteAtual;
   const pixAvisoAtual=gerenteAtual?pixEnvios.find(aviso=>
     normalizarTexto(aviso.gerente)===normalizarTexto(gerentePixNome)&&
-    pixDentroDoPrazo(aviso, agoraPix)
+    pixDentroDoPrazo(aviso)
   ):null;
-
-  useEffect(()=>{
-    const timer=setInterval(()=>setAgoraPix(Date.now()),60000);
-    return ()=>clearInterval(timer);
-  },[]);
 
   async function copiarPixAviso(chave){
     try{
@@ -2336,7 +2476,6 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span className="nav-icon">📦</span> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span className="nav-icon">📍</span> Pontos</button>
           <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span className="nav-icon">🔎</span> Busca Geral</button>
-          {administrador&&<button className={`nav-item ${aba==="prestacao"?"active":""}`} onClick={()=>navegar("prestacao")}><span className="nav-icon">💳</span> Prestação de Contas</button>}
           {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><span className="nav-icon">✅</span> Fechamento</button>}
           {podeEditar&&<button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">🔑</span> Central de Acessos</button>}
           {administrador&&<button className={`nav-item ${aba==="logins"?"active":""}`} onClick={()=>navegar("logins")}><span className="nav-icon">🔐</span> Gerenciar Logins</button>}
@@ -2782,16 +2921,6 @@ function Sistema({onLogout}){
             </div>
           </header>
           <BuscaGlobalPage consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
-        </>)}
-
-        {aba==="prestacao"&&administrador&&(<>
-          <header className="topbar topbar-prestacao">
-            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Prestação de Contas</h1><p className="page-sub">Conferência financeira dos gerentes</p></div>
-            </div>
-          </header>
-          <PrestacaoContasPage pontos={pontos} despesas={despesasBackup}/>
         </>)}
 
         {aba==="fechamento"&&administrador&&(<>

@@ -334,6 +334,49 @@ export async function carregarPixEnvios() {
   return data.map(mapPixEnvio);
 }
 
+// ── Fechamento de rotas ──────────────────────────────────────────────────────
+export async function carregarFechamentosRotas() {
+  const { data, error } = await supabase
+    .from('fechamentos_rotas')
+    .select('*')
+    .order('atualizado_em', { ascending: false });
+  if (error) {
+    console.error('Erro ao carregar fechamentos de rotas:', error);
+    return [];
+  }
+  return data.map(mapFechamentoRota);
+}
+
+export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '', modalidades = [] }) {
+  const rows = modalidades.map(m => ({
+    gerente,
+    rota,
+    competencia,
+    dia: dia || '',
+    modalidade: m.modalidade,
+    entrada: Number(m.entrada) || 0,
+    comissao: Number(m.comissao) || 0,
+    saida: Number(m.saida) || 0,
+    saldo_bruto: Number(m.saldoBruto) || 0,
+    atualizado_em: new Date().toISOString(),
+  }));
+  if (!gerente || !rota || !competencia) throw new Error('Selecione gerente, rota e competência para salvar o fechamento.');
+  if (rows.length === 0) throw new Error('Nenhuma modalidade informada para salvar.');
+
+  const { data, error } = await supabase
+    .from('fechamentos_rotas')
+    .upsert(rows, { onConflict: 'gerente,rota,competencia,dia,modalidade' })
+    .select();
+  if (error) {
+    const msg = String(error.message || '');
+    if (msg.includes('fechamentos_rotas') || msg.includes('schema cache')) {
+      throw new Error('A tabela fechamentos_rotas ainda não existe no Supabase. Rode a migração de fechamento e tente novamente.');
+    }
+    throw new Error(error.message);
+  }
+  return data.map(mapFechamentoRota);
+}
+
 export async function enviarPixParaGerente({ chave, gerente, rota, mensagem }) {
   if (!chave?.chave) throw new Error('Selecione uma chave PIX.');
   if (!gerente) throw new Error('Selecione o gerente que receberá o aviso.');
@@ -397,6 +440,22 @@ function mapPixEnvio(row) {
     rota: row.rota || '',
     mensagem: row.mensagem || '',
     enviadoEm: row.enviado_em || '',
+  };
+}
+
+function mapFechamentoRota(row) {
+  return {
+    id: row.id,
+    gerente: row.gerente || '',
+    rota: row.rota || '',
+    competencia: row.competencia || '',
+    dia: row.dia || '',
+    modalidade: row.modalidade || '',
+    entrada: Number(row.entrada) || 0,
+    comissao: Number(row.comissao) || 0,
+    saida: Number(row.saida) || 0,
+    saldoBruto: Number(row.saldo_bruto) || 0,
+    atualizadoEm: row.atualizado_em || '',
   };
 }
 
