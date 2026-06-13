@@ -321,7 +321,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
       </section>
 
       {modalSenha && (
-        <div className="modal-overlay" onClick={() => setModalSenha(null)}>
+        <div className="modal-overlay">
           <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h3>Editar acesso</h3><button className="modal-fechar" onClick={() => setModalSenha(null)}>✕</button></div>
             <form onSubmit={salvarSenha}>
@@ -344,7 +344,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
       )}
 
       {modalNovo && (
-        <div className="modal-overlay" onClick={() => setModalNovo(false)}>
+        <div className="modal-overlay">
           <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
             <form onSubmit={criarLogin}>

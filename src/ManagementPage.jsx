@@ -318,7 +318,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       </section>
 
       {usuarioAcesso && (
-        <div className="modal-overlay" onClick={() => setUsuarioAcesso(null)}>
+        <div className="modal-overlay">
           <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h3>Redefinir Acesso</h3><button className="modal-fechar" onClick={() => setUsuarioAcesso(null)}>✕</button></div>
             <form onSubmit={confirmarRedefinicaoAcesso}>
@@ -336,7 +336,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       )}
 
       {modalNovo && (
-        <div className="modal-overlay" onClick={() => setModalNovo(false)}>
+        <div className="modal-overlay">
           <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
             <form onSubmit={criarLogin}>
