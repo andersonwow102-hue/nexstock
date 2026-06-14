@@ -7,6 +7,7 @@ import {
 import {
   carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
   carregarDespesasMensais, salvarDespesaMensal, excluirDespesaMensal,
+  carregarSolicitacoesModalidade, criarSolicitacaoModalidade, concluirSolicitacaoModalidade,
 } from "./db.js";
 
 const partesDataLocal=()=>{
@@ -389,7 +390,7 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos, pode
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onExportExcel, onExportPDF, podeEditar, podeEditarDespesas }) {
+function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onExportExcel, onExportPDF, podeEditar, podeEditarDespesas, podeSolicitarModalidade }) {
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA=10;
@@ -443,6 +444,7 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
                   <td><span className={`badge-status ${p.possuiDespesa==="sim"?"status-defeito":"status-disponivel"}`}>{p.possuiDespesa==="sim"?"Sim":"Não"}</span></td>
                   <td className={p.possuiDespesa==="sim"?"qtd-baixa":"td-minimo"}>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—"}</td>
                   <td className="td-acoes">
+                    {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)} title="Solicitar bloqueio ou desbloqueio">🚨</button>}
                     {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)} title="Despesas mensais">💰</button>}
                     {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)} title="Editar">✏️</button>}
                     {podeEditar&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)} title="Excluir">🗑️</button>}
@@ -467,6 +469,7 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
               <div className="ponto-card-linha"><span>Equipamentos</span><div className="equipamentos-ponto">{vinculados.length? vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>) : <span className="td-obs">Nenhum</span>}</div></div>
               {p.possuiDespesa==="sim"&&<div className="ponto-card-valor">{formatarReais(p.valorDespesa)}</div>}
               <div className="ponto-card-acoes">
+                {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)}>🚨 Solicitar ação</button>}
                 {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)}>💰 Despesas</button>}
                 {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)}>✏️ Editar</button>}
                 {podeEditar&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)}>🗑️ Excluir</button>}
@@ -603,6 +606,117 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
         </div>
       </div>
     </div>
+  );
+}
+
+function SolicitacaoModalidadeModal({ ponto, perfilAtual, onSalvar, onFechar }) {
+  const modalidades = ponto.modalidades?.length ? ponto.modalidades : MODALIDADES;
+  const [acao, setAcao] = useState("bloquear");
+  const [modalidade, setModalidade] = useState(modalidades[0] || "");
+  const [detalhe, setDetalhe] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  async function salvar() {
+    setErro("");
+    if (!modalidade) { setErro("Selecione a modalidade."); return; }
+    if (!detalhe.trim()) { setErro("Informe o cambista, usuário ou motivo da solicitação."); return; }
+    setEnviando(true);
+    try {
+      await onSalvar({ ponto, perfilAtual, modalidade, acao, detalhe });
+      onFechar();
+    } catch (e) {
+      setErro(e?.message || "Não foi possível enviar a solicitação.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onFechar}>
+      <div className="modal modal-pequeno solicitacao-modalidade-modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>🚨 Solicitar ação na modalidade</h3>
+          <button className="modal-fechar" onClick={onFechar}>✕</button>
+        </div>
+        <div className="modal-body">
+          {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+          <div className="solicitacao-ponto-resumo">
+            <small>Ponto</small>
+            <strong>{ponto.nomeFantasia}</strong>
+            <span>{rotaCanonica(ponto.gerente)}</span>
+          </div>
+          <div className="campo">
+            <label>Ação solicitada *</label>
+            <select value={acao} onChange={e=>setAcao(e.target.value)}>
+              <option value="bloquear">Bloquear</option>
+              <option value="desbloquear">Desbloquear</option>
+            </select>
+          </div>
+          <div className="campo">
+            <label>Modalidade *</label>
+            <select value={modalidade} onChange={e=>setModalidade(e.target.value)}>
+              {modalidades.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="campo">
+            <label>Detalhe para o admin *</label>
+            <textarea
+              rows={4}
+              value={detalhe}
+              onChange={e=>setDetalhe(e.target.value)}
+              placeholder="Ex: desbloquear o cambista João no Viapix / usuário 123..."
+            />
+          </div>
+          <p className="acessos-nota">
+            Essa solicitação não altera o ponto nem a modalidade no Stock-ON. Ela apenas avisa o administrador para fazer a ação na plataforma externa.
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secundario" onClick={onFechar}>Cancelar</button>
+          <button className="btn-primario" disabled={enviando} onClick={salvar}>{enviando?"Enviando...":"Enviar solicitação"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatarDataSolicitacao(data) {
+  if (!data) return "-";
+  const dt = new Date(data);
+  if (Number.isNaN(dt.getTime())) return "-";
+  return dt.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+
+function PainelSolicitacoesModalidade({ solicitacoes, onConcluir }) {
+  const pendentes = solicitacoes.filter(s=>s.status==="pendente");
+  if (!pendentes.length) return null;
+  return (
+    <section className="solicitacoes-modalidade-panel">
+      <div className="solicitacoes-panel-head">
+        <div>
+          <span>Central de avisos</span>
+          <h3>Solicitações de bloqueio/desbloqueio</h3>
+          <p>O gerente abriu um pedido para o admin agir na plataforma da modalidade.</p>
+        </div>
+        <strong>{pendentes.length} pendente{pendentes.length!==1?"s":""}</strong>
+      </div>
+      <div className="solicitacoes-grid">
+        {pendentes.map(s=>(
+          <article key={s.id} className={`solicitacao-card solicitacao-${s.acao}`}>
+            <div className="solicitacao-card-top">
+              <span>{s.acao==="bloquear"?"Bloquear":"Desbloquear"}</span>
+              <small>{formatarDataSolicitacao(s.criadoEm)}</small>
+            </div>
+            <h4>{s.modalidade}</h4>
+            <p><strong>{s.pontoNome}</strong> · {rotaCanonica(s.rota)}</p>
+            <p>Gerente: <strong>{s.gerente}</strong></p>
+            <blockquote>{s.detalhe}</blockquote>
+            <button className="btn-secundario" onClick={()=>onConcluir(s.id)}>Marcar como resolvido</button>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -744,6 +858,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [despesas,   setDespesas]  = useState([]);
+  const [solicitacoes,setSolicitacoes]=useState([]);
   const [loading,    setLoading]   = useState(true);
   const [abaInterna, setAbaInterna]= useState("geral");
   const [modalForm,  setModalForm] = useState(false);
@@ -751,14 +866,15 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [excluindo,  setExcluindo] = useState(null);
   const [verDespesas,setVerDespesas]=useState(false);
   const [pontoDespesas,setPontoDespesas]=useState(null);
+  const [pontoSolicitacao,setPontoSolicitacao]=useState(null);
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
   const [buscaPontos,setBuscaPontos]=useState("");
 
   useEffect(()=>{
     async function carregar(){
       setLoading(true);
-      const [pts, hist, desp] = await Promise.all([carregarPontos(), carregarHistoricoPontos(), carregarDespesasMensais()]);
-      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setLoading(false);
+      const [pts, hist, desp, solic] = await Promise.all([carregarPontos(), carregarHistoricoPontos(), carregarDespesasMensais(), carregarSolicitacoesModalidade()]);
+      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setSolicitacoes(solic); setLoading(false);
     }
     carregar();
   },[]);
@@ -774,6 +890,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const gerentePodeCriarPonto = perfilAtual?.perfil === "gerente";
   const podeCriarPonto = podeEditar || gerentePodeCriarPonto;
   const podeEditarDespesas = podeEditar || perfilAtual?.perfil === "gerente";
+  const podeSolicitarModalidade = perfilAtual?.perfil === "gerente";
+  const administrador = perfilAtual?.perfil === "administrador";
 
   async function salvarPontoHandler(form, equipamentosSelecionados){
     if(pontoEdit && !podeEditar)return;
@@ -862,6 +980,20 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     }catch(e){console.error("Erro ao remover despesa mensal:",e);}
   }
 
+  async function salvarSolicitacaoModalidade(payload) {
+    const nova = await criarSolicitacaoModalidade(payload);
+    setSolicitacoes(prev=>[nova,...prev]);
+  }
+
+  async function concluirSolicitacao(id) {
+    try {
+      const atualizada = await concluirSolicitacaoModalidade(id);
+      setSolicitacoes(prev=>prev.map(s=>Number(s.id)===Number(id)?atualizada:s));
+    } catch (e) {
+      window.alert(e?.message || "Não foi possível concluir a solicitação.");
+    }
+  }
+
   const ABAS = [
     {id:"geral",    label:"📊 Visão Geral"},
     {id:"pontos",   label:`🏪 Pontos (${pontosVisiveis.length})`},
@@ -897,6 +1029,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
         ))}
       </div>
 
+      {administrador&&<PainelSolicitacoesModalidade solicitacoes={solicitacoes} onConcluir={concluirSolicitacao}/>}
+
       {loading&&(
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"60px",gap:"12px",color:"var(--txt-secondary)"}}>
           <div className="loading-dots"><span/><span/><span/></div>
@@ -906,14 +1040,15 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {!loading&&(<>
         {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} podeEditar={podeCriarPonto} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditar} podeEditarDespesas={podeEditarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditar} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao}
             onExportExcel={()=>exportarPontosExcel(pontosVisiveis)} onExportPDF={()=>exportarPontosPDF(pontosVisiveis)}/>}
-        {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={perfilAtual?.perfil==="administrador"}/>}
+        {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}
 
       {modalForm&&(podeEditar||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
       {verDespesas&&<PointExpensesModal pontos={pontosVisiveis} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
+      {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
 
       {excluindo&&(
         <div className="modal-overlay" onClick={()=>setExcluindo(null)}>

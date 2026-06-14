@@ -243,6 +243,55 @@ export async function excluirDespesaMensal(id) {
   if (error) throw new Error(error.message);
 }
 
+export async function carregarSolicitacoesModalidade() {
+  const { data, error } = await supabase
+    .from('solicitacoes_modalidade')
+    .select('*')
+    .order('criado_em', { ascending: false })
+    .limit(300);
+  if (error) {
+    console.error('Erro ao carregar solicitações de modalidade:', error);
+    return [];
+  }
+  return data.map(mapSolicitacaoModalidade);
+}
+
+export async function criarSolicitacaoModalidade({ ponto, perfilAtual, modalidade, acao, detalhe }) {
+  const texto = String(detalhe || '').trim();
+  if (!ponto?.id) throw new Error('Selecione um ponto válido.');
+  if (!modalidade) throw new Error('Selecione a modalidade.');
+  if (!texto) throw new Error('Explique o que precisa ser feito.');
+  const gerenteNome = perfilAtual?.gerenteNome || perfilAtual?.nome || '';
+  const row = {
+    ponto_id: Number(ponto.id),
+    ponto_nome: ponto.nomeFantasia,
+    gerente: gerenteNome,
+    rota: ponto.gerente,
+    modalidade,
+    acao,
+    detalhe: texto,
+    criado_por: perfilAtual?.userId || null,
+  };
+  const { data, error } = await supabase
+    .from('solicitacoes_modalidade')
+    .insert([row])
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return mapSolicitacaoModalidade(data);
+}
+
+export async function concluirSolicitacaoModalidade(id) {
+  const { data, error } = await supabase
+    .from('solicitacoes_modalidade')
+    .update({ status: 'concluida', concluido_em: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return mapSolicitacaoModalidade(data);
+}
+
 export async function carregarMensagensInternas(gerenteNome = '') {
   let query = supabase
     .from('mensagens_internas')
@@ -526,6 +575,23 @@ function mapPonto(row) {
     modalidades: row.modalidades || [],
     possuiDespesa: row.possui_despesa, valorDespesa: Number(row.valor_despesa) || 0,
     observacao: row.observacao || '',
+  };
+}
+
+function mapSolicitacaoModalidade(row) {
+  return {
+    id: row.id,
+    pontoId: row.ponto_id,
+    pontoNome: row.ponto_nome || '',
+    gerente: row.gerente || '',
+    rota: row.rota || '',
+    modalidade: row.modalidade || '',
+    acao: row.acao || 'bloquear',
+    detalhe: row.detalhe || '',
+    status: row.status || 'pendente',
+    criadoPor: row.criado_por || '',
+    criadoEm: row.criado_em || '',
+    concluidoEm: row.concluido_em || '',
   };
 }
 
