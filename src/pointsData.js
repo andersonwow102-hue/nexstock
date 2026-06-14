@@ -128,7 +128,7 @@ export const DBPontos = {
 
 export const pontoFormVazio = {
   nomeFantasia:"", nomeDono:"", telefone:"", gerente:"",
-  modalidades:[], possuiDespesa:"", valorDespesa:"", observacao:""
+  modalidades:[], possuiDespesa:"nao", valorDespesa:"", observacao:""
 };
 
 export function validarPonto(form) {
@@ -137,8 +137,5 @@ export function validarPonto(form) {
   if (!form.telefone.trim())       return "Telefone é obrigatório.";
   if (!form.gerente)               return "Rota é obrigatória.";
   if (form.modalidades.length===0) return "Selecione pelo menos uma modalidade.";
-  if (!form.possuiDespesa)         return "Informe se o ponto possui despesa.";
-  if (form.possuiDespesa==="sim" && (!form.valorDespesa || parseMoeda(form.valorDespesa)<=0))
-                                   return "Informe o valor da despesa.";
   return null;
 }

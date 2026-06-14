@@ -3193,18 +3193,6 @@ body {
 .modalidade-item:hover { border-color: var(--border-light); color: var(--txt-primary); }
 .modalidade-ativa { background: var(--azul-bg) !important; border-color: var(--azul) !important; color: var(--azul) !important; }
 
-.despesa-opcoes { display: flex; gap: 10px; margin-top: 4px; }
-.despesa-opcao {
-  display: flex; align-items: center; gap: 8px; padding: 9px 18px;
-  background: var(--bg-input); border: 1px solid var(--border);
-  border-radius: var(--radius-md); cursor: pointer;
-  font-size: 13px; font-weight: 500; color: var(--txt-secondary);
-  transition: all 0.15s; user-select: none; flex: 1; justify-content: center;
-}
-.despesa-opcao input { accent-color: var(--accent); width: 15px; height: 15px; }
-.despesa-opcao:hover { border-color: var(--border-light); color: var(--txt-primary); }
-.despesa-ativa { background: var(--azul-bg) !important; border-color: var(--azul) !important; color: var(--azul) !important; }
-
 .badge-modalidade { display:inline-block; font-size:10px; font-weight:600; padding:2px 7px; border-radius:20px; border:1px solid; white-space:nowrap; }
 .badge-mod-viapix    { background:rgba(16,217,122,0.12); color:#10d97a; border-color:rgba(16,217,122,0.25); }
 .badge-mod-90sorte   { background:rgba(249,115,22,0.12); color:#f97316; border-color:rgba(249,115,22,0.25); }
@@ -3614,8 +3602,6 @@ body {
 .tema-claro .input-busca, .tema-claro .select-filtro { background: #ffffff; border-color: #d1daea; color: #0f1c35; }
 .tema-claro .modalidade-item { background: #ffffff; border-color: #d1daea; color: #4a5f82; }
 .tema-claro .modalidade-ativa { background: #dbeafe !important; border-color: #2563eb !important; color: #1e40af !important; }
-.tema-claro .despesa-opcao { background: #ffffff; border-color: #d1daea; color: #4a5f82; }
-.tema-claro .despesa-ativa { background: #dbeafe !important; border-color: #2563eb !important; color: #1e40af !important; }
 .tema-claro .nav-item.active { background: linear-gradient(135deg, rgba(37,99,235,0.16), rgba(37,99,235,0.06)); border-color: rgba(37,99,235,0.28); color: #1d4ed8; box-shadow: 0 2px 14px rgba(37,99,235,0.14), inset 0 0 20px rgba(37,99,235,0.04); }
 .tema-claro .nav-section-label { color: #8a9cbd; }
 .tema-claro .nav-item { color: #4a5f82; border-color: transparent; }

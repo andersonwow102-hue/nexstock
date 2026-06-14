@@ -208,8 +208,9 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
   const primeiraRotaPermitida = rotasDoPerfil[0] || "";
   const [form, setForm] = useState(ponto ? {...ponto,
     gerente: rotaCanonica(ponto.gerente),
-    valorDespesa: ponto.valorDespesa ? mascaraMoeda(String(Math.round(ponto.valorDespesa*100))) : ""
-  } : {...pontoFormVazio, gerente: primeiraRotaPermitida});
+    possuiDespesa: "nao",
+    valorDespesa: ""
+  } : {...pontoFormVazio, gerente: primeiraRotaPermitida, possuiDespesa: "nao", valorDespesa: ""});
   const [gerenteSelecionado, setGerenteSelecionado] = useState(() => gerenteDaRota(ponto?.gerente) || gerenteDoPerfil || "");
   const [equipamentosSelecionados, setEquipamentosSelecionados] = useState(
     equipamentos.filter(i=>ponto&&i.localizacao===ponto.nomeFantasia).map(i=>i.id)
@@ -235,7 +236,7 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
       setErro("Já existe um ponto com este nome. Use um nome diferente para não confundir a localização dos equipamentos.");
       return;
     }
-    onSalvar({...form, valorDespesa: form.possuiDespesa==="sim" ? parseMoeda(form.valorDespesa) : 0}, equipamentosSelecionados);
+    onSalvar({...form, possuiDespesa: "nao", valorDespesa: 0}, equipamentosSelecionados);
   }
 
   return (
@@ -297,21 +298,6 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
                 </div>}
               <span className="campo-hint">Equipamentos que já estão em outro ponto só podem ser transferidos em Movimentar.</span>
             </div>
-          )}
-          <div className="campo">
-            <label>Possui Despesa? *</label>
-            <div className="despesa-opcoes">
-              <label className={`despesa-opcao ${form.possuiDespesa==="sim"?"despesa-ativa":""}`}>
-                <input type="radio" name="desp" value="sim" checked={form.possuiDespesa==="sim"} onChange={()=>setForm({...form,possuiDespesa:"sim"})}/> ✅ Sim
-              </label>
-              <label className={`despesa-opcao ${form.possuiDespesa==="nao"?"despesa-ativa":""}`}>
-                <input type="radio" name="desp" value="nao" checked={form.possuiDespesa==="nao"} onChange={()=>setForm({...form,possuiDespesa:"nao",valorDespesa:""})}/> ❌ Não
-              </label>
-            </div>
-          </div>
-          {form.possuiDespesa==="sim"&&(
-            <div className="campo"><label>Valor da Despesa *</label>
-              <input type="text" placeholder="R$ 0,00" value={form.valorDespesa} onChange={e=>setForm({...form,valorDespesa:mascaraMoeda(e.target.value)})}/></div>
           )}
           <div className="campo"><label>Observação</label>
             <textarea placeholder="Informações adicionais..." rows={2} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})}/></div>
