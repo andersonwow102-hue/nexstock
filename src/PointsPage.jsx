@@ -246,7 +246,7 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
         setErro("Já existe um ponto com este nome em outra rota. Use um nome diferente para evitar troca de rota ou localização errada.");
         return;
       }
-      setErro("Não foi possível salvar o ponto. Verifique os dados e tente novamente.");
+      setErro(`Não foi possível salvar o ponto. Motivo: ${err?.message || "verifique os dados e tente novamente."}`);
     }
   }
 
