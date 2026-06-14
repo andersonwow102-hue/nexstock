@@ -64,7 +64,6 @@ const TRANSFERENCIA_GERENTE = {
 const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponível",minimo:5,observacao:"",localizacao:"",responsavel:"",patrimonio:"",dataCadastro:"",gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""};
 const movVazio={tipoId:"ponto",ponto:"",gerente:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:"",notaFiscalNome:"",notaFiscalArquivo:"",consertoPix:"",consertoValor:""};
 const ITENS_POR_PAGINA=12;
-const BACKUP_INTERVALO_DIAS=7;
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
 const isoAgora=()=>new Date().toISOString();
@@ -144,23 +143,10 @@ function baixarJSON(nomeArquivo, dados){
 function chaveBackupPerfil(perfil){
   return `stockon_backup_obrigatorio_${perfil?.userId||perfil?.loginNome||perfil?.nome||"usuario"}`;
 }
-function diasDesde(dataISO){
-  if(!dataISO)return Infinity;
-  const data=new Date(dataISO);
-  if(Number.isNaN(data.getTime()))return Infinity;
-  return Math.floor((Date.now()-data.getTime())/(1000*60*60*24));
-}
-function ultimoBackupPerfil(perfil){
-  try{return localStorage.getItem(chaveBackupPerfil(perfil))||"";}catch{return"";}
-}
 function registrarBackupPerfil(perfil){
   const agoraISO=isoAgora();
   try{localStorage.setItem(chaveBackupPerfil(perfil),agoraISO);}catch{}
   return agoraISO;
-}
-function backupObrigatorioVencido(perfil){
-  if(!["administrador","operador","gerente"].includes(perfil?.perfil))return false;
-  return diasDesde(ultimoBackupPerfil(perfil))>=BACKUP_INTERVALO_DIAS;
 }
 function slugArquivoBackup(texto){
   return String(texto||"stock-on").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40)||"stock-on";
@@ -2025,7 +2011,6 @@ function Sistema({onLogout}){
   const [buscaGlobal,setBuscaGlobal]=useState("");
   const [paginaItens,setPaginaItens]=useState(1);
   const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",emailTemporario:false,emailTemporarioExpiraEm:""});
-  const [backupFeitoAgora,setBackupFeitoAgora]=useState(false);
 
   useEffect(()=>{
     let ativo=true;
@@ -2102,7 +2087,6 @@ function Sistema({onLogout}){
   const despesasOperacionais=gerenteAtual
     ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId))
     :despesasBackup;
-  const backupBloqueante=backupObrigatorioVencido(perfilAtual)&&!backupFeitoAgora;
   const gerentePixNome=gerenteDaRota(gerenteAtual)||gerenteAtual;
   const pixAvisoAtual=gerenteAtual?pixEnvios.find(aviso=>
     normalizarTexto(aviso.gerente)===normalizarTexto(gerentePixNome)&&
@@ -2327,7 +2311,7 @@ function Sistema({onLogout}){
       :"Backup Completo Stock-ON";
     await gerarPDF({
       titulo,
-      descricao:`Arquivo obrigatório de segurança emitido para ${perfilAtual.nome||perfilAtual.loginNome||perfilAtual.perfil}. Guarde fora do sistema.`,
+      descricao:`Arquivo opcional de segurança emitido para ${perfilAtual.nome||perfilAtual.loginNome||perfilAtual.perfil}. Guarde fora do sistema quando desejar.`,
       nomeArquivo:`stock-on_backup_${slugArquivoBackup(escopo)}_${hoje()}.pdf`,
       total:itensOperacionais.length+pontosOperacionais.length+despesasOperacionais.length+historicoOperacional.length+historicoPontosOperacional.length,
       resumo:[
@@ -2336,7 +2320,7 @@ function Sistema({onLogout}){
         {label:"Despesas",valor:despesasOperacionais.length,destaque:[222,147,0]},
         {label:"Mov. Equip.",valor:historicoOperacional.length,destaque:[5,150,82]},
         {label:"Mov. Pontos",valor:historicoPontosOperacional.length,destaque:[100,116,139]},
-        {label:"Periodo",valor:`${BACKUP_INTERVALO_DIAS} dias`,destaque:[222,147,0]},
+        {label:"Frequência",valor:"Opcional",destaque:[222,147,0]},
       ],
       secoes:[
         {
@@ -2417,7 +2401,6 @@ function Sistema({onLogout}){
       ],
     });
     registrarBackupPerfil(perfilAtual);
-    setBackupFeitoAgora(true);
   }
 
   async function limparHistorico(){
@@ -3209,34 +3192,6 @@ function Sistema({onLogout}){
 
       {modalSenha&&<ModalAlterarSenha onFechar={()=>setModalSenha(false)}/>}
       <ChatInterno perfilAtual={perfilAtual} gerentes={gerentesChat}/>
-      {backupBloqueante&&(
-        <div className="modal-overlay backup-obrigatorio-overlay">
-          <div className="modal modal-pequeno backup-obrigatorio-modal" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>💾 Backup obrigatório</h3>
-            </div>
-            <div className="modal-body">
-              <p className="backup-obrigatorio-texto">
-                Por segurança, este acesso precisa baixar um backup a cada {BACKUP_INTERVALO_DIAS} dias.
-              </p>
-              <div className="backup-resumo">
-                <span><strong>{itensOperacionais.length}</strong> equipamentos</span>
-                <span><strong>{pontosOperacionais.length}</strong> pontos</span>
-                <span><strong>{despesasOperacionais.length}</strong> despesas</span>
-                <span><strong>{historicoOperacional.length}</strong> movimentos</span>
-              </div>
-              <p className="campo-hint">
-                {perfilAtual.perfil==="gerente"
-                  ?"O arquivo contém somente os dados deste gerente."
-                  :"O arquivo contém o backup completo disponível para seu perfil."}
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-primario" onClick={baixarBackupObrigatorio}>Baixar backup e continuar</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

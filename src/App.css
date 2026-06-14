@@ -1463,43 +1463,6 @@ body {
 }
 .recebimento-card strong { color: var(--txt-primary); }
 .recebimento-card small { display: block; margin-top: 4px; color: var(--txt-secondary); font-size: 12px; }
-.backup-obrigatorio-overlay {
-  z-index: 500;
-  background: rgba(3, 10, 27, .78);
-  backdrop-filter: blur(7px);
-}
-.backup-obrigatorio-modal {
-  border-color: var(--amarelo-border);
-  box-shadow: 0 24px 70px rgba(0,0,0,.35);
-}
-.backup-obrigatorio-texto {
-  color: var(--txt-secondary);
-  line-height: 1.65;
-  margin: 0;
-}
-.backup-resumo {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 14px 0;
-}
-.backup-resumo span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-input);
-  color: var(--txt-secondary);
-  font-size: 12px;
-}
-.backup-resumo strong {
-  color: var(--accent);
-  font-size: 20px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
 .prestacao-page {
   display: flex;
   flex-direction: column;
