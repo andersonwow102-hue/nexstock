@@ -2242,7 +2242,11 @@ function Sistema({onLogout}){
   }
 
   async function salvarPontoRapido(ponto){
-    if(!podeEditar){setErroForm("Seu perfil permite somente consulta.");return;}
+    if(!(podeEditar||gerenteAtual)){setErroForm("Seu perfil permite somente consulta.");return;}
+    if(gerenteAtual&&!rotaPermitidaAoPerfil(ponto.gerente, perfilAtual)){
+      setErroForm("Selecione uma rota liberada para seu acesso.");
+      return;
+    }
     const novoId=await salvarPonto(ponto);
     if(!novoId){setErroForm("Não foi possível cadastrar o ponto. Tente novamente.");return;}
     const novoPonto={...ponto,id:novoId};
@@ -3006,7 +3010,7 @@ function Sistema({onLogout}){
       </main>
 
       {modalForm&&(
-        <div className="modal-overlay" onClick={fecharForm}>
+        <div className="modal-overlay">
           <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
             <div className="modal-header"><h3>{itemEdit?"Editar Equipamento":"Novo Equipamento"}</h3><button className="modal-fechar" onClick={fecharForm}>✕</button></div>
             <div className="modal-body">
@@ -3061,6 +3065,7 @@ function Sistema({onLogout}){
           ponto={null}
           pontos={pontos}
           equipamentos={[]}
+          perfilAtual={perfilAtual}
           mostrarEquipamentos={false}
           onSalvar={salvarPontoRapido}
           onFechar={()=>setModalPontoRapido(false)}
