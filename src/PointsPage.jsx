@@ -531,14 +531,18 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
       .filter(l => l.descricao || l.valorNumero>0 || l.observacao);
     const erroLinha = validas.find(l => !l.descricao || l.valorNumero<=0);
     if (erroLinha) { setErro("Preencha descrição e valor somente nas linhas que deseja salvar. Linhas vazias podem ficar em branco."); return; }
-    await onSalvar(ponto, competencia, validas.map(l => ({
-      ...l,
-      tipo:"fixa",
-      pontoId:ponto.id,
-      competencia:`${competencia}-01`,
-      valorPrevisto:l.valorNumero,
-      valorReal:l.valorNumero,
-    })));
+    try {
+      await onSalvar(ponto, competencia, validas.map(l => ({
+        ...l,
+        tipo:"fixa",
+        pontoId:ponto.id,
+        competencia:`${competencia}-01`,
+        valorPrevisto:l.valorNumero,
+        valorReal:l.valorNumero,
+      })));
+    } catch (e) {
+      setErro(e?.message || "Não foi possível salvar as despesas. Tente novamente.");
+    }
   }
 
   return (
@@ -834,7 +838,10 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       const pontosAtualizados = pontos.map(p=>p.id===ponto.id?pontoAtualizado:p);
       setPontos(pontosAtualizados); onPontosChange?.(pontosAtualizados);
       setPontoDespesas(null);
-    }catch(e){console.error("Erro ao salvar despesas do ponto:",e);}
+    }catch(e){
+      console.error("Erro ao salvar despesas do ponto:",e);
+      throw e;
+    }
   }
 
   async function removerDespesaPonto(id) {
