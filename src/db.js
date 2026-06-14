@@ -43,10 +43,16 @@ export async function salvarPonto(ponto) {
   const row = desmapPonto(ponto);
   if (ponto.id) {
     const { error } = await supabase.from('pontos').update(row).eq('id', ponto.id);
-    if (error) console.error('Erro ao atualizar ponto:', error);
+    if (error) {
+      console.error('Erro ao atualizar ponto:', error);
+      throw error;
+    }
   } else {
     const { data, error } = await supabase.from('pontos').insert([row]).select().single();
-    if (error) { console.error('Erro ao inserir ponto:', error); return null; }
+    if (error) {
+      console.error('Erro ao inserir ponto:', error);
+      throw error;
+    }
     return data.id;
   }
 }

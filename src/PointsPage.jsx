@@ -228,7 +228,7 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
       : [...form.modalidades, m]});
   }
 
-  function salvar() {
+  async function salvar() {
     const e = validarPonto(form);
     if (e) { setErro(e); return; }
     const nome=form.nomeFantasia.trim().toLowerCase();
@@ -236,7 +236,17 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
       setErro("Já existe um ponto com este nome. Use um nome diferente para não confundir a localização dos equipamentos.");
       return;
     }
-    onSalvar({...form, possuiDespesa: "nao", valorDespesa: 0}, equipamentosSelecionados);
+    setErro("");
+    try {
+      await onSalvar({...form, possuiDespesa: "nao", valorDespesa: 0}, equipamentosSelecionados);
+    } catch (err) {
+      const msg = String(err?.message || "").toLowerCase();
+      if (msg.includes("duplicate") || msg.includes("unique") || msg.includes("pontos_nome_fantasia")) {
+        setErro("Já existe um ponto com este nome em outra rota. Use um nome diferente para evitar troca de rota ou localização errada.");
+        return;
+      }
+      setErro("Não foi possível salvar o ponto. Verifique os dados e tente novamente.");
+    }
   }
 
   return (
@@ -797,7 +807,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       await adicionarHistoricoPonto(h);
       setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
       setModalForm(false);setPontoEdit(null);
-    }catch(e){console.error("Erro ao salvar ponto:",e);}
+    }catch(e){console.error("Erro ao salvar ponto:",e); throw e;}
   }
 
   async function excluirHandler(id){

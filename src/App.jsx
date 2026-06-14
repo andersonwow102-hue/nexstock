@@ -2247,7 +2247,18 @@ function Sistema({onLogout}){
       setErroForm("Selecione uma rota liberada para seu acesso.");
       return;
     }
-    const novoId=await salvarPonto(ponto);
+    let novoId;
+    try{
+      novoId=await salvarPonto(ponto);
+    }catch(err){
+      const msg=String(err?.message||"").toLowerCase();
+      if(msg.includes("duplicate")||msg.includes("unique")||msg.includes("pontos_nome_fantasia")){
+        setErroForm("Já existe um ponto com este nome em outra rota. Escolha um nome diferente.");
+        return;
+      }
+      setErroForm("Não foi possível cadastrar o ponto. Tente novamente.");
+      return;
+    }
     if(!novoId){setErroForm("Não foi possível cadastrar o ponto. Tente novamente.");return;}
     const novoPonto={...ponto,id:novoId};
     setPontos(prev=>[...prev,novoPonto]);
