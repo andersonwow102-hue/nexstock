@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   GERENTES, GERENTE_CORES, MODALIDADES, ROTAS, ROTAS_POR_GERENTE,
   formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto,
-  gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil,
+  gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotasPermitidasDoPerfil,
 } from "./pointsData.js";
 import {
   carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
@@ -202,16 +202,21 @@ function mascaraMoeda(v) {
 }
 
 // ─── Modal Formulário ─────────────────────────────────────────────────────────
-export function PointFormModal({ ponto, pontos=[], equipamentos=[], onSalvar, onFechar, mostrarEquipamentos=true }) {
+export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual, onSalvar, onFechar, mostrarEquipamentos=true }) {
+  const gerenteDoPerfil = perfilAtual?.perfil==="gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
+  const rotasDoPerfil = gerenteDoPerfil ? rotasPermitidasDoPerfil(perfilAtual) : [];
+  const primeiraRotaPermitida = rotasDoPerfil[0] || "";
   const [form, setForm] = useState(ponto ? {...ponto,
     gerente: rotaCanonica(ponto.gerente),
     valorDespesa: ponto.valorDespesa ? mascaraMoeda(String(Math.round(ponto.valorDespesa*100))) : ""
-  } : {...pontoFormVazio});
-  const [gerenteSelecionado, setGerenteSelecionado] = useState(() => gerenteDaRota(ponto?.gerente) || "");
+  } : {...pontoFormVazio, gerente: primeiraRotaPermitida});
+  const [gerenteSelecionado, setGerenteSelecionado] = useState(() => gerenteDaRota(ponto?.gerente) || gerenteDoPerfil || "");
   const [equipamentosSelecionados, setEquipamentosSelecionados] = useState(
     equipamentos.filter(i=>ponto&&i.localizacao===ponto.nomeFantasia).map(i=>i.id)
   );
   const [erro, setErro] = useState("");
+  const gerentesFormulario = gerenteDoPerfil ? [gerenteDoPerfil] : GERENTES;
+  const rotasFormulario = gerenteDoPerfil ? rotasDoPerfil : (ROTAS_POR_GERENTE[gerenteSelecionado] || []);
   const equipamentosDisponiveis = equipamentos.filter(item=>
     !item.localizacao || (ponto && item.localizacao===ponto.nomeFantasia)
   );
@@ -234,7 +239,7 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], onSalvar, on
   }
 
   return (
-    <div className="modal-overlay" onClick={onFechar}>
+    <div className="modal-overlay">
       <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <h3>{ponto?"Editar Ponto":"Novo Ponto"}</h3>
@@ -252,18 +257,18 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], onSalvar, on
             <div className="campo"><label>Telefone *</label>
               <input type="text" placeholder="(00) 00000-0000" value={form.telefone} onChange={e=>setForm({...form,telefone:mascaraTelefone(e.target.value)})}/></div>
             <div className="campo"><label>Gerente *</label>
-              <select value={gerenteSelecionado} onChange={e=>{setGerenteSelecionado(e.target.value);setForm({...form,gerente:""});}}>
+              <select value={gerenteSelecionado} disabled={Boolean(gerenteDoPerfil)} onChange={e=>{setGerenteSelecionado(e.target.value);setForm({...form,gerente:""});}}>
                 <option value="">Selecione o gerente...</option>
-                {GERENTES.map(g=><option key={g} value={g}>{g}</option>)}
+                {gerentesFormulario.map(g=><option key={g} value={g}>{g}</option>)}
               </select></div>
           </div>
           <div className="campo">
             <label>Rota *</label>
             <select value={form.gerente} disabled={!gerenteSelecionado} onChange={e=>setForm({...form,gerente:e.target.value})}>
               <option value="">{gerenteSelecionado ? "Selecione a rota..." : "Selecione um gerente primeiro..."}</option>
-              {(ROTAS_POR_GERENTE[gerenteSelecionado] || []).map(rota=><option key={rota} value={rota}>{rota}</option>)}
+              {rotasFormulario.map(rota=><option key={rota} value={rota}>{rota}</option>)}
             </select>
-            {gerenteSelecionado && (ROTAS_POR_GERENTE[gerenteSelecionado] || []).length===0&&(
+            {gerenteSelecionado && rotasFormulario.length===0&&(
               <span className="campo-hint">Este gerente ainda não possui rota cadastrada.</span>
             )}
           </div>
@@ -766,10 +771,17 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     pontosVisiveis.some(p=>Number(p.id)===Number(d.pontoId)) &&
     (!gerenteAtual || String(d.competencia || "").slice(0,7) === competenciaAtual())
   );
+  const gerentePodeCriarPonto = perfilAtual?.perfil === "gerente";
+  const podeCriarPonto = podeEditar || gerentePodeCriarPonto;
   const podeEditarDespesas = podeEditar || perfilAtual?.perfil === "gerente";
 
   async function salvarPontoHandler(form, equipamentosSelecionados){
-    if(!podeEditar)return;
+    if(pontoEdit && !podeEditar)return;
+    if(!pontoEdit && !podeCriarPonto)return;
+    if(gerentePodeCriarPonto && !rotaPermitidaAoPerfil(form.gerente, perfilAtual)) {
+      window.alert("Selecione uma rota liberada para seu acesso.");
+      return;
+    }
     try{
       if(pontoEdit){
         await salvarPonto({...form,id:pontoEdit.id});
@@ -870,7 +882,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
           onChange={e=>{setBuscaPontos(e.target.value);if(e.target.value.trim())setAbaInterna("pontos");}}
         />
         <p>Consulte estabelecimentos, despesas e equipamentos vinculados.</p>
-        {podeEditar&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
+        {podeCriarPonto&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
       </div>
 
       <div className="points-abas">
@@ -890,13 +902,13 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       )}
 
       {!loading&&(<>
-        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} podeEditar={podeEditar} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
+        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} podeEditar={podeCriarPonto} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
         {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditar} podeEditarDespesas={podeEditarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas}
             onExportExcel={()=>exportarPontosExcel(pontosVisiveis)} onExportPDF={()=>exportarPontosPDF(pontosVisiveis)}/>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={perfilAtual?.perfil==="administrador"}/>}
       </>)}
 
-      {modalForm&&podeEditar&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
+      {modalForm&&(podeEditar||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
       {verDespesas&&<PointExpensesModal pontos={pontosVisiveis} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
 
