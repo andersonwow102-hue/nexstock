@@ -69,8 +69,7 @@ async function exportarPontosExcel(pontos){
     "Telefone":       p.telefone,
     "Rota":           rotaCanonica(p.gerente),
     "Modalidades":    p.modalidades.join(", "),
-    "Possui Despesa": p.possuiDespesa==="sim"?"Sim":"Não",
-    "Valor Despesa":  p.possuiDespesa==="sim"?p.valorDespesa:0,
+    "Valor Despesa":  p.possuiDespesa==="sim"?p.valorDespesa:"",
     "Observação":     p.observacao||"—",
   }));
   const ws = XLSX.utils.json_to_sheet(dados);
@@ -97,15 +96,14 @@ async function exportarPontosPDF(pontos){
       {label:"Sem despesa",valor:pontos.filter(p=>p.possuiDespesa!=="sim").length,destaque:[5,150,82]},
       {label:"Despesa total",valor:formatarReais(totalDespesas),destaque:[201,125,0]},
     ],
-    colunas:["Nome Fantasia","Dono","Telefone","Rota","Modalidades","Despesa","Valor"],
+    colunas:["Nome Fantasia","Dono","Telefone","Rota","Modalidades","Valor"],
     linhas:ordenados.map(p=>[
       p.nomeFantasia,
       p.nomeDono,
       p.telefone,
       rotaCanonica(p.gerente),
       p.modalidades.join(", "),
-      p.possuiDespesa==="sim"?"Sim":"Não",
-      p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"-",
+      p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"",
     ]),
   });
 }
@@ -424,10 +422,10 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
       </div>
       <div className="tabela-wrapper pontos-tabela">
         <table className="tabela">
-          <thead><tr><th>Nome Fantasia</th><th>Equipamentos</th><th>Dono</th><th>Telefone</th><th>Rota</th><th>Modalidades</th><th>Despesa</th><th>Valor</th><th>⚙️</th></tr></thead>
+          <thead><tr><th>Nome Fantasia</th><th>Equipamentos</th><th>Dono</th><th>Telefone</th><th>Rota</th><th>Modalidades</th><th>Valor da despesa</th><th>⚙️</th></tr></thead>
           <tbody>
             {filtrados.length===0
-              ?<tr><td colSpan={9} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
+              ?<tr><td colSpan={8} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
               :visiveis.map(p=>{
                 const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
                 return <tr key={p.id}>
@@ -441,8 +439,7 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
                   <td className="td-obs">{p.telefone}</td>
                   <td><BadgeGerente gerente={p.gerente}/></td>
                   <td><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></td>
-                  <td><span className={`badge-status ${p.possuiDespesa==="sim"?"status-defeito":"status-disponivel"}`}>{p.possuiDespesa==="sim"?"Sim":"Não"}</span></td>
-                  <td className={p.possuiDespesa==="sim"?"qtd-baixa":"td-minimo"}>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—"}</td>
+                  <td className={p.possuiDespesa==="sim"?"qtd-baixa":"td-minimo"}>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):""}</td>
                   <td className="td-acoes">
                     {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)} title="Solicitar bloqueio ou desbloqueio">🚨</button>}
                     {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)} title="Despesas mensais">💰</button>}
@@ -462,7 +459,7 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
             <article className="ponto-card" key={p.id}>
               <div className="ponto-card-topo">
                 <div><h3>🏪 {p.nomeFantasia}</h3><p>{p.nomeDono} · {p.telefone}</p></div>
-                <span className={`badge-status ${p.possuiDespesa==="sim"?"status-defeito":"status-disponivel"}`}>{p.possuiDespesa==="sim"?"Com despesa":"Sem despesa"}</span>
+                {p.possuiDespesa==="sim"&&<span className="badge-status status-defeito">Despesa lançada</span>}
               </div>
               <div className="ponto-card-linha"><span>Rota</span><BadgeGerente gerente={p.gerente}/></div>
               <div className="ponto-card-linha"><span>Modalidades</span><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></div>

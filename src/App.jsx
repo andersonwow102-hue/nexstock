@@ -247,8 +247,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
   const linhasPontos = lista => ordenarPontos(lista).map(p=>[
     p.nomeFantasia, p.nomeDono, rotaCanonica(p.gerente),
     itens.filter(i=>i.localizacao===p.nomeFantasia).length,
-    p.possuiDespesa==="sim"?"Sim":"Não",
-    p.possuiDespesa==="sim"?formatarMoedaPDF(p.valorDespesa):"-",
+    p.possuiDespesa==="sim"?formatarMoedaPDF(p.valorDespesa):"",
   ]);
 
   async function gerarCompleto() {
@@ -273,7 +272,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
         },
         {
           titulo:"Pontos",
-          colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Despesa","Valor"],
+          colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Valor da despesa"],
           linhas:linhasPontos(pontos),
         },
       ],
@@ -292,7 +291,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
         {label:"Sem despesa",valor:pontos.filter(p=>p.possuiDespesa!=="sim").length,destaque:[5,150,82]},
         {label:"Despesa total",valor:formatarMoedaPDF(despesas(pontos)),destaque:[201,125,0]},
       ],
-      colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Despesa","Valor"],
+      colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Valor da despesa"],
       linhas:linhasPontos(pontos),
     });
   }
@@ -330,7 +329,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
       secoes:[
         {
           titulo:`Pontos de ${gerente}`,
-          colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Despesa","Valor"],
+          colunas:["Nome Fantasia","Dono","Gerente","Equipamentos","Valor da despesa"],
           linhas:linhasPontos(pontosGerente),
         },
         {
@@ -2524,14 +2523,13 @@ function Sistema({onLogout}){
         },
         {
           titulo:"Pontos",
-          colunas:["Ponto","Dono","Telefone","Gerente","Despesa","Valor"],
+          colunas:["Ponto","Dono","Telefone","Gerente","Valor da despesa"],
           linhas:ordenarPontos(pontosOperacionais).map(p=>[
             p.nomeFantasia||"-",
             p.nomeDono||"-",
             p.telefone||"-",
             p.gerente||"-",
-            p.possuiDespesa==="sim"?"Sim":"Não",
-            formatarMoedaPDF(p.valorDespesa||0),
+            p.possuiDespesa==="sim"?formatarMoedaPDF(p.valorDespesa||0):"",
           ]),
         },
         {
