@@ -611,6 +611,247 @@ function corFechamento(gerente) {
   return GERENTE_CORES[chave] || GERENTE_CORES[FECHAMENTO_CORES[0]] || { bg:"rgba(37,99,235,0.12)", color:"#2563eb", border:"rgba(37,99,235,0.28)" };
 }
 
+function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], despesas = [], pixAvisoAtual = null, onCopiarPix }) {
+  const gerenteNome = gerenteDaRota(gerenteAtual) || gerenteAtual;
+  const rotasGerente = ROTAS_POR_GERENTE[gerenteNome] || (rotaCanonica(gerenteAtual) ? [rotaCanonica(gerenteAtual)] : []);
+  const [competencia,setCompetencia]=useState(hoje().slice(0,7));
+  const [dia,setDia]=useState("");
+  const [rotaSelecionada,setRotaSelecionada]=useState(rotasGerente[0]||"");
+  const [fechamentosRotas,setFechamentosRotas]=useState([]);
+  const [erro,setErro]=useState("");
+
+  useEffect(()=>{
+    if(rotasGerente.length && !rotasGerente.includes(rotaSelecionada)){
+      setRotaSelecionada(rotasGerente[0]);
+    }
+  },[gerenteNome, rotasGerente.join("|")]);
+
+  useEffect(()=>{
+    let ativo=true;
+    carregarFechamentosRotas()
+      .then(lista=>{ if(ativo) setFechamentosRotas(lista); })
+      .catch(err=>{ if(ativo) setErro(err.message||"Não foi possível carregar a prestação."); });
+    return ()=>{ativo=false;};
+  },[]);
+
+  const rotaAtiva = rotaSelecionada || rotasGerente[0] || "";
+  const pontosRota = pontos.filter(p => !rotaAtiva || rotaCanonica(p.gerente) === rotaAtiva);
+  const idsPontosRota = new Set(pontosRota.map(p=>Number(p.id)));
+  const nomesPontosRota = new Set(pontosRota.map(p=>p.nomeFantasia));
+  const equipamentosRota = itens.filter(i =>
+    nomesPontosRota.has(i.localizacao) ||
+    normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerenteNome) ||
+    (rotaAtiva && normalizarTexto(i.gerenteResponsavel) === normalizarTexto(rotaAtiva))
+  );
+  const despesasRota = despesas
+    .filter(d => {
+      const mes = mesDespesaPrestacao(d.competencia);
+      const data = diaDespesaPrestacao(d.criadoEm);
+      return idsPontosRota.has(Number(d.pontoId)) &&
+        (!competencia || mes === competencia) &&
+        (!dia || data === dia);
+    })
+    .map(d => ({ ...d, ponto: pontosRota.find(p => Number(p.id) === Number(d.pontoId)) }))
+    .sort((a,b)=>
+      String(a.ponto?.nomeFantasia||"").localeCompare(String(b.ponto?.nomeFantasia||""), "pt-BR") ||
+      String(a.descricao||"").localeCompare(String(b.descricao||""), "pt-BR")
+    );
+
+  const calculosModalidades = MODALIDADES_FECHAMENTO.map(modalidade => {
+    const salvo = fechamentosRotas.find(f =>
+      normalizarTexto(f.gerente) === normalizarTexto(gerenteNome) &&
+      (!rotaAtiva || f.rota === rotaAtiva) &&
+      f.competencia === competencia &&
+      (f.dia || "") === (dia || "") &&
+      f.modalidade === modalidade.id
+    );
+    const entrada = Number(salvo?.entrada || 0);
+    const comissao = Number(salvo?.comissao || 0);
+    const saida = Number(salvo?.saida || 0);
+    const saldoBruto = Number(salvo?.saldoBruto ?? salvo?.saldo_bruto ?? entrada - comissao - saida);
+    return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
+  });
+  const saldoBruto = calculosModalidades.reduce((s,m)=>s+m.saldoBruto,0);
+  const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+  const saldoFinal = saldoBruto - totalDespesas;
+  const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
+  const bancoPix = perfilBancoPix(pixAvisoAtual?.pixBanco);
+
+  async function baixarPDFGerente() {
+    const linhasResumo = [[
+      rotaAtiva || "Todas",
+      formatarMoedaPDF(saldoBruto),
+      formatarMoedaPDF(totalDespesas),
+      formatarMoedaPDF(saldoFinal),
+      formatarMoedaPDF(comissaoGerente),
+    ]];
+    const linhasModalidades = calculosModalidades
+      .filter(m => m.entrada || m.comissaoCalculada || m.saida || m.saldoBruto)
+      .map(m => [
+        m.nome,
+        formatarMoedaPDF(m.entrada),
+        formatarMoedaPDF(m.comissaoCalculada),
+        formatarMoedaPDF(m.saida),
+        formatarMoedaPDF(m.saldoBruto),
+      ]);
+    const linhasDespesas = despesasRota.map(d => [
+      d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`,
+      d.descricao || "Despesa sem descrição",
+      formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
+      diaDespesaPrestacao(d.criadoEm) ? formatarDiaPrestacao(diaDespesaPrestacao(d.criadoEm)) : "-",
+      formatarMoedaPDF(valorDespesaPrestacao(d)),
+      d.observacao || "-",
+    ]);
+
+    await gerarPDF({
+      titulo: `Prestação de Conta - ${gerenteNome}`,
+      descricao: `${rotaAtiva ? `Rota ${rotaAtiva}` : "Todas as rotas"} | ${periodoPrestacaoLabel(competencia,dia)}`,
+      nomeArquivo: `stock-on_prestacao-gerente_${slugArquivoBackup(gerenteNome)}_${slugArquivoBackup(rotaAtiva||"todas")}_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+      total: despesasRota.length,
+      resumo: [
+        { label: "Gerente", valor: gerenteNome },
+        { label: "Rota", valor: rotaAtiva || "Todas" },
+        { label: "Saldo bruto", valor: formatarMoedaPDF(saldoBruto), destaque: [37,99,235] },
+        { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
+        { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
+        { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
+      ],
+      secoes: [
+        {
+          titulo: "Resumo financeiro",
+          colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente"],
+          linhas: linhasResumo,
+        },
+        {
+          titulo: "Modalidades",
+          colunas: ["Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
+          linhas: linhasModalidades.length ? linhasModalidades : [["Sem lançamento","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
+        },
+        {
+          titulo: "Despesas lançadas",
+          colunas: ["Ponto","Descrição","Mês","Data","Valor","Observação"],
+          linhas: linhasDespesas.length ? linhasDespesas : [["-","Nenhuma despesa lançada neste recorte","-","-","R$ 0,00","-"]],
+        },
+      ],
+    });
+  }
+
+  return (
+    <section className="secao fechamento-page prestacao-gerente-page">
+      <div className="fechamento-hero prestacao-gerente-hero">
+        <div>
+          <span className="dash-kicker">Conferência do gerente</span>
+          <h2>Prestação de conta</h2>
+          <p>Confira o fechamento enviado pela administração e baixe o PDF para validar sua rota.</p>
+        </div>
+        <span className="badge-cat">Somente sua carteira</span>
+      </div>
+
+      <div className="fechamento-filtros">
+        <label>Mês<input type="month" value={competencia} onChange={e=>{setCompetencia(e.target.value);setDia("");}}/></label>
+        <label>Dia<input type="date" value={dia} onChange={e=>{setDia(e.target.value);if(e.target.value)setCompetencia(e.target.value.slice(0,7));}}/></label>
+        <label>Rota
+          <select value={rotaAtiva} onChange={e=>setRotaSelecionada(e.target.value)}>
+            {rotasGerente.map(rota=><option key={rota} value={rota}>{rota}</option>)}
+          </select>
+        </label>
+        <button className="btn-secundario" type="button" onClick={()=>{setCompetencia(hoje().slice(0,7));setDia("");}}>Mês atual</button>
+      </div>
+
+      {pixAvisoAtual ? (
+        <section className="pix-recebido-wrap prestacao-pix-box">
+          <article className={`pix-credit-card pix-recebido-credit ${bancoPix.classe}`}>
+            <div className="pix-card-top">
+              <span className="pix-chip"/>
+              <span className="pix-contactless">≋</span>
+              <strong>{bancoPix.nome}</strong>
+            </div>
+            <div className="pix-card-brand">{bancoPix.icone}</div>
+            <div className="pix-card-info">
+              <strong>{pixAvisoAtual.pixNome}</strong>
+              <span>{pixAvisoAtual.pixBanco}</span>
+              <small>{pixAvisoAtual.pixTipo}: {pixAvisoAtual.pixChave}</small>
+            </div>
+          </article>
+          <div className="pix-recebido-info">
+            <span className="dash-kicker">PIX da administração</span>
+            <h2>Chave PIX para este fechamento</h2>
+            <p>{pixAvisoAtual.mensagem || "A administração enviou uma chave PIX para você usar nesta prestação de conta."}</p>
+            {pixAvisoAtual.rota&&<span className="badge-cat">Rota {pixAvisoAtual.rota}</span>}
+            <div className="pix-prazo-card">
+              <span>Status</span>
+              <strong>{formatarPrazoPix(pixAvisoAtual.enviadoEm)}</strong>
+              <small>Esta chave fica disponível nesta área para consulta do gerente.</small>
+            </div>
+            <button className="btn-pix-premium" type="button" onClick={()=>onCopiarPix?.(pixAvisoAtual.pixChave)}>
+              <span>Copiar chave PIX</span>
+              <small>Para prestação de contas</small>
+            </button>
+          </div>
+        </section>
+      ) : (
+        <div className="info-box">Nenhuma chave PIX enviada pela administração para sua prestação de conta.</div>
+      )}
+
+      {erro&&<div className="erro-box">{erro}</div>}
+      <div className="fechamento-detalhe">
+        <div className="fechamento-detalhe-head">
+          <div>
+            <span className="dash-kicker">Resumo recebido</span>
+            <h3>{gerenteNome}{rotaAtiva?` · ${rotaAtiva}`:""}</h3>
+            <p>{periodoPrestacaoLabel(competencia,dia)} · {pontosRota.length} pontos · {equipamentosRota.length} equipamentos</p>
+          </div>
+          <button className="fechamento-save-btn" type="button" onClick={baixarPDFGerente}>📄 Baixar PDF</button>
+        </div>
+        <div className="fechamento-kpis">
+          <article className="kpi-bruto"><i>📈</i><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBruto)}</strong><small>Entrada menos comissão e saída</small></article>
+          <article className="kpi-despesas"><i>🧾</i><span>Despesas do sistema</span><strong>{formatarMoedaPDF(totalDespesas)}</strong><small>Lançadas nos pontos da rota</small></article>
+          <article className="kpi-final"><i>💎</i><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinal)}</strong><small>Saldo bruto menos despesas</small></article>
+          <article className="kpi-comissao"><i>🏆</i><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerente)}</strong><small>Calculado sobre saldo final positivo</small></article>
+        </div>
+
+        <div className="fechamento-operacao-box prestacao-gerente-resumo">
+          <div className="fechamento-operacao-head">
+            <div>
+              <span className="dash-kicker">Modalidades</span>
+              <h4>Valores do fechamento enviado</h4>
+            </div>
+            <small>{calculosModalidades.filter(m=>m.entrada||m.comissaoCalculada||m.saida||m.saldoBruto).length} modalidades com lançamento</small>
+          </div>
+          <div className="fechamento-modalidades-grid">
+            {calculosModalidades.map(m=>(
+              <article className="fechamento-modalidade-card" key={m.id}>
+                <div className="fechamento-modalidade-topo">
+                  <div className="fechamento-modalidade-logo">{m.logo&&<img src={m.logo} alt={m.nome}/>}</div>
+                  <div><strong>{m.nome}</strong><span>{m.descricao}</span></div>
+                  <b>{formatarMoedaPDF(m.saldoBruto)}</b>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="fechamento-despesas-box">
+          <div className="fechamento-despesas-head">
+            <strong>Despesas consideradas no PDF</strong>
+            <span>{despesasRota.length} lançamentos</span>
+          </div>
+          {despesasRota.length===0 ? (
+            <p className="dash-vazio">Nenhuma despesa lançada neste recorte.</p>
+          ) : despesasRota.map(d=>(
+            <article className="fechamento-despesa-card" key={d.id}>
+              <strong>{d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`}</strong>
+              <span>{d.descricao || "Despesa sem descrição"}</span>
+              <small>{formatarMesPrestacao(mesDespesaPrestacao(d.competencia))}</small>
+              <b>{formatarMoedaPDF(valorDespesaPrestacao(d))}</b>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = [], onPixEnviosChange }) {
   const [cartaoPix,setCartaoPix]=useState(null);
   const [pixEnvio,setPixEnvio]=useState({gerente:GERENTES[0]||"",rota:"",mensagem:""});
@@ -2246,10 +2487,12 @@ function Sistema({onLogout}){
     ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId))
     :despesasBackup;
   const gerentePixNome=gerenteDaRota(gerenteAtual)||gerenteAtual;
-  const pixAvisoAtual=gerenteAtual?pixEnvios.find(aviso=>
-    normalizarTexto(aviso.gerente)===normalizarTexto(gerentePixNome)&&
-    pixDentroDoPrazo(aviso)
-  ):null;
+  const pixAvisoAtual=gerenteAtual?[...pixEnvios]
+    .filter(aviso=>
+      normalizarTexto(aviso.gerente)===normalizarTexto(gerentePixNome)&&
+      pixDentroDoPrazo(aviso)
+    )
+    .sort((a,b)=>new Date(b.enviadoEm||0)-new Date(a.enviadoEm||0))[0]||null:null;
 
   async function copiarPixAviso(chave){
     try{
@@ -2637,6 +2880,7 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span className="nav-icon">📦</span> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span className="nav-icon">📍</span> Pontos</button>
           <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span className="nav-icon">🔎</span> Busca Geral</button>
+          {gerenteAtual&&<button className={`nav-item ${aba==="prestacao-gerente"?"active":""}`} onClick={()=>navegar("prestacao-gerente")}><span className="nav-icon">📄</span> Prestação de Conta</button>}
           {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><span className="nav-icon">✅</span> Fechamento</button>}
           {podeEditar&&<button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">🔑</span> Central de Acessos</button>}
           {administrador&&<button className={`nav-item ${aba==="logins"?"active":""}`} onClick={()=>navegar("logins")}><span className="nav-icon">🔐</span> Gerenciar Logins</button>}
@@ -2646,24 +2890,6 @@ function Sistema({onLogout}){
           </button>
         </nav>
         <div className="sidebar-footer">
-          {pixAvisoAtual&&(
-            <section className={`sidebar-pix-card ${perfilBancoPix(pixAvisoAtual.pixBanco).classe}`}>
-              <div className="sidebar-pix-topo">
-                <span>PIX recebido</span>
-                <strong>{formatarPrazoPix(pixAvisoAtual.enviadoEm)}</strong>
-              </div>
-              <div className="sidebar-pix-banco">
-                <span>{perfilBancoPix(pixAvisoAtual.pixBanco).icone}</span>
-                <div>
-                  <strong>{pixAvisoAtual.pixNome}</strong>
-                  <small>{perfilBancoPix(pixAvisoAtual.pixBanco).nome}</small>
-                </div>
-              </div>
-              {pixAvisoAtual.rota&&<em>Rota {pixAvisoAtual.rota}</em>}
-              <p>{pixAvisoAtual.pixTipo}: {pixAvisoAtual.pixChave}</p>
-              <button type="button" onClick={()=>copiarPixAviso(pixAvisoAtual.pixChave)}>Copiar chave PIX</button>
-            </section>
-          )}
           {alertas.length>0&&(
             <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
               ⚠️ Terminais em alerta
@@ -3082,6 +3308,23 @@ function Sistema({onLogout}){
             </div>
           </header>
           <BuscaGlobalPage consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
+        </>)}
+
+        {aba==="prestacao-gerente"&&gerenteAtual&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Prestação de Conta</h1><p className="page-sub">PDF, PIX e conferência enviados pela administração</p></div>
+            </div>
+          </header>
+          <PrestacaoGerentePage
+            gerenteAtual={gerenteAtual}
+            pontos={pontosOperacionais}
+            itens={itensOperacionais}
+            despesas={despesasOperacionais}
+            pixAvisoAtual={pixAvisoAtual}
+            onCopiarPix={copiarPixAviso}
+          />
         </>)}
 
         {aba==="fechamento"&&administrador&&(<>
