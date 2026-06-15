@@ -21,9 +21,9 @@ import {
   carregarFechamentosRotas, salvarFechamentoRota,
 } from "./db.js";
 
-const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Totens","Noteiro","PDV Touchscreen"];
+const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Máquina de Brindes","Totens","Noteiro","PDV Touchscreen"];
 const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
-const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌","Totens":"🗼","Noteiro":"💵","PDV Touchscreen":"🧾"};
+const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌","Máquina de Brindes":"🎁","Totens":"🗼","Noteiro":"💵","PDV Touchscreen":"🧾"};
 const MINIMO_CATEGORIA = 5;
 const CATEGORIA_COM_ALERTA = "Terminais";
 const STATUS_CFG = {
