@@ -594,11 +594,16 @@ function numeroFechamento(valor) {
     normalizado = texto.replace(/\./g, "").replace(",", ".");
   } else if (ultimoPonto >= 0) {
     const decimais = texto.length - ultimoPonto - 1;
-    normalizado = decimais === 2 ? texto : texto.replace(/\./g, "");
+    normalizado = decimais > 0 && decimais <= 2 ? texto : texto.replace(/\./g, "");
   }
 
   const numero = Number(normalizado);
   return Number.isFinite(numero) ? numero : 0;
+}
+
+function textoFechamentoSalvo(valor) {
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero.toFixed(2) : "";
 }
 
 function corFechamento(gerente) {
@@ -722,9 +727,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       )
       .forEach(f => {
         vazio[f.modalidade] = {
-          entrada: String(f.entrada || ""),
-          comissao: String(f.comissao || ""),
-          saida: String(f.saida || ""),
+          entrada: textoFechamentoSalvo(f.entrada),
+          comissao: textoFechamentoSalvo(f.comissao),
+          saida: textoFechamentoSalvo(f.saida),
         };
       });
     setFechamentoValores(vazio);
