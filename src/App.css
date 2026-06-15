@@ -2780,6 +2780,26 @@ body {
   font-size: 12.5px;
   line-height: 1.45;
 }
+.fechamento-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fechamento-pdf-btn {
+  min-width: 142px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.92));
+  color: #1d355c;
+  border-color: rgba(147,169,206,0.55);
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(37,99,235,0.08);
+}
+.fechamento-pdf-btn:hover {
+  color: #0f2d5c;
+  border-color: rgba(37,99,235,0.38);
+  transform: translateY(-1px);
+}
 .fechamento-save-btn {
   min-width: 190px;
   border: 0;

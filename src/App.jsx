@@ -794,6 +794,136 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     }
   }
 
+  function despesasDaRota(rota) {
+    const pontosRota = pontos.filter(p => rotaCanonica(p.gerente) === rota);
+    const idsPontos = new Set(pontosRota.map(p => Number(p.id)));
+    return despesasFechamento
+      .filter(d => idsPontos.has(Number(d.pontoId)))
+      .map(d => ({ ...d, ponto: pontosRota.find(p => Number(p.id) === Number(d.pontoId)), rota }));
+  }
+
+  function calculosDaRota(rota) {
+    if (gerenteSelecionado && rota === rotaDetalheAtiva) return calculosModalidades;
+    const competencia = competenciaFechamento || hoje().slice(0,7);
+    const dia = diaFechamento || "";
+    return MODALIDADES_FECHAMENTO.map(modalidade => {
+      const salvo = fechamentosRotas.find(f =>
+        f.gerente === gerenteSelecionado &&
+        f.rota === rota &&
+        f.competencia === competencia &&
+        (f.dia || "") === dia &&
+        f.modalidade === modalidade.id
+      );
+      const entrada = Number(salvo?.entrada || 0);
+      const comissao = Number(salvo?.comissao || 0);
+      const saida = Number(salvo?.saida || 0);
+      const saldoBruto = Number(salvo?.saldoBruto ?? salvo?.saldo_bruto ?? entrada - comissao - saida);
+      return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
+    });
+  }
+
+  async function baixarFechamentoPDF(tipo = "rota") {
+    if (!gerenteSelecionado) {
+      window.alert("Selecione um gerente/rota para gerar o PDF.");
+      return;
+    }
+    const rotasPDF = tipo === "gerente"
+      ? rotasDetalhe.filter(Boolean)
+      : [rotaDetalheAtiva].filter(Boolean);
+    if (rotasPDF.length === 0) {
+      window.alert("Selecione uma rota para gerar o PDF.");
+      return;
+    }
+
+    const linhasResumo = [];
+    const linhasModalidades = [];
+    const linhasDespesas = [];
+    const totais = { bruto: 0, despesas: 0, final: 0, comissaoGerente: 0 };
+
+    rotasPDF.forEach(rota => {
+      const modalidades = calculosDaRota(rota);
+      const despesasRota = despesasDaRota(rota);
+      const totalBruto = modalidades.reduce((s,m)=>s+m.saldoBruto,0);
+      const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+      const saldoFinal = totalBruto - totalDespesas;
+      const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
+
+      totais.bruto += totalBruto;
+      totais.despesas += totalDespesas;
+      totais.final += saldoFinal;
+      totais.comissaoGerente += comissaoGerente;
+
+      linhasResumo.push([
+        rota,
+        formatarMoedaPDF(totalBruto),
+        formatarMoedaPDF(totalDespesas),
+        formatarMoedaPDF(saldoFinal),
+        formatarMoedaPDF(comissaoGerente),
+      ]);
+
+      modalidades
+        .filter(m => m.entrada || m.comissaoCalculada || m.saida || m.saldoBruto)
+        .forEach(m => linhasModalidades.push([
+          rota,
+          m.nome,
+          formatarMoedaPDF(m.entrada),
+          formatarMoedaPDF(m.comissaoCalculada),
+          formatarMoedaPDF(m.saida),
+          formatarMoedaPDF(m.saldoBruto),
+        ]));
+
+      despesasRota.forEach(d => linhasDespesas.push([
+        rota,
+        d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`,
+        d.descricao || "Despesa sem descrição",
+        formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
+        formatarMoedaPDF(valorDespesaPrestacao(d)),
+      ]));
+    });
+
+    linhasResumo.push([
+      "TOTAL GERAL",
+      formatarMoedaPDF(totais.bruto),
+      formatarMoedaPDF(totais.despesas),
+      formatarMoedaPDF(totais.final),
+      formatarMoedaPDF(totais.comissaoGerente),
+    ]);
+
+    await gerarPDF({
+      titulo: tipo === "gerente"
+        ? `Fechamento - ${gerenteSelecionado}`
+        : `Fechamento - ${gerenteSelecionado} · ${rotaDetalheAtiva}`,
+      descricao: `Prestação de contas para impressão | ${periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}`,
+      nomeArquivo: `stock-on_fechamento_${slugArquivoBackup(gerenteSelecionado)}_${tipo === "gerente" ? "geral" : slugArquivoBackup(rotaDetalheAtiva)}_${competenciaFechamento || "todos"}${diaFechamento?`_${diaFechamento}`:""}.pdf`,
+      total: linhasResumo.length - 1,
+      resumo: [
+        { label: "Gerente", valor: gerenteSelecionado },
+        { label: "Rotas", valor: rotasPDF.join(", ") },
+        { label: "Saldo bruto", valor: formatarMoedaPDF(totais.bruto), destaque: [37,99,235] },
+        { label: "Despesas", valor: formatarMoedaPDF(totais.despesas), destaque: [220,38,38] },
+        { label: "Saldo final", valor: formatarMoedaPDF(totais.final), destaque: [5,150,105] },
+        { label: "Comissão gerente", valor: formatarMoedaPDF(totais.comissaoGerente), destaque: [201,125,0] },
+      ],
+      secoes: [
+        {
+          titulo: "Resumo financeiro por rota",
+          colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente"],
+          linhas: linhasResumo,
+        },
+        {
+          titulo: "Entradas, comissões e saídas por modalidade",
+          colunas: ["Rota","Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
+          linhas: linhasModalidades.length ? linhasModalidades : [["-","Sem lançamentos","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
+        },
+        {
+          titulo: "Despesas lançadas no sistema",
+          colunas: ["Rota","Ponto","Descrição","Mês","Valor"],
+          linhas: linhasDespesas.length ? linhasDespesas : [["-","-","Nenhuma despesa lançada neste recorte","-","R$ 0,00"]],
+        },
+      ],
+    });
+  }
+
   async function enviarAvisoPix(e){
     e.preventDefault();
     setPixErro("");
@@ -928,7 +1058,11 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">
               <p>O saldo final é o saldo bruto menos as despesas já lançadas no sistema. A comissão do gerente é 10% do saldo final.</p>
-              <button className="fechamento-save-btn" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
+              <div className="fechamento-acoes">
+                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota")}>📄 PDF da rota</button>
+                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("gerente")}>📚 PDF do gerente</button>
+                <button className="fechamento-save-btn" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
+              </div>
             </div>
           </div>
           <div className="fechamento-despesas-box">
