@@ -578,7 +578,27 @@ function criarFechamentoVazio() {
 
 function numeroFechamento(valor) {
   if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
-  return Number(String(valor || "").replace(/\./g, "").replace(",", ".")) || 0;
+  const texto = String(valor || "")
+    .trim()
+    .replace(/[^\d,.-]/g, "");
+  if (!texto) return 0;
+  const ultimoPonto = texto.lastIndexOf(".");
+  const ultimaVirgula = texto.lastIndexOf(",");
+  let normalizado = texto;
+
+  if (ultimoPonto >= 0 && ultimaVirgula >= 0) {
+    normalizado = ultimoPonto > ultimaVirgula
+      ? texto.replace(/,/g, "")
+      : texto.replace(/\./g, "").replace(",", ".");
+  } else if (ultimaVirgula >= 0) {
+    normalizado = texto.replace(/\./g, "").replace(",", ".");
+  } else if (ultimoPonto >= 0) {
+    const decimais = texto.length - ultimoPonto - 1;
+    normalizado = decimais === 2 ? texto : texto.replace(/\./g, "");
+  }
+
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : 0;
 }
 
 function corFechamento(gerente) {
