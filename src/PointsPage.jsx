@@ -40,8 +40,32 @@ const MODALIDADE_COR = {
   "Lotobanca":          "badge-mod-lotobanca",
 };
 
-function BadgeModalidade({ m }) {
-  return <span className={`badge-modalidade ${MODALIDADE_COR[m]||"badge-mod-viapix"}`}>{m}</span>;
+function timestampSolicitacao(s) {
+  const raw = s?.concluidoEm || s?.criadoEm || "";
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function modalidadesBloqueadasDoPonto(ponto, solicitacoes=[]) {
+  return (ponto?.modalidades || []).filter(modalidade=>{
+    const eventos = solicitacoes
+      .filter(s=>
+        s.status === "concluida" &&
+        Number(s.pontoId) === Number(ponto.id) &&
+        s.modalidade === modalidade &&
+        (s.acao === "bloquear" || s.acao === "desbloquear")
+      )
+      .sort((a,b)=>timestampSolicitacao(a)-timestampSolicitacao(b));
+    return eventos[eventos.length-1]?.acao === "bloquear";
+  });
+}
+
+function BadgeModalidade({ m, bloqueada=false }) {
+  return (
+    <span className={`badge-modalidade ${MODALIDADE_COR[m]||"badge-mod-viapix"} ${bloqueada?"badge-modalidade-bloqueada":""}`}>
+      {m}{bloqueada&&<em>Bloqueado</em>}
+    </span>
+  );
 }
 
 export function BadgeGerente({ gerente }) {
@@ -388,7 +412,7 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos, pode
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onExportExcel, onExportPDF, podeEditar, podeEditarDespesas, podeSolicitarModalidade }) {
+function AbaPontos({ pontos, equipamentos, solicitacoes=[], busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onExportExcel, onExportPDF, podeEditar, podeEditarDespesas, podeSolicitarModalidade }) {
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA=10;
@@ -428,8 +452,12 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
               ?<tr><td colSpan={8} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
               :visiveis.map(p=>{
                 const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
-                return <tr key={p.id}>
-                  <td className="td-nome">🏪 {p.nomeFantasia}</td>
+                const bloqueadas = modalidadesBloqueadasDoPonto(p, solicitacoes);
+                return <tr key={p.id} className={bloqueadas.length?"ponto-bloqueado-row":""}>
+                  <td className="td-nome">
+                    🏪 {p.nomeFantasia}
+                    {bloqueadas.length>0&&<small className="ponto-bloqueado-alerta">🚫 Bloqueado: {bloqueadas.join(", ")}</small>}
+                  </td>
                   <td>
                     {vinculados.length===0
                       ?<span className="td-obs">Nenhum</span>
@@ -438,7 +466,7 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
                   <td className="td-obs">{p.nomeDono}</td>
                   <td className="td-obs">{p.telefone}</td>
                   <td><BadgeGerente gerente={p.gerente}/></td>
-                  <td><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></td>
+                  <td><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m} bloqueada={bloqueadas.includes(m)}/>)}</div></td>
                   <td className={p.possuiDespesa==="sim"?"qtd-baixa":"td-minimo"}>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):""}</td>
                   <td className="td-acoes">
                     {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)} title="Solicitar bloqueio ou desbloqueio">🚨</button>}
@@ -455,14 +483,16 @@ function AbaPontos({ pontos, equipamentos, busca, onLimparBusca, filtroDespesa, 
         {filtrados.length===0?<div className="tabela-vazia">Nenhum ponto encontrado.</div>
         :visiveis.map(p=>{
           const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
+          const bloqueadas = modalidadesBloqueadasDoPonto(p, solicitacoes);
           return(
-            <article className="ponto-card" key={p.id}>
+            <article className={`ponto-card ${bloqueadas.length?"ponto-card-bloqueado-wrap":""}`} key={p.id}>
               <div className="ponto-card-topo">
                 <div><h3>🏪 {p.nomeFantasia}</h3><p>{p.nomeDono} · {p.telefone}</p></div>
                 {p.possuiDespesa==="sim"&&<span className="badge-status status-defeito">Despesa lançada</span>}
               </div>
               <div className="ponto-card-linha"><span>Rota</span><BadgeGerente gerente={p.gerente}/></div>
-              <div className="ponto-card-linha"><span>Modalidades</span><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m}/>)}</div></div>
+              <div className="ponto-card-linha"><span>Modalidades</span><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m} bloqueada={bloqueadas.includes(m)}/>)}</div></div>
+              {bloqueadas.length>0&&<div className="ponto-card-bloqueado">🚫 Bloqueado: {bloqueadas.join(", ")}</div>}
               <div className="ponto-card-linha"><span>Equipamentos</span><div className="equipamentos-ponto">{vinculados.length? vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>) : <span className="td-obs">Nenhum</span>}</div></div>
               {p.possuiDespesa==="sim"&&<div className="ponto-card-valor">{formatarReais(p.valorDespesa)}</div>}
               <div className="ponto-card-acoes">
@@ -709,7 +739,7 @@ function PainelSolicitacoesModalidade({ solicitacoes, onConcluir }) {
             <p><strong>{s.pontoNome}</strong> · {rotaCanonica(s.rota)}</p>
             <p>Gerente: <strong>{s.gerente}</strong></p>
             <blockquote>{s.detalhe}</blockquote>
-            <button className="btn-secundario" onClick={()=>onConcluir(s.id)}>Marcar como resolvido</button>
+            <button className="btn-secundario" onClick={()=>onConcluir(s.id)}>{s.acao==="bloquear"?"Aprovar bloqueio":"Aprovar desbloqueio"}</button>
           </article>
         ))}
       </div>
@@ -1037,7 +1067,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {!loading&&(<>
         {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} podeEditar={podeCriarPonto} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditar} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} solicitacoes={solicitacoes} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditar} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao}
             onExportExcel={()=>exportarPontosExcel(pontosVisiveis)} onExportPDF={()=>exportarPontosPDF(pontosVisiveis)}/>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}
