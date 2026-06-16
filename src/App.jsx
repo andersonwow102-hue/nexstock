@@ -2512,6 +2512,7 @@ function Sistema({onLogout}){
     const totalDisp=itensOperacionais.filter(i=>i.categoria===cat&&i.status==="Disponível").length;
     return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
   }).filter(a=>a.totalDisponivel<MINIMO_CATEGORIA);
+  const alertasVisiveis = gerenteAtual ? [] : alertas;
 
   const porCategoria=CATEGORIAS.map(cat=>{
     const ci=itensOperacionais.filter(i=>i.categoria===cat);
@@ -2890,7 +2891,7 @@ function Sistema({onLogout}){
           </button>
         </nav>
         <div className="sidebar-footer">
-          {alertas.length>0&&(
+          {alertasVisiveis.length>0&&(
             <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
               ⚠️ Terminais em alerta
               <span className="sidebar-alerta-arrow">→</span>
@@ -2986,11 +2987,11 @@ function Sistema({onLogout}){
               </section>
 
               <div className="dash-lateral">
-                <section className={`secao dash-atencao ${alertas.length===0?"ok":""}`}>
+                <section className={`secao dash-atencao ${alertasVisiveis.length===0?"ok":""}`}>
                   <h2 className="secao-titulo">Atenção</h2>
-                  {alertas.length===0
+                  {alertasVisiveis.length===0
                     ?<p className="dash-vazio">Tudo certo: Terminais dentro do estoque mínimo.</p>
-                    :alertas.map(a=>(
+                    :alertasVisiveis.map(a=>(
                       <button key={a.categoria} className="dash-alerta" onClick={()=>{navegar("itens");setFiltroCatEquip(a.categoria);setAbaEquip("lista");}}>
                         <span>{ICONES[a.categoria]}</span>
                         <strong>{a.categoria}</strong>
@@ -3066,7 +3067,7 @@ function Sistema({onLogout}){
             </div>
           </div>
 
-          {alertaEstoqueAtivo&&alertas.length>0&&(
+          {alertaEstoqueAtivo&&alertasVisiveis.length>0&&(
             <div className="alerta-estoque-banner">
               <div className="alerta-banner-header">
                 <div className="alerta-banner-titulo">
@@ -3077,7 +3078,7 @@ function Sistema({onLogout}){
                 <button className="alerta-banner-fechar" onClick={()=>setAlertaEstoqueAtivo(false)}>✕</button>
               </div>
               <div className="alerta-banner-itens">
-                {alertas.map(a=>(
+                {alertasVisiveis.map(a=>(
                   <div key={a.categoria} className="alerta-banner-item">
                     <span className="alerta-banner-icone">{ICONES[a.categoria]}</span>
                     <div className="alerta-banner-info">
@@ -3220,7 +3221,7 @@ function Sistema({onLogout}){
                   <div className="resumo-card resumo-disponivel"><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
                   <div className="resumo-card resumo-uso"><div className="resumo-num">{totalEmRota}</div><div className="resumo-label">Em Rota</div></div>
                   {!gerenteAtual&&<div className="resumo-card resumo-conserto"><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>}
-                  <div className={`resumo-card ${alertas.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertas.length}</div><div className="resumo-label">Alertas</div></div>
+                  <div className={`resumo-card ${alertasVisiveis.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertasVisiveis.length}</div><div className="resumo-label">Alertas</div></div>
                 </div>
               </section>
               <section className="secao">
@@ -3234,7 +3235,7 @@ function Sistema({onLogout}){
                         <div style={{flex:1,minWidth:0}}>
                           <div className="cat-detalhe-nome">{c.categoria}</div>
                           <div className="cat-detalhe-registros">{c.qtdItens} registro{c.qtdItens!==1?"s":""}</div>
-                          {c.alertaBaixo&&<div className="cat-detalhe-badge-alerta">⚠ Estoque Baixo</div>}
+                          {!gerenteAtual&&c.alertaBaixo&&<div className="cat-detalhe-badge-alerta">⚠ Estoque Baixo</div>}
                         </div>
                         <div className="cat-detalhe-total">
                           <span className="cat-total-num">{c.total}</span>
