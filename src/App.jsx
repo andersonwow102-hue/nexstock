@@ -562,15 +562,33 @@ function formatarPrazoPix() {
 }
 
 const FECHAMENTO_CORES = ["Alex", "Central/Uibai", "Lapão", "América Dourada", "Eliana", "Queixo", "Wene", "João Luis", "Beu"];
+const FECHAMENTO_DESPESA_VIAPIX_LEM = "despesa-manual-viapix-lem";
 const MODALIDADES_FECHAMENTO = [
   { id: "90-da-sorte", nome: "90 da Sorte", comissao: 0.10, descricao: "10% de comissão", logo: logo90DaSorte },
-  { id: "viapix", nome: "Viapix", comissao: null, descricao: "Comissão preenchida manualmente", logo: logoViapix },
+  { id: "viapix-lem", nome: "Viapix/LEM", comissao: null, descricao: "Comissão preenchida manualmente", logo: logoViapix, legacyIds:["viapix"], despesaManual:true },
   { id: "lotobanca", nome: "Agência Rio", comissao: 0.20, descricao: "Lotobanca · 20% de comissão", logo: logoLotobanca },
 ];
 
-function criarFechamentoVazio() {
-  return MODALIDADES_FECHAMENTO.reduce((acc, modalidade) => {
-    acc[modalidade.id] = { entrada: "", comissao: "", saida: "" };
+function modalidadesFechamentoPara(gerente="", rota="") {
+  const yagoIbitita = normalizarTexto(gerente) === "yago" && normalizarTexto(rota).includes("ibitita");
+  const modalidades = MODALIDADES_FECHAMENTO.map(m => ({ ...m, legacyIds:[...(m.legacyIds || [])] }));
+  if (yagoIbitita) {
+    modalidades.splice(1, 0, {
+      id: "viapix-ibt",
+      nome: "Viapix/IBT",
+      comissao: null,
+      descricao: "Yago · rota Ibititá",
+      logo: logoViapix,
+      legacyIds:["viapix"],
+    });
+    modalidades[2] = { ...modalidades[2], legacyIds:[] };
+  }
+  return modalidades;
+}
+
+function criarFechamentoVazio(modalidades = MODALIDADES_FECHAMENTO) {
+  return modalidades.reduce((acc, modalidade) => {
+    acc[modalidade.id] = { entrada: "", comissao: "", saida: "", despesaManual: "" };
     return acc;
   }, {});
 }
@@ -603,6 +621,16 @@ function numeroFechamento(valor) {
 function textoFechamentoSalvo(valor) {
   const numero = Number(valor);
   return Number.isFinite(numero) ? numero.toFixed(2) : "";
+}
+
+function encontrarFechamentoDaModalidade(lista, modalidade, filtro) {
+  const ids = [modalidade.id, ...(modalidade.legacyIds || [])];
+  return lista.find(f => filtro(f) && ids.includes(f.modalidade));
+}
+
+function despesaManualViapixLem(lista, filtro) {
+  const salvo = lista.find(f => filtro(f) && f.modalidade === FECHAMENTO_DESPESA_VIAPIX_LEM);
+  return Number(salvo?.entrada || 0);
 }
 
 function corFechamento(gerente) {
@@ -657,14 +685,14 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
       String(a.descricao||"").localeCompare(String(b.descricao||""), "pt-BR")
     );
 
-  const calculosModalidades = MODALIDADES_FECHAMENTO.map(modalidade => {
-    const salvo = fechamentosRotas.find(f =>
-      normalizarTexto(f.gerente) === normalizarTexto(gerenteNome) &&
-      (!rotaAtiva || f.rota === rotaAtiva) &&
-      f.competencia === competencia &&
-      (f.dia || "") === (dia || "") &&
-      f.modalidade === modalidade.id
-    );
+  const modalidadesDaRota = modalidadesFechamentoPara(gerenteNome, rotaAtiva);
+  const filtroFechamentoGerente = f =>
+    normalizarTexto(f.gerente) === normalizarTexto(gerenteNome) &&
+    (!rotaAtiva || f.rota === rotaAtiva) &&
+    f.competencia === competencia &&
+    (f.dia || "") === (dia || "");
+  const calculosModalidades = modalidadesDaRota.map(modalidade => {
+    const salvo = encontrarFechamentoDaModalidade(fechamentosRotas, modalidade, filtroFechamentoGerente);
     const entrada = Number(salvo?.entrada || 0);
     const comissao = Number(salvo?.comissao || 0);
     const saida = Number(salvo?.saida || 0);
@@ -672,7 +700,8 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
     return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
   });
   const saldoBruto = calculosModalidades.reduce((s,m)=>s+m.saldoBruto,0);
-  const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+  const despesaManualLem = despesaManualViapixLem(fechamentosRotas, filtroFechamentoGerente);
+  const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0) + despesaManualLem;
   const saldoFinal = saldoBruto - totalDespesas;
   const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
   const bancoPix = perfilBancoPix(pixAvisoAtual?.pixBanco);
@@ -702,6 +731,16 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
       formatarMoedaPDF(valorDespesaPrestacao(d)),
       d.observacao || "-",
     ]);
+    if (despesaManualLem > 0) {
+      linhasDespesas.push([
+        rotaAtiva || "Rota",
+        "Despesa manual Viapix/LEM",
+        formatarMesPrestacao(competencia),
+        dia ? formatarDiaPrestacao(dia) : "-",
+        formatarMoedaPDF(despesaManualLem),
+        "Informada pelo administrador no fechamento.",
+      ]);
+    }
 
     await gerarPDF({
       titulo: `Prestação de Conta - ${gerenteNome}`,
@@ -805,7 +844,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         </div>
         <div className="fechamento-kpis">
           <article className="kpi-bruto"><i>📈</i><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBruto)}</strong><small>Entrada menos comissão e saída</small></article>
-          <article className="kpi-despesas"><i>🧾</i><span>Despesas do sistema</span><strong>{formatarMoedaPDF(totalDespesas)}</strong><small>Lançadas nos pontos da rota</small></article>
+          <article className="kpi-despesas"><i>🧾</i><span>Despesas contabilizadas</span><strong>{formatarMoedaPDF(totalDespesas)}</strong><small>{despesaManualLem > 0 ? "Sistema + despesa manual Viapix/LEM" : "Lançadas nos pontos da rota"}</small></article>
           <article className="kpi-final"><i>💎</i><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinal)}</strong><small>Saldo bruto menos despesas</small></article>
           <article className="kpi-comissao"><i>🏆</i><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerente)}</strong><small>Calculado sobre saldo final positivo</small></article>
         </div>
@@ -926,9 +965,12 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerenteSelecionado) ||
     (rotaDetalheAtiva && normalizarTexto(i.gerenteResponsavel) === normalizarTexto(rotaDetalheAtiva))
   );
-  const totalDetalhe = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+  const modalidadesDaRota = modalidadesFechamentoPara(gerenteSelecionado, rotaDetalheAtiva);
+  const despesaManualLemAtual = numeroFechamento(fechamentoValores["viapix-lem"]?.despesaManual);
+  const totalDetalheSistema = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+  const totalDetalhe = totalDetalheSistema + despesaManualLemAtual;
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
-  const calculosModalidades = MODALIDADES_FECHAMENTO.map(modalidade => {
+  const calculosModalidades = modalidadesDaRota.map(modalidade => {
     const valores = fechamentoValores[modalidade.id] || {};
     const entrada = numeroFechamento(valores.entrada);
     const comissao = modalidade.comissao === null
@@ -951,7 +993,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   },[]);
 
   useEffect(()=>{
-    const vazio = criarFechamentoVazio();
+    const modalidadesAtivas = modalidadesFechamentoPara(gerenteSelecionado, rotaDetalheAtiva);
+    const vazio = criarFechamentoVazio(modalidadesAtivas);
     if(!gerenteSelecionado || !rotaDetalheAtiva){
       setFechamentoValores(vazio);
       return;
@@ -966,7 +1009,16 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         (f.dia || "") === dia
       )
       .forEach(f => {
-        vazio[f.modalidade] = {
+        if (f.modalidade === FECHAMENTO_DESPESA_VIAPIX_LEM) {
+          vazio["viapix-lem"] = {
+            ...(vazio["viapix-lem"] || {}),
+            despesaManual: textoFechamentoSalvo(f.entrada),
+          };
+          return;
+        }
+        const modalidadeAtual = modalidadesAtivas.find(m => [m.id, ...(m.legacyIds || [])].includes(f.modalidade));
+        if (!modalidadeAtual) return;
+        vazio[modalidadeAtual.id] = {
           entrada: textoFechamentoSalvo(f.entrada),
           comissao: textoFechamentoSalvo(f.comissao),
           saida: textoFechamentoSalvo(f.saida),
@@ -1002,18 +1054,26 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     setFechamentoSalvando(true);
     try{
       const competencia = competenciaFechamento || hoje().slice(0,7);
+      const modalidadesParaSalvar = calculosModalidades.map(m => ({
+        modalidade: m.id,
+        entrada: m.entrada,
+        comissao: m.comissaoCalculada,
+        saida: m.saida,
+        saldoBruto: m.saldoBruto,
+      }));
+      modalidadesParaSalvar.push({
+        modalidade: FECHAMENTO_DESPESA_VIAPIX_LEM,
+        entrada: despesaManualLemAtual,
+        comissao: 0,
+        saida: 0,
+        saldoBruto: 0,
+      });
       const salvos = await salvarFechamentoRota({
         gerente: gerenteSelecionado,
         rota: rotaDetalheAtiva,
         competencia,
         dia: diaFechamento || "",
-        modalidades: calculosModalidades.map(m => ({
-          modalidade: m.id,
-          entrada: m.entrada,
-          comissao: m.comissaoCalculada,
-          saida: m.saida,
-          saldoBruto: m.saldoBruto,
-        })),
+        modalidades: modalidadesParaSalvar,
       });
       setFechamentosRotas(atual => [
         ...atual.filter(f =>
@@ -1046,13 +1106,12 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     if (gerenteSelecionado && rota === rotaDetalheAtiva) return calculosModalidades;
     const competencia = competenciaFechamento || hoje().slice(0,7);
     const dia = diaFechamento || "";
-    return MODALIDADES_FECHAMENTO.map(modalidade => {
-      const salvo = fechamentosRotas.find(f =>
+    return modalidadesFechamentoPara(gerenteSelecionado, rota).map(modalidade => {
+      const salvo = encontrarFechamentoDaModalidade(fechamentosRotas, modalidade, f =>
         f.gerente === gerenteSelecionado &&
         f.rota === rota &&
         f.competencia === competencia &&
-        (f.dia || "") === dia &&
-        f.modalidade === modalidade.id
+        (f.dia || "") === dia
       );
       const entrada = Number(salvo?.entrada || 0);
       const comissao = Number(salvo?.comissao || 0);
@@ -1060,6 +1119,18 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       const saldoBruto = Number(salvo?.saldoBruto ?? salvo?.saldo_bruto ?? entrada - comissao - saida);
       return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
     });
+  }
+
+  function despesaManualDaRota(rota) {
+    const competencia = competenciaFechamento || hoje().slice(0,7);
+    const dia = diaFechamento || "";
+    if (gerenteSelecionado && rota === rotaDetalheAtiva) return despesaManualLemAtual;
+    return despesaManualViapixLem(fechamentosRotas, f =>
+      f.gerente === gerenteSelecionado &&
+      f.rota === rota &&
+      f.competencia === competencia &&
+      (f.dia || "") === dia
+    );
   }
 
   async function baixarFechamentoPDF(tipo = "rota") {
@@ -1084,7 +1155,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       const modalidades = calculosDaRota(rota);
       const despesasRota = despesasDaRota(rota);
       const totalBruto = modalidades.reduce((s,m)=>s+m.saldoBruto,0);
-      const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+      const despesaManual = despesaManualDaRota(rota);
+      const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0) + despesaManual;
       const saldoFinal = totalBruto - totalDespesas;
       const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
 
@@ -1119,6 +1191,15 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
         formatarMoedaPDF(valorDespesaPrestacao(d)),
       ]));
+      if (despesaManual > 0) {
+        linhasDespesas.push([
+          rota,
+          "Fechamento",
+          "Despesa manual Viapix/LEM",
+          formatarMesPrestacao(competenciaFechamento || hoje().slice(0,7)),
+          formatarMoedaPDF(despesaManual),
+        ]);
+      }
     });
 
     linhasResumo.push([
@@ -1262,7 +1343,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           </div>
           <div className="fechamento-kpis">
             <article className="kpi-bruto"><i>📈</i><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong><small>Entrada menos comissão e saída</small></article>
-            <article className="kpi-despesas"><i>🧾</i><span>Despesas do sistema</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>Puxado automaticamente das despesas</small></article>
+            <article className="kpi-despesas"><i>🧾</i><span>Despesas contabilizadas</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>{despesaManualLemAtual > 0 ? "Sistema + despesa manual Viapix/LEM" : "Puxado automaticamente das despesas"}</small></article>
             <article className="kpi-final"><i>💎</i><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong><small>Saldo bruto menos despesas</small></article>
             <article className="kpi-comissao"><i>🏆</i><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong><small>Calculado sobre o saldo final</small></article>
           </div>
@@ -1291,13 +1372,16 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                     <label>Entrada<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.entrada||""} onChange={e=>alterarFechamentoModalidade(m.id,"entrada",e.target.value)} placeholder="R$ 0,00"/></label>
                     <label>Comissão<input type="text" inputMode="decimal" value={m.comissao===null?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} disabled={m.comissao!==null} placeholder="R$ 0,00"/></label>
                     <label>Saída<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.saida||""} onChange={e=>alterarFechamentoModalidade(m.id,"saida",e.target.value)} placeholder="R$ 0,00"/></label>
+                    {m.despesaManual&&(
+                      <label className="fechamento-campo-span">Despesa manual LEM<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.despesaManual||""} onChange={e=>alterarFechamentoModalidade(m.id,"despesaManual",e.target.value)} placeholder="R$ 0,00"/></label>
+                    )}
                   </div>
                 </article>
               ))}
             </div>
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">
-              <p>O saldo final é o saldo bruto menos as despesas já lançadas no sistema. A comissão do gerente é 10% do saldo final.</p>
+              <p>O saldo final é o saldo bruto menos as despesas do sistema e a despesa manual do Viapix/LEM, quando preenchida. A comissão do gerente é 10% do saldo final.</p>
               <div className="fechamento-acoes">
                 <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota")}>📄 PDF da rota</button>
                 <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("gerente")}>📚 PDF do gerente</button>

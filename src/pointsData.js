@@ -105,7 +105,7 @@ export const GERENTE_CORES = {
 };
 
 export const MODALIDADES = [
-  "Viapix","90 da Sorte","Play Bet","Máquina de Brindes","Jogo do Bicho","Lotobanca"
+  "Viapix","90 da Sorte","Play Bet","Máquina de Brindes","Jogo do Bicho","Lotobanca","AE Esportiva"
 ];
 
 export const formatarReais = (v) =>

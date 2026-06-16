@@ -28,8 +28,18 @@ const competenciaAtual=()=>{
 const diaAtual=()=>Number(partesDataLocal().dia);
 const mesLabel=data=>new Date(`${String(data||"").slice(0,7)}-02T00:00:00`).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric"});
 const valorDespesa=d=>Number(d.valorReal || d.valorPrevisto || 0);
+const DESCRICAO_ABATIMENTO_AE = "ABATIMENTO AE ESPORTIVA";
 const gerentePodeLancarDespesas=()=>diaAtual()>=10;
 const slugArquivo=t=>String(t||"geral").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
+
+function ehDespesaAeEsportiva(despesa) {
+  const texto = `${despesa?.descricao || ""} ${despesa?.observacao || ""}`.toLowerCase();
+  return texto.includes("ae esportiva");
+}
+
+function pontoTemAeEsportiva(ponto) {
+  return (ponto?.modalidades || []).some(m => String(m).toLowerCase().includes("ae esportiva"));
+}
 
 const MODALIDADE_COR = {
   "Viapix":             "badge-mod-viapix",
@@ -521,26 +531,36 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
   const [competencia, setCompetencia] = useState(competenciaAtual());
   const criarLinha = () => ({ id:null, descricao:"", valor:"", observacao:"" });
   const [linhas, setLinhas] = useState([]);
+  const [despesaAe, setDespesaAe] = useState("");
+  const [despesaAeId, setDespesaAeId] = useState(null);
   const [erro, setErro] = useState("");
   const mesAtual = competenciaAtual();
   const gerenteNoMesAtual = !gerente || competencia === mesAtual;
   const gerenteDentroPrazo = !gerente || gerentePodeLancarDespesas();
   const podeEditarAgora = podeEditar && gerenteNoMesAtual && gerenteDentroPrazo;
   const despesasMes = despesas.filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0,7) === competencia);
+  const temAeEsportiva = pontoTemAeEsportiva(ponto);
 
   useEffect(() => {
-    const base = despesas
-      .filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0,7) === competencia)
+    const despesasDoMes = despesas
+      .filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0,7) === competencia);
+    const abatimentoAe = despesasDoMes.find(ehDespesaAeEsportiva);
+    const base = despesasDoMes
+      .filter(d => !ehDespesaAeEsportiva(d))
       .map(d => ({
         id:d.id, descricao:d.descricao || "",
         valor:valorDespesa(d) ? mascaraMoeda(String(Math.round(valorDespesa(d)*100))) : "",
         observacao:d.observacao || "",
       }));
     setLinhas(base.length ? [...base, criarLinha()] : [criarLinha(), criarLinha(), criarLinha(), criarLinha()]);
+    setDespesaAeId(abatimentoAe?.id || null);
+    setDespesaAe(abatimentoAe ? mascaraMoeda(String(Math.round(Math.abs(valorDespesa(abatimentoAe))*100))) : "");
     setErro("");
   }, [ponto.id, competencia, despesas]);
 
-  const totalMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
+  const totalBrutoMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
+  const abatimentoAeMes = temAeEsportiva ? parseMoeda(despesaAe) : 0;
+  const totalMes = Math.max(0, totalBrutoMes - abatimentoAeMes);
 
   function alterarLinha(index, campo, valor) {
     setLinhas(prev => prev.map((linha,i)=>i===index?{...linha,[campo]:valor}:linha));
@@ -571,15 +591,31 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
       .filter(l => l.descricao || l.valorNumero>0 || l.observacao);
     const erroLinha = validas.find(l => !l.descricao || l.valorNumero<=0);
     if (erroLinha) { setErro("Preencha descrição e valor somente nas linhas que deseja salvar. Linhas vazias podem ficar em branco."); return; }
+    const abatimentoAeNumero = temAeEsportiva ? parseMoeda(despesaAe) : 0;
     try {
-      await onSalvar(ponto, competencia, validas.map(l => ({
+      const payload = validas.map(l => ({
         ...l,
         tipo:"fixa",
         pontoId:ponto.id,
         competencia:`${competencia}-01`,
         valorPrevisto:l.valorNumero,
         valorReal:l.valorNumero,
-      })));
+      }));
+      if (temAeEsportiva && abatimentoAeNumero > 0) {
+        payload.push({
+          id: despesaAeId,
+          descricao: DESCRICAO_ABATIMENTO_AE,
+          observacao: "Valor informado na AE Esportiva. Abate das despesas da prestação.",
+          tipo:"fixa",
+          pontoId:ponto.id,
+          competencia:`${competencia}-01`,
+          valorPrevisto:-abatimentoAeNumero,
+          valorReal:-abatimentoAeNumero,
+        });
+      } else if (despesaAeId) {
+        await onRemover?.(despesaAeId);
+      }
+      await onSalvar(ponto, competencia, payload);
     } catch (e) {
       setErro(e?.message || "Não foi possível salvar as despesas. Tente novamente.");
     }
@@ -609,6 +645,16 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
             </div>
             <div className="despesas-total-banner">Total do mês: <strong>{formatarReais(totalMes)}</strong></div>
           </div>
+          {temAeEsportiva&&(
+            <div className="acessos-nota">
+              <strong>AE Esportiva fora da prestação:</strong> informe o valor específico da AE para abater das despesas deste ponto.
+              <div className="campo" style={{marginTop:10}}>
+                <label>Valor da AE Esportiva</label>
+                <input value={despesaAe} disabled={!podeEditarAgora} placeholder="R$ 0,00" onChange={e=>setDespesaAe(mascaraMoeda(e.target.value))}/>
+                <small>Exemplo: despesas R$ 5.000,00 e AE R$ 1.500,00 contam como R$ 3.500,00.</small>
+              </div>
+            </div>
+          )}
           <div className="tabela-wrapper despesa-planilha">
             <table className="tabela">
               <thead><tr><th>Descrição</th><th>Valor</th><th>Observação</th><th></th></tr></thead>
