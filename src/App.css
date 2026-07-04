@@ -5241,9 +5241,13 @@ body {
   .sidebar {
     position: fixed;
     top: 0; left: 0; bottom: 0;
+    width: min(86vw, 348px);
+    min-width: 0;
+    max-width: 348px;
     transform: translateX(-100%);
     box-shadow: var(--shadow-lg);
     z-index: 200;
+    overflow-x: hidden;
   }
   .sidebar.aberta { transform: translateX(0); }
   .sidebar.aberta ~ .main .btn-hamburguer {
@@ -5262,12 +5266,40 @@ body {
   .page-title { font-size: 17px; }
   .logo-topbar { height: 36px; }
   .busca-topo-resultados {
-    top: 118px;
-    left: 12px;
-    width: calc(100vw - 24px);
-    max-height: calc(100vh - 140px);
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(54vh, 520px);
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 18px;
+    box-shadow: var(--shadow-md);
+    overflow-x: hidden;
   }
   .busca-topo-resultados section { grid-template-columns: 1fr; }
+  .busca-topo-wrap {
+    z-index: auto;
+    padding: 0 18px 12px;
+  }
+  .busca-topo-head button {
+    min-height: 34px;
+    padding: 6px 12px;
+  }
+  .busca-topo-item {
+    width: 100%;
+    padding: 12px 14px;
+  }
+  .busca-topo-item strong,
+  .busca-topo-item em,
+  .busca-topo-item small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+  .busca-topo-vazio {
+    padding: 16px 12px;
+    overflow-wrap: anywhere;
+  }
 
   /* Grids */
   .resumo-grid { grid-template-columns: repeat(2, 1fr); }
