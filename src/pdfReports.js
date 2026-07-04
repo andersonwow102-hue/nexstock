@@ -25,17 +25,21 @@ async function carregarImagem(url) {
 }
 
 function baixarDocumento(doc, nomeArquivo) {
-  const url = URL.createObjectURL(doc.output("blob"));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = nomeArquivo;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  doc.save(nomeArquivo);
 }
 
-export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, colunas, linhas, total, secoes, resumo=[] }) {
+function visualizarDocumento(doc, janelaExistente = null) {
+  const url = URL.createObjectURL(doc.output("blob"));
+  const janela = janelaExistente || window.open("", "_blank", "noopener,noreferrer");
+  if (janela) {
+    janela.location.href = url;
+  } else {
+    window.alert("O navegador bloqueou a visualização do PDF. Permita pop-ups para visualizar antes de baixar.");
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, colunas, linhas, total, secoes, resumo=[], visualizar=false, janelaVisualizacao=null }) {
   try {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const largura = doc.internal.pageSize.getWidth();
@@ -86,8 +90,14 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
         doc.setFontSize(7.5);
         doc.text(String(item.label).toUpperCase(), x + 4, y + 6);
         doc.setTextColor(...(item.destaque || AZUL));
-        doc.setFontSize(12);
-        doc.text(String(item.valor), x + 4, y + 13);
+        const textoValor = String(item.valor);
+        const linhasValor = doc.splitTextToSize(textoValor, larguraCard - 8);
+        if (linhasValor.length > 2) {
+          linhasValor.length = 2;
+          linhasValor[1] = `${linhasValor[1].replace(/\s+\S*$/, "")}...`;
+        }
+        doc.setFontSize(linhasValor.length > 1 || textoValor.length > 18 ? 9.5 : 12);
+        doc.text(linhasValor, x + 4, y + 12);
       });
       inicioTabela = 41 + linhasResumo * 21 + 5;
     }
@@ -109,11 +119,14 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
         startY: inicioTabela,
         head: [secao.colunas],
         body: secao.linhas,
+        foot: secao.rodape ? [secao.rodape] : undefined,
         margin: { left: 12, right: 12, bottom: 18 },
         theme: "grid",
-        styles: { fontSize: 8.5, cellPadding: 3.2, lineColor: [219, 228, 240], lineWidth: 0.2, textColor: AZUL },
+        styles: { fontSize: 8.3, cellPadding: 3.2, lineColor: [219, 228, 240], lineWidth: 0.2, textColor: AZUL, overflow: "linebreak" },
         headStyles: { fillColor: AZUL, textColor: [255, 255, 255], fontStyle: "bold" },
+        footStyles: { fillColor: [247, 249, 253], textColor: AZUL, fontStyle: "bold" },
         alternateRowStyles: { fillColor: [247, 249, 253] },
+        columnStyles: secao.estilosColunas || {},
         didDrawPage: () => {
           doc.setDrawColor(222, 226, 234);
           doc.line(12, altura - 12, largura - 12, altura - 12);
@@ -125,10 +138,14 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
       });
       inicioTabela = doc.lastAutoTable.finalY + 12;
     });
-    baixarDocumento(doc, nomeArquivo);
+    if (visualizar) visualizarDocumento(doc, janelaVisualizacao);
+    else baixarDocumento(doc, nomeArquivo);
+    return true;
   } catch (erro) {
     console.error("Erro ao gerar PDF:", erro);
     const detalhe = erro instanceof Error ? erro.message : "erro desconhecido";
     window.alert(`Nao foi possivel gerar o PDF. Motivo: ${detalhe}`);
+    if (janelaVisualizacao && !janelaVisualizacao.closed) janelaVisualizacao.close();
+    return false;
   }
 }

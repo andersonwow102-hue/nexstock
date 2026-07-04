@@ -1,7 +1,16 @@
 node_modules
 dist
+debug.log
+*.log
 .env
 .env.*
 !.env.example
 .vercel
 supabase/.temp/
+android/.gradle/
+android/build/
+android/app/build/
+android/stock-on-release.keystore
+android/app-release-signed.apk
+android/app-release-bundle.aab
+android/local.properties

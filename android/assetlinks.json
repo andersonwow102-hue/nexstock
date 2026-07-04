@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.stockon.app",
+        "sha256_cert_fingerprints": ["4A:C7:D8:B3:AB:0E:83:EC:C4:E5:72:39:7E:76:6F:02:30:08:AB:46:C5:BF:A8:19:FC:AB:24:71:BC:D4:3D:A1"]
+      }
+    }]

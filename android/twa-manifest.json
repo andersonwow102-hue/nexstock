@@ -1,0 +1,55 @@
+{
+  "packageId": "com.stockon.app",
+  "host": "nexstock-delta.vercel.app",
+  "name": "Stock-ON",
+  "launcherName": "Stock-ON",
+  "display": "standalone",
+  "themeColor": "#07152F",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#07152F",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://nexstock-delta.vercel.app/icons/stock-on-512.png",
+  "maskableIconUrl": "https://nexstock-delta.vercel.app/icons/stock-on-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./stock-on-release.keystore",
+    "alias": "stockon"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://nexstock-delta.vercel.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://nexstock-delta.vercel.app/",
+  "minSdkVersion": 21,
+  "orientation": "any",
+  "fingerprints": [
+    {
+      "name": "Stock-ON Release",
+      "value": "4A:C7:D8:B3:AB:0E:83:EC:C4:E5:72:39:7E:76:6F:02:30:08:AB:46:C5:BF:A8:19:FC:AB:24:71:BC:D4:3D:A1"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "appVersion": "1.0.0"
+}

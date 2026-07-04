@@ -37,13 +37,19 @@ function gerarLoginSugerido(perfil, gerenteNome, email = "") {
 }
 
 function senhaAleatoria() {
-  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const maiusculas = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const minusculas = "abcdefghijkmnopqrstuvwxyz";
   const numeros = "23456789";
   const simbolos = "@#$%";
-  const base = `${letras}${numeros}${simbolos}`;
-  let senha = "";
-  for (let i = 0; i < 12; i += 1) senha += base[Math.floor(Math.random() * base.length)];
-  return `${senha}${numeros[Math.floor(Math.random() * numeros.length)]}${simbolos[Math.floor(Math.random() * simbolos.length)]}`;
+  const base = `${maiusculas}${minusculas}${numeros}${simbolos}`;
+  const sortear = conjunto => conjunto[crypto.getRandomValues(new Uint32Array(1))[0] % conjunto.length];
+  const caracteres = [sortear(maiusculas), sortear(minusculas), sortear(numeros), sortear(simbolos)];
+  while (caracteres.length < 16) caracteres.push(sortear(base));
+  for (let i = caracteres.length - 1; i > 0; i -= 1) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [caracteres[i], caracteres[j]] = [caracteres[j], caracteres[i]];
+  }
+  return caracteres.join("");
 }
 
 function historicoDoUsuario(usuario, historico, historicoPontos) {
@@ -156,7 +162,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
     if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) { setErro("Informe um login simples com 3 a 30 caracteres. Use letras, números, ponto, traço ou underline."); return; }
     if (!formNovo.emailTemporario && /@(nexstock|stockon)\.com$/i.test(email)) { setErro("Use um e-mail real, como Gmail ou Outlook, para permitir recuperação de senha."); return; }
     if (formNovo.perfil === "gerente" && !formNovo.gerenteNome) { setErro("Selecione qual gerente este login representa."); return; }
-    if (formNovo.senha.length < 8) { setErro("A senha provisória precisa ter pelo menos 8 caracteres."); return; }
+    if (formNovo.senha.length < 10) { setErro("A senha provisória precisa ter pelo menos 10 caracteres."); return; }
     if (formNovo.senha !== formNovo.confirmar) { setErro("A confirmação da senha está diferente."); return; }
     try {
       const resposta = await gerenciarLogins({
@@ -182,7 +188,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
     const loginNome = formSenha.loginNome.trim().toLowerCase();
     if (!email || !email.includes("@") || !email.includes(".")) { setErro("Informe um e-mail verdadeiro."); return; }
     if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) { setErro("Informe um login simples com 3 a 30 caracteres. Use letras, números, ponto, traço ou underline."); return; }
-    if (formSenha.senha.length < 8) { setErro("A nova senha precisa ter pelo menos 8 caracteres."); return; }
+    if (formSenha.senha.length < 10) { setErro("A nova senha precisa ter pelo menos 10 caracteres."); return; }
     if (formSenha.senha !== formSenha.confirmar) { setErro("A confirmação da senha está diferente."); return; }
     try {
       const resposta = await gerenciarLogins({
@@ -355,7 +361,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                   <label>E-mail de login *</label>
                   <input type="email" placeholder="socio@gmail.com" value={formNovo.email} readOnly={formNovo.emailTemporario} onChange={e => setFormNovo(prev => ({ ...prev, email: e.target.value, emailTemporario: false, loginNome: prev.loginNome || gerarLoginSugerido(prev.perfil, prev.gerenteNome, e.target.value) }))} autoFocus />
                 </div>
-                <div className="campo"><label>Login de entrada *</label><input type="text" placeholder="ex: beu" value={formNovo.loginNome} onChange={e => setFormNovo({ ...formNovo, loginNome: e.target.value.toLowerCase() })} /></div>
+                <div className="campo"><label>Login de entrada *</label><input type="text" placeholder="ex: operador" value={formNovo.loginNome} onChange={e => setFormNovo({ ...formNovo, loginNome: e.target.value.toLowerCase() })} /><small className="campo-hint">Pode entrar digitando só <strong>{formNovo.loginNome || (formNovo.perfil === "operador" ? "operador" : "beu")}</strong>, sem escrever o e-mail completo.</small></div>
                 <button type="button" className={`btn-secundario ${formNovo.emailTemporario ? "btn-temp-ativo" : ""}`} onClick={alternarEmailTemporario}>
                   {formNovo.emailTemporario ? "Usando e-mail temporário" : "Criar e-mail temporário"}
                 </button>

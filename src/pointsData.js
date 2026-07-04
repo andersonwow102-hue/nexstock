@@ -1,6 +1,6 @@
 // ─── Constantes de Pontos ─────────────────────────────────────────────────────
 export const GERENTES = [
-  "Alex","Maynarden","Yago","Vitor","Eliana","Queixo","Wene","João Luis","Beu"
+  "Alex","Maynarden","Yago","Vitor","Eliana","Queixo","Wene","João Luis","Beu","Gavião"
 ];
 
 export const ROTAS_POR_GERENTE = {
@@ -13,6 +13,7 @@ export const ROTAS_POR_GERENTE = {
   "Wene": ["Wene"],
   "João Luis": ["João Luis"],
   "Beu": ["Beu"],
+  "Gavião": ["Gavião"],
 };
 
 export const ROTAS = Object.values(ROTAS_POR_GERENTE).flat();
@@ -48,6 +49,8 @@ const ROTA_ALIASES = {
   "joão luis": "João Luis",
   "beu": "Beu",
   "eliana": "Eliana",
+  "gaviao": "Gavião",
+  "gavião": "Gavião",
 };
 
 export const normalizarNome = (valor) =>
@@ -102,10 +105,11 @@ export const GERENTE_CORES = {
   "João Luis":        { bg:"rgba(249,115,22,0.15)",  color:"#f97316", border:"rgba(249,115,22,0.3)"   },
   "Beu":              { bg:"rgba(20,184,166,0.15)",  color:"#14b8a6", border:"rgba(20,184,166,0.3)"   },
   "Eliana":           { bg:"rgba(14,165,233,0.15)",  color:"#0ea5e9", border:"rgba(14,165,233,0.3)"   },
+  "Gavião":           { bg:"rgba(37,99,235,0.15)",   color:"#2563eb", border:"rgba(37,99,235,0.3)"    },
 };
 
 export const MODALIDADES = [
-  "Viapix","90 da Sorte","Play Bet","Máquina de Brindes","Jogo do Bicho","Lotobanca","AE Esportiva"
+  "Viapix","90 da Sorte","Play Bet","Máquina de Brindes","Jogo do Bicho","Lotobanca"
 ];
 
 export const formatarReais = (v) =>

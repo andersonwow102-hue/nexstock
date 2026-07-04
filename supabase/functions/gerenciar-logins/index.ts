@@ -71,13 +71,8 @@ async function exigirAdmin(req: Request) {
     .maybeSingle();
   if (perfil?.perfil !== "administrador") return { error: resposta({ error: "Somente administrador pode gerenciar logins." }, 403) };
 
-  const identidadesMaster = [
-    authData.user.email,
-    perfil?.nome,
-    perfil?.login_nome,
-  ].filter(Boolean).map((v) => String(v).trim().toLowerCase());
-
-  return { admin, usuarioAtual: authData.user, master: identidadesMaster.some((v) => MASTER_ADMIN_EMAILS.has(v)) };
+  const emailAutenticado = String(authData.user.email || "").trim().toLowerCase();
+  return { admin, usuarioAtual: authData.user, master: MASTER_ADMIN_EMAILS.has(emailAutenticado) };
 }
 
 Deno.serve(async (req) => {
@@ -138,7 +133,7 @@ Deno.serve(async (req) => {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta({ error: "Informe um e-mail verdadeiro." }, 400);
       if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) return resposta({ error: "Informe um login com 3 a 30 caracteres. Use letras, numeros, ponto, traco ou underline." }, 400);
       if (!emailTemporario && !loginInternoStockOn && /@nexstock\.com$/i.test(email)) return resposta({ error: "Informe um e-mail real que receba mensagens." }, 400);
-      if (senha.length < 8) return resposta({ error: "A senha precisa ter ao menos 8 caracteres." }, 400);
+      if (senha.length < 10) return resposta({ error: "A senha precisa ter ao menos 10 caracteres." }, 400);
       if (!["administrador", "operador", "gerente", "consulta"].includes(perfilNovo)) return resposta({ error: "Perfil invalido." }, 400);
       if (perfilNovo === "gerente" && !gerenteNome) return resposta({ error: "Informe o gerente vinculado a este login." }, 400);
 
@@ -223,7 +218,7 @@ Deno.serve(async (req) => {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta({ error: "Informe um e-mail verdadeiro." }, 400);
       if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) return resposta({ error: "Informe um login com 3 a 30 caracteres. Use letras, numeros, ponto, traco ou underline." }, 400);
       if (/@(nexstock|stockon)\.com$/i.test(email)) return resposta({ error: "Informe um e-mail real que receba mensagens." }, 400);
-      if (senha.length < 8) return resposta({ error: "A senha precisa ter ao menos 8 caracteres." }, 400);
+      if (senha.length < 10) return resposta({ error: "A senha precisa ter ao menos 10 caracteres." }, 400);
 
       const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
         email,

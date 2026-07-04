@@ -8,9 +8,10 @@ import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
-import { GERENTES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
+import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
+import { exportarCsvSeguro } from "./csvExport.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
@@ -18,7 +19,10 @@ import {
   carregarPerfilAtual, resolverEmailPorLogin, carregarDespesasMensais,
   carregarMensagensInternas, enviarMensagemInterna, marcarMensagensInternasLidas,
   carregarPixEnvios, enviarPixParaGerente,
-  carregarFechamentosRotas, salvarFechamentoRota,
+  carregarFechamentosRotas, salvarFechamentoRota, finalizarPrestacaoRota,
+  registrarVisualizacaoFechamento, confirmarFechamentoGerente,
+  carregarGerenteModalidadeAcessos, salvarGerenteModalidadeAcesso, excluirGerenteModalidadeAcesso,
+  carregarModalidadeApps, enviarModalidadeApp, obterLinkDownloadModalidadeApp,
 } from "./db.js";
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Máquina de Brindes","Totens","Noteiro","PDV Touchscreen"];
@@ -53,6 +57,54 @@ const HIST_CFG = {
   "recebimento_gerente": {cor:"hist-entrada", icone:"✅",label:"Recebido pelo gerente"},
 };
 
+const ICON_PATHS = {
+  dashboard: <><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="15" width="7" height="6" rx="1.5"/></>,
+  package: <><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/><path d="M5 10.2v6.6L12 21l7-4.2v-6.6"/></>,
+  mapPin: <><path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></>,
+  fileText: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h2"/></>,
+  checkCircle: <><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.2 2.2 4.8-5.1"/></>,
+  key: <><circle cx="7.5" cy="14.5" r="3.5"/><path d="m10 12 9-9"/><path d="m15 7 2 2"/><path d="m17 5 2 2"/></>,
+  shieldKey: <><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><circle cx="10" cy="12" r="2"/><path d="m12 12 4 4"/><path d="m14 14 1.5-1.5"/></>,
+  lock: <><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v2"/></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></>,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></>,
+  monitor: <><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></>,
+  wrench: <><path d="M14.7 6.3a4 4 0 0 0 5 5L11 20a2.1 2.1 0 0 1-3-3l8.7-8.7a4 4 0 0 1-2-2Z"/><path d="m6 18-2 2"/></>,
+  user: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
+  warning: <><path d="M12 3 2.8 19a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L12 3Z"/><path d="M12 9v5"/><path d="M12 18h.01"/></>,
+  edit: <><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
+  trash: <><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></>,
+  plus: <><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></>,
+  minus: <><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></>,
+  arrowDown: <><path d="M12 3v14"/><path d="m6 11 6 6 6-6"/><path d="M5 21h14"/></>,
+  download: <><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></>,
+};
+
+const HIST_ICONES = {
+  cadastro: "plus",
+  edicao: "edit",
+  exclusao: "trash",
+  entrada: "plus",
+  saida: "minus",
+  conserto: "wrench",
+  retorno: "checkCircle",
+  defeito: "warning",
+  disponivel: "checkCircle",
+  baixa: "arrowDown",
+  ponto: "mapPin",
+  envio_gerente: "package",
+  recebimento_gerente: "checkCircle",
+};
+
+function Icon({ name, className = "", title = "" }) {
+  return (
+    <svg className={`app-icon ${className}`.trim()} viewBox="0 0 24 24" aria-hidden={title ? undefined : "true"} role={title ? "img" : undefined}>
+      {title ? <title>{title}</title> : null}
+      {ICON_PATHS[name] || ICON_PATHS.fileText}
+    </svg>
+  );
+}
+
 function padronizarNomenclaturaEquipamento(t){
   return String(t||"").trim().replace(/\s+/g," ").toUpperCase();
 }
@@ -62,13 +114,31 @@ const TRANSFERENCIA_GERENTE = {
   recebido: "recebido",
 };
 const formVazio={nome:"",categoria:CATEGORIAS[0],quantidade:1,status:"Disponível",minimo:5,observacao:"",localizacao:"",responsavel:"",patrimonio:"",dataCadastro:"",gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""};
-const movVazio={tipoId:"ponto",ponto:"",gerente:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:"",notaFiscalNome:"",notaFiscalArquivo:"",consertoPix:"",consertoValor:""};
+const movVazio={tipoId:"ponto",ponto:"",gerente:"",responsavel:"",observacao:"",defeito:"",assistencia:"",previsao:"",dataRetirada:"",formaPagamento:"PIX",notaFiscalNome:"",notaFiscalArquivo:"",consertoPix:"",consertoValor:""};
 const ITENS_POR_PAGINA=12;
 const agora=()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const hoje=()=>new Date().toISOString().slice(0,10);
+
+function linhasDetalheHistorico(texto){
+  const detalhes=String(texto||"").trim();
+  if(!detalhes) return ["Sem detalhe registrado."];
+  return detalhes
+    .split("|")
+    .map(linha=>linha.trim())
+    .filter(Boolean);
+}
+
+function HistoricoDetalhes({ texto }){
+  const linhas=linhasDetalheHistorico(texto);
+  return (
+    <ul className="historico-detalhes-lista">
+      {linhas.map((linha,idx)=><li key={`${linha}-${idx}`}>{linha}</li>)}
+    </ul>
+  );
+}
 const isoAgora=()=>new Date().toISOString();
 const formatarMoedaPDF=valor=>Number(valor||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-const normalizarTexto=v=>String(v||"").trim().toLowerCase();
+const normalizarTexto=v=>String(v||"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 function comPrazo(promise, descricao, tempo=15000) {
   return Promise.race([
     promise,
@@ -92,14 +162,14 @@ function ordenarPontos(lista){
 
 const Auth={ deslogar:async()=>{ await supabase.auth.signOut(); } };
 
-function validarItem(f,itens=[],itemId=null){
+function validarItem(f,itens=[],itemId=null,{ exigirPatrimonio=true } = {}){
   if(!f.nome.trim())       return"Nome do equipamento é obrigatório.";
   if(!f.categoria)         return"Categoria é obrigatória.";
   if(!f.status)            return"Status é obrigatório.";
   if(!padronizarNomenclaturaEquipamento(f.nome)) return"Nomenclatura do equipamento é obrigatória.";
-  if(!padronizarNomenclaturaEquipamento(f.patrimonio)) return"Código / Patrimônio é obrigatório.";
+  if(exigirPatrimonio&&!padronizarNomenclaturaEquipamento(f.patrimonio)) return"Código / Patrimônio é obrigatório.";
   const patrimonio=padronizarNomenclaturaEquipamento(f.patrimonio);
-  if(itens.some(i=>i.id!==itemId&&(i.patrimonio||"").trim().toUpperCase()===patrimonio)) return`Código duplicado: o patrimônio ${patrimonio} já está cadastrado.`;
+  if(patrimonio&&itens.some(i=>i.id!==itemId&&(i.patrimonio||"").trim().toUpperCase()===patrimonio)) return`Código duplicado: o patrimônio ${patrimonio} já está cadastrado.`;
   return null;
 }
 function validarMov(mov,tipo,perfil=""){
@@ -107,8 +177,10 @@ function validarMov(mov,tipo,perfil=""){
   if(tipo.id==="conserto"&&!mov.defeito.trim())return"Descreva o defeito antes de enviar o equipamento para conserto.";
   if(tipo.id==="conserto"&&perfil==="operador"){
     if(!mov.notaFiscalArquivo)return"Anexe a foto da nota fiscal antes de enviar para conserto.";
-    if(!String(mov.consertoPix||"").trim())return"Informe a chave PIX do conserto.";
+    if(!String(mov.formaPagamento||"").trim())return"Informe a forma de pagamento do conserto.";
+    if(mov.formaPagamento==="PIX"&&!String(mov.consertoPix||"").trim())return"Informe a chave PIX do conserto.";
     if(Number(mov.consertoValor||0)<=0)return"Informe o valor do conserto.";
+    if(!mov.dataRetirada)return"Informe a data em que o equipamento ficou pronto ou foi retirado da assistência.";
   }
   return null;
 }
@@ -158,17 +230,13 @@ async function gerarPDF(configuracao) {
 }
 
 async function exportarEquipamentosExcel(itens){
-  const XLSX=await import("xlsx");
   const dados=itens.map(i=>({
     "Patrimônio":i.patrimonio||"—","Nome":i.nome,"Categoria":i.categoria,
     "Status":i.status,"Ponto / Localização":i.localizacao||"—",
     "Responsável":i.responsavel||"—",
     "Observação":i.observacao||"—","Data Cadastro":i.dataCadastro||"—",
   }));
-  const ws=XLSX.utils.json_to_sheet(dados);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Equipamentos");
-  XLSX.writeFile(wb,`equipamentos_${hoje()}.xlsx`);
+  exportarCsvSeguro(dados,`equipamentos_${hoje()}.csv`);
 }
 
 async function exportarEquipamentosPDF(itens){
@@ -190,16 +258,12 @@ async function exportarEquipamentosPDF(itens){
 }
 
 async function exportarHistoricoExcel(historico){
-  const XLSX=await import("xlsx");
   const dados=historico.map(h=>({
     "Tipo":HIST_CFG[h.tipo]?.label||h.tipo,"Equipamento":h.itemNome,"Categoria":h.categoria,
     "Qtd Antes":h.qtdAntes,"Qtd Depois":h.qtdDepois,
     "Responsável":h.responsavel||"—","Observação":h.observacao||"—","Data":h.data,
   }));
-  const ws=XLSX.utils.json_to_sheet(dados);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Histórico");
-  XLSX.writeFile(wb,`historico_equipamentos_${hoje()}.xlsx`);
+  exportarCsvSeguro(dados,`historico_equipamentos_${hoje()}.csv`);
 }
 
 async function exportarHistoricoPDF(historico){
@@ -368,19 +432,19 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
 
       <section className="central-kpis">
         <article className={`central-kpi ${pendentesConfirmacao.length?"central-kpi-alerta":""}`}>
-          <span>📨</span>
+          <span><Icon name="mail" /></span>
           <div><strong>{pendentesConfirmacao.length}</strong><small>envios aguardando gerente</small></div>
         </article>
         <article className={alertaTerminais?"central-kpi central-kpi-alerta":"central-kpi"}>
-          <span>💻</span>
+          <span><Icon name="monitor" /></span>
           <div><strong>{terminaisDisponiveis}</strong><small>terminais disponíveis{alertaTerminais?` · faltam ${alertaTerminais}`:""}</small></div>
         </article>
         <article className="central-kpi">
-          <span>🔧</span>
+          <span><Icon name="wrench" /></span>
           <div><strong>{emConserto.length}</strong><small>equipamentos em conserto</small></div>
         </article>
         <article className="central-kpi">
-          <span>📍</span>
+          <span><Icon name="mapPin" /></span>
           <div><strong>{pontosSemEquipamento.length}</strong><small>pontos sem equipamento vinculado</small></div>
         </article>
       </section>
@@ -395,13 +459,13 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
             ?<p className="dash-vazio">Sem pendências críticas no momento. Operação respirando bem.</p>
             :<div className="central-lista">
               {pendentesConfirmacao.slice(0,4).map(item=><div key={item.id} className="central-item">
-                <span>📨</span><div><strong>{item.patrimonio||item.nome}</strong><small>Aguardando confirmação de {item.gerenteResponsavel||"gerente"}</small></div>
+                <span><Icon name="mail" /></span><div><strong>{item.patrimonio||item.nome}</strong><small>Aguardando confirmação de {item.gerenteResponsavel||"gerente"}</small></div>
               </div>)}
               {alertaTerminais>0&&<div className="central-item">
-                <span>⚠️</span><div><strong>Terminais abaixo do mínimo</strong><small>{terminaisDisponiveis} disponíveis de {MINIMO_CATEGORIA} necessários</small></div>
+                <span><Icon name="warning" /></span><div><strong>Terminais abaixo do mínimo</strong><small>{terminaisDisponiveis} disponíveis de {MINIMO_CATEGORIA} necessários</small></div>
               </div>}
               {emConserto.slice(0,3).map(item=><div key={item.id} className="central-item">
-                <span>🔧</span><div><strong>{item.patrimonio||item.nome}</strong><small>{item.nome} está em conserto</small></div>
+                <span><Icon name="wrench" /></span><div><strong>{item.patrimonio||item.nome}</strong><small>{item.nome} está em conserto</small></div>
               </div>)}
             </div>}
         </article>
@@ -415,7 +479,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
             ?<p className="dash-vazio">Nenhum gerente cadastrado ainda.</p>
             :<div className="central-lista">
               {rankingGerentes.slice(0,5).map(g=><div key={g.nome} className="central-item central-item-gerente">
-                <span>👤</span>
+                <span><Icon name="user" /></span>
                 <div><strong>{g.nome}</strong><small>{g.pontos} pontos · {g.equipamentos} equipamentos · {formatarMoedaPDF(g.despesas)}</small></div>
                 {g.pendentes>0&&<em>{g.pendentes} pend.</em>}
               </div>)}
@@ -444,7 +508,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
             ?<p className="dash-vazio">Nenhum histórico registrado.</p>
             :<div className="central-lista">
               {historicoRecente.map(h=><div key={h.id} className="central-item">
-                <span>{HIST_CFG[h.tipo]?.icone||"📋"}</span><div><strong>{h.itemNome}</strong><small>{HIST_CFG[h.tipo]?.label||h.tipo} · {h.data}</small></div>
+                <span><Icon name={HIST_ICONES[h.tipo] || "fileText"} /></span><div><strong>{h.itemNome}</strong><small>{HIST_CFG[h.tipo]?.label||h.tipo} · {h.data}</small></div>
               </div>)}
             </div>}
         </article>
@@ -498,34 +562,28 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
   );
 }
 
-function BuscaGlobalPage({ consulta, onConsulta, itens, pontos, historico, onVerEquipamento, onAbrirPontos }) {
+function BuscaGlobalSearch({ consulta, onConsulta, itens, pontos, historico, onVerEquipamento, onAbrirPontos }) {
   const termo=consulta.trim().toLowerCase();
-  const equipamentos=termo?itens.filter(i=>[i.patrimonio,i.nome,i.categoria,i.status,i.localizacao,i.responsavel].some(v=>(v||"").toLowerCase().includes(termo))):[];
-  const pontosEncontrados=termo?pontos.filter(p=>[p.nomeFantasia,p.nomeDono,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),p.telefone,...p.modalidades].some(v=>(v||"").toLowerCase().includes(termo))):[];
-  const movimentos=termo?historico.filter(h=>[h.itemNome,h.categoria,h.tipo,h.responsavel,h.observacao].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,20):[];
+  const equipamentos=termo?itens.filter(i=>[i.patrimonio,i.nome,i.categoria,i.status,i.localizacao,i.responsavel].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
+  const pontosEncontrados=termo?pontos.filter(p=>[p.nomeFantasia,p.nomeDono,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),p.telefone,...p.modalidades].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
+  const movimentos=termo?historico.filter(h=>[h.itemNome,h.categoria,h.tipo,h.responsavel,h.observacao].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
+  const totalResultados=equipamentos.length+pontosEncontrados.length+movimentos.length;
   return(
-    <div className="busca-global-page">
-      <section className="busca-global-hero">
-        <span className="dash-kicker">Pesquisa geral</span>
-        <h2>Encontre qualquer informação rapidamente</h2>
-        <input className="input-busca busca-global-input" autoFocus type="text" placeholder="Digite patrimônio, ponto, gerente, status ou responsável..." value={consulta} onChange={e=>onConsulta(e.target.value)}/>
-      </section>
-      {!termo
-        ?<div className="hist-vazio"><div className="hist-vazio-icone">🔎</div><div>Digite alguma informação para pesquisar em todo o sistema.</div></div>
-        :<div className="busca-resultados">
-          <section className="secao busca-bloco">
-            <h2 className="secao-titulo">Equipamentos <span className="badge-count">{equipamentos.length}</span></h2>
-            {equipamentos.length===0?<p className="dash-vazio">Nenhum equipamento encontrado.</p>:equipamentos.map(i=><button key={i.id} className="busca-item" onClick={()=>onVerEquipamento(i)}><strong>{i.patrimonio}</strong><span>{i.nome}</span><small>{i.status} · {i.localizacao||"Sem ponto"}</small></button>)}
-          </section>
-          <section className="secao busca-bloco">
-            <h2 className="secao-titulo">Pontos <span className="badge-count">{pontosEncontrados.length}</span></h2>
-            {pontosEncontrados.length===0?<p className="dash-vazio">Nenhum ponto encontrado.</p>:pontosEncontrados.map(p=><button key={p.id} className="busca-item" onClick={onAbrirPontos}><strong>{p.nomeFantasia}</strong><span>{rotaCanonica(p.gerente)}</span><small>{p.telefone}</small></button>)}
-          </section>
-          <section className="secao busca-bloco">
-            <h2 className="secao-titulo">Movimentações <span className="badge-count">{movimentos.length}</span></h2>
-            {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação encontrada.</p>:movimentos.map(h=><div key={h.id} className="busca-item sem-clique"><strong>{h.itemNome}</strong><span>{HIST_CFG[h.tipo]?.label||h.tipo}</span><small>{h.data}</small></div>)}
-          </section>
-        </div>}
+    <div className="busca-topo-wrap">
+      <input className="busca-topo-input" type="text" placeholder="Buscar geral..." value={consulta} onChange={e=>onConsulta(e.target.value)}/>
+      {termo&&(
+        <div className="busca-topo-resultados">
+          <div className="busca-topo-head">
+            <strong>Busca geral</strong>
+            <button type="button" onClick={()=>onConsulta("")}>Limpar</button>
+          </div>
+          {totalResultados===0?<p className="busca-topo-vazio">Nenhum resultado encontrado.</p>:<>
+            {equipamentos.length>0&&<section><span>Equipamentos</span>{equipamentos.map(i=><button key={i.id} className="busca-topo-item" type="button" onClick={()=>{onVerEquipamento(i);onConsulta("");}}><strong>{i.patrimonio}</strong><em>{i.nome}</em><small>{i.status} · {i.localizacao||"Sem ponto"}</small></button>)}</section>}
+            {pontosEncontrados.length>0&&<section><span>Pontos</span>{pontosEncontrados.map(p=><button key={p.id} className="busca-topo-item" type="button" onClick={()=>{onAbrirPontos();onConsulta("");}}><strong>{p.nomeFantasia}</strong><em>{rotaCanonica(p.gerente)}</em><small>{p.telefone||"Sem telefone"}</small></button>)}</section>}
+            {movimentos.length>0&&<section><span>Movimentações</span>{movimentos.map(h=><div key={h.id} className="busca-topo-item busca-topo-item-fixo"><strong>{h.itemNome}</strong><em>{HIST_CFG[h.tipo]?.label||h.tipo}</em><small>{h.data}</small></div>)}</section>}
+          </>}
+        </div>
+      )}
     </div>
   );
 }
@@ -557,38 +615,37 @@ function pixDentroDoPrazo(aviso) {
   return Boolean(aviso?.pixChave);
 }
 
-function formatarPrazoPix() {
-  return "sem expiração";
-}
-
 const FECHAMENTO_CORES = ["Alex", "Central/Uibai", "Lapão", "América Dourada", "Eliana", "Queixo", "Wene", "João Luis", "Beu"];
-const FECHAMENTO_DESPESA_VIAPIX_LEM = "despesa-manual-viapix-lem";
 const MODALIDADES_FECHAMENTO = [
   { id: "90-da-sorte", nome: "90 da Sorte", comissao: 0.10, descricao: "10% de comissão", logo: logo90DaSorte },
-  { id: "viapix-lem", nome: "Viapix/LEM", comissao: null, descricao: "Comissão preenchida manualmente", logo: logoViapix, legacyIds:["viapix"], despesaManual:true },
-  { id: "lotobanca", nome: "Agência Rio", comissao: 0.20, descricao: "Lotobanca · 20% de comissão", logo: logoLotobanca },
+  { id: "viapix", nome: "Viapix", comissao: null, descricao: "Comissão preenchida manualmente", logo: logoViapix },
+  { id: "lotobanca", nome: "Lotobanca", comissao: 0.20, descricao: "20% de comissão", logo: logoLotobanca },
 ];
 
 function modalidadesFechamentoPara(gerente="", rota="") {
-  const yagoIbitita = normalizarTexto(gerente) === "yago" && normalizarTexto(rota).includes("ibitita");
-  const modalidades = MODALIDADES_FECHAMENTO.map(m => ({ ...m, legacyIds:[...(m.legacyIds || [])] }));
-  if (yagoIbitita) {
-    modalidades.splice(1, 0, {
-      id: "viapix-ibt",
-      nome: "Viapix/IBT",
-      comissao: null,
-      descricao: "Yago · rota Ibititá",
-      logo: logoViapix,
-      legacyIds:["viapix"],
-    });
-    modalidades[2] = { ...modalidades[2], legacyIds:[] };
+  const yago = normalizarTexto(gerente) === "yago";
+  const ibitita = normalizarTexto(rota).includes("ibitita");
+  if (yago && ibitita) {
+    return [
+      { ...MODALIDADES_FECHAMENTO[0], legacyIds:[...(MODALIDADES_FECHAMENTO[0].legacyIds || [])] },
+      { ...MODALIDADES_FECHAMENTO[1], legacyIds:["viapix"] },
+      {
+        id: "viapix-lem",
+        nome: "Viapix/LEM",
+        comissao: null,
+        descricao: "Comissão preenchida manualmente",
+        logo: logoViapix,
+        legacyIds:[],
+      },
+      { ...MODALIDADES_FECHAMENTO[2], legacyIds:[...(MODALIDADES_FECHAMENTO[2].legacyIds || [])] },
+    ];
   }
-  return modalidades;
+  return MODALIDADES_FECHAMENTO.map(m => ({ ...m, legacyIds:[...(m.legacyIds || [])] }));
 }
 
 function criarFechamentoVazio(modalidades = MODALIDADES_FECHAMENTO) {
   return modalidades.reduce((acc, modalidade) => {
-    acc[modalidade.id] = { entrada: "", comissao: "", saida: "", despesaManual: "" };
+    acc[modalidade.id] = { entrada: "", comissao: "", saida: "" };
     return acc;
   }, {});
 }
@@ -628,18 +685,259 @@ function encontrarFechamentoDaModalidade(lista, modalidade, filtro) {
   return lista.find(f => filtro(f) && ids.includes(f.modalidade));
 }
 
-function despesaManualViapixLem(lista, filtro) {
-  const salvo = lista.find(f => filtro(f) && f.modalidade === FECHAMENTO_DESPESA_VIAPIX_LEM);
-  return Number(salvo?.entrada || 0);
-}
-
 function corFechamento(gerente) {
   const rotas = ROTAS_POR_GERENTE[gerente] || [];
   const chave = rotas[0] || gerente || FECHAMENTO_CORES[0];
   return GERENTE_CORES[chave] || GERENTE_CORES[FECHAMENTO_CORES[0]] || { bg:"rgba(37,99,235,0.12)", color:"#2563eb", border:"rgba(37,99,235,0.28)" };
 }
 
-function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], despesas = [], pixAvisoAtual = null, onCopiarPix }) {
+function formatarTamanhoArquivo(bytes) {
+  const total = Number(bytes) || 0;
+  if (total < 1024) return `${total} B`;
+  if (total < 1024 * 1024) return `${(total / 1024).toFixed(1)} KB`;
+  return `${(total / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const APP_TIPOS_90_DA_SORTE = [
+  { id: "tv", label: "APK da TV" },
+  { id: "terminal", label: "APK do Terminal" },
+];
+
+function chaveAppModalidade(modalidade, appTipo = "padrao") {
+  return `${modalidade}::${appTipo || "padrao"}`;
+}
+
+function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessosChange, onAppsChange }) {
+  const administrador = perfilAtual?.perfil === "administrador";
+  const gerenteAtual = perfilAtual?.perfil === "gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
+  const [form, setForm] = useState({ gerente: GERENTES[0] || "", modalidade: MODALIDADES[0] || "", login: "", senha: "", link: "", observacao: "" });
+  const [appForm, setAppForm] = useState({ modalidade: MODALIDADES[0] || "", appTipo: "terminal", arquivo: null });
+  const [senhasVisiveis, setSenhasVisiveis] = useState({});
+  const [salvando, setSalvando] = useState(false);
+  const [enviandoApp, setEnviandoApp] = useState(false);
+  const [erro, setErro] = useState("");
+  const [ok, setOk] = useState("");
+  const acessosVisiveis = administrador ? acessos : acessos.filter(a => normalizarTexto(a.gerente) === normalizarTexto(gerenteAtual));
+  const appsPorModalidade = new Map(apps.map(app => [chaveAppModalidade(app.modalidade, app.appTipo), app]));
+
+  function selecionarAcesso(acesso) {
+    setForm({
+      gerente: acesso.gerente || GERENTES[0] || "",
+      modalidade: acesso.modalidade || MODALIDADES[0] || "",
+      login: acesso.login || "",
+      senha: acesso.senha || "",
+      link: acesso.link || "",
+      observacao: acesso.observacao || "",
+      id: acesso.id,
+    });
+    setOk("");
+    setErro("");
+  }
+
+  async function copiar(texto, label) {
+    if (!texto) return;
+    try {
+      await navigator.clipboard.writeText(texto);
+      alert(`${label} copiado.`);
+    } catch {
+      alert(`${label}: ${texto}`);
+    }
+  }
+
+  async function salvarAcesso(e) {
+    e.preventDefault();
+    if (!administrador) return;
+    setErro("");
+    setOk("");
+    setSalvando(true);
+    try {
+      const salvo = await salvarGerenteModalidadeAcesso(form);
+      onAcessosChange?.([
+        salvo,
+        ...acessos.filter(a => Number(a.id) !== Number(salvo.id) && !(normalizarTexto(a.gerente) === normalizarTexto(salvo.gerente) && a.modalidade === salvo.modalidade)),
+      ]);
+      setForm({ gerente: form.gerente, modalidade: form.modalidade, login: "", senha: "", link: "", observacao: "" });
+      setOk("Senha da modalidade salva.");
+    } catch (err) {
+      setErro(err.message || "Não foi possível salvar a senha.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function excluirAcesso(acesso) {
+    if (!administrador || !acesso?.id) return;
+    if (!window.confirm(`Excluir acesso de ${acesso.gerente} em ${acesso.modalidade}?`)) return;
+    setErro("");
+    setOk("");
+    try {
+      await excluirGerenteModalidadeAcesso(acesso.id);
+      onAcessosChange?.(acessos.filter(a => Number(a.id) !== Number(acesso.id)));
+      setOk("Acesso removido.");
+    } catch (err) {
+      setErro(err.message || "Não foi possível remover o acesso.");
+    }
+  }
+
+  async function enviarApp(e) {
+    e.preventDefault();
+    if (!administrador) return;
+    setErro("");
+    setOk("");
+    setEnviandoApp(true);
+    try {
+      const salvo = await enviarModalidadeApp(appForm);
+      const atualizados = await carregarModalidadeApps();
+      onAppsChange?.(atualizados.length ? atualizados : [salvo, ...apps.filter(app => chaveAppModalidade(app.modalidade, app.appTipo) !== chaveAppModalidade(salvo.modalidade, salvo.appTipo))]);
+      setAppForm({ modalidade: appForm.modalidade, appTipo: appForm.appTipo, arquivo: null });
+      e.currentTarget.reset();
+      setOk("APK enviado para download dos gerentes.");
+    } catch (err) {
+      setErro(err.message || "Não foi possível enviar o APK.");
+    } finally {
+      setEnviandoApp(false);
+    }
+  }
+
+  async function baixarApp(app) {
+    try {
+      const url = await obterLinkDownloadModalidadeApp(app);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      alert(err.message || "Não foi possível baixar o app.");
+    }
+  }
+
+  return (
+    <section className="secao senhas-page">
+      <div className="senhas-hero">
+        <div>
+          <span className="dash-kicker">Acesso das modalidades</span>
+          <h2>{administrador ? "Senhas e apps dos gerentes" : "Minhas senhas e apps"}</h2>
+          <p>{administrador ? "Cadastre login, senha, link e APK por modalidade." : "Consulte os acessos liberados pela administração."}</p>
+        </div>
+        <span className="perfil-selo perfil-administrador">{administrador ? "Administração" : "Gerente"}</span>
+      </div>
+
+      {(erro||ok)&&<div className={erro?"erro-box":"sucesso-box"}>{erro||ok}</div>}
+
+      {administrador&&(
+        <div className="senhas-admin-grid">
+          <form className="senhas-form-card" onSubmit={salvarAcesso}>
+            <div>
+              <span className="dash-kicker">Login de gerente</span>
+              <h3>Cadastrar acesso</h3>
+            </div>
+            <div className="campos-duplos">
+              <label>Gerente<select value={form.gerente} onChange={e=>setForm({...form,gerente:e.target.value})}>{GERENTES.map(g=><option key={g}>{g}</option>)}</select></label>
+              <label>Modalidade<select value={form.modalidade} onChange={e=>setForm({...form,modalidade:e.target.value})}>{MODALIDADES.map(m=><option key={m}>{m}</option>)}</select></label>
+            </div>
+            <div className="campos-duplos">
+              <label>Login<input value={form.login} onChange={e=>setForm({...form,login:e.target.value})} placeholder="Usuário, e-mail ou código"/></label>
+              <label>Senha<input value={form.senha} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="Senha da modalidade"/></label>
+            </div>
+            <label>Link da plataforma<input value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="https://..."/></label>
+            <label>Observação<input value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} placeholder="Instrução rápida para o gerente"/></label>
+            <button className="btn-primario" disabled={salvando}>{salvando?"Salvando...":"Salvar acesso"}</button>
+          </form>
+
+          <form className="senhas-form-card" onSubmit={enviarApp}>
+            <div>
+              <span className="dash-kicker">Apps Android</span>
+              <h3>Upload do APK</h3>
+            </div>
+            <label>Modalidade<select value={appForm.modalidade} onChange={e=>{
+              const modalidade = e.target.value;
+              const tipoAtualValido = APP_TIPOS_90_DA_SORTE.some(tipo => tipo.id === appForm.appTipo);
+              setAppForm({...appForm,modalidade,appTipo:modalidade==="90 da Sorte"?(tipoAtualValido?appForm.appTipo:"terminal"):"padrao"});
+            }}>{MODALIDADES.map(m=><option key={m}>{m}</option>)}</select></label>
+            {appForm.modalidade==="90 da Sorte"&&(
+              <label>Tipo do APK<select value={appForm.appTipo} onChange={e=>setAppForm({...appForm,appTipo:e.target.value})}>{APP_TIPOS_90_DA_SORTE.map(tipo=><option key={tipo.id} value={tipo.id}>{tipo.label}</option>)}</select></label>
+            )}
+            <label>Arquivo APK<input type="file" accept=".apk,application/vnd.android.package-archive,application/octet-stream" onChange={e=>setAppForm({...appForm,arquivo:e.target.files?.[0]||null})}/></label>
+            <p className="campo-hint">O arquivo fica disponível para download dos gerentes logados.</p>
+            <button className="btn-primario" disabled={enviandoApp}>{enviandoApp?"Enviando...":"Enviar APK"}</button>
+          </form>
+        </div>
+      )}
+
+      <div className="senhas-conteudo-grid">
+        <section className="senhas-lista-card">
+          <div className="senhas-section-head">
+            <div>
+              <span className="dash-kicker">Senhas</span>
+              <h3>{administrador ? "Acessos cadastrados" : "Acessos liberados para você"}</h3>
+            </div>
+          </div>
+          {acessosVisiveis.length===0
+            ?<p className="dash-vazio">Nenhum login de modalidade cadastrado ainda.</p>
+            :<div className="senhas-card-lista">
+              {acessosVisiveis.map(acesso=>{
+                const chave = acesso.id || `${acesso.gerente}-${acesso.modalidade}`;
+                const visivel = Boolean(senhasVisiveis[chave]);
+                return (
+                  <article className="senha-modalidade-card" key={chave}>
+                    <div className="senha-card-topo">
+                      <div><strong>{acesso.modalidade}</strong><span>{acesso.gerente}</span></div>
+                      {administrador&&<div className="senha-card-acoes"><button type="button" onClick={()=>selecionarAcesso(acesso)}>Editar</button><button type="button" onClick={()=>excluirAcesso(acesso)}>Excluir</button></div>}
+                    </div>
+                    <div className="senha-info-row"><span>Login</span><button type="button" onClick={()=>copiar(acesso.login,"Login")}>{acesso.login || "Não informado"}</button></div>
+                    <div className="senha-info-row"><span>Senha</span><button type="button" onClick={()=>copiar(acesso.senha,"Senha")}>{visivel ? (acesso.senha || "Não informada") : "••••••••"}</button></div>
+                    <button className="btn-secundario senha-revelar" type="button" onClick={()=>setSenhasVisiveis(v=>({...v,[chave]:!visivel}))}>{visivel?"Ocultar senha":"Mostrar senha"}</button>
+                    {acesso.link&&<button className="btn-secundario senha-link" type="button" onClick={()=>window.open(acesso.link,"_blank","noopener,noreferrer")}>Abrir plataforma</button>}
+                    {acesso.observacao&&<p>{acesso.observacao}</p>}
+                  </article>
+                );
+              })}
+            </div>}
+        </section>
+
+        <section className="senhas-lista-card">
+          <div className="senhas-section-head">
+            <div>
+              <span className="dash-kicker">Downloads</span>
+              <h3>Apps das modalidades</h3>
+            </div>
+          </div>
+          <div className="apps-download-lista">
+            {MODALIDADES.map(modalidade=>{
+              if (modalidade === "90 da Sorte") {
+                return (
+                  <article className="app-download-card app-download-card-grupo" key={modalidade}>
+                    <div className="app-download-grupo-head">
+                      <strong>{modalidade}</strong>
+                      <span>Downloads separados para TV e Terminal</span>
+                    </div>
+                    <div className="app-download-sublista">
+                      {APP_TIPOS_90_DA_SORTE.map(tipo=>{
+                        const app = appsPorModalidade.get(chaveAppModalidade(modalidade, tipo.id));
+                        return (
+                          <div className={`app-download-opcao ${app?"disponivel":""}`} key={tipo.id}>
+                            <div><strong>{tipo.label}</strong>{app?<span>{app.appNome} · {formatarTamanhoArquivo(app.tamanho)}</span>:<span>Nenhum APK enviado</span>}</div>
+                            <button className="btn-secundario" type="button" disabled={!app} onClick={()=>baixarApp(app)}>Baixar</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              }
+              const app = appsPorModalidade.get(chaveAppModalidade(modalidade));
+              return (
+                <article className={`app-download-card ${app?"disponivel":""}`} key={modalidade}>
+                  <div><strong>{modalidade}</strong>{app?<span>{app.appNome} · {formatarTamanhoArquivo(app.tamanho)}</span>:<span>Nenhum APK enviado</span>}</div>
+                  <button className="btn-secundario" type="button" disabled={!app} onClick={()=>baixarApp(app)}>Baixar app</button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], despesas = [], pixEnvios = [], onCopiarPix }) {
   const gerenteNome = gerenteDaRota(gerenteAtual) || gerenteAtual;
   const rotasGerente = ROTAS_POR_GERENTE[gerenteNome] || (rotaCanonica(gerenteAtual) ? [rotaCanonica(gerenteAtual)] : []);
   const [competencia,setCompetencia]=useState(hoje().slice(0,7));
@@ -647,6 +945,8 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
   const [rotaSelecionada,setRotaSelecionada]=useState(rotasGerente[0]||"");
   const [fechamentosRotas,setFechamentosRotas]=useState([]);
   const [erro,setErro]=useState("");
+  const [confirmacaoOk,setConfirmacaoOk]=useState("");
+  const [confirmando,setConfirmando]=useState(false);
 
   useEffect(()=>{
     if(rotasGerente.length && !rotasGerente.includes(rotaSelecionada)){
@@ -665,12 +965,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
   const rotaAtiva = rotaSelecionada || rotasGerente[0] || "";
   const pontosRota = pontos.filter(p => !rotaAtiva || rotaCanonica(p.gerente) === rotaAtiva);
   const idsPontosRota = new Set(pontosRota.map(p=>Number(p.id)));
-  const nomesPontosRota = new Set(pontosRota.map(p=>p.nomeFantasia));
-  const equipamentosRota = itens.filter(i =>
-    nomesPontosRota.has(i.localizacao) ||
-    normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerenteNome) ||
-    (rotaAtiva && normalizarTexto(i.gerenteResponsavel) === normalizarTexto(rotaAtiva))
-  );
   const despesasRota = despesas
     .filter(d => {
       const mes = mesDespesaPrestacao(d.competencia);
@@ -699,20 +993,50 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
     const saldoBruto = Number(salvo?.saldoBruto ?? salvo?.saldo_bruto ?? entrada - comissao - saida);
     return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
   });
+  const fechamentosDaRota = fechamentosRotas.filter(filtroFechamentoGerente);
+  const fechamentoEnviado = fechamentosDaRota.length > 0;
+  const fechamentoEnviadoEm = fechamentosDaRota.map(f=>f.enviadoEm || f.atualizadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoFinalizadoEm = fechamentosDaRota.map(f=>f.finalizadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoVisualizadoEm = fechamentosDaRota.map(f=>f.gerenteVisualizadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoConfirmadoEm = fechamentosDaRota.map(f=>f.gerenteConfirmadoEm).filter(Boolean).sort().at(-1) || "";
   const saldoBruto = calculosModalidades.reduce((s,m)=>s+m.saldoBruto,0);
-  const despesaManualLem = despesaManualViapixLem(fechamentosRotas, filtroFechamentoGerente);
-  const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0) + despesaManualLem;
+  const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
   const saldoFinal = saldoBruto - totalDespesas;
   const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
+  const saldoRepassar = saldoFinal - comissaoGerente;
+  const avisosPixGerente = [...pixEnvios]
+    .filter(aviso =>
+      normalizarTexto(aviso.gerente) === normalizarTexto(gerenteNome) &&
+      pixDentroDoPrazo(aviso)
+    )
+    .sort((a,b)=>new Date(b.enviadoEm||0)-new Date(a.enviadoEm||0));
+  const pixAvisoAtual = avisosPixGerente.find(aviso => aviso.rota && aviso.rota === rotaAtiva) ||
+    avisosPixGerente.find(aviso => !aviso.rota) ||
+    null;
   const bancoPix = perfilBancoPix(pixAvisoAtual?.pixBanco);
 
-  async function baixarPDFGerente() {
+  function aplicarInteracaoFechamento(atualizados) {
+    setFechamentosRotas(atual => [
+      ...atual.filter(f => !filtroFechamentoGerente(f)),
+      ...atualizados,
+    ]);
+  }
+
+  async function baixarPDFGerente(visualizar=false) {
+    setErro("");
+    setConfirmacaoOk("");
+    const janelaVisualizacao = visualizar ? window.open("", "_blank") : null;
+    if(visualizar&&janelaVisualizacao){
+      janelaVisualizacao.document.write("<title>Gerando PDF...</title><body style='font-family:Arial,sans-serif;padding:24px;color:#0f2348'>Gerando PDF do fechamento...</body>");
+      janelaVisualizacao.document.close();
+    }
     const linhasResumo = [[
       rotaAtiva || "Todas",
       formatarMoedaPDF(saldoBruto),
       formatarMoedaPDF(totalDespesas),
       formatarMoedaPDF(saldoFinal),
       formatarMoedaPDF(comissaoGerente),
+      formatarMoedaPDF(saldoRepassar),
     ]];
     const linhasModalidades = calculosModalidades
       .filter(m => m.entrada || m.comissaoCalculada || m.saida || m.saldoBruto)
@@ -731,22 +1055,13 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
       formatarMoedaPDF(valorDespesaPrestacao(d)),
       d.observacao || "-",
     ]);
-    if (despesaManualLem > 0) {
-      linhasDespesas.push([
-        rotaAtiva || "Rota",
-        "Despesa manual Viapix/LEM",
-        formatarMesPrestacao(competencia),
-        dia ? formatarDiaPrestacao(dia) : "-",
-        formatarMoedaPDF(despesaManualLem),
-        "Informada pelo administrador no fechamento.",
-      ]);
-    }
-
-    await gerarPDF({
+    const pdfGerado = await gerarPDF({
       titulo: `Prestação de Conta - ${gerenteNome}`,
       descricao: `${rotaAtiva ? `Rota ${rotaAtiva}` : "Todas as rotas"} | ${periodoPrestacaoLabel(competencia,dia)}`,
       nomeArquivo: `stock-on_prestacao-gerente_${slugArquivoBackup(gerenteNome)}_${slugArquivoBackup(rotaAtiva||"todas")}_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
       total: despesasRota.length,
+      visualizar,
+      janelaVisualizacao,
       resumo: [
         { label: "Gerente", valor: gerenteNome },
         { label: "Rota", valor: rotaAtiva || "Todas" },
@@ -754,25 +1069,74 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
         { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
         { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
+        { label: "Saldo a repassar", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229] },
       ],
       secoes: [
         {
-          titulo: "Resumo financeiro",
-          colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente"],
-          linhas: linhasResumo,
-        },
-        {
-          titulo: "Modalidades",
+          titulo: "Entradas, comissões e saídas por modalidade",
           colunas: ["Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
           linhas: linhasModalidades.length ? linhasModalidades : [["Sem lançamento","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
         },
         {
-          titulo: "Despesas lançadas",
+          titulo: "Resumo financeiro",
+          colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente","Saldo a repassar"],
+          linhas: linhasResumo,
+        },
+        {
+          titulo: "Histórico de despesas",
           colunas: ["Ponto","Descrição","Mês","Data","Valor","Observação"],
           linhas: linhasDespesas.length ? linhasDespesas : [["-","Nenhuma despesa lançada neste recorte","-","-","R$ 0,00","-"]],
+          rodape: ["","","","Total",formatarMoedaPDF(totalDespesas),""],
+          estilosColunas: {
+            0: { cellWidth: 38 },
+            1: { cellWidth: 58 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 25 },
+            4: { cellWidth: 28, halign: "right" },
+          },
         },
       ],
     });
+    if(!pdfGerado)return;
+    if(visualizar && fechamentoEnviado && !fechamentoVisualizadoEm){
+      try{
+        const atualizados = await registrarVisualizacaoFechamento({
+          gerente: gerenteNome,
+          rota: rotaAtiva,
+          competencia,
+          dia: dia || "",
+        });
+        aplicarInteracaoFechamento(atualizados);
+        setConfirmacaoOk("PDF visualizado. Agora confirme o fechamento após conferir os valores.");
+      }catch(err){
+        setErro(err.message||"O PDF abriu, mas não foi possível registrar a visualização.");
+      }
+    }
+  }
+
+  async function confirmarConferenciaGerente() {
+    setErro("");
+    setConfirmacaoOk("");
+    if(!fechamentoVisualizadoEm){
+      setErro("Visualize o PDF antes de confirmar o fechamento.");
+      return;
+    }
+    if(!window.confirm("Confirma que você conferiu os valores deste fechamento?"))return;
+    setConfirmando(true);
+    try{
+      const atualizados = await confirmarFechamentoGerente({
+        gerente: gerenteNome,
+        rota: rotaAtiva,
+        competencia,
+        dia: dia || "",
+      });
+      aplicarInteracaoFechamento(atualizados);
+      setConfirmacaoOk("Fechamento confirmado. A administração já pode visualizar sua confirmação.");
+    }catch(err){
+      setErro(err.message||"Não foi possível confirmar o fechamento.");
+    }finally{
+      setConfirmando(false);
+    }
   }
 
   return (
@@ -786,7 +1150,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         <span className="badge-cat">Somente sua carteira</span>
       </div>
 
-      <div className="fechamento-filtros">
+      <div className="fechamento-filtros prestacao-filtros-desktop">
         <label>Mês<input type="month" value={competencia} onChange={e=>{setCompetencia(e.target.value);setDia("");}}/></label>
         <label>Dia<input type="date" value={dia} onChange={e=>{setDia(e.target.value);if(e.target.value)setCompetencia(e.target.value.slice(0,7));}}/></label>
         <label>Rota
@@ -796,6 +1160,26 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         </label>
         <button className="btn-secundario" type="button" onClick={()=>{setCompetencia(hoje().slice(0,7));setDia("");}}>Mês atual</button>
       </div>
+
+      <details className="prestacao-filtros-mobile">
+        <summary>
+          <div>
+            <small>Período e rota</small>
+            <strong>{periodoPrestacaoLabel(competencia,dia)} · {rotaAtiva||"Sem rota"}</strong>
+          </div>
+          <span>Ajustar</span>
+        </summary>
+        <div className="prestacao-filtros-mobile-corpo">
+          <label>Mês<input type="month" value={competencia} onChange={e=>{setCompetencia(e.target.value);setDia("");}}/></label>
+          <label>Dia específico<input type="date" value={dia} onChange={e=>{setDia(e.target.value);if(e.target.value)setCompetencia(e.target.value.slice(0,7));}}/></label>
+          <label>Rota
+            <select value={rotaAtiva} onChange={e=>setRotaSelecionada(e.target.value)}>
+              {rotasGerente.map(rota=><option key={rota} value={rota}>{rota}</option>)}
+            </select>
+          </label>
+          <button className="btn-secundario" type="button" onClick={()=>{setCompetencia(hoje().slice(0,7));setDia("");}}>Usar mês atual</button>
+        </div>
+      </details>
 
       {pixAvisoAtual ? (
         <section className="pix-recebido-wrap prestacao-pix-box">
@@ -817,11 +1201,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
             <h2>Chave PIX para este fechamento</h2>
             <p>{pixAvisoAtual.mensagem || "A administração enviou uma chave PIX para você usar nesta prestação de conta."}</p>
             {pixAvisoAtual.rota&&<span className="badge-cat">Rota {pixAvisoAtual.rota}</span>}
-            <div className="pix-prazo-card">
-              <span>Status</span>
-              <strong>{formatarPrazoPix(pixAvisoAtual.enviadoEm)}</strong>
-              <small>Esta chave fica disponível nesta área para consulta do gerente.</small>
-            </div>
             <button className="btn-pix-premium" type="button" onClick={()=>onCopiarPix?.(pixAvisoAtual.pixChave)}>
               <span>Copiar chave PIX</span>
               <small>Para prestação de contas</small>
@@ -833,60 +1212,63 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
       )}
 
       {erro&&<div className="erro-box">{erro}</div>}
-      <div className="fechamento-detalhe">
-        <div className="fechamento-detalhe-head">
-          <div>
-            <span className="dash-kicker">Resumo recebido</span>
-            <h3>{gerenteNome}{rotaAtiva?` · ${rotaAtiva}`:""}</h3>
-            <p>{periodoPrestacaoLabel(competencia,dia)} · {pontosRota.length} pontos · {equipamentosRota.length} equipamentos</p>
-          </div>
-          <button className="fechamento-save-btn" type="button" onClick={baixarPDFGerente}>📄 Baixar PDF</button>
-        </div>
-        <div className="fechamento-kpis">
-          <article className="kpi-bruto"><i>📈</i><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBruto)}</strong><small>Entrada menos comissão e saída</small></article>
-          <article className="kpi-despesas"><i>🧾</i><span>Despesas contabilizadas</span><strong>{formatarMoedaPDF(totalDespesas)}</strong><small>{despesaManualLem > 0 ? "Sistema + despesa manual Viapix/LEM" : "Lançadas nos pontos da rota"}</small></article>
-          <article className="kpi-final"><i>💎</i><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinal)}</strong><small>Saldo bruto menos despesas</small></article>
-          <article className="kpi-comissao"><i>🏆</i><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerente)}</strong><small>Calculado sobre saldo final positivo</small></article>
-        </div>
-
-        <div className="fechamento-operacao-box prestacao-gerente-resumo">
-          <div className="fechamento-operacao-head">
-            <div>
-              <span className="dash-kicker">Modalidades</span>
-              <h4>Valores do fechamento enviado</h4>
+      {confirmacaoOk&&<div className="sucesso-box">{confirmacaoOk}</div>}
+      <div className="prestacao-pdf-recebido">
+        <div>
+          <span className="dash-kicker">PDF do fechamento</span>
+          <h3>{fechamentoEnviado ? "Fechamento enviado pelo administrativo" : "Nenhum PDF enviado ainda"}</h3>
+          <p>{fechamentoEnviado ? `${gerenteNome}${rotaAtiva?` · ${rotaAtiva}`:""} | ${periodoPrestacaoLabel(competencia,dia)}` : "Aguarde o administrativo enviar o fechamento desta rota."}</p>
+          {fechamentoEnviado&&(
+            <div className="prestacao-status-lista">
+              <span>Enviado em: <strong>{fechamentoEnviadoEm ? new Date(fechamentoEnviadoEm).toLocaleString("pt-BR") : "Data não informada"}</strong></span>
+              <span>Status: <strong>{fechamentoFinalizadoEm
+                ?`Finalizado em ${new Date(fechamentoFinalizadoEm).toLocaleString("pt-BR")}`
+                :fechamentoConfirmadoEm
+                  ?`Confirmado em ${new Date(fechamentoConfirmadoEm).toLocaleString("pt-BR")}`
+                  :fechamentoVisualizadoEm
+                    ?`PDF visualizado em ${new Date(fechamentoVisualizadoEm).toLocaleString("pt-BR")}`
+                    :"Aguardando visualização do PDF"}</strong></span>
             </div>
-            <small>{calculosModalidades.filter(m=>m.entrada||m.comissaoCalculada||m.saida||m.saldoBruto).length} modalidades com lançamento</small>
-          </div>
-          <div className="fechamento-modalidades-grid">
-            {calculosModalidades.map(m=>(
-              <article className="fechamento-modalidade-card" key={m.id}>
-                <div className="fechamento-modalidade-topo">
-                  <div className="fechamento-modalidade-logo">{m.logo&&<img src={m.logo} alt={m.nome}/>}</div>
-                  <div><strong>{m.nome}</strong><span>{m.descricao}</span></div>
-                  <b>{formatarMoedaPDF(m.saldoBruto)}</b>
-                </div>
-              </article>
-            ))}
-          </div>
+          )}
         </div>
-
-        <div className="fechamento-despesas-box">
-          <div className="fechamento-despesas-head">
-            <strong>Despesas consideradas no PDF</strong>
-            <span>{despesasRota.length} lançamentos</span>
-          </div>
-          {despesasRota.length===0 ? (
-            <p className="dash-vazio">Nenhuma despesa lançada neste recorte.</p>
-          ) : despesasRota.map(d=>(
-            <article className="fechamento-despesa-card" key={d.id}>
-              <strong>{d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`}</strong>
-              <span>{d.descricao || "Despesa sem descrição"}</span>
-              <small>{formatarMesPrestacao(mesDespesaPrestacao(d.competencia))}</small>
-              <b>{formatarMoedaPDF(valorDespesaPrestacao(d))}</b>
-            </article>
-          ))}
+        <div className="prestacao-pdf-botoes">
+          <button className="btn-secundario" type="button" disabled={!fechamentoEnviado} onClick={()=>baixarPDFGerente(true)}>Visualizar PDF</button>
+          <button className="fechamento-save-btn" type="button" disabled={!fechamentoEnviado} onClick={()=>baixarPDFGerente(false)}>Baixar PDF</button>
+          {fechamentoEnviado&&(
+            <div className={`prestacao-confirmacao-acao ${fechamentoConfirmadoEm?"confirmada":""}`}>
+              {fechamentoConfirmadoEm&&(
+                <div className="prestacao-confirmado-banner">
+                  <span>✓</span>
+                  <div>
+                    <strong>Fechamento confirmado com sucesso</strong>
+                    <small>Sua conferência foi registrada e enviada para a administração.</small>
+                  </div>
+                </div>
+              )}
+              <button className="btn-confirmar-fechamento" type="button" onClick={confirmarConferenciaGerente}
+                disabled={!fechamentoVisualizadoEm||Boolean(fechamentoConfirmadoEm)||Boolean(fechamentoFinalizadoEm)||confirmando}>
+                {fechamentoConfirmadoEm?"Fechamento confirmado":confirmando?"Confirmando...":"Confirmar fechamento"}
+              </button>
+              <small>{fechamentoConfirmadoEm
+                ?`Sua confirmação foi registrada em ${new Date(fechamentoConfirmadoEm).toLocaleString("pt-BR")}.`
+                :fechamentoVisualizadoEm
+                  ?"Confirme somente depois de revisar todos os valores."
+                  :"Visualize o PDF para liberar a confirmação."}</small>
+            </div>
+          )}
         </div>
       </div>
+      {fechamentoEnviado&&(
+        <div className="prestacao-pdf-resumo">
+          <article><span>Saldo a repassar</span><strong>{formatarMoedaPDF(saldoRepassar)}</strong></article>
+          <article><span>Comissão gerente</span><strong>{formatarMoedaPDF(comissaoGerente)}</strong></article>
+          <article><span>Despesas</span><strong>{formatarMoedaPDF(totalDespesas)}</strong></article>
+        </div>
+      )}
+      {!fechamentoEnviado&&(
+        <div className="info-box">Quando o administrativo enviar o fechamento, o PDF aparecerá aqui para visualização e download.</div>
+      )}
+      {/* A área do gerente mostra apenas o PDF recebido; os campos de lançamento ficam restritos ao administrativo. */}
     </section>
   );
 }
@@ -966,9 +1348,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     (rotaDetalheAtiva && normalizarTexto(i.gerenteResponsavel) === normalizarTexto(rotaDetalheAtiva))
   );
   const modalidadesDaRota = modalidadesFechamentoPara(gerenteSelecionado, rotaDetalheAtiva);
-  const despesaManualLemAtual = numeroFechamento(fechamentoValores["viapix-lem"]?.despesaManual);
   const totalDetalheSistema = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
-  const totalDetalhe = totalDetalheSistema + despesaManualLemAtual;
+  const totalDetalhe = totalDetalheSistema;
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
   const calculosModalidades = modalidadesDaRota.map(modalidade => {
     const valores = fechamentoValores[modalidade.id] || {};
@@ -983,6 +1364,47 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const saldoBrutoFechamento = calculosModalidades.reduce((s,m)=>s+m.saldoBruto,0);
   const saldoFinalFechamento = saldoBrutoFechamento - totalDetalhe;
   const comissaoGerenteFechamento = Math.max(0, saldoFinalFechamento) * 0.10;
+  const saldoRepassarFechamento = saldoFinalFechamento - comissaoGerenteFechamento;
+  const competenciaStatusFechamento = competenciaFechamento || hoje().slice(0,7);
+  const diaStatusFechamento = diaFechamento || "";
+  const fechamentosDetalheStatus = fechamentosRotas.filter(f =>
+    f.gerente === gerenteSelecionado &&
+    f.rota === rotaDetalheAtiva &&
+    f.competencia === competenciaStatusFechamento &&
+    (f.dia || "") === diaStatusFechamento
+  );
+  const fechamentoDetalheEnviadoEm = fechamentosDetalheStatus.map(f=>f.enviadoEm || f.atualizadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoDetalheFinalizadoEm = fechamentosDetalheStatus.map(f=>f.finalizadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoDetalheVisualizadoEm = fechamentosDetalheStatus.map(f=>f.gerenteVisualizadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoDetalheConfirmadoEm = fechamentosDetalheStatus.map(f=>f.gerenteConfirmadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoDetalheStatusTexto = fechamentoDetalheFinalizadoEm
+    ? `Prestação finalizada em ${new Date(fechamentoDetalheFinalizadoEm).toLocaleString("pt-BR")}`
+    : fechamentoDetalheConfirmadoEm
+      ? `Gerente confirmou em ${new Date(fechamentoDetalheConfirmadoEm).toLocaleString("pt-BR")}`
+      : fechamentoDetalheVisualizadoEm
+        ? `Gerente visualizou o PDF em ${new Date(fechamentoDetalheVisualizadoEm).toLocaleString("pt-BR")} e ainda não confirmou`
+    : fechamentoDetalheEnviadoEm
+      ? `Enviado em ${new Date(fechamentoDetalheEnviadoEm).toLocaleString("pt-BR")} · aguardando o gerente visualizar`
+      : "Ainda não enviado ao gerente";
+
+  function statusDaRotaFechamento({ gerente, rota }) {
+    const registros = fechamentosRotas.filter(f =>
+      f.gerente === gerente &&
+      f.rota === rota &&
+      f.competencia === competenciaStatusFechamento &&
+      (f.dia || "") === diaStatusFechamento
+    );
+    const finalizado = registros.map(f => f.finalizadoEm).filter(Boolean).sort().at(-1);
+    const confirmado = registros.map(f => f.gerenteConfirmadoEm).filter(Boolean).sort().at(-1);
+    const visualizado = registros.map(f => f.gerenteVisualizadoEm).filter(Boolean).sort().at(-1);
+    const enviado = registros.map(f => f.enviadoEm || f.atualizadoEm).filter(Boolean).sort().at(-1);
+
+    if (finalizado) return { classe: "finalizado", titulo: "Finalizado", descricao: new Date(finalizado).toLocaleString("pt-BR") };
+    if (confirmado) return { classe: "confirmado", titulo: "Confirmado", descricao: new Date(confirmado).toLocaleString("pt-BR") };
+    if (visualizado) return { classe: "visualizado", titulo: "Visualizado", descricao: "Aguardando confirmação" };
+    if (enviado) return { classe: "enviado", titulo: "Enviado", descricao: "Aguardando gerente" };
+    return { classe: "pendente", titulo: "Sem envio", descricao: "Pronto para lançar" };
+  }
 
   useEffect(()=>{
     let ativo=true;
@@ -1009,13 +1431,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         (f.dia || "") === dia
       )
       .forEach(f => {
-        if (f.modalidade === FECHAMENTO_DESPESA_VIAPIX_LEM) {
-          vazio["viapix-lem"] = {
-            ...(vazio["viapix-lem"] || {}),
-            despesaManual: textoFechamentoSalvo(f.entrada),
-          };
-          return;
-        }
         const modalidadeAtual = modalidadesAtivas.find(m => [m.id, ...(m.legacyIds || [])].includes(f.modalidade));
         if (!modalidadeAtual) return;
         vazio[modalidadeAtual.id] = {
@@ -1061,13 +1476,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         saida: m.saida,
         saldoBruto: m.saldoBruto,
       }));
-      modalidadesParaSalvar.push({
-        modalidade: FECHAMENTO_DESPESA_VIAPIX_LEM,
-        entrada: despesaManualLemAtual,
-        comissao: 0,
-        saida: 0,
-        saldoBruto: 0,
-      });
       const salvos = await salvarFechamentoRota({
         gerente: gerenteSelecionado,
         rota: rotaDetalheAtiva,
@@ -1086,9 +1494,51 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         ),
         ...salvos,
       ]);
-      setFechamentoOk("Fechamento salvo com sucesso.");
+      setFechamentoOk(`Fechamento enviado para ${gerenteSelecionado} · ${rotaDetalheAtiva}. O gerente já pode abrir a Prestação de Conta e baixar o PDF dessa rota.`);
     }catch(err){
       setFechamentoErro(err.message||"Não foi possível salvar o fechamento.");
+    }finally{
+      setFechamentoSalvando(false);
+    }
+  }
+
+  async function marcarPrestacaoFinalizada() {
+    setFechamentoOk("");
+    setFechamentoErro("");
+    if(!gerenteSelecionado || !rotaDetalheAtiva){
+      setFechamentoErro("Selecione uma rota para finalizar a prestação.");
+      return;
+    }
+    if(!fechamentoDetalheEnviadoEm){
+      setFechamentoErro("Envie o fechamento ao gerente antes de finalizar a prestação.");
+      return;
+    }
+    if(!fechamentoDetalheConfirmadoEm){
+      setFechamentoErro("Aguarde o gerente visualizar e confirmar o fechamento antes de finalizar a prestação.");
+      return;
+    }
+    setFechamentoSalvando(true);
+    try{
+      const atualizados = await finalizarPrestacaoRota({
+        gerente: gerenteSelecionado,
+        rota: rotaDetalheAtiva,
+        competencia: competenciaStatusFechamento,
+        dia: diaStatusFechamento,
+      });
+      setFechamentosRotas(atual => [
+        ...atual.filter(f =>
+          !(
+            f.gerente === gerenteSelecionado &&
+            f.rota === rotaDetalheAtiva &&
+            f.competencia === competenciaStatusFechamento &&
+            (f.dia || "") === diaStatusFechamento
+          )
+        ),
+        ...atualizados,
+      ]);
+      setFechamentoOk(`Prestação de contas finalizada para ${gerenteSelecionado} · ${rotaDetalheAtiva}.`);
+    }catch(err){
+      setFechamentoErro(err.message||"Não foi possível finalizar a prestação.");
     }finally{
       setFechamentoSalvando(false);
     }
@@ -1121,128 +1571,97 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     });
   }
 
-  function despesaManualDaRota(rota) {
-    const competencia = competenciaFechamento || hoje().slice(0,7);
-    const dia = diaFechamento || "";
-    if (gerenteSelecionado && rota === rotaDetalheAtiva) return despesaManualLemAtual;
-    return despesaManualViapixLem(fechamentosRotas, f =>
-      f.gerente === gerenteSelecionado &&
-      f.rota === rota &&
-      f.competencia === competencia &&
-      (f.dia || "") === dia
-    );
-  }
-
-  async function baixarFechamentoPDF(tipo = "rota") {
+  async function baixarFechamentoPDF(tipo = "rota", visualizar = false) {
     if (!gerenteSelecionado) {
       window.alert("Selecione um gerente/rota para gerar o PDF.");
       return;
     }
-    const rotasPDF = tipo === "gerente"
-      ? rotasDetalhe.filter(Boolean)
-      : [rotaDetalheAtiva].filter(Boolean);
-    if (rotasPDF.length === 0) {
-      window.alert("Selecione uma rota para gerar o PDF.");
-      return;
-    }
 
-    const linhasResumo = [];
-    const linhasModalidades = [];
-    const linhasDespesas = [];
-    const totais = { bruto: 0, despesas: 0, final: 0, comissaoGerente: 0 };
-
-    rotasPDF.forEach(rota => {
+    async function gerarPDFDaRota(rota, visualizarRota = false) {
+      if (!rota) return;
       const modalidades = calculosDaRota(rota);
       const despesasRota = despesasDaRota(rota);
       const totalBruto = modalidades.reduce((s,m)=>s+m.saldoBruto,0);
-      const despesaManual = despesaManualDaRota(rota);
-      const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0) + despesaManual;
+      const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
       const saldoFinal = totalBruto - totalDespesas;
       const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
-
-      totais.bruto += totalBruto;
-      totais.despesas += totalDespesas;
-      totais.final += saldoFinal;
-      totais.comissaoGerente += comissaoGerente;
-
-      linhasResumo.push([
+      const saldoRepassar = saldoFinal - comissaoGerente;
+      const linhasResumo = [[
         rota,
         formatarMoedaPDF(totalBruto),
         formatarMoedaPDF(totalDespesas),
         formatarMoedaPDF(saldoFinal),
         formatarMoedaPDF(comissaoGerente),
-      ]);
-
-      modalidades
+        formatarMoedaPDF(saldoRepassar),
+      ]];
+      const linhasModalidades = modalidades
         .filter(m => m.entrada || m.comissaoCalculada || m.saida || m.saldoBruto)
-        .forEach(m => linhasModalidades.push([
+        .map(m => [
           rota,
           m.nome,
           formatarMoedaPDF(m.entrada),
           formatarMoedaPDF(m.comissaoCalculada),
           formatarMoedaPDF(m.saida),
           formatarMoedaPDF(m.saldoBruto),
-        ]));
-
-      despesasRota.forEach(d => linhasDespesas.push([
+        ]);
+      const linhasDespesas = despesasRota.map(d => [
         rota,
         d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`,
         d.descricao || "Despesa sem descrição",
         formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
         formatarMoedaPDF(valorDespesaPrestacao(d)),
-      ]));
-      if (despesaManual > 0) {
-        linhasDespesas.push([
-          rota,
-          "Fechamento",
-          "Despesa manual Viapix/LEM",
-          formatarMesPrestacao(competenciaFechamento || hoje().slice(0,7)),
-          formatarMoedaPDF(despesaManual),
-        ]);
-      }
-    });
+      ]);
+      await gerarPDF({
+        titulo: `Fechamento - ${gerenteSelecionado} · ${rota}`,
+        descricao: `Prestação de contas individual da rota | ${periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}`,
+        nomeArquivo: `stock-on_fechamento_${slugArquivoBackup(gerenteSelecionado)}_${slugArquivoBackup(rota)}_${competenciaFechamento || "todos"}${diaFechamento?`_${diaFechamento}`:""}.pdf`,
+        visualizar: visualizarRota,
+        total: 1,
+        resumo: [
+          { label: "Gerente", valor: gerenteSelecionado },
+          { label: "Rota", valor: rota },
+          { label: "Saldo bruto", valor: formatarMoedaPDF(totalBruto), destaque: [37,99,235] },
+          { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
+          { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
+          { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
+          { label: "Saldo a repassar", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229] },
+        ],
+        secoes: [
+          {
+            titulo: "Entradas, comissões e saídas por modalidade",
+            colunas: ["Rota","Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
+            linhas: linhasModalidades.length ? linhasModalidades : [[rota,"Sem lançamentos","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
+          },
+          {
+            titulo: "Resumo financeiro da rota",
+            colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente","Saldo a repassar"],
+            linhas: linhasResumo,
+          },
+          {
+            titulo: "Histórico de despesas",
+            colunas: ["Rota","Ponto","Descrição","Mês","Valor"],
+            linhas: linhasDespesas.length ? linhasDespesas : [[rota,"-","Nenhuma despesa lançada neste recorte","-","R$ 0,00"]],
+            rodape: ["","","","Total das despesas",formatarMoedaPDF(totalDespesas)],
+            estilosColunas: {
+              0: { cellWidth: 30 },
+              1: { cellWidth: 72 },
+              2: { cellWidth: 64 },
+              3: { cellWidth: 48 },
+              4: { cellWidth: 38, halign: "right" },
+            },
+          },
+        ],
+      });
+    }
 
-    linhasResumo.push([
-      "TOTAL GERAL",
-      formatarMoedaPDF(totais.bruto),
-      formatarMoedaPDF(totais.despesas),
-      formatarMoedaPDF(totais.final),
-      formatarMoedaPDF(totais.comissaoGerente),
-    ]);
-
-    await gerarPDF({
-      titulo: tipo === "gerente"
-        ? `Fechamento - ${gerenteSelecionado}`
-        : `Fechamento - ${gerenteSelecionado} · ${rotaDetalheAtiva}`,
-      descricao: `Prestação de contas para impressão | ${periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}`,
-      nomeArquivo: `stock-on_fechamento_${slugArquivoBackup(gerenteSelecionado)}_${tipo === "gerente" ? "geral" : slugArquivoBackup(rotaDetalheAtiva)}_${competenciaFechamento || "todos"}${diaFechamento?`_${diaFechamento}`:""}.pdf`,
-      total: linhasResumo.length - 1,
-      resumo: [
-        { label: "Gerente", valor: gerenteSelecionado },
-        { label: "Rotas", valor: rotasPDF.join(", ") },
-        { label: "Saldo bruto", valor: formatarMoedaPDF(totais.bruto), destaque: [37,99,235] },
-        { label: "Despesas", valor: formatarMoedaPDF(totais.despesas), destaque: [220,38,38] },
-        { label: "Saldo final", valor: formatarMoedaPDF(totais.final), destaque: [5,150,105] },
-        { label: "Comissão gerente", valor: formatarMoedaPDF(totais.comissaoGerente), destaque: [201,125,0] },
-      ],
-      secoes: [
-        {
-          titulo: "Resumo financeiro por rota",
-          colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente"],
-          linhas: linhasResumo,
-        },
-        {
-          titulo: "Entradas, comissões e saídas por modalidade",
-          colunas: ["Rota","Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
-          linhas: linhasModalidades.length ? linhasModalidades : [["-","Sem lançamentos","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
-        },
-        {
-          titulo: "Despesas lançadas no sistema",
-          colunas: ["Rota","Ponto","Descrição","Mês","Valor"],
-          linhas: linhasDespesas.length ? linhasDespesas : [["-","-","Nenhuma despesa lançada neste recorte","-","R$ 0,00"]],
-        },
-      ],
-    });
+    const rotasPDF = tipo === "gerente" ? rotasDetalhe.filter(Boolean) : [rotaDetalheAtiva].filter(Boolean);
+    if (rotasPDF.length === 0) {
+      window.alert("Selecione uma rota para gerar o PDF.");
+      return;
+    }
+    for (const rota of rotasPDF) {
+      await gerarPDFDaRota(rota, visualizar && tipo === "rota");
+    }
   }
 
   async function enviarAvisoPix(e){
@@ -1299,25 +1718,53 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           <strong>{periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}</strong>
         </div>
       </div>
-      <div className="prestacao-gerentes-grid">
-        {dadosRotas.map(g=>(
-          <button
-            key={`${g.gerente}-${g.rota}`}
-            type="button"
-            className={`prestacao-gerente-card fechamento-card fechamento-card-click ${gerenteSelecionado===g.gerente&&rotaSelecionada===g.rota?"ativo":""}`}
-            style={{"--gerente-cor":g.cor.color,"--gerente-bg":g.cor.bg,"--gerente-border":g.cor.border}}
-            onClick={()=>selecionarRotaFechamento(g)}
-          >
-            <div className="prestacao-gerente-avatar">{g.gerente.slice(0,1).toUpperCase()}</div>
-            <span>{g.gerente}</span>
-            <strong>{formatarMoedaPDF(g.totalDespesas)}</strong>
-            <small>{g.pontos} ponto{g.pontos!==1?"s":""} · {g.equipamentos} equipamento{g.equipamentos!==1?"s":""}</small>
-            <div className="modalidades-badges">
-              <span className="badge-cat">{g.rota}</span>
-            </div>
-          </button>
-        ))}
-      </div>
+      <section className="fechamento-lista-seletor">
+        <div>
+          <span className="dash-kicker">Seleção do fechamento</span>
+          <h3>Escolha gerente e rota</h3>
+          <p>Use a lista para abrir somente a rota que será conferida e salva.</p>
+        </div>
+        <div className="fechamento-rota-picker" role="listbox" aria-label="Gerente e rota do fechamento">
+          <span>Gerentes e rotas</span>
+          <div className="fechamento-rota-lista">
+            {dadosRotas.map(g=>{
+              const ativo = gerenteSelecionado === g.gerente && rotaSelecionada === g.rota;
+              const status = statusDaRotaFechamento(g);
+              return (
+                <button
+                  key={`${g.gerente}-${g.rota}`}
+                  className={`fechamento-rota-card ${ativo ? "ativo" : ""} ${status.classe}`}
+                  type="button"
+                  onClick={()=>selecionarRotaFechamento(g)}
+                  style={{"--gerente-cor":g.cor?.color,"--gerente-bg":g.cor?.bg,"--gerente-border":g.cor?.border}}
+                  aria-selected={ativo}
+                >
+                  <span className="fechamento-rota-avatar">{g.gerente.slice(0,1).toUpperCase()}</span>
+                  <span className="fechamento-rota-info">
+                    <strong>{g.gerente}</strong>
+                    <small>{g.rota}</small>
+                  </span>
+                  <span className="fechamento-rota-metricas">
+                    <b>{formatarMoedaPDF(g.totalDespesas)}</b>
+                    <small>{g.pontos} ponto{g.pontos!==1?"s":""} · {g.equipamentos} equip.</small>
+                  </span>
+                  <span className="fechamento-rota-status">
+                    <b>{status.titulo}</b>
+                    <small>{status.descricao}</small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {gerenteSelecionado&&(
+          <div className="fechamento-lista-resumo" style={{"--gerente-cor":gerenteDetalhe?.cor?.color,"--gerente-bg":gerenteDetalhe?.cor?.bg,"--gerente-border":gerenteDetalhe?.cor?.border}}>
+            <strong>{gerenteSelecionado}</strong>
+            <span>{rotaDetalheAtiva}</span>
+            <small>{pontosDetalhe.length} ponto{pontosDetalhe.length!==1?"s":""} · {equipamentosDetalhe.length} equipamento{equipamentosDetalhe.length!==1?"s":""}</small>
+          </div>
+        )}
+      </section>
       {gerenteSelecionado&&(
         <section
           className="fechamento-detalhe"
@@ -1332,20 +1779,42 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
               <span className="dash-kicker">Demonstrativo administrativo</span>
               <h3>{gerenteSelecionado}{rotaDetalheAtiva?` · ${rotaDetalheAtiva}`:""}</h3>
               <p>Resumo refinado da rota selecionada para fechamento em {periodoPrestacaoLabel(competenciaFechamento,diaFechamento).toLowerCase()}.</p>
+              <small className="fechamento-envio-hint">Após clicar em Enviar ao gerente, este fechamento fica disponível no login do gerente em Prestação de Conta.</small>
+              {!fechamentoDetalheConfirmadoEm&&(
+                <div className={`fechamento-status-envio ${fechamentoDetalheEnviadoEm ? "enviado" : ""}`}>
+                  <span>{fechamentoDetalheVisualizadoEm
+                    ?"PDF visualizado"
+                    :fechamentoDetalheEnviadoEm?"Aguardando gerente":"Aguardando envio"}</span>
+                  <strong>{fechamentoDetalheStatusTexto}</strong>
+                </div>
+              )}
+              {fechamentoDetalheConfirmadoEm&&(
+                <div className="fechamento-confirmado-destaque">
+                  <span>✓</span>
+                  <div>
+                    <strong>{fechamentoDetalheFinalizadoEm ? "Prestação finalizada" : "Gerente confirmou este fechamento"}</strong>
+                    <small>{fechamentoDetalheFinalizadoEm
+                      ? `Finalizada em ${new Date(fechamentoDetalheFinalizadoEm).toLocaleString("pt-BR")} após confirmação do gerente.`
+                      : `Confirmação registrada em ${new Date(fechamentoDetalheConfirmadoEm).toLocaleString("pt-BR")}. A prestação já pode ser finalizada.`}</small>
+                  </div>
+                </div>
+              )}
             </div>
             {rotasDetalhe.length>1&&(
-              <div className="fechamento-rota-tabs">
-                {rotasDetalhe.map(rota=>(
-                  <button key={rota} type="button" className={rotaDetalheAtiva===rota?"ativo":""} onClick={()=>setRotaSelecionada(rota)}>{rota}</button>
-                ))}
-              </div>
+              <label className="fechamento-rota-select">
+                <span>Trocar rota</span>
+                <select value={rotaDetalheAtiva} onChange={e=>setRotaSelecionada(e.target.value)}>
+                  {rotasDetalhe.map(rota=><option key={rota} value={rota}>{rota}</option>)}
+                </select>
+              </label>
             )}
           </div>
           <div className="fechamento-kpis">
             <article className="kpi-bruto"><i>📈</i><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong><small>Entrada menos comissão e saída</small></article>
-            <article className="kpi-despesas"><i>🧾</i><span>Despesas contabilizadas</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>{despesaManualLemAtual > 0 ? "Sistema + despesa manual Viapix/LEM" : "Puxado automaticamente das despesas"}</small></article>
+            <article className="kpi-despesas"><i>🧾</i><span>Despesas contabilizadas</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>Puxado automaticamente das despesas</small></article>
             <article className="kpi-final"><i>💎</i><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong><small>Saldo bruto menos despesas</small></article>
             <article className="kpi-comissao"><i>🏆</i><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong><small>Calculado sobre o saldo final</small></article>
+            <article className="kpi-repassar"><i>💳</i><span>Saldo final a repassar</span><strong>{formatarMoedaPDF(saldoRepassarFechamento)}</strong><small>Saldo final menos comissão do gerente</small></article>
           </div>
           <div className="fechamento-operacao-box">
             <div className="fechamento-operacao-head">
@@ -1359,9 +1828,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
               {calculosModalidades.map(m=>(
                 <article className="fechamento-modalidade-card" key={m.id}>
                   <div className="fechamento-modalidade-topo">
-                    <div className="fechamento-modalidade-logo">
-                      <img src={m.logo} alt={m.nome} />
-                    </div>
+                    <div className="fechamento-modalidade-marca">{m.nome.slice(0,2).toUpperCase()}</div>
                     <div>
                       <strong>{m.nome}</strong>
                       <span>{m.descricao}</span>
@@ -1372,20 +1839,25 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                     <label>Entrada<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.entrada||""} onChange={e=>alterarFechamentoModalidade(m.id,"entrada",e.target.value)} placeholder="R$ 0,00"/></label>
                     <label>Comissão<input type="text" inputMode="decimal" value={m.comissao===null?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} disabled={m.comissao!==null} placeholder="R$ 0,00"/></label>
                     <label>Saída<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.saida||""} onChange={e=>alterarFechamentoModalidade(m.id,"saida",e.target.value)} placeholder="R$ 0,00"/></label>
-                    {m.despesaManual&&(
-                      <label className="fechamento-campo-span">Despesa manual LEM<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.despesaManual||""} onChange={e=>alterarFechamentoModalidade(m.id,"despesaManual",e.target.value)} placeholder="R$ 0,00"/></label>
-                    )}
                   </div>
                 </article>
               ))}
             </div>
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">
-              <p>O saldo final é o saldo bruto menos as despesas do sistema e a despesa manual do Viapix/LEM, quando preenchida. A comissão do gerente é 10% do saldo final.</p>
+              <p>Enviar publica este fechamento no acesso do gerente. Ele verá somente a rota dele na Prestação de Conta e poderá baixar o PDF por lá.</p>
               <div className="fechamento-acoes">
-                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota")}>📄 PDF da rota</button>
-                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("gerente")}>📚 PDF do gerente</button>
-                <button className="fechamento-save-btn" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
+                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota", true)}>Visualizar rota atual</button>
+                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota")}>Baixar rota atual</button>
+                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("gerente")}>Baixar todas as rotas</button>
+                <button className="btn-secundario fechamento-finalizar-btn" type="button" onClick={marcarPrestacaoFinalizada} disabled={!fechamentoDetalheConfirmadoEm || Boolean(fechamentoDetalheFinalizadoEm) || fechamentoSalvando}>
+                  {fechamentoDetalheFinalizadoEm
+                    ?"Prestação finalizada"
+                    :fechamentoDetalheConfirmadoEm
+                      ?"Marcar prestação finalizada"
+                      :"Aguardando confirmação do gerente"}
+                </button>
+                <button className="fechamento-save-btn" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Enviando...":"Enviar ao gerente"}</button>
               </div>
             </div>
           </div>
@@ -1961,8 +2433,23 @@ function PrestacaoContasPage({ pontos = [], despesas = [] }) {
   );
 }
 
-function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, podeEditar }) {
-  const movimentos=historico.filter(h=>h.itemId===item.id||h.itemNome===item.nome);
+function statusPagamentoConserto(item){
+  if(item.consertoPagamentoStatus)return item.consertoPagamentoStatus;
+  if(item.consertoPagamentoConfirmadoEm)return"pago";
+  if(item.consertoAssistencia||item.consertoPix||Number(item.consertoValor||0)>0||item.consertoNotaArquivo||item.consertoNotaNome||item.consertoRetiradaEm)return"solicitado";
+  if(item.consertoDefeito)return"comunicado";
+  return"";
+}
+
+function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, onCompletarConserto, onConfirmarPagamento, podeEditar, perfilAtual }) {
+  const movimentos=historico.filter(h=>h.itemId===item.id);
+  const operador=perfilAtual?.perfil==="operador";
+  const admin=perfilAtual?.perfil==="administrador";
+  const emConserto=item.status==="Em conserto";
+  const pagamentoStatus=statusPagamentoConserto(item);
+  const consertoComDadosOperador=pagamentoStatus==="solicitado"||pagamentoStatus==="pago";
+  const pagamentoSolicitado=pagamentoStatus==="solicitado";
+  const pagamentoPago=pagamentoStatus==="pago";
   return(
     <div className="modal-overlay" onClick={onFechar}>
       <div className="modal modal-ficha" onClick={e=>e.stopPropagation()}>
@@ -1980,12 +2467,43 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, p
             {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&<div><small>Recebimento</small><strong>Aguardando confirmação</strong></div>}
             <div><small>Cadastro</small><strong>{item.dataCadastro||"-"}</strong></div>
           </div>
+          {(item.consertoDefeito||item.consertoPix||item.consertoValor||item.consertoNotaArquivo)&&(
+            <div className="ficha-conserto-card">
+              <div>
+                <span className="dash-kicker">{consertoComDadosOperador?"Solicitação de pagamento do conserto":"Comunicado para conserto"}</span>
+                <h4>{consertoComDadosOperador?"Dados enviados pelo operador":"Aguardando o operador completar os dados"}</h4>
+              </div>
+              <div className="ficha-conserto-grid">
+                <div><small>Defeito</small><strong>{item.consertoDefeito||"-"}</strong></div>
+                <div><small>Assistência</small><strong>{item.consertoAssistencia||"-"}</strong></div>
+                <div><small>Previsão</small><strong>{item.consertoPrevisao?new Date(`${item.consertoPrevisao}T00:00:00`).toLocaleDateString("pt-BR"):"-"}</strong></div>
+                <div><small>Pronto / retirada</small><strong>{item.consertoRetiradaEm?new Date(`${item.consertoRetiradaEm}T00:00:00`).toLocaleDateString("pt-BR"):"-"}</strong></div>
+                <div><small>Valor</small><strong>{formatarMoedaPDF(item.consertoValor||0)}</strong></div>
+                <div><small>Forma</small><strong>{item.consertoFormaPagamento||"-"}</strong></div>
+                <div className="ficha-conserto-pix"><small>PIX / Detalhe</small><strong>{item.consertoPix||"-"}</strong></div>
+                <div><small>Status financeiro</small><strong>{pagamentoPago?"Pago":pagamentoSolicitado?"Aguardando pagamento":"Aguardando operador"}</strong></div>
+                <div><small>Nota fiscal</small><strong>{item.consertoNotaNome||"-"}</strong></div>
+              </div>
+              {item.consertoNotaArquivo&&(
+                <button className="btn-secundario" type="button" onClick={()=>window.open(item.consertoNotaArquivo,"_blank","noopener,noreferrer")}>Visualizar nota fiscal</button>
+              )}
+              {operador&&emConserto&&(
+                <button className="btn-primario ficha-conserto-acao" type="button" onClick={()=>{onFechar();onCompletarConserto(item);}}>Completar dados do conserto</button>
+              )}
+              {admin&&emConserto&&pagamentoSolicitado&&(
+                <button className="btn-primario ficha-conserto-acao" type="button" onClick={()=>onConfirmarPagamento(item)}>Confirmar pagamento realizado</button>
+              )}
+              {admin&&emConserto&&!pagamentoSolicitado&&(
+                <p className="ficha-conserto-aviso">Administração apenas acompanha. O operador é responsável por nota, PIX, valor e retorno do conserto.</p>
+              )}
+            </div>
+          )}
           <h4 className="ficha-subtitulo">Linha do tempo</h4>
           <div className="ficha-historico">
             {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação registrada.</p>:movimentos.map(h=><div className="ficha-evento" key={h.id}><span className={`badge-hist ${HIST_CFG[h.tipo]?.cor||""}`}>{HIST_CFG[h.tipo]?.label||h.tipo}</span><div><strong>{h.observacao||"Sem detalhe"}</strong><small>{h.data} · {h.responsavel||"-"}</small></div></div>)}
           </div>
         </div>
-        {podeEditar&&<div className="modal-footer">
+        {podeEditar&&!(admin&&emConserto)&&<div className="modal-footer">
           <button className="btn-secundario" onClick={()=>{onFechar();onEditar(item);}}>Editar</button>
           <button className="btn-primario" onClick={()=>{onFechar();onMovimentar(item);}}>Movimentar</button>
         </div>}
@@ -2009,6 +2527,8 @@ function notificacaoDisponivel() {
   return typeof window !== "undefined" && "Notification" in window;
 }
 
+const CHAT_OPERADOR = "Operador";
+
 function ChatInterno({ perfilAtual, gerentes = [] }) {
   const [aberto, setAberto] = useState(false);
   const [mensagens, setMensagens] = useState([]);
@@ -2016,25 +2536,90 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
   const [texto, setTexto] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [arrastandoChat, setArrastandoChat] = useState(false);
+  const [posicaoChat, setPosicaoChat] = useState(()=>{
+    try {
+      const salvo = JSON.parse(localStorage.getItem("stockon_chat_posicao") || "null");
+      return salvo && Number.isFinite(salvo.x) && Number.isFinite(salvo.y) ? salvo : null;
+    } catch {
+      return null;
+    }
+  });
   const [permissaoNotificacao, setPermissaoNotificacao] = useState(()=>notificacaoDisponivel() ? Notification.permission : "unsupported");
   const [apelidoAdmin, setApelidoAdmin] = useState(()=>{
     try{return localStorage.getItem("stockon_chat_apelido_admin") || "Administração";}catch{return "Administração";}
   });
   const notificacoesIniciadas = useRef(false);
   const ultimoIdNotificado = useRef(0);
-  const admin = ["administrador","operador"].includes(perfilAtual?.perfil);
+  const chatDrag = useRef({ativo:false,movido:false,dx:0,dy:0});
+  const admin = perfilAtual?.perfil === "administrador";
+  const operadorChat = perfilAtual?.perfil === "operador";
+  const centralChat = admin || operadorChat;
   const gerenteAtual = perfilAtual?.perfil==="gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
   const gerentesDisponiveis = useMemo(() => [...new Set(gerentes.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR")), [gerentes]);
-  const gerenteConversa = admin ? gerenteSelecionado : gerenteAtual;
+  const conversasDisponiveis = useMemo(() => {
+    const lista = [CHAT_OPERADOR, ...gerentesDisponiveis.filter(g => normalizarTexto(g) !== normalizarTexto(CHAT_OPERADOR))];
+    return [...new Set(lista)];
+  }, [gerentesDisponiveis]);
+  const gerenteConversa = centralChat ? gerenteSelecionado : gerenteAtual;
+  const rotuloConversa = id => operadorChat && id === CHAT_OPERADOR ? "Administração" : id;
   const apelidoAdminFinal = apelidoAdmin.trim() || "Administração";
+  const mensagensDaConversa = mensagens;
+  const totalMensagens = mensagensDaConversa.length;
+  const ultimaMensagem = mensagensDaConversa[mensagensDaConversa.length - 1];
 
   useEffect(()=>{
     try{localStorage.setItem("stockon_chat_apelido_admin", apelidoAdminFinal);}catch{}
   },[apelidoAdminFinal]);
 
+  function limitarPosicaoChat(x, y) {
+    const margem = 10;
+    const tamanho = 62;
+    const largura = window.innerWidth || document.documentElement.clientWidth || 360;
+    const altura = window.innerHeight || document.documentElement.clientHeight || 640;
+    return {
+      x: Math.min(Math.max(margem, x), Math.max(margem, largura - tamanho - margem)),
+      y: Math.min(Math.max(margem, y), Math.max(margem, altura - tamanho - margem)),
+    };
+  }
+
+  function iniciarArrastoChat(e) {
+    if (aberto || e.button > 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    chatDrag.current = {
+      ativo: true,
+      movido: false,
+      sx: e.clientX,
+      sy: e.clientY,
+      dx: e.clientX - rect.left,
+      dy: e.clientY - rect.top,
+    };
+    setArrastandoChat(true);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+
+  function moverChat(e) {
+    if (!chatDrag.current.ativo) return;
+    const nova = limitarPosicaoChat(e.clientX - chatDrag.current.dx, e.clientY - chatDrag.current.dy);
+    if (Math.abs(e.clientX - chatDrag.current.sx) > 5 || Math.abs(e.clientY - chatDrag.current.sy) > 5) {
+      chatDrag.current.movido = true;
+    }
+    setPosicaoChat(nova);
+  }
+
+  function finalizarArrastoChat() {
+    if (!chatDrag.current.ativo) return;
+    setArrastandoChat(false);
+    chatDrag.current.ativo = false;
+    if (posicaoChat) {
+      try { localStorage.setItem("stockon_chat_posicao", JSON.stringify(posicaoChat)); } catch {}
+    }
+    setTimeout(()=>{ chatDrag.current.movido = false; }, 80);
+  }
+
   useEffect(() => {
-    if (admin && !gerenteSelecionado && gerentesDisponiveis.length > 0) setGerenteSelecionado(gerentesDisponiveis[0]);
-  }, [admin, gerenteSelecionado, gerentesDisponiveis]);
+    if (centralChat && !gerenteSelecionado && conversasDisponiveis.length > 0) setGerenteSelecionado(conversasDisponiveis[0]);
+  }, [centralChat, gerenteSelecionado, conversasDisponiveis]);
 
   async function carregar() {
     if (!gerenteConversa) return;
@@ -2063,6 +2648,14 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
   }, [aberto, mensagens, perfilAtual?.userId]);
 
   const mensagensNaoLidas = mensagens.filter(m => m.remetenteId !== perfilAtual?.userId && !m.lidaEm).length;
+  const resumoGerentes = useMemo(() => {
+    return conversasDisponiveis.map(gerente => {
+      const lista = gerente === gerenteConversa ? mensagens : [];
+      const naoLidas = lista.filter(m => m.remetenteId !== perfilAtual?.userId && !m.lidaEm).length;
+      const ultima = lista[lista.length - 1];
+      return { gerente, naoLidas, ultima };
+    });
+  }, [conversasDisponiveis, gerenteConversa, mensagens, perfilAtual?.userId]);
 
   useEffect(() => {
     if (!perfilAtual?.userId || !notificacaoDisponivel()) return;
@@ -2086,7 +2679,7 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
     try {
       new Notification(`Stock-ON • ${autor}`, {
         body: ultima.mensagem,
-        icon: "/icons/icon-192.png",
+        icon: "/icons/stock-on-192.png",
         tag: `stock-on-chat-${gerenteConversa || "geral"}`,
       });
     } catch {}
@@ -2107,16 +2700,20 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
   async function enviar(e) {
     e.preventDefault();
     setErro("");
-    if (!gerenteConversa) { setErro("Selecione um gerente para iniciar a conversa."); return; }
+    if (!gerenteConversa) { setErro("Selecione um contato para iniciar a conversa."); return; }
     setEnviando(true);
     try {
       const nova = await enviarMensagemInterna({
         perfilAtual: {
           ...perfilAtual,
-          nome: admin ? apelidoAdminFinal : gerenteConversa,
+          nome: admin ? apelidoAdminFinal : operadorChat ? (perfilAtual.nome || perfilAtual.loginNome || CHAT_OPERADOR) : gerenteConversa,
         },
         gerenteNome: gerenteConversa,
-        destinoTipo: admin ? "gerente" : "administracao",
+        destinoTipo: admin
+          ? (gerenteConversa===CHAT_OPERADOR ? "operador" : "gerente")
+          : operadorChat && gerenteConversa!==CHAT_OPERADOR
+            ? "gerente"
+            : "administracao",
         mensagem: texto,
       });
       setMensagens(prev => [...prev, nova]);
@@ -2132,10 +2729,21 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
   if (!["administrador","operador","gerente"].includes(perfilAtual?.perfil)) return null;
 
   return (
-    <div className={`chat-flutuante ${aberto ? "aberto" : ""}`}>
+    <div
+      className={`chat-flutuante ${aberto ? "aberto" : ""}`}
+      style={!aberto && posicaoChat ? {left:`${posicaoChat.x}px`,top:`${posicaoChat.y}px`,right:"auto",bottom:"auto"} : undefined}
+    >
       {!aberto && (
-        <button className="chat-bolha" onClick={()=>setAberto(true)} title="Abrir chat interno">
-          💬
+        <button
+          className={`chat-bolha ${arrastandoChat ? "arrastando" : ""}`}
+          onPointerDown={iniciarArrastoChat}
+          onPointerMove={moverChat}
+          onPointerUp={finalizarArrastoChat}
+          onPointerCancel={finalizarArrastoChat}
+          onClick={()=>{ if (!chatDrag.current.movido) setAberto(true); }}
+          title="Abrir chat interno"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-5.4A8 8 0 1 1 21 12Z"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
           {mensagensNaoLidas>0 && <span>{mensagensNaoLidas>9?"9+":mensagensNaoLidas}</span>}
         </button>
       )}
@@ -2143,59 +2751,95 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
         <section className="chat-painel">
           <header className="chat-header">
             <div>
-              <span>{admin ? "Administração" : "Canal com a administração"}</span>
+              <span>{centralChat ? "Central de conversas" : "Canal com a administração"}</span>
               <strong>Chat interno</strong>
             </div>
             <button onClick={()=>setAberto(false)}>✕</button>
           </header>
-          {admin && (
-            <div className="chat-gerente">
-              <label>Conversa com</label>
-              <select value={gerenteSelecionado} onChange={e=>setGerenteSelecionado(e.target.value)}>
-                {gerentesDisponiveis.length===0 && <option value="">Nenhum gerente encontrado</option>}
-                {gerentesDisponiveis.map(g=><option key={g} value={g}>{g}</option>)}
-              </select>
-              <label>Seu apelido no chat</label>
-              <input type="text" value={apelidoAdmin} onChange={e=>setApelidoAdmin(e.target.value)} placeholder="Ex: Anderson, Administração, Central..." />
-            </div>
-          )}
-          {!admin && <div className="chat-gerente chat-gerente-fixo"><span>Gerente</span><strong>{gerenteConversa||"Sem gerente vinculado"}</strong></div>}
-          {permissaoNotificacao!=="granted" && (
-            <div className="chat-notificacao">
-              <span>🔔 Receber aviso no celular quando chegar mensagem</span>
-              <button type="button" onClick={ativarNotificacoes}>
-                {permissaoNotificacao==="denied" ? "Bloqueado" : "Ativar"}
-              </button>
-            </div>
-          )}
-          <div className="chat-lista">
-            {!gerenteConversa ? (
-              <p className="chat-vazio">Selecione um gerente para ver a conversa.</p>
-            ) : mensagens.length===0 ? (
-              <p className="chat-vazio">Nenhuma mensagem ainda. Use este canal para deixar tudo registrado.</p>
-            ) : mensagens.map(m => {
-              const minha = m.remetenteId === perfilAtual.userId;
-              const nomeExibido = minha
-                ? "Você"
-                : m.remetentePerfil==="gerente"
-                  ? (m.gerenteNome || m.remetenteNome || "Gerente")
-                  : (pareceEmail(m.remetenteNome) ? "Administração" : (m.remetenteNome || "Administração"));
-              return (
-                <article key={m.id} className={`chat-msg ${minha ? "minha" : ""}`}>
-                  <div>
-                    <strong>{nomeExibido}</strong>
-                    <small>{formatarHoraMensagem(m.criadoEm)}</small>
+          <div className={`chat-corpo ${centralChat ? "chat-admin" : "chat-gerente-mode"}`}>
+            {centralChat && (
+              <aside className="chat-conversas">
+                {admin && (
+                  <div className="chat-apelido">
+                    <label>Assinar como</label>
+                    <input type="text" value={apelidoAdmin} onChange={e=>setApelidoAdmin(e.target.value)} placeholder="Administração" />
                   </div>
-                  <p>{m.mensagem}</p>
-                </article>
-              );
-            })}
+                )}
+                <span className="chat-divisor">Conversas</span>
+                <div className="chat-conversas-lista">
+                  {resumoGerentes.length===0 ? (
+                    <p>Nenhum contato encontrado.</p>
+                  ) : resumoGerentes.map(item => (
+                    <button key={item.gerente} type="button" className={item.gerente===gerenteConversa ? "ativo" : ""} onClick={()=>setGerenteSelecionado(item.gerente)}>
+                      <span>{String(rotuloConversa(item.gerente)).slice(0,1).toUpperCase()}</span>
+                      <div>
+                        <strong>{rotuloConversa(item.gerente)}</strong>
+                        <small>{item.gerente===gerenteConversa && ultimaMensagem ? ultimaMensagem.mensagem : "Abrir conversa"}</small>
+                      </div>
+                      {item.naoLidas>0 && <em>{item.naoLidas>9?"9+":item.naoLidas}</em>}
+                    </button>
+                  ))}
+                </div>
+              </aside>
+            )}
+            <div className="chat-thread">
+              {centralChat && (
+                <div className="chat-mobile-seletor">
+                  <label>Conversar com</label>
+                  <select value={gerenteSelecionado} onChange={e=>setGerenteSelecionado(e.target.value)}>
+                    {resumoGerentes.map(item => (
+                      <option key={item.gerente} value={item.gerente}>{rotuloConversa(item.gerente)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="chat-contexto">
+                <div className="chat-contexto-avatar">{String(rotuloConversa(gerenteConversa) || "A").slice(0,1).toUpperCase()}</div>
+                <div>
+                  <span>{centralChat ? "Conversa com" : "Atendimento interno"}</span>
+                  <strong>{centralChat ? (rotuloConversa(gerenteConversa) || "Selecione um contato") : "Administração"}</strong>
+                  <small>{totalMensagens} mensagem{totalMensagens!==1?"s":""}{ultimaMensagem ? ` · última ${formatarHoraMensagem(ultimaMensagem.criadoEm)}` : ""}</small>
+                </div>
+              </div>
+              {!centralChat && <div className="chat-gerente-fixo"><span>Gerente vinculado</span><strong>{gerenteConversa||"Sem gerente vinculado"}</strong></div>}
+              {permissaoNotificacao!=="granted" && (
+                <div className="chat-notificacao">
+                  <span>Receber aviso quando chegar mensagem</span>
+                  <button type="button" onClick={ativarNotificacoes}>
+                    {permissaoNotificacao==="denied" ? "Bloqueado" : "Ativar"}
+                  </button>
+                </div>
+              )}
+              <div className="chat-lista">
+                {!gerenteConversa ? (
+                  <p className="chat-vazio">Selecione um contato para ver a conversa.</p>
+                ) : mensagensDaConversa.length===0 ? (
+                  <p className="chat-vazio">Nenhuma mensagem ainda. Use este canal para deixar tudo registrado.</p>
+                ) : mensagensDaConversa.map(m => {
+                  const minha = m.remetenteId === perfilAtual.userId;
+                  const nomeExibido = minha
+                    ? "Você"
+                    : m.remetentePerfil==="gerente"
+                      ? (m.gerenteNome || m.remetenteNome || "Gerente")
+                      : (pareceEmail(m.remetenteNome) ? "Administração" : (m.remetenteNome || "Administração"));
+                  return (
+                    <article key={m.id} className={`chat-msg ${minha ? "minha" : ""}`}>
+                      <div>
+                        <strong>{nomeExibido}</strong>
+                        <small>{formatarHoraMensagem(m.criadoEm)}</small>
+                      </div>
+                      <p>{m.mensagem}</p>
+                    </article>
+                  );
+                })}
+              </div>
+              {erro && <div className="chat-erro">{erro}</div>}
+              <form className="chat-form" onSubmit={enviar}>
+                <textarea value={texto} onChange={e=>setTexto(e.target.value)} placeholder={gerenteConversa ? "Digite sua mensagem..." : "Selecione uma conversa para enviar"} maxLength={2000}/>
+                <button className="btn-primario" disabled={enviando || !texto.trim() || !gerenteConversa}>{enviando ? "Enviando..." : "Enviar"}</button>
+              </form>
+            </div>
           </div>
-          {erro && <div className="chat-erro">{erro}</div>}
-          <form className="chat-form" onSubmit={enviar}>
-            <textarea value={texto} onChange={e=>setTexto(e.target.value)} placeholder="Digite sua mensagem..." maxLength={2000}/>
-            <button className="btn-primario" disabled={enviando || !texto.trim()}>{enviando ? "Enviando..." : "Enviar"}</button>
-          </form>
         </section>
       )}
     </div>
@@ -2299,7 +2943,7 @@ function TelaNovaSenha({onConcluir}) {
   async function salvar(e) {
     e.preventDefault();
     setErro("");
-    if(novaSenha.length<8){setErro("A nova senha precisa ter pelo menos 8 caracteres.");return;}
+    if(novaSenha.length<10){setErro("A nova senha precisa ter pelo menos 10 caracteres.");return;}
     if(novaSenha!==confirmacao){setErro("A confirmação da senha está diferente.");return;}
     setCarregando(true);
     const {error}=await supabase.auth.updateUser({password:novaSenha});
@@ -2317,7 +2961,7 @@ function TelaNovaSenha({onConcluir}) {
         <div className="login-subtitulo">Crie uma senha nova para continuar</div>
         <form className="login-form" onSubmit={salvar}>
           {erro&&<div className="login-erro">🔒 {erro}</div>}
-          <div className="campo"><label>Nova senha</label><input type="password" placeholder="Mínimo de 8 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} autoFocus/></div>
+          <div className="campo"><label>Nova senha</label><input type="password" placeholder="Mínimo de 10 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} autoFocus/></div>
           <div className="campo"><label>Confirmar nova senha</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
           <button type="submit" className="btn-login" disabled={carregando||!novaSenha||!confirmacao}>{carregando?"Salvando...":"Salvar nova senha"}</button>
         </form>
@@ -2338,7 +2982,7 @@ function ModalAlterarSenha({onFechar}) {
     e.preventDefault();
     setErro("");
     if(!senhaAtual){setErro("Informe sua senha atual.");return;}
-    if(novaSenha.length<8){setErro("A nova senha precisa ter pelo menos 8 caracteres.");return;}
+    if(novaSenha.length<10){setErro("A nova senha precisa ter pelo menos 10 caracteres.");return;}
     if(novaSenha!==confirmacao){setErro("A confirmação da nova senha está diferente.");return;}
     if(novaSenha===senhaAtual){setErro("A nova senha deve ser diferente da senha atual.");return;}
     setSalvando(true);
@@ -2373,7 +3017,7 @@ function ModalAlterarSenha({onFechar}) {
               <p className="senha-texto">Esta alteração vale somente para o seu próprio login.</p>
               {erro&&<div className="erro-msg">⚠️ {erro}</div>}
               <div className="campo"><label>Senha atual *</label><input type="password" value={senhaAtual} onChange={e=>setSenhaAtual(e.target.value)} autoFocus/></div>
-              <div className="campo"><label>Nova senha *</label><input type="password" placeholder="Mínimo de 8 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)}/></div>
+              <div className="campo"><label>Nova senha *</label><input type="password" placeholder="Mínimo de 10 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)}/></div>
               <div className="campo"><label>Confirmar nova senha *</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
             </div>
             <div className="modal-footer"><button type="button" className="btn-secundario" onClick={onFechar}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvando}>{salvando?"Salvando...":"Alterar senha"}</button></div>
@@ -2409,6 +3053,8 @@ function avatarLendario(nome) {
     joão: { titulo:"Nobre Solar", classe:"avatar-joao" },
     joao: { titulo:"Nobre Solar", classe:"avatar-joao" },
     beu: { titulo:"Capitão Turquesa", classe:"avatar-beu" },
+    gavião: { titulo:"Xerife das Rotas", classe:"avatar-gaviao" },
+    gaviao: { titulo:"Xerife das Rotas", classe:"avatar-gaviao" },
   };
   const chave = normalizarTexto(base);
   return avatares[chave] || { titulo:"Herói do Estoque", classe:"avatar-estoque" };
@@ -2465,6 +3111,8 @@ function Sistema({onLogout}){
   const [historicoPontos,setHistoricoPontos]=useState([]);
   const [despesasBackup,setDespesasBackup]=useState([]);
   const [pixEnvios,setPixEnvios]=useState([]);
+  const [senhasModalidades,setSenhasModalidades]=useState([]);
+  const [modalidadeApps,setModalidadeApps]=useState([]);
   const [carregando,setCarregando] =useState(true);
   const [erroCarregamento,setErroCarregamento]=useState("");
   const [tentativaCarga,setTentativaCarga]=useState(0);
@@ -2515,6 +3163,8 @@ function Sistema({onLogout}){
           comPrazo(carregarPerfilAtual(),"seu perfil de acesso"),
           comPrazo(carregarDespesasMensais(),"as despesas mensais"),
           comPrazo(carregarPixEnvios(),"os avisos PIX"),
+          comPrazo(carregarGerenteModalidadeAcessos(),"as senhas das modalidades"),
+          comPrazo(carregarModalidadeApps(),"os apps das modalidades"),
         ]);
         if(!ativo)return;
         if(complementos[0].status==="fulfilled")setHistorico(complementos[0].value);
@@ -2522,6 +3172,8 @@ function Sistema({onLogout}){
         if(complementos[2].status==="fulfilled")setPerfilAtual(complementos[2].value);
         if(complementos[3].status==="fulfilled")setDespesasBackup(complementos[3].value);
         if(complementos[4].status==="fulfilled")setPixEnvios(complementos[4].value);
+        if(complementos[5].status==="fulfilled")setSenhasModalidades(complementos[5].value);
+        if(complementos[6].status==="fulfilled")setModalidadeApps(complementos[6].value);
       }catch(e){
         if(!ativo)return;
         setErroCarregamento(e.message||"Não foi possível buscar os dados do sistema.");
@@ -2539,6 +3191,7 @@ function Sistema({onLogout}){
   const mensagemDoDia=getMensagemMotivacionalDoDia();
   const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
   const administrador=perfilAtual.perfil==="administrador";
+  const operador=perfilAtual.perfil==="operador";
   const gerentesChat=[...new Set([
     ...GERENTES,
     ...pontos.map(p=>gerenteDaRota(p.gerente)).filter(Boolean),
@@ -2546,6 +3199,7 @@ function Sistema({onLogout}){
   const gerenteAtual=perfilAtual.perfil==="gerente"?(perfilAtual.gerenteNome||perfilAtual.nome||""):"";
   const gerenteAtualKey=normalizarTexto(gerenteAtual);
   const podeCadastrarEquipamento=podeEditar||perfilAtual.perfil==="gerente";
+  const exigirPatrimonioEquipamento=perfilAtual.perfil!=="gerente";
   const gerenteNomeBase=nomeBaseGerente(gerenteAtual);
   const gerenteAvatar=avatarLendario(gerenteAtual);
   const pontosOperacionais=gerenteAtual?pontos.filter(p=>rotaPermitidaAoPerfil(p.gerente, perfilAtual)):pontos;
@@ -2567,16 +3221,11 @@ function Sistema({onLogout}){
     normalizarTexto(item.gerenteResponsavel)===gerenteAtualKey&&
     item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido
   );
-  const despesasOperacionais=gerenteAtual
+  const despesasOperacionais=operador
+    ?[]
+    :gerenteAtual
     ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId))
     :despesasBackup;
-  const gerentePixNome=gerenteDaRota(gerenteAtual)||gerenteAtual;
-  const pixAvisoAtual=gerenteAtual?[...pixEnvios]
-    .filter(aviso=>
-      normalizarTexto(aviso.gerente)===normalizarTexto(gerentePixNome)&&
-      pixDentroDoPrazo(aviso)
-    )
-    .sort((a,b)=>new Date(b.enviadoEm||0)-new Date(a.enviadoEm||0))[0]||null:null;
 
   async function copiarPixAviso(chave){
     try{
@@ -2591,6 +3240,12 @@ function Sistema({onLogout}){
   const totalDisponivel=itensOperacionais.filter(i=>i.status==="Disponível").length;
   const totalEmRota    =itensOperacionais.filter(i=>i.status==="Em rota").length;
   const totalConserto  =itensOperacionais.filter(i=>i.status==="Em conserto").length;
+  const consertosPendentes=itensOperacionais
+    .filter(i=>i.status==="Em conserto")
+    .sort((a,b)=>(b.consertoSolicitadoEm||"").localeCompare(a.consertoSolicitadoEm||""));
+  const pagamentosConsertoPendentes=itensOperacionais
+    .filter(i=>i.status==="Em conserto"&&statusPagamentoConserto(i)==="solicitado")
+    .sort((a,b)=>(b.consertoPagamentoSolicitadoEm||b.consertoSolicitadoEm||"").localeCompare(a.consertoPagamentoSolicitadoEm||a.consertoSolicitadoEm||""));
 
   const alertas = [CATEGORIA_COM_ALERTA].map(cat=>{
     const totalDisp=itensOperacionais.filter(i=>i.categoria===cat&&i.status==="Disponível").length;
@@ -2609,15 +3264,18 @@ function Sistema({onLogout}){
     };
   });
   const inconsistencias=itensOperacionais.filter(item=>
-    !padronizarNomenclaturaEquipamento(item.nome)||!padronizarNomenclaturaEquipamento(item.patrimonio)
+    item.status!=="Em conserto"&&(
+      !padronizarNomenclaturaEquipamento(item.nome)||(exigirPatrimonioEquipamento&&!padronizarNomenclaturaEquipamento(item.patrimonio))
+    )
   );
   const pontosComEquipamentos=pontosOperacionais.map(p=>({
     ...p,
     totalEquipamentos:itensOperacionais.filter(i=>i.localizacao===p.nomeFantasia).length,
   })).filter(p=>p.totalEquipamentos>0).sort((a,b)=>b.totalEquipamentos-a.totalEquipamentos);
 
+  const filtroCatEquipAtivo=gerenteAtual?"Todas":filtroCatEquip;
   const itensFiltrados=itensOperacionais.filter(i=>{
-    const mC=filtroCatEquip==="Todas"||i.categoria===filtroCatEquip;
+    const mC=filtroCatEquipAtivo==="Todas"||i.categoria===filtroCatEquipAtivo;
     const mS=filtroSt==="Todos"||i.status===filtroSt;
     const q=busca.toLowerCase();
     const mB=!busca||[i.nome,i.patrimonio,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>(f||"").toLowerCase().includes(q));
@@ -2659,14 +3317,35 @@ function Sistema({onLogout}){
   function fecharForm(){setModalForm(false);}
   function abrirMov(item){
     if(!podeMovimentarEquipamento(item))return;
-    const inconsistencia=validarItem(item,itens,item.id);
+    const inconsistencia=validarItem(item,itens,item.id,{exigirPatrimonio:exigirPatrimonioEquipamento});
     if(inconsistencia){window.alert(`Corrija o cadastro antes de movimentar este equipamento. ${inconsistencia}`);return;}
     setModalMov(item);setMov({...movVazio,ponto:item.localizacao||"",gerente:item.gerenteResponsavel||""});setErroMov("");
+  }
+  function abrirConsertoOperador(item){
+    if(perfilAtual.perfil!=="operador"||item.status!=="Em conserto")return;
+    setModalMov(item);
+    setMov({
+      ...movVazio,
+      tipoId:"conserto",
+      ponto:item.localizacao||"",
+      gerente:item.gerenteResponsavel||"",
+      defeito:item.consertoDefeito||"",
+      assistencia:item.consertoAssistencia||"",
+      previsao:item.consertoPrevisao||"",
+      dataRetirada:item.consertoRetiradaEm||"",
+      formaPagamento:item.consertoFormaPagamento||"PIX",
+      consertoPix:item.consertoPix||"",
+      consertoValor:item.consertoValor||"",
+      notaFiscalNome:item.consertoNotaNome||"",
+      notaFiscalArquivo:item.consertoNotaArquivo||"",
+    });
+    setErroMov("");
   }
   function fecharMov(){setModalMov(null);}
 
   function anexarNotaFiscalConserto(arquivo){
     if(!arquivo)return;
+    setErroMov("");
     if(!arquivo.type.startsWith("image/")){
       setErroMov("Anexe uma imagem da nota fiscal.");
       return;
@@ -2698,7 +3377,7 @@ function Sistema({onLogout}){
       transferenciaStatus:gerenteAtual?TRANSFERENCIA_GERENTE.recebido:(form.transferenciaStatus||""),
       transferenciaRecebidaEm:gerenteAtual?(form.transferenciaRecebidaEm||isoAgora()):(form.transferenciaRecebidaEm||""),
     };
-    const erro=validarItem(ff,itens,itemEdit?.id);if(erro){setErroForm(erro);return;}
+    const erro=validarItem(ff,itens,itemEdit?.id,{exigirPatrimonio:exigirPatrimonioEquipamento});if(erro){setErroForm(erro);return;}
     if(ff.status==="Em rota"&&!ff.localizacao){setErroForm("Selecione o ponto onde este equipamento ficará.");return;}
     if(itemEdit){
       await salvarEquipamento({...ff,id:itemEdit.id});
@@ -2770,38 +3449,109 @@ function Sistema({onLogout}){
     const tipo=TIPOS_MOV.find(t=>t.id===mov.tipoId);
     const erro=validarMov(mov,tipo,perfilAtual.perfil);if(erro){setErroMov(erro);return;}
     if(tipo.id==="gerente"&&!mov.gerente){setErroMov("Selecione o gerente que vai receber este equipamento.");return;}
-    const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
-    const upd=tipo.id==="gerente"
-      ?{...modalMov,quantidade:1,status:"Em rota",localizacao:"",responsavel:mov.responsavel||mov.gerente,gerenteResponsavel:mov.gerente,transferenciaStatus:TRANSFERENCIA_GERENTE.aguardando,transferenciaEnviadaEm:isoAgora(),transferenciaRecebidaEm:""}
-      :tipo.id==="disponivel"&&!gerenteAtual
-        ?{...modalMov,quantidade:1,status:tipo.novoStatus,localizacao:"",responsavel:mov.responsavel||modalMov.responsavel,gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""}
-        :{...modalMov,quantidade:1,status:tipo.novoStatus,localizacao,responsavel:mov.responsavel||modalMov.responsavel,transferenciaStatus:modalMov.transferenciaStatus,gerenteResponsavel:modalMov.gerenteResponsavel};
-    await salvarEquipamento(upd);
-    setItens(prev=>prev.map(i=>i.id===modalMov.id?upd:i));
-    const detalhe=tipo.id==="ponto"?`Destino: ${mov.ponto}`:tipo.id==="conserto"?`Defeito: ${mov.defeito}`:tipo.id==="gerente"?`Enviado para gerente: ${mov.gerente}`:tipo.label;
-    const informacoesConserto=tipo.id==="conserto"?[
-      mov.assistencia&&`Assistência: ${mov.assistencia}`,
-      mov.previsao&&`Previsão: ${mov.previsao}`,
-      mov.consertoPix&&`PIX conserto: ${mov.consertoPix}`,
-      mov.consertoValor&&`Valor conserto: ${formatarMoedaPDF(mov.consertoValor)}`,
-      mov.notaFiscalNome&&`Nota fiscal: ${mov.notaFiscalNome}`,
-    ]:[];
-    const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
-    if(tipo.id==="conserto"&&mov.notaFiscalArquivo){
-      try{
-        localStorage.setItem(`stockon_nota_conserto_${h.id}`,JSON.stringify({
-          itemId:modalMov.id,
-          itemNome:modalMov.nome,
-          arquivoNome:mov.notaFiscalNome,
-          arquivo:mov.notaFiscalArquivo,
-          pix:mov.consertoPix,
-          valor:mov.consertoValor,
-          criadoEm:isoAgora(),
-        }));
-      }catch{}
+    setErroMov("");
+    try {
+      const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
+      const dadosConserto=tipo.id==="conserto"?{
+        consertoDefeito: mov.defeito.trim(),
+        consertoAssistencia: gerenteAtual ? "" : String(mov.assistencia||"").trim(),
+        consertoPrevisao: gerenteAtual ? "" : (mov.previsao || ""),
+        consertoFormaPagamento: gerenteAtual ? "" : String(mov.formaPagamento||"").trim(),
+        consertoRetiradaEm: gerenteAtual ? "" : (mov.dataRetirada || ""),
+        consertoPix: gerenteAtual ? "" : String(mov.consertoPix||"").trim(),
+        consertoValor: gerenteAtual ? 0 : Number(mov.consertoValor||0),
+        consertoNotaNome: gerenteAtual ? "" : (mov.notaFiscalNome || ""),
+        consertoNotaArquivo: gerenteAtual ? "" : (mov.notaFiscalArquivo || ""),
+        consertoSolicitadoEm: isoAgora(),
+        consertoSolicitadoPor: perfilAtual.userId || "",
+        consertoPagamentoStatus: gerenteAtual ? "comunicado" : perfilAtual.perfil==="operador" ? "solicitado" : (modalMov.consertoPagamentoStatus||""),
+        consertoPagamentoSolicitadoEm: perfilAtual.perfil==="operador" ? isoAgora() : (modalMov.consertoPagamentoSolicitadoEm||""),
+        consertoPagamentoSolicitadoPor: perfilAtual.perfil==="operador" ? (perfilAtual.userId || "") : (modalMov.consertoPagamentoSolicitadoPor||""),
+        consertoPagamentoConfirmadoEm: modalMov.consertoPagamentoConfirmadoEm||"",
+        consertoPagamentoConfirmadoPor: modalMov.consertoPagamentoConfirmadoPor||"",
+        consertoComunicadoPorGerente: Boolean(gerenteAtual),
+      }:{};
+      const limparConserto=tipo.id==="disponivel"||tipo.id==="ponto"||tipo.id==="gerente"?{
+        consertoDefeito: "",
+        consertoAssistencia: "",
+        consertoPrevisao: "",
+        consertoPix: "",
+        consertoValor: 0,
+        consertoNotaNome: "",
+        consertoNotaArquivo: "",
+        consertoSolicitadoEm: "",
+        consertoSolicitadoPor: "",
+        consertoFormaPagamento: "",
+        consertoRetiradaEm: "",
+        consertoPagamentoStatus: "",
+        consertoPagamentoSolicitadoEm: "",
+        consertoPagamentoSolicitadoPor: "",
+        consertoPagamentoConfirmadoEm: "",
+        consertoPagamentoConfirmadoPor: "",
+        consertoComunicadoPorGerente: false,
+      }:{};
+      const upd=tipo.id==="gerente"
+        ?{...modalMov,quantidade:1,status:"Em rota",localizacao:"",responsavel:mov.responsavel||mov.gerente,gerenteResponsavel:mov.gerente,transferenciaStatus:TRANSFERENCIA_GERENTE.aguardando,transferenciaEnviadaEm:isoAgora(),transferenciaRecebidaEm:""}
+        :tipo.id==="disponivel"&&!gerenteAtual
+          ?{...modalMov,quantidade:1,status:tipo.novoStatus,localizacao:"",responsavel:mov.responsavel||modalMov.responsavel,gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""}
+          :{...modalMov,quantidade:1,status:tipo.novoStatus,localizacao,responsavel:mov.responsavel||modalMov.responsavel||gerenteAtual,transferenciaStatus:modalMov.transferenciaStatus,gerenteResponsavel:gerenteAtual||modalMov.gerenteResponsavel};
+      const equipamentoAtualizado={...upd,...limparConserto,...dadosConserto};
+      await salvarEquipamento(equipamentoAtualizado);
+      setItens(prev=>prev.map(i=>i.id===modalMov.id?equipamentoAtualizado:i));
+      const detalhe=tipo.id==="ponto"
+        ?`Destino: ${mov.ponto}`
+        :tipo.id==="conserto"
+          ?(gerenteAtual?`Gerente comunicou defeito para operação | Defeito: ${mov.defeito}`:perfilAtual.perfil==="operador"?`Operador registrou conserto e solicitou pagamento ao financeiro | Defeito: ${mov.defeito}`:`Atualização de conserto | Defeito: ${mov.defeito}`)
+          :tipo.id==="gerente"
+            ?`Enviado para gerente: ${mov.gerente}`
+            :tipo.label;
+      const informacoesConserto=tipo.id==="conserto"?[
+        mov.assistencia&&!gerenteAtual&&`Assistência: ${mov.assistencia}`,
+        mov.previsao&&!gerenteAtual&&`Previsão: ${mov.previsao}`,
+        mov.dataRetirada&&!gerenteAtual&&`Pronto/retirado em: ${new Date(`${mov.dataRetirada}T00:00:00`).toLocaleDateString("pt-BR")}`,
+        mov.formaPagamento&&!gerenteAtual&&`Forma de pagamento: ${mov.formaPagamento}`,
+        mov.consertoPix&&!gerenteAtual&&mov.formaPagamento==="PIX"&&`PIX conserto: ${mov.consertoPix}`,
+        mov.consertoValor&&!gerenteAtual&&`Valor conserto: ${formatarMoedaPDF(mov.consertoValor)}`,
+        mov.notaFiscalNome&&!gerenteAtual&&`Nota fiscal: ${mov.notaFiscalNome}`,
+      ]:[];
+      const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
+      await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
+      if(tipo.id==="conserto"&&gerenteAtual) window.alert("Equipamento comunicado à administração. A operação foi avisada para buscar o equipamento.");
+      if(tipo.id==="conserto"&&perfilAtual.perfil==="operador") window.alert("Solicitação de pagamento enviada ao financeiro. A administração já pode conferir e confirmar o pagamento.");
+      fecharMov();
+    } catch (err) {
+      setErroMov(err?.message ? `Não foi possível confirmar: ${err.message}` : "Não foi possível confirmar a movimentação.");
     }
-    await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
-    fecharMov();
+  }
+
+  async function confirmarPagamentoConserto(item){
+    if(perfilAtual.perfil!=="administrador"||statusPagamentoConserto(item)!=="solicitado")return;
+    const ok=window.confirm(`Confirmar pagamento do conserto de ${item.patrimonio||item.nome} no valor de ${formatarMoedaPDF(item.consertoValor||0)}?`);
+    if(!ok)return;
+    const atualizado={
+      ...item,
+      consertoPagamentoStatus:"pago",
+      consertoPagamentoConfirmadoEm:isoAgora(),
+      consertoPagamentoConfirmadoPor:perfilAtual.userId||"",
+    };
+    await salvarEquipamento(atualizado);
+    setItens(prev=>prev.map(i=>i.id===item.id?atualizado:i));
+    setItemDetalhe(atualizado);
+    const h={
+      id:Date.now(),
+      tipo:"conserto",
+      itemId:item.id,
+      itemNome:item.nome,
+      categoria:item.categoria,
+      qtdAntes:1,
+      qtdDepois:1,
+      responsavel:perfilAtual.nome||"Administração",
+      observacao:`Administração confirmou o pagamento do conserto | Valor: ${formatarMoedaPDF(item.consertoValor||0)} | Forma: ${item.consertoFormaPagamento||"-"}`,
+      data:agora(),
+    };
+    await adicionarHistoricoEquipamento(h);
+    setHistorico(prev=>[h,...prev]);
+    window.alert("Pagamento confirmado e registrado na linha do tempo do equipamento.");
   }
 
   async function baixarBackupObrigatorio(){
@@ -2810,95 +3560,98 @@ function Sistema({onLogout}){
     const titulo=perfilAtual.perfil==="gerente"
       ?`Backup do Gerente - ${gerenteAtual||perfilAtual.nome}`
       :"Backup Completo Stock-ON";
+    const podeVerDespesasBackup=!operador;
+    const resumoBackup=[
+      {label:"Equipamentos",valor:itensOperacionais.length,destaque:[37,99,235]},
+      {label:"Pontos",valor:pontosOperacionais.length,destaque:[15,35,72]},
+      ...(podeVerDespesasBackup?[{label:"Despesas",valor:despesasOperacionais.length,destaque:[222,147,0]}]:[]),
+      {label:"Mov. Equip.",valor:historicoOperacional.length,destaque:[5,150,82]},
+      {label:"Mov. Pontos",valor:historicoPontosOperacional.length,destaque:[100,116,139]},
+      {label:"Frequência",valor:"Opcional",destaque:[222,147,0]},
+    ];
+    const secoesBackup=[
+      {
+        titulo:"Resumo do backup",
+        colunas:["Campo","Informação"],
+        linhas:[
+          ["Sistema","Stock-ON"],
+          ["Gerado em",new Date(geradoEm).toLocaleString("pt-BR")],
+          ["Perfil",perfilAtual.perfil||"-"],
+          ["Usuário",perfilAtual.nome||perfilAtual.loginNome||"-"],
+          ["Login",perfilAtual.loginNome||"-"],
+          ["Gerente vinculado",perfilAtual.gerenteNome||gerenteAtual||"-"],
+          ["Escopo",perfilAtual.perfil==="gerente"?"Somente dados deste gerente":"Dados completos disponíveis ao perfil"],
+        ],
+      },
+      {
+        titulo:"Equipamentos",
+        colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Gerente"],
+        linhas:ordenarEquipamentos(itensOperacionais).map(i=>[
+          i.patrimonio||"-",
+          i.nome||"-",
+          i.categoria||"-",
+          i.status||"-",
+          textoLocalizacaoEquipamento(i),
+          i.gerenteResponsavel||"-",
+        ]),
+      },
+      {
+        titulo:"Pontos",
+        colunas:podeVerDespesasBackup?["Ponto","Dono","Telefone","Gerente","Valor da despesa"]:["Ponto","Dono","Telefone","Gerente"],
+        linhas:ordenarPontos(pontosOperacionais).map(p=>[
+          p.nomeFantasia||"-",
+          p.nomeDono||"-",
+          p.telefone||"-",
+          p.gerente||"-",
+          ...(podeVerDespesasBackup?[p.possuiDespesa==="sim"?formatarMoedaPDF(p.valorDespesa||0):""]:[]),
+        ]),
+      },
+      ...(podeVerDespesasBackup?[{
+        titulo:"Despesas mensais",
+        colunas:["Ponto","Mês","Descrição","Previsto","Real","Observação"],
+        linhas:despesasOperacionais.map(d=>{
+          const ponto=pontosOperacionais.find(p=>p.id===d.pontoId);
+          return [
+            ponto?.nomeFantasia||`Ponto ${d.pontoId}`,
+            d.competencia?new Date(d.competencia).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric",timeZone:"UTC"}):"-",
+            d.descricao||"-",
+            formatarMoedaPDF(d.valorPrevisto||0),
+            formatarMoedaPDF(d.valorReal||0),
+            d.observacao||"-",
+          ];
+        }),
+      }]:[]),
+      {
+        titulo:"Histórico de equipamentos",
+        colunas:["Tipo","Equipamento","Categoria","Responsável","Observação","Data"],
+        linhas:historicoOperacional.map(h=>[
+          HIST_CFG[h.tipo]?.label||h.tipo||"-",
+          h.itemNome||"-",
+          h.categoria||"-",
+          h.responsavel||"-",
+          h.observacao||"-",
+          h.data||"-",
+        ]),
+      },
+      {
+        titulo:"Histórico de pontos",
+        colunas:["Tipo","Ponto","Gerente","Observação","Data"],
+        linhas:historicoPontosOperacional.map(h=>[
+          h.tipo||"-",
+          h.nome||"-",
+          h.gerente||"-",
+          h.observacao||"-",
+          h.data||"-",
+        ]),
+      },
+    ];
     await gerarPDF({
       titulo,
       descricao:`Arquivo opcional de segurança emitido para ${perfilAtual.nome||perfilAtual.loginNome||perfilAtual.perfil}. Guarde fora do sistema quando desejar.`,
       nomeArquivo:`stock-on_backup_${slugArquivoBackup(escopo)}_${hoje()}.pdf`,
       total:itensOperacionais.length+pontosOperacionais.length+despesasOperacionais.length+historicoOperacional.length+historicoPontosOperacional.length,
-      resumo:[
-        {label:"Equipamentos",valor:itensOperacionais.length,destaque:[37,99,235]},
-        {label:"Pontos",valor:pontosOperacionais.length,destaque:[15,35,72]},
-        {label:"Despesas",valor:despesasOperacionais.length,destaque:[222,147,0]},
-        {label:"Mov. Equip.",valor:historicoOperacional.length,destaque:[5,150,82]},
-        {label:"Mov. Pontos",valor:historicoPontosOperacional.length,destaque:[100,116,139]},
-        {label:"Frequência",valor:"Opcional",destaque:[222,147,0]},
-      ],
-      secoes:[
-        {
-          titulo:"Resumo do backup",
-          colunas:["Campo","Informação"],
-          linhas:[
-            ["Sistema","Stock-ON"],
-            ["Gerado em",new Date(geradoEm).toLocaleString("pt-BR")],
-            ["Perfil",perfilAtual.perfil||"-"],
-            ["Usuário",perfilAtual.nome||perfilAtual.loginNome||"-"],
-            ["Login",perfilAtual.loginNome||"-"],
-            ["Gerente vinculado",perfilAtual.gerenteNome||gerenteAtual||"-"],
-            ["Escopo",perfilAtual.perfil==="gerente"?"Somente dados deste gerente":"Dados completos disponíveis ao perfil"],
-          ],
-        },
-        {
-          titulo:"Equipamentos",
-          colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Gerente"],
-          linhas:ordenarEquipamentos(itensOperacionais).map(i=>[
-            i.patrimonio||"-",
-            i.nome||"-",
-            i.categoria||"-",
-            i.status||"-",
-            textoLocalizacaoEquipamento(i),
-            i.gerenteResponsavel||"-",
-          ]),
-        },
-        {
-          titulo:"Pontos",
-          colunas:["Ponto","Dono","Telefone","Gerente","Valor da despesa"],
-          linhas:ordenarPontos(pontosOperacionais).map(p=>[
-            p.nomeFantasia||"-",
-            p.nomeDono||"-",
-            p.telefone||"-",
-            p.gerente||"-",
-            p.possuiDespesa==="sim"?formatarMoedaPDF(p.valorDespesa||0):"",
-          ]),
-        },
-        {
-          titulo:"Despesas mensais",
-          colunas:["Ponto","Mês","Descrição","Previsto","Real","Observação"],
-          linhas:despesasOperacionais.map(d=>{
-            const ponto=pontosOperacionais.find(p=>p.id===d.pontoId);
-            return [
-              ponto?.nomeFantasia||`Ponto ${d.pontoId}`,
-              d.competencia?new Date(d.competencia).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric",timeZone:"UTC"}):"-",
-              d.descricao||"-",
-              formatarMoedaPDF(d.valorPrevisto||0),
-              formatarMoedaPDF(d.valorReal||0),
-              d.observacao||"-",
-            ];
-          }),
-        },
-        {
-          titulo:"Histórico de equipamentos",
-          colunas:["Tipo","Equipamento","Categoria","Responsável","Observação","Data"],
-          linhas:historicoOperacional.map(h=>[
-            HIST_CFG[h.tipo]?.label||h.tipo||"-",
-            h.itemNome||"-",
-            h.categoria||"-",
-            h.responsavel||"-",
-            h.observacao||"-",
-            h.data||"-",
-          ]),
-        },
-        {
-          titulo:"Histórico de pontos",
-          colunas:["Tipo","Ponto","Gerente","Observação","Data"],
-          linhas:historicoPontosOperacional.map(h=>[
-            h.tipo||"-",
-            h.nome||"-",
-            h.gerente||"-",
-            h.observacao||"-",
-            h.data||"-",
-          ]),
-        },
-      ],
+      resumo:resumoBackup,
+      secoes:secoesBackup,
     });
     registrarBackupPerfil(perfilAtual);
   }
@@ -2959,18 +3712,19 @@ function Sistema({onLogout}){
         <div className="sidebar-logo">
           <img src={temaClaro?logoLight:logo} alt="Stock-ON" className="logo-sidebar-emblem"/>
         </div>
+        <BuscaGlobalSearch consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
         <nav className="sidebar-nav">
           <span className="nav-section-label">Principal</span>
-          <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><span className="nav-icon">📊</span> Dashboard</button>
-          <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><span className="nav-icon">📦</span> Equipamentos</button>
-          <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><span className="nav-icon">📍</span> Pontos</button>
-          <button className={`nav-item ${aba==="busca"?"active":""}`}      onClick={()=>navegar("busca")}><span className="nav-icon">🔎</span> Busca Geral</button>
-          {gerenteAtual&&<button className={`nav-item ${aba==="prestacao-gerente"?"active":""}`} onClick={()=>navegar("prestacao-gerente")}><span className="nav-icon">📄</span> Prestação de Conta</button>}
-          {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><span className="nav-icon">✅</span> Fechamento</button>}
-          {podeEditar&&<button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><span className="nav-icon">🔑</span> Central de Acessos</button>}
-          {administrador&&<button className={`nav-item ${aba==="logins"?"active":""}`} onClick={()=>navegar("logins")}><span className="nav-icon">🔐</span> Gerenciar Logins</button>}
+          <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><Icon name="dashboard" className="nav-icon" /> Dashboard</button>
+          <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><Icon name="package" className="nav-icon" /> Equipamentos</button>
+          <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><Icon name="mapPin" className="nav-icon" /> Pontos</button>
+          {gerenteAtual&&<button className={`nav-item ${aba==="prestacao-gerente"?"active":""}`} onClick={()=>navegar("prestacao-gerente")}><Icon name="fileText" className="nav-icon" /> Prestação de Conta</button>}
+          {(administrador||gerenteAtual)&&<button className={`nav-item ${aba==="senhas"?"active":""}`} onClick={()=>navegar("senhas")}><Icon name="shieldKey" className="nav-icon" /> Senhas</button>}
+          {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><Icon name="checkCircle" className="nav-icon" /> Fechamento</button>}
+          {administrador&&<button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><Icon name="key" className="nav-icon" /> Central de Acessos</button>}
+          {administrador&&<button className={`nav-item ${aba==="logins"?"active":""}`} onClick={()=>navegar("logins")}><Icon name="lock" className="nav-icon" /> Gerenciar Logins</button>}
           <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
-            <span className="nav-icon">📋</span> Histórico
+            <Icon name="history" className="nav-icon" /> Histórico
             {historicoOperacional.length>0&&<span className="nav-badge">{historicoOperacional.length>99?"99+":historicoOperacional.length}</span>}
           </button>
         </nav>
@@ -2992,6 +3746,9 @@ function Sistema({onLogout}){
           {["administrador","operador","gerente"].includes(perfilAtual.perfil)&&(
             <button className="btn-senha" onClick={baixarBackupObrigatorio}>💾 Baixar backup</button>
           )}
+          <a className="btn-senha sidebar-app-download" href="/downloads/stock-on.apk" download="Stock-ON.apk">
+            <Icon name="download" className="nav-icon" /> Baixar aplicativo
+          </a>
           <button className="btn-senha" onClick={()=>setModalSenha(true)}>🔒 Alterar minha senha</button>
           <button className="btn-logout" onClick={()=>setConfirmLogout(true)}>🚪 Sair do sistema</button>
           <div className="sidebar-version">Stock-ON v1.0 · Supabase ☁️</div>
@@ -3116,6 +3873,26 @@ function Sistema({onLogout}){
                     </tbody>
                   </table>
                 </div>
+                <div className="dash-historico-mobile-lista">
+                  {historicoOperacional.slice(0,5).map(h=>{
+                    const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
+                    return(
+                      <article className="historico-mobile-card dash-historico-mobile-card" key={`dash-mobile-${h.id}`}>
+                        <div className="historico-mobile-topo">
+                          <span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span>
+                          <small>{h.data}</small>
+                        </div>
+                        <strong>{ICONES[h.categoria]} {h.itemNome}</strong>
+                        <div className="historico-mobile-meta">
+                          <span>{h.categoria}</span>
+                          <span>Antes: {h.qtdAntes}</span>
+                          <span>Depois: {h.qtdDepois}</span>
+                        </div>
+                        <HistoricoDetalhes texto={h.observacao}/>
+                      </article>
+                    );
+                  })}
+                </div>
               </section>
             )}
           </div>
@@ -3140,15 +3917,17 @@ function Sistema({onLogout}){
               <button key={a.id} className={`points-aba-btn ${abaEquip===a.id?"points-aba-ativa":""}`} onClick={()=>setAbaEquip(a.id)}>{a.label}</button>
             ))}
             </div>
-            <span className="equip-filtro-label">Categoria</span>
-            <div className="equip-categorias">
-              {["Todas",...CATEGORIAS].map(cat=>(
-                <button key={cat} className={`points-aba-btn ${filtroCatEquip===cat?"points-aba-ativa":""}`}
-                  onClick={()=>{setFiltroCatEquip(cat);setAbaEquip("lista");}}>
-                  {cat==="Todas"?"Todas":ICONES[cat]+" "+cat}
-                </button>
-              ))}
-            </div>
+            {!gerenteAtual&&(<>
+              <span className="equip-filtro-label">Categoria</span>
+              <div className="equip-categorias">
+                {["Todas",...CATEGORIAS].map(cat=>(
+                  <button key={cat} className={`points-aba-btn ${filtroCatEquip===cat?"points-aba-ativa":""}`}
+                    onClick={()=>{setFiltroCatEquip(cat);setAbaEquip("lista");}}>
+                    {cat==="Todas"?"Todas":ICONES[cat]+" "+cat}
+                  </button>
+                ))}
+              </div>
+            </>)}
           </div>
 
           {alertaEstoqueAtivo&&alertasVisiveis.length>0&&(
@@ -3206,9 +3985,49 @@ function Sistema({onLogout}){
               )}
               {inconsistencias.length>0&&(
                 <div className="erro-msg alerta-inconsistencia">
-                  ⚠️ {inconsistencias.length} equipamento{inconsistencias.length!==1?"s":""} com cadastro inconsistente. Preencha nome e código/patrimônio antes de novas movimentações:
+                  ⚠️ {inconsistencias.length} equipamento{inconsistencias.length!==1?"s":""} com cadastro inconsistente. Preencha {exigirPatrimonioEquipamento?"nome e código/patrimônio":"nome"} antes de novas movimentações:
                   <strong>{inconsistencias.map(i=>i.patrimonio||i.nome).join(", ")}</strong>
                 </div>
+              )}
+              {administrador&&pagamentosConsertoPendentes.length>0&&(
+                <section className="conserto-operacao-banner conserto-financeiro-banner">
+                  <div className="conserto-operacao-topo">
+                    <div>
+                      <span><i className="financeiro-pulse" /> Financeiro do conserto</span>
+                      <h2>{pagamentosConsertoPendentes.length} pagamento{pagamentosConsertoPendentes.length!==1?"s":""} aguardando confirmação</h2>
+                    </div>
+                  </div>
+                  <div className="conserto-operacao-lista">
+                    {pagamentosConsertoPendentes.slice(0,4).map(item=>(
+                      <button key={item.id} type="button" className="conserto-operacao-item financeiro-pendente-item" onClick={()=>setItemDetalhe(item)}>
+                        <strong>{item.patrimonio||item.nome}</strong>
+                        <span>{formatarMoedaPDF(item.consertoValor||0)} · {item.consertoFormaPagamento||"Forma não informada"}</span>
+                        {item.consertoAssistencia&&<small>Assistência: {item.consertoAssistencia}</small>}
+                        <em>Confirmar pagamento</em>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+              {operador&&consertosPendentes.length>0&&(
+                <section className="conserto-operacao-banner">
+                  <div className="conserto-operacao-topo">
+                    <div>
+                      <span>Fila de conserto</span>
+                      <h2>{consertosPendentes.length} equipamento{consertosPendentes.length!==1?"s":""} aguardando operação</h2>
+                    </div>
+                    <button className="btn-secundario" onClick={()=>setFiltroSt("Em conserto")}>Ver somente consertos</button>
+                  </div>
+                  <div className="conserto-operacao-lista">
+                    {consertosPendentes.slice(0,4).map(item=>(
+                      <button key={item.id} type="button" className="conserto-operacao-item" onClick={()=>setItemDetalhe(item)}>
+                        <strong>{item.patrimonio||item.nome}</strong>
+                        <span>{item.gerenteResponsavel?`Enviado por ${item.gerenteResponsavel}`:"Enviado para operação"}</span>
+                        {item.consertoDefeito&&<small>Defeito: {item.consertoDefeito}</small>}
+                      </button>
+                    ))}
+                  </div>
+                </section>
               )}
               <div className="tabela-header">
                 <div className="equip-titulo">
@@ -3236,19 +4055,22 @@ function Sistema({onLogout}){
                       const emAlerta=item.categoria===CATEGORIA_COM_ALERTA&&totalCat<MINIMO_CATEGORIA;
                       const pendente=item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando;
                       const recebido=item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao;
+                      const emConserto=item.status==="Em conserto";
                       return(
-                        <tr key={item.id} className={emAlerta?"row-alerta":""}>
+                        <tr key={item.id} className={[emAlerta?"row-alerta":"",emConserto?"row-conserto":""].filter(Boolean).join(" ")}>
                           <td className="td-minimo">{item.patrimonio||"—"}</td>
                           <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
                           <td><span className="badge-cat">{item.categoria}</span></td>
                           <td>
                             <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
+                            {emConserto&&<span className="badge-conserto-operacao">Aguardando operador/admin</span>}
                             {pendente&&<span className="badge-transferencia">Aguardando confirmação</span>}
                             {recebido&&<span className="badge-transferencia badge-transferencia-ok">Estoque do gerente</span>}
                           </td>
                           <td><LocalizacaoGerenteCell item={item}/></td>
                           <td>
-                            {pendente&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar</button>:
+                            {operador&&emConserto?<button className="btn-movimentar btn-conserto-operador" onClick={()=>abrirConsertoOperador(item)}>🔧 Completar</button>:
+                              pendente&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar</button>:
                               podeMovimentarEquipamento(item)?<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>:<span className="td-obs">Consulta</span>}
                           </td>
                           <td className="td-acoes">
@@ -3265,11 +4087,13 @@ function Sistema({onLogout}){
               <div className="equip-cards">
                 {itensFiltrados.length===0?<div className="tabela-vazia">Nenhum item encontrado.</div>
                 :itensPagina.map(item=>(
-                  <article className="equip-card" key={item.id}>
+                  <article className={`equip-card ${item.status==="Em conserto"?"equip-card-conserto":""}`} key={item.id}>
                     <div className="equip-card-topo">
                       <div><span className="equip-codigo">{item.patrimonio||"—"}</span><h3>{ICONES[item.categoria]} {item.nome}</h3></div>
                       <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
                     </div>
+                    {item.status==="Em conserto"&&<span className="badge-conserto-operacao">Aguardando operador/admin</span>}
+                    {item.status==="Em conserto"&&item.consertoDefeito&&<p className="equip-card-defeito">Defeito: {item.consertoDefeito}</p>}
                     {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&<span className="badge-transferencia">Aguardando confirmação</span>}
                     {item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao&&<span className="badge-transferencia badge-transferencia-ok">Estoque do gerente</span>}
                     <div className="equip-card-meta">
@@ -3278,7 +4102,8 @@ function Sistema({onLogout}){
                       {item.gerenteResponsavel&&<span>👤 {item.gerenteResponsavel}</span>}
                     </div>
                     <div className="equip-card-acoes">
-                      {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar recebido</button>:podeMovimentarEquipamento(item)&&<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>}
+                      {operador&&item.status==="Em conserto"?<button className="btn-movimentar btn-conserto-operador" onClick={()=>abrirConsertoOperador(item)}>🔧 Completar conserto</button>:
+                        item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar recebido</button>:podeMovimentarEquipamento(item)&&<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>}
                       <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎 Ficha</button>
                       {podeMovimentarEquipamento(item)&&<button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>}
                       {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir">🗑️</button>}
@@ -3375,28 +4200,34 @@ function Sistema({onLogout}){
 
         {aba==="pontos"&&(
           <>
-            <header className="topbar">
+          <header className="topbar">
               <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
                 <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
                 <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
               </div>
             </header>
-            <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
+          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
           </>
         )}
 
-        {aba==="busca"&&(<>
+        {aba==="senhas"&&(administrador||gerenteAtual)&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Busca Geral</h1><p className="page-sub">Patrimônios, pontos, gerentes, status e movimentações</p></div>
+              <div><h1 className="page-title">Senhas</h1><p className="page-sub">Logins das modalidades e downloads dos apps</p></div>
             </div>
           </header>
-          <BuscaGlobalPage consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
+          <SenhasModalidadesPage
+            perfilAtual={perfilAtual}
+            acessos={senhasModalidades}
+            apps={modalidadeApps}
+            onAcessosChange={setSenhasModalidades}
+            onAppsChange={setModalidadeApps}
+          />
         </>)}
 
         {aba==="prestacao-gerente"&&gerenteAtual&&(<>
-          <header className="topbar">
+          <header className="topbar topbar-prestacao-gerente">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
               <div><h1 className="page-title">Prestação de Conta</h1><p className="page-sub">PDF, PIX e conferência enviados pela administração</p></div>
@@ -3407,7 +4238,7 @@ function Sistema({onLogout}){
             pontos={pontosOperacionais}
             itens={itensOperacionais}
             despesas={despesasOperacionais}
-            pixAvisoAtual={pixAvisoAtual}
+            pixEnvios={pixEnvios}
             onCopiarPix={copiarPixAviso}
           />
         </>)}
@@ -3428,7 +4259,7 @@ function Sistema({onLogout}){
           />
         </>)}
 
-        {aba==="gestao"&&(<>
+        {aba==="gestao"&&administrador&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
               <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
@@ -3481,25 +4312,47 @@ function Sistema({onLogout}){
             </div>
             {histFiltrado.length===0
               ?<div className="hist-vazio"><div className="hist-vazio-icone">📋</div><div>Nenhuma movimentação encontrada.</div></div>
-              :<div className="tabela-wrapper">
-                <table className="tabela">
-                  <thead><tr><th>Tipo</th><th>Equipamento</th><th>Categoria</th><th>Antes</th><th>Depois</th><th>Observação</th><th>Data</th></tr></thead>
-                  <tbody>
-                    {histFiltrado.map(h=>{
-                      const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
-                      return(<tr key={h.id}>
-                        <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
-                        <td className="td-nome">{ICONES[h.categoria]} {h.itemNome}</td>
-                        <td><span className="badge-cat">{h.categoria}</span></td>
-                        <td className="td-minimo">{h.qtdAntes}</td>
-                        <td className="td-minimo">{h.qtdDepois}</td>
-                        <td className="td-obs" style={{maxWidth:"200px"}}>{h.observacao}</td>
-                        <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
-                      </tr>);
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              :<>
+                <div className="historico-mobile-lista">
+                  {histFiltrado.map(h=>{
+                    const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
+                    return(
+                      <article className="historico-mobile-card" key={`mobile-${h.id}`}>
+                        <div className="historico-mobile-topo">
+                          <span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span>
+                          <small>{h.data}</small>
+                        </div>
+                        <strong>{ICONES[h.categoria]} {h.itemNome}</strong>
+                        <div className="historico-mobile-meta">
+                          <span>{h.categoria}</span>
+                          <span>Antes: {h.qtdAntes}</span>
+                          <span>Depois: {h.qtdDepois}</span>
+                        </div>
+                        <HistoricoDetalhes texto={h.observacao}/>
+                      </article>
+                    );
+                  })}
+                </div>
+                <div className="tabela-wrapper historico-desktop-tabela">
+                  <table className="tabela">
+                    <thead><tr><th>Tipo</th><th>Equipamento</th><th>Categoria</th><th>Antes</th><th>Depois</th><th>Observação</th><th>Data</th></tr></thead>
+                    <tbody>
+                      {histFiltrado.map(h=>{
+                        const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
+                        return(<tr key={h.id}>
+                          <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
+                          <td className="td-nome">{ICONES[h.categoria]} {h.itemNome}</td>
+                          <td><span className="badge-cat">{h.categoria}</span></td>
+                          <td className="td-minimo">{h.qtdAntes}</td>
+                          <td className="td-minimo">{h.qtdDepois}</td>
+                          <td className="td-obs" style={{maxWidth:"200px"}}>{h.observacao}</td>
+                          <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
+                        </tr>);
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             }
           </section>
         </>)}
@@ -3515,9 +4368,11 @@ function Sistema({onLogout}){
                 <div className="campo"><label>Nome do Equipamento *</label>
                   <input type="text" placeholder='Ex: TV HQ 32 BALCÃO' value={form.nome} onChange={e=>setForm({...form,nome:e.target.value.toUpperCase()})}/>
                   <span className="campo-hint">Obrigatório. Será salvo em CAIXA ALTA para manter o padrão.</span></div>
-                <div className="campo"><label>Código / Patrimônio *</label>
-                  <input type="text" placeholder="Ex: TV-SALA-001" value={form.patrimonio} onChange={e=>setForm({...form,patrimonio:e.target.value.toUpperCase()})}/>
-                  <span className="campo-hint">Você define a nomenclatura. O sistema bloqueia duplicados.</span></div>
+                {exigirPatrimonioEquipamento&&(
+                  <div className="campo"><label>Código / Patrimônio *</label>
+                    <input type="text" placeholder="Ex: TV-SALA-001" value={form.patrimonio} onChange={e=>setForm({...form,patrimonio:e.target.value.toUpperCase()})}/>
+                    <span className="campo-hint">Campo exclusivo da administração. O sistema bloqueia duplicados.</span></div>
+                )}
               </div>
               <div className="campos-duplos">
                 <div className="campo"><label>Categoria *</label>
@@ -3546,7 +4401,9 @@ function Sistema({onLogout}){
                   <span className="campo-hint">Ao salvar, o equipamento já ficará vinculado ao ponto escolhido.</span>
                 </div>
               )}
-              <div className="campo-info-minimo">🔒 Alerta operacional somente para <strong>Terminais com menos de 5 disponíveis</strong></div>
+              {(administrador||operador)&&(
+                <div className="campo-info-minimo">🔒 Alerta operacional somente para <strong>Terminais com menos de 5 disponíveis</strong></div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={fecharForm}>Cancelar</button>
@@ -3619,11 +4476,16 @@ function Sistema({onLogout}){
                   <div className="campo">
                     <label>Defeito identificado *</label>
                     <textarea placeholder="Ex: tela apagando, fonte queimada..." rows={2} value={mov.defeito} onChange={e=>setMov({...mov,defeito:e.target.value})}/>
+                    {gerenteAtual&&<span className="campo-hint">Este envio comunica a administração para o operador buscar o equipamento. O operador registra assistência, nota, PIX e valor quando receber.</span>}
                   </div>
-                  <div className="campos-duplos">
-                    <div className="campo"><label>Assistência / Técnico</label><input type="text" placeholder="Ex: Assistência Central" value={mov.assistencia} onChange={e=>setMov({...mov,assistencia:e.target.value})}/></div>
-                    <div className="campo"><label>Previsão de retorno</label><input type="date" value={mov.previsao} onChange={e=>setMov({...mov,previsao:e.target.value})}/></div>
-                  </div>
+                  {!gerenteAtual&&(
+                    <div className="campos-duplos">
+                      <div className="campo"><label>Assistência / Técnico</label><input type="text" placeholder="Ex: Assistência Central" value={mov.assistencia} onChange={e=>setMov({...mov,assistencia:e.target.value})}/></div>
+                      <div className="campo"><label>Previsão de retorno</label><input type="date" value={mov.previsao} onChange={e=>setMov({...mov,previsao:e.target.value})}/></div>
+                      {perfilAtual.perfil==="operador"&&<div className="campo"><label>Pronto / retirado em *</label><input type="date" value={mov.dataRetirada} onChange={e=>setMov({...mov,dataRetirada:e.target.value})}/></div>}
+                      {perfilAtual.perfil==="operador"&&<div className="campo"><label>Forma de pagamento *</label><select value={mov.formaPagamento} onChange={e=>setMov({...mov,formaPagamento:e.target.value,consertoPix:e.target.value==="PIX"?mov.consertoPix:""})}><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Outro">Outro</option></select></div>}
+                    </div>
+                  )}
                   {perfilAtual.perfil!=="gerente"&&(
                     <div className={`conserto-fiscal-card ${perfilAtual.perfil!=="operador"?"conserto-fiscal-bloqueado":""}`}>
                       <div>
@@ -3635,6 +4497,7 @@ function Sistema({onLogout}){
                           <label>Foto da nota fiscal {perfilAtual.perfil==="operador"?"*":""}</label>
                           <input type="file" accept="image/*" disabled={perfilAtual.perfil!=="operador"} onChange={e=>anexarNotaFiscalConserto(e.target.files?.[0])}/>
                           {mov.notaFiscalNome&&<span className="campo-hint">Anexado: {mov.notaFiscalNome}</span>}
+                          {mov.notaFiscalArquivo&&<button className="btn-link-mini" type="button" onClick={()=>window.open(mov.notaFiscalArquivo,"_blank","noopener,noreferrer")}>Visualizar nota anexada</button>}
                         </div>
                         <div className="campo">
                           <label>Valor do conserto {perfilAtual.perfil==="operador"?"*":""}</label>
@@ -3642,8 +4505,9 @@ function Sistema({onLogout}){
                         </div>
                       </div>
                       <div className="campo">
-                        <label>Chave PIX do conserto {perfilAtual.perfil==="operador"?"*":""}</label>
-                        <input type="text" placeholder="Digite a chave PIX informada na nota/assistência" disabled={perfilAtual.perfil!=="operador"} value={mov.consertoPix} onChange={e=>setMov({...mov,consertoPix:e.target.value})}/>
+                        <label>{mov.formaPagamento==="PIX"?"Chave PIX do conserto *":"Detalhe do pagamento"}</label>
+                        <input type="text" placeholder={mov.formaPagamento==="PIX"?"Digite a chave PIX informada na nota/assistência":"Ex: pago em dinheiro, máquina, boleto..."} disabled={perfilAtual.perfil!=="operador"||mov.formaPagamento!=="PIX"} value={mov.consertoPix} onChange={e=>setMov({...mov,consertoPix:e.target.value})}/>
+                        {mov.formaPagamento!=="PIX"&&<span className="campo-hint">PIX não é obrigatório quando a forma de pagamento for {mov.formaPagamento||"outra"}.</span>}
                       </div>
                     </div>
                   )}
@@ -3677,7 +4541,10 @@ function Sistema({onLogout}){
           onFechar={()=>setItemDetalhe(null)}
           onEditar={abrirEditar}
           onMovimentar={abrirMov}
+          onCompletarConserto={abrirConsertoOperador}
+          onConfirmarPagamento={confirmarPagamentoConserto}
           podeEditar={podeMovimentarEquipamento(itemDetalhe)}
+          perfilAtual={perfilAtual}
         />
       )}
 
