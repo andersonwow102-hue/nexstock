@@ -3811,8 +3811,9 @@ function Sistema({onLogout}){
                 <div className="dash-lista-categorias">
                   {porCategoria.map(c=>{
                     const percentual=c.total?Math.round((c.disponivel/c.total)*100):0;
+                    const mostrarAlertaCategoria=!gerenteAtual&&c.alertaBaixo;
                     return(
-                      <button key={c.categoria} className={`dash-categoria ${c.alertaBaixo?"em-alerta":""}`}
+                      <button key={c.categoria} className={`dash-categoria ${mostrarAlertaCategoria?"em-alerta":""}`}
                         onClick={()=>{navegar("itens");setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
                         <span className="dash-cat-icone">{ICONES[c.categoria]}</span>
                         <span className="dash-cat-info">
@@ -3820,7 +3821,7 @@ function Sistema({onLogout}){
                           <span className="dash-barra"><i style={{width:`${percentual}%`}}/></span>
                         </span>
                         <span className="dash-cat-numeros"><strong>{c.disponivel}</strong> / {c.total}<small> disponíveis</small></span>
-                        {c.alertaBaixo&&<span className="dash-aviso">Baixo</span>}
+                        {mostrarAlertaCategoria&&<span className="dash-aviso">Baixo</span>}
                       </button>
                     );
                   })}
