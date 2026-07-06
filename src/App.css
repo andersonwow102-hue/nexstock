@@ -1555,6 +1555,12 @@ body {
 .ficha-conserto-acao {
   align-self: flex-start;
 }
+.ficha-conserto-acao:disabled {
+  opacity: .62;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: grayscale(.2);
+}
 .ficha-conserto-aviso {
   margin: 0;
   padding: 10px 12px;
@@ -1833,6 +1839,15 @@ body {
 .btn-conserto-operador:hover {
   background: var(--amarelo);
   color: #111827;
+}
+.btn-conserto-operador:disabled,
+.btn-conserto-operador:disabled:hover {
+  background: var(--bg-muted);
+  color: var(--txt-muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: grayscale(.25);
 }
 .paginacao {
   display: flex; align-items: center; justify-content: flex-end; gap: 12px;

@@ -180,7 +180,6 @@ function validarMov(mov,tipo,perfil=""){
     if(!String(mov.formaPagamento||"").trim())return"Informe a forma de pagamento do conserto.";
     if(mov.formaPagamento==="PIX"&&!String(mov.consertoPix||"").trim())return"Informe a chave PIX do conserto.";
     if(Number(mov.consertoValor||0)<=0)return"Informe o valor do conserto.";
-    if(!mov.dataRetirada)return"Informe a data em que o equipamento ficou pronto ou foi retirado da assistência.";
   }
   return null;
 }
@@ -2436,7 +2435,7 @@ function PrestacaoContasPage({ pontos = [], despesas = [] }) {
 function statusPagamentoConserto(item){
   if(item.consertoPagamentoStatus)return item.consertoPagamentoStatus;
   if(item.consertoPagamentoConfirmadoEm)return"pago";
-  if(item.consertoAssistencia||item.consertoPix||Number(item.consertoValor||0)>0||item.consertoNotaArquivo||item.consertoNotaNome||item.consertoRetiradaEm)return"solicitado";
+  if(item.consertoPix||item.consertoFormaPagamento||Number(item.consertoValor||0)>0||item.consertoNotaArquivo||item.consertoNotaNome)return"solicitado";
   if(item.consertoDefeito)return"comunicado";
   return"";
 }
@@ -2475,9 +2474,6 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
               </div>
               <div className="ficha-conserto-grid">
                 <div><small>Defeito</small><strong>{item.consertoDefeito||"-"}</strong></div>
-                <div><small>Assistência</small><strong>{item.consertoAssistencia||"-"}</strong></div>
-                <div><small>Previsão</small><strong>{item.consertoPrevisao?new Date(`${item.consertoPrevisao}T00:00:00`).toLocaleDateString("pt-BR"):"-"}</strong></div>
-                <div><small>Pronto / retirada</small><strong>{item.consertoRetiradaEm?new Date(`${item.consertoRetiradaEm}T00:00:00`).toLocaleDateString("pt-BR"):"-"}</strong></div>
                 <div><small>Valor</small><strong>{formatarMoedaPDF(item.consertoValor||0)}</strong></div>
                 <div><small>Forma</small><strong>{item.consertoFormaPagamento||"-"}</strong></div>
                 <div className="ficha-conserto-pix"><small>PIX / Detalhe</small><strong>{item.consertoPix||"-"}</strong></div>
@@ -2488,7 +2484,9 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
                 <button className="btn-secundario" type="button" onClick={()=>window.open(item.consertoNotaArquivo,"_blank","noopener,noreferrer")}>Visualizar nota fiscal</button>
               )}
               {operador&&emConserto&&(
-                <button className="btn-primario ficha-conserto-acao" type="button" onClick={()=>{onFechar();onCompletarConserto(item);}}>Completar dados do conserto</button>
+                <button className="btn-primario ficha-conserto-acao" type="button" disabled={pagamentoSolicitado} onClick={()=>{onFechar();onCompletarConserto(item);}}>
+                  {pagamentoSolicitado?"Aguardando pagamento do admin":pagamentoPago?"Concluir conserto":"Completar dados do conserto"}
+                </button>
               )}
               {admin&&emConserto&&pagamentoSolicitado&&(
                 <button className="btn-primario ficha-conserto-acao" type="button" onClick={()=>onConfirmarPagamento(item)}>Confirmar pagamento realizado</button>
@@ -3323,10 +3321,15 @@ function Sistema({onLogout}){
   }
   function abrirConsertoOperador(item){
     if(perfilAtual.perfil!=="operador"||item.status!=="Em conserto")return;
+    const pagamento=statusPagamentoConserto(item);
+    if(pagamento==="solicitado"){
+      window.alert("Aguardando a administração confirmar o pagamento para concluir este conserto.");
+      return;
+    }
     setModalMov(item);
     setMov({
       ...movVazio,
-      tipoId:"conserto",
+      tipoId:pagamento==="pago"?"disponivel":"conserto",
       ponto:item.localizacao||"",
       gerente:item.gerenteResponsavel||"",
       defeito:item.consertoDefeito||"",
@@ -3454,10 +3457,10 @@ function Sistema({onLogout}){
       const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
       const dadosConserto=tipo.id==="conserto"?{
         consertoDefeito: mov.defeito.trim(),
-        consertoAssistencia: gerenteAtual ? "" : String(mov.assistencia||"").trim(),
-        consertoPrevisao: gerenteAtual ? "" : (mov.previsao || ""),
+        consertoAssistencia: "",
+        consertoPrevisao: "",
         consertoFormaPagamento: gerenteAtual ? "" : String(mov.formaPagamento||"").trim(),
-        consertoRetiradaEm: gerenteAtual ? "" : (mov.dataRetirada || ""),
+        consertoRetiradaEm: "",
         consertoPix: gerenteAtual ? "" : String(mov.consertoPix||"").trim(),
         consertoValor: gerenteAtual ? 0 : Number(mov.consertoValor||0),
         consertoNotaNome: gerenteAtual ? "" : (mov.notaFiscalNome || ""),
@@ -3506,9 +3509,6 @@ function Sistema({onLogout}){
             ?`Enviado para gerente: ${mov.gerente}`
             :tipo.label;
       const informacoesConserto=tipo.id==="conserto"?[
-        mov.assistencia&&!gerenteAtual&&`Assistência: ${mov.assistencia}`,
-        mov.previsao&&!gerenteAtual&&`Previsão: ${mov.previsao}`,
-        mov.dataRetirada&&!gerenteAtual&&`Pronto/retirado em: ${new Date(`${mov.dataRetirada}T00:00:00`).toLocaleDateString("pt-BR")}`,
         mov.formaPagamento&&!gerenteAtual&&`Forma de pagamento: ${mov.formaPagamento}`,
         mov.consertoPix&&!gerenteAtual&&mov.formaPagamento==="PIX"&&`PIX conserto: ${mov.consertoPix}`,
         mov.consertoValor&&!gerenteAtual&&`Valor conserto: ${formatarMoedaPDF(mov.consertoValor)}`,
@@ -4057,6 +4057,7 @@ function Sistema({onLogout}){
                       const pendente=item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando;
                       const recebido=item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao;
                       const emConserto=item.status==="Em conserto";
+                      const pagamentoConserto=statusPagamentoConserto(item);
                       return(
                         <tr key={item.id} className={[emAlerta?"row-alerta":"",emConserto?"row-conserto":""].filter(Boolean).join(" ")}>
                           <td className="td-minimo">{item.patrimonio||"—"}</td>
@@ -4070,7 +4071,7 @@ function Sistema({onLogout}){
                           </td>
                           <td><LocalizacaoGerenteCell item={item}/></td>
                           <td>
-                            {operador&&emConserto?<button className="btn-movimentar btn-conserto-operador" onClick={()=>abrirConsertoOperador(item)}>🔧 Completar</button>:
+                            {operador&&emConserto?<button className="btn-movimentar btn-conserto-operador" disabled={pagamentoConserto==="solicitado"} title={pagamentoConserto==="solicitado"?"Aguardando pagamento do admin":""} onClick={()=>abrirConsertoOperador(item)}>🔧 {pagamentoConserto==="pago"?"Concluir":"Completar"}</button>:
                               pendente&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar</button>:
                               podeMovimentarEquipamento(item)?<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>:<span className="td-obs">Consulta</span>}
                           </td>
@@ -4103,7 +4104,7 @@ function Sistema({onLogout}){
                       {item.gerenteResponsavel&&<span>👤 {item.gerenteResponsavel}</span>}
                     </div>
                     <div className="equip-card-acoes">
-                      {operador&&item.status==="Em conserto"?<button className="btn-movimentar btn-conserto-operador" onClick={()=>abrirConsertoOperador(item)}>🔧 Completar conserto</button>:
+                      {operador&&item.status==="Em conserto"?<button className="btn-movimentar btn-conserto-operador" disabled={statusPagamentoConserto(item)==="solicitado"} title={statusPagamentoConserto(item)==="solicitado"?"Aguardando pagamento do admin":""} onClick={()=>abrirConsertoOperador(item)}>🔧 {statusPagamentoConserto(item)==="pago"?"Concluir conserto":"Completar conserto"}</button>:
                         item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar recebido</button>:podeMovimentarEquipamento(item)&&<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>}
                       <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎 Ficha</button>
                       {podeMovimentarEquipamento(item)&&<button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>}
@@ -4477,13 +4478,10 @@ function Sistema({onLogout}){
                   <div className="campo">
                     <label>Defeito identificado *</label>
                     <textarea placeholder="Ex: tela apagando, fonte queimada..." rows={2} value={mov.defeito} onChange={e=>setMov({...mov,defeito:e.target.value})}/>
-                    {gerenteAtual&&<span className="campo-hint">Este envio comunica a administração para o operador buscar o equipamento. O operador registra assistência, nota, PIX e valor quando receber.</span>}
+                    {gerenteAtual&&<span className="campo-hint">Este envio comunica a administração para o operador buscar o equipamento. O operador registra nota fiscal, forma de pagamento, valor e PIX quando receber.</span>}
                   </div>
                   {!gerenteAtual&&(
                     <div className="campos-duplos">
-                      <div className="campo"><label>Assistência / Técnico</label><input type="text" placeholder="Ex: Assistência Central" value={mov.assistencia} onChange={e=>setMov({...mov,assistencia:e.target.value})}/></div>
-                      <div className="campo"><label>Previsão de retorno</label><input type="date" value={mov.previsao} onChange={e=>setMov({...mov,previsao:e.target.value})}/></div>
-                      {perfilAtual.perfil==="operador"&&<div className="campo"><label>Pronto / retirado em *</label><input type="date" value={mov.dataRetirada} onChange={e=>setMov({...mov,dataRetirada:e.target.value})}/></div>}
                       {perfilAtual.perfil==="operador"&&<div className="campo"><label>Forma de pagamento *</label><select value={mov.formaPagamento} onChange={e=>setMov({...mov,formaPagamento:e.target.value,consertoPix:e.target.value==="PIX"?mov.consertoPix:""})}><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Outro">Outro</option></select></div>}
                     </div>
                   )}
