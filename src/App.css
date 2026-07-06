@@ -616,7 +616,7 @@ body {
   line-height: 1.45;
 }
 .dash-acoes { display: flex; gap: 8px; flex-shrink: 0; }
-.dash-indicadores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.dash-indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .dash-kpi {
   display: flex; flex-direction: column; gap: 4px; text-align: left;
   border: 1px solid var(--border); border-radius: var(--radius-lg);
@@ -630,6 +630,7 @@ body {
 .kpi-total strong { color: var(--txt-primary); }
 .kpi-disponivel strong { color: var(--verde); }
 .kpi-rota strong { color: var(--accent); }
+.kpi-gerentes strong { color: var(--roxo); }
 .kpi-conserto strong { color: var(--amarelo); }
 .dash-conteudo { display: grid; grid-template-columns: minmax(430px, 1.45fr) minmax(275px, .85fr); gap: 16px; }
 .dash-categorias, .dash-atencao, .dash-pontos, .dash-historico {
@@ -1570,6 +1571,45 @@ body {
   color: var(--txt-secondary);
   font-size: 12.5px;
   line-height: 1.55;
+}
+.nota-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(2, 6, 23, .82);
+  backdrop-filter: blur(10px);
+}
+.nota-preview-modal {
+  width: min(920px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-xl);
+}
+.nota-preview-corpo {
+  min-height: 260px;
+  max-height: 72vh;
+  overflow: auto;
+  padding: 14px;
+  background: var(--bg-app);
+}
+.nota-preview-corpo img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  min-height: 180px;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  background: #fff;
+  object-fit: contain;
 }
 .ficha-subtitulo { color: var(--txt-secondary); text-transform: uppercase; font-size: 11px; letter-spacing: .8px; margin-top: 4px; }
 .ficha-historico { display: flex; flex-direction: column; gap: 7px; }

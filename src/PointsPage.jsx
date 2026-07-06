@@ -1274,6 +1274,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   async function excluirHandler(id){
     if(!podeExcluirPonto)return;
     const p=pontos.find(x=>x.id===id);
+    if(!p)return;
     const vinculados=equipamentos.filter(item=>item.localizacao===p.nomeFantasia);
     if(vinculados.length>0)return;
     try{
@@ -1286,6 +1287,49 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
       setExcluindo(null);
     }catch(e){console.error("Erro ao excluir ponto:",e);}
+  }
+
+  async function disponibilizarEquipamentosEExcluirPonto(id){
+    if(!podeExcluirPonto)return;
+    const p=pontos.find(x=>x.id===id);
+    if(!p)return;
+    const vinculados=equipamentos.filter(item=>item.localizacao===p.nomeFantasia);
+    if(vinculados.length===0){await excluirHandler(id);return;}
+    const ok=window.confirm(`Disponibilizar ${vinculados.length} equipamento${vinculados.length!==1?"s":""} no estoque interno e excluir o ponto ${p.nomeFantasia}?`);
+    if(!ok)return;
+    try{
+      const equipamentosAtualizados=equipamentos.map(item=>item.localizacao===p.nomeFantasia
+        ?{
+          ...item,
+          status:"Disponível",
+          localizacao:"",
+          gerenteResponsavel:"",
+          transferenciaStatus:"",
+          transferenciaEnviadaEm:"",
+          transferenciaRecebidaEm:"",
+        }
+        :item
+      );
+      const alterados=equipamentosAtualizados.filter((item,index)=>
+        item.status!==equipamentos[index].status||
+        item.localizacao!==equipamentos[index].localizacao||
+        item.gerenteResponsavel!==equipamentos[index].gerenteResponsavel||
+        item.transferenciaStatus!==equipamentos[index].transferenciaStatus
+      );
+      await Promise.all(alterados.map(item=>salvarEquipamento(item)));
+      onEquipamentosChange?.(equipamentosAtualizados);
+      await excluirPonto(id);
+      const pontosAtualizados=pontos.filter(x=>x.id!==id);
+      setPontos(pontosAtualizados);onPontosChange?.(pontosAtualizados);
+      setSolicitacoes(prev=>prev.filter(s=>Number(s.pontoId)!==Number(id)));
+      const h={id:Date.now(),tipo:"exclusao",nome:p.nomeFantasia,gerente:p.gerente,observacao:`Ponto removido após disponibilizar ${alterados.length} equipamento${alterados.length!==1?"s":""} no estoque interno`,data:agoraStr()};
+      await adicionarHistoricoPonto(h);
+      setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
+      setExcluindo(null);
+    }catch(e){
+      console.error("Erro ao disponibilizar equipamentos e excluir ponto:",e);
+      window.alert(e?.message||"Não foi possível disponibilizar os equipamentos e excluir o ponto.");
+    }
   }
 
   async function salvarDespesasPonto(ponto, competencia, linhas) {
@@ -1402,11 +1446,12 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
             <div className="modal-header"><h3>Confirmar Exclusão</h3><button className="modal-fechar" onClick={()=>setExcluindo(null)}>✕</button></div>
             <div className="modal-body">
               {equipamentosNoPonto.length>0
-                ?<div className="erro-msg">⚠️ Este ponto não pode ser excluído porque possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.patrimonio||i.nome).join(", ")}</strong>. Movimente primeiro para outro ponto ou disponibilize o equipamento.</div>
+                ?<div className="erro-msg">⚠️ Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.patrimonio||i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</div>
                 :<p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja excluir este ponto?</p>}
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={()=>setExcluindo(null)}>Cancelar</button>
+              {equipamentosNoPonto.length>0&&<button className="btn-primario" onClick={()=>disponibilizarEquipamentosEExcluirPonto(excluindo)}>Disponibilizar e excluir</button>}
               {equipamentosNoPonto.length===0&&<button className="btn-danger" onClick={()=>excluirHandler(excluindo)}>Excluir</button>}
             </div>
           </div>

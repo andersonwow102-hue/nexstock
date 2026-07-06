@@ -2441,6 +2441,7 @@ function statusPagamentoConserto(item){
 }
 
 function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, onCompletarConserto, onConfirmarPagamento, podeEditar, perfilAtual }) {
+  const [notaAberta,setNotaAberta]=useState(false);
   const movimentos=historico.filter(h=>h.itemId===item.id);
   const operador=perfilAtual?.perfil==="operador";
   const admin=perfilAtual?.perfil==="administrador";
@@ -2481,7 +2482,7 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
                 <div><small>Nota fiscal</small><strong>{item.consertoNotaNome||"-"}</strong></div>
               </div>
               {item.consertoNotaArquivo&&(
-                <button className="btn-secundario" type="button" onClick={()=>window.open(item.consertoNotaArquivo,"_blank","noopener,noreferrer")}>Visualizar nota fiscal</button>
+                <button className="btn-secundario" type="button" onClick={()=>setNotaAberta(true)}>Visualizar nota fiscal</button>
               )}
               {operador&&emConserto&&(
                 <button className="btn-primario ficha-conserto-acao" type="button" disabled={pagamentoSolicitado} onClick={()=>{onFechar();onCompletarConserto(item);}}>
@@ -2506,6 +2507,23 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
           <button className="btn-primario" onClick={()=>{onFechar();onMovimentar(item);}}>Movimentar</button>
         </div>}
       </div>
+      {notaAberta&&(
+        <div className="nota-preview-overlay" onClick={e=>{e.stopPropagation();setNotaAberta(false);}}>
+          <div className="nota-preview-modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Nota fiscal do conserto</h3>
+              <button className="modal-fechar" onClick={()=>setNotaAberta(false)}>✕</button>
+            </div>
+            <div className="nota-preview-corpo">
+              <img src={item.consertoNotaArquivo} alt={`Nota fiscal ${item.consertoNotaNome||item.nome}`}/>
+            </div>
+            <div className="modal-footer">
+              <a className="btn-secundario" href={item.consertoNotaArquivo} download={item.consertoNotaNome||"nota-fiscal-conserto.jpg"}>Baixar imagem</a>
+              <button className="btn-primario" onClick={()=>setNotaAberta(false)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3234,9 +3252,14 @@ function Sistema({onLogout}){
     }
   }
 
+  const estoqueInterno=itensOperacionais.filter(i=>i.status==="Disponível"&&!i.localizacao&&!i.gerenteResponsavel);
+  const estoqueGerentes=itensOperacionais.filter(i=>i.status==="Disponível"&&!i.localizacao&&i.gerenteResponsavel);
+  const equipamentosEmPontos=itensOperacionais.filter(i=>i.status==="Em rota"&&i.localizacao);
+  const equipamentosEmTransitoGerente=itensOperacionais.filter(i=>i.status==="Em rota"&&!i.localizacao&&i.gerenteResponsavel);
   const totalGeral     =itensOperacionais.length;
-  const totalDisponivel=itensOperacionais.filter(i=>i.status==="Disponível").length;
-  const totalEmRota    =itensOperacionais.filter(i=>i.status==="Em rota").length;
+  const totalDisponivel=gerenteAtual?itensOperacionais.filter(i=>i.status==="Disponível").length:estoqueInterno.length;
+  const totalEmRota    =gerenteAtual?itensOperacionais.filter(i=>i.status==="Em rota").length:equipamentosEmPontos.length;
+  const totalComGerentes=estoqueGerentes.length+equipamentosEmTransitoGerente.length;
   const totalConserto  =itensOperacionais.filter(i=>i.status==="Em conserto").length;
   const consertosPendentes=itensOperacionais
     .filter(i=>i.status==="Em conserto")
@@ -3246,13 +3269,13 @@ function Sistema({onLogout}){
     .sort((a,b)=>(b.consertoPagamentoSolicitadoEm||b.consertoSolicitadoEm||"").localeCompare(a.consertoPagamentoSolicitadoEm||a.consertoSolicitadoEm||""));
 
   const alertas = [CATEGORIA_COM_ALERTA].map(cat=>{
-    const totalDisp=itensOperacionais.filter(i=>i.categoria===cat&&i.status==="Disponível").length;
+    const totalDisp=(gerenteAtual?itensOperacionais:estoqueInterno).filter(i=>i.categoria===cat&&i.status==="Disponível").length;
     return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
   }).filter(a=>a.totalDisponivel<MINIMO_CATEGORIA);
   const alertasVisiveis = gerenteAtual ? [] : alertas;
 
   const porCategoria=CATEGORIAS.map(cat=>{
-    const ci=itensOperacionais.filter(i=>i.categoria===cat);
+    const ci=(gerenteAtual?itensOperacionais:estoqueInterno).filter(i=>i.categoria===cat);
     const totalDisp=ci.filter(i=>i.status==="Disponível").length;
     return{categoria:cat,total:ci.length,qtdItens:ci.length,
       disponivel:totalDisp,
@@ -3800,14 +3823,15 @@ function Sistema({onLogout}){
 
             <section className="dash-indicadores">
               <button className="dash-kpi kpi-total" onClick={()=>navegar("itens")}><span>Cadastrados</span><strong>{totalGeral}</strong><small>equipamentos</small></button>
-              <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><span>Disponíveis</span><strong>{totalDisponivel}</strong><small>prontos para envio</small></button>
-              <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>em operação</small></button>
+              <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>{gerenteAtual?"prontos para envio":"admin/operação"}</small></button>
+              <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>nas rotas</small></button>
+              {!gerenteAtual&&<button className="dash-kpi kpi-gerentes" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><span>Com gerentes</span><strong>{totalComGerentes}</strong><small>estoque/transferência</small></button>}
               {!gerenteAtual&&<button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><span>Conserto</span><strong>{totalConserto}</strong><small>fora de operação</small></button>}
             </section>
 
             <div className="dash-conteudo">
               <section className="secao dash-categorias">
-                <h2 className="secao-titulo">Disponibilidade por Categoria</h2>
+                <h2 className="secao-titulo">{gerenteAtual?"Disponibilidade por Categoria":"Estoque interno por Categoria"}</h2>
                 <div className="dash-lista-categorias">
                   {porCategoria.map(c=>{
                     const percentual=c.total?Math.round((c.disponivel/c.total)*100):0;
