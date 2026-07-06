@@ -1208,6 +1208,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const pontosVisiveis = mostrarDespesas
     ? aplicarResumoDespesaMes(pontosVisiveisBase, despesasEscopo, competenciaAtual())
     : pontosVisiveisBase.map(p=>({...p, possuiDespesa:"nao", valorDespesa:0}));
+  const idsPontosAtuais = new Set(pontos.map(p=>Number(p.id)));
+  const solicitacoesAtuais = solicitacoes.filter(s=>idsPontosAtuais.has(Number(s.pontoId)));
   const nomesPontosVisiveis = new Set(pontosVisiveis.map(p=>p.nomeFantasia));
   const equipamentosVisiveis = gerenteAtual ? equipamentos.filter(i=>nomesPontosVisiveis.has(i.localizacao)) : equipamentos;
   const despesasVisiveis = despesasEscopo;
@@ -1278,6 +1280,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       await excluirPonto(id);
       const atualizados=pontos.filter(x=>x.id!==id);
       setPontos(atualizados);onPontosChange?.(atualizados);
+      setSolicitacoes(prev=>prev.filter(s=>Number(s.pontoId)!==Number(id)));
       const h={id:Date.now(),tipo:"exclusao",nome:p.nomeFantasia,gerente:p.gerente,observacao:"Ponto removido",data:agoraStr()};
       await adicionarHistoricoPonto(h);
       setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
@@ -1371,7 +1374,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
         ))}
       </div>
 
-      {administrador&&<PainelSolicitacoesModalidade solicitacoes={solicitacoes} onConcluir={concluirSolicitacao}/>}
+      {administrador&&<PainelSolicitacoesModalidade solicitacoes={solicitacoesAtuais} onConcluir={concluirSolicitacao}/>}
 
       {loading&&(
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"60px",gap:"12px",color:"var(--txt-secondary)"}}>
@@ -1382,7 +1385,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {!loading&&(<>
         {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} podeEditar={podeCriarPonto} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} acessos={acessosModalidades} solicitacoes={solicitacoes} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeExcluir={podeExcluirPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onVerAcessos={setPontoAcessos}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeExcluir={podeExcluirPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onVerAcessos={setPontoAcessos}
             onExportExcel={()=>exportarPontosExcel(pontosParaExportar)} onExportPDF={()=>exportarPontosPDF(pontosParaExportar)}/>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}
