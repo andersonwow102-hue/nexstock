@@ -3144,6 +3144,7 @@ function Sistema({onLogout}){
   const [erroForm,setErroForm]     =useState("");
   const [erroMov,setErroMov]       =useState("");
   const [filtroSt,setFiltroSt]     =useState("Todos");
+  const [filtroEscopoEquip,setFiltroEscopoEquip]=useState("todos");
   const [busca,setBusca]           =useState("");
   const [excluindo,setExcluindo]   =useState(null);
   const [histFCat,setHistFCat]     =useState("Todas");
@@ -3157,6 +3158,7 @@ function Sistema({onLogout}){
   const [itemDetalhe,setItemDetalhe]=useState(null);
   const [buscaGlobal,setBuscaGlobal]=useState("");
   const [paginaItens,setPaginaItens]=useState(1);
+  const [gerenteConsulta,setGerenteConsulta]=useState("");
   const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",emailTemporario:false,emailTemporarioExpiraEm:""});
 
   useEffect(()=>{
@@ -3218,6 +3220,11 @@ function Sistema({onLogout}){
   const exigirPatrimonioEquipamento=perfilAtual.perfil!=="gerente";
   const gerenteNomeBase=nomeBaseGerente(gerenteAtual);
   const gerenteAvatar=avatarLendario(gerenteAtual);
+  const gerentesOperacionais=[...new Set([
+    ...GERENTES,
+    ...pontos.map(p=>gerenteDaRota(p.gerente)).filter(Boolean),
+    ...itens.map(i=>i.gerenteResponsavel).filter(Boolean),
+  ])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const pontosOperacionais=gerenteAtual?pontos.filter(p=>rotaPermitidaAoPerfil(p.gerente, perfilAtual)):pontos;
   const pontosOperacionaisNomes=new Set(pontosOperacionais.map(p=>p.nomeFantasia));
   const itensOperacionaisBase=gerenteAtual
@@ -3294,13 +3301,34 @@ function Sistema({onLogout}){
     totalEquipamentos:itensOperacionais.filter(i=>i.localizacao===p.nomeFantasia).length,
   })).filter(p=>p.totalEquipamentos>0).sort((a,b)=>b.totalEquipamentos-a.totalEquipamentos);
 
+  const gerenteConsultaAtivo=gerenteConsulta||gerentesOperacionais[0]||"";
+  const gerenteConsultaKey=normalizarTexto(gerenteConsultaAtivo);
+  const pontosDoGerenteConsulta=gerenteConsultaAtivo?pontos.filter(p=>
+    rotaPertenceAoGerente(p.gerente, gerenteConsultaAtivo)||
+    normalizarTexto(gerenteDaRota(p.gerente))===gerenteConsultaKey||
+    normalizarTexto(p.gerente)===gerenteConsultaKey
+  ):[];
+  const pontosConsultaNomes=new Set(pontosDoGerenteConsulta.map(p=>normalizarTexto(p.nomeFantasia)));
+  const equipamentosDoGerenteConsulta=gerenteConsultaAtivo?itens.filter(i=>
+    pontosConsultaNomes.has(normalizarTexto(i.localizacao))||
+    normalizarTexto(i.gerenteResponsavel)===gerenteConsultaKey
+  ):[];
+  const equipamentosConsultaEmPontos=equipamentosDoGerenteConsulta.filter(i=>Boolean(i.localizacao));
+  const equipamentosConsultaConserto=equipamentosDoGerenteConsulta.filter(i=>i.status==="Em conserto");
+  const equipamentosConsultaSemPonto=equipamentosDoGerenteConsulta.filter(i=>!i.localizacao);
+
   const filtroCatEquipAtivo=gerenteAtual?"Todas":filtroCatEquip;
   const itensFiltrados=itensOperacionais.filter(i=>{
     const mC=filtroCatEquipAtivo==="Todas"||i.categoria===filtroCatEquipAtivo;
     const mS=filtroSt==="Todos"||i.status===filtroSt;
+    const mE=gerenteAtual||filtroEscopoEquip==="todos"||
+      (filtroEscopoEquip==="interno"&&i.status==="Disponível"&&!i.localizacao&&!i.gerenteResponsavel)||
+      (filtroEscopoEquip==="pontos"&&i.status==="Em rota"&&Boolean(i.localizacao))||
+      (filtroEscopoEquip==="gerentes"&&Boolean(i.gerenteResponsavel)&&!i.localizacao)||
+      (filtroEscopoEquip==="conserto"&&i.status==="Em conserto");
     const q=busca.toLowerCase();
     const mB=!busca||[i.nome,i.patrimonio,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>(f||"").toLowerCase().includes(q));
-    return mC&&mS&&mB;
+    return mC&&mS&&mE&&mB;
   });
   const itensOrdenados=ordenarEquipamentos(itensFiltrados);
   const totalPaginasItens=Math.max(1,Math.ceil(itensOrdenados.length/ITENS_POR_PAGINA));
@@ -3313,10 +3341,13 @@ function Sistema({onLogout}){
     return mC&&mT&&mB;
   });
 
-  useEffect(()=>{setPaginaItens(1);},[busca,filtroSt,filtroCatEquip]);
+  useEffect(()=>{setPaginaItens(1);},[busca,filtroSt,filtroCatEquip,filtroEscopoEquip]);
   useEffect(()=>{
     if(gerenteAtual&&filtroSt==="Em conserto")setFiltroSt("Todos");
   },[gerenteAtual,filtroSt]);
+  useEffect(()=>{
+    if(!gerenteConsulta&&gerentesOperacionais.length)setGerenteConsulta(gerentesOperacionais[0]);
+  },[gerenteConsulta,gerentesOperacionais]);
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
 
   function abrirNovo(){
@@ -3741,6 +3772,7 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><Icon name="dashboard" className="nav-icon" /> Dashboard</button>
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><Icon name="package" className="nav-icon" /> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><Icon name="mapPin" className="nav-icon" /> Pontos</button>
+          {(administrador||operador)&&<button className={`nav-item ${aba==="buscar-gerentes"?"active":""}`} onClick={()=>navegar("buscar-gerentes")}><Icon name="user" className="nav-icon" /> Buscar Gerentes</button>}
           {gerenteAtual&&<button className={`nav-item ${aba==="prestacao-gerente"?"active":""}`} onClick={()=>navegar("prestacao-gerente")}><Icon name="fileText" className="nav-icon" /> Prestação de Conta</button>}
           {(administrador||gerenteAtual)&&<button className={`nav-item ${aba==="senhas"?"active":""}`} onClick={()=>navegar("senhas")}><Icon name="shieldKey" className="nav-icon" /> Senhas</button>}
           {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><Icon name="checkCircle" className="nav-icon" /> Fechamento</button>}
@@ -3822,11 +3854,11 @@ function Sistema({onLogout}){
             </section>
 
             <section className="dash-indicadores">
-              <button className="dash-kpi kpi-total" onClick={()=>navegar("itens")}><span>Cadastrados</span><strong>{totalGeral}</strong><small>equipamentos</small></button>
-              <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>{gerenteAtual?"prontos para envio":"admin/operação"}</small></button>
-              <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>nas rotas</small></button>
-              {!gerenteAtual&&<button className="dash-kpi kpi-gerentes" onClick={()=>{navegar("itens");setFiltroSt("Disponível");}}><span>Com gerentes</span><strong>{totalComGerentes}</strong><small>estoque/transferência</small></button>}
-              {!gerenteAtual&&<button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroSt("Em conserto");}}><span>Conserto</span><strong>{totalConserto}</strong><small>fora de operação</small></button>}
+              <button className="dash-kpi kpi-total" onClick={()=>{navegar("itens");setFiltroEscopoEquip("todos");setFiltroSt("Todos");}}><span>Cadastrados</span><strong>{totalGeral}</strong><small>equipamentos</small></button>
+              <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"interno");setFiltroSt("Disponível");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>{gerenteAtual?"prontos para envio":"admin/operação"}</small></button>
+              <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"pontos");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>nas rotas</small></button>
+              {!gerenteAtual&&<button className="dash-kpi kpi-gerentes" onClick={()=>{navegar("itens");setFiltroEscopoEquip("gerentes");setFiltroSt("Todos");}}><span>Com gerentes</span><strong>{totalComGerentes}</strong><small>estoque/transferência</small></button>}
+              {!gerenteAtual&&<button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroEscopoEquip("conserto");setFiltroSt("Em conserto");}}><span>Conserto</span><strong>{totalConserto}</strong><small>fora de operação</small></button>}
             </section>
 
             <div className="dash-conteudo">
@@ -3943,6 +3975,20 @@ function Sistema({onLogout}){
             ))}
             </div>
             {!gerenteAtual&&(<>
+              <span className="equip-filtro-label">Escopo</span>
+              <div className="equip-categorias equip-escopos">
+                {[
+                  ["todos","Todos"],
+                  ["interno","Estoque interno"],
+                  ["pontos","Em pontos"],
+                  ["gerentes","Com gerentes"],
+                  ["conserto","Conserto"],
+                ].map(([id,label])=>(
+                  <button key={id} className={`points-aba-btn ${filtroEscopoEquip===id?"points-aba-ativa":""}`} onClick={()=>{setFiltroEscopoEquip(id);setAbaEquip("lista");}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <span className="equip-filtro-label">Categoria</span>
               <div className="equip-categorias">
                 {["Todas",...CATEGORIAS].map(cat=>(
@@ -4065,8 +4111,8 @@ function Sistema({onLogout}){
                     <option value="Todos">Todos os status</option>
                     {statusListaVisivel.map(s=><option key={s}>{s}</option>)}
                   </select>
-                  {(filtroCatEquip!=="Todas"||filtroSt!=="Todos"||busca)&&(
-                    <button className="btn-limpar" onClick={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setBusca("");}}>✕ Limpar</button>
+                  {(filtroCatEquip!=="Todas"||filtroSt!=="Todos"||filtroEscopoEquip!=="todos"||busca)&&(
+                    <button className="btn-limpar" onClick={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setFiltroEscopoEquip("todos");setBusca("");}}>✕ Limpar</button>
                   )}
                 </div>
               </div>
@@ -4235,6 +4281,90 @@ function Sistema({onLogout}){
           <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
           </>
         )}
+
+        {aba==="buscar-gerentes"&&(administrador||operador)&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>â˜°</button>
+              <div><h1 className="page-title">Buscar Gerentes</h1><p className="page-sub">Pontos, equipamentos e pendÃªncias por responsÃ¡vel</p></div>
+            </div>
+          </header>
+          <div className="consulta-gerentes-page">
+            <section className="consulta-gerentes-hero">
+              <div>
+                <span className="gestao-kicker">Consulta operacional</span>
+                <h2>Pesquisar tudo sobre um gerente</h2>
+                <p>Selecione um gerente para visualizar pontos, equipamentos nos pontos, estoque sob responsabilidade dele e consertos vinculados.</p>
+              </div>
+              <label className="consulta-gerentes-select">
+                <span>Gerente</span>
+                <select value={gerenteConsultaAtivo} onChange={e=>setGerenteConsulta(e.target.value)}>
+                  {gerentesOperacionais.length===0&&<option value="">Nenhum gerente encontrado</option>}
+                  {gerentesOperacionais.map(g=><option key={g} value={g}>{g}</option>)}
+                </select>
+              </label>
+            </section>
+
+            <section className="consulta-gerentes-resumo">
+              <div className="consulta-kpi"><span>Pontos</span><strong>{pontosDoGerenteConsulta.length}</strong><small>vinculados</small></div>
+              <div className="consulta-kpi"><span>Equipamentos</span><strong>{equipamentosDoGerenteConsulta.length}</strong><small>total localizado</small></div>
+              <div className="consulta-kpi"><span>Nos pontos</span><strong>{equipamentosConsultaEmPontos.length}</strong><small>em operaÃ§Ã£o</small></div>
+              <div className="consulta-kpi"><span>Com gerente</span><strong>{equipamentosConsultaSemPonto.length}</strong><small>sem ponto</small></div>
+              <div className="consulta-kpi consulta-kpi-alerta"><span>Conserto</span><strong>{equipamentosConsultaConserto.length}</strong><small>fora de operaÃ§Ã£o</small></div>
+            </section>
+
+            <div className="consulta-gerentes-grid">
+              <section className="secao consulta-gerentes-card">
+                <div className="tabela-header">
+                  <h2 className="secao-titulo" style={{margin:0}}>Pontos do gerente</h2>
+                  <span className="consulta-contador">{pontosDoGerenteConsulta.length}</span>
+                </div>
+                <div className="consulta-lista">
+                  {pontosDoGerenteConsulta.length===0?<div className="tabela-vazia">Nenhum ponto encontrado para este gerente.</div>:
+                    ordenarPontos(pontosDoGerenteConsulta).map(ponto=>{
+                      const qtd=itens.filter(i=>normalizarTexto(i.localizacao)===normalizarTexto(ponto.nomeFantasia)).length;
+                      return(
+                        <article key={ponto.id} className="consulta-ponto-item">
+                          <div>
+                            <strong>{ponto.nomeFantasia}</strong>
+                            <span>{ponto.gerente||"Rota nÃ£o informada"} Â· {ponto.telefone||"sem telefone"}</span>
+                          </div>
+                          <em>{qtd} equip.</em>
+                        </article>
+                      );
+                    })
+                  }
+                </div>
+              </section>
+
+              <section className="secao consulta-gerentes-card consulta-equipamentos-card">
+                <div className="tabela-header">
+                  <h2 className="secao-titulo" style={{margin:0}}>Equipamentos localizados</h2>
+                  <span className="consulta-contador">{equipamentosDoGerenteConsulta.length}</span>
+                </div>
+                <div className="consulta-equipamentos-lista">
+                  {equipamentosDoGerenteConsulta.length===0?<div className="tabela-vazia">Nenhum equipamento localizado para este gerente.</div>:
+                    ordenarEquipamentos(equipamentosDoGerenteConsulta).map(item=>(
+                      <article key={item.id} className={`consulta-equipamento-item ${item.status==="Em conserto"?"em-conserto":""}`}>
+                        <div className="consulta-equipamento-main">
+                          <span className="consulta-patrimonio">{item.patrimonio||"Sem cÃ³digo"}</span>
+                          <strong>{ICONES[item.categoria]} {item.nome}</strong>
+                          <small>{textoLocalizacaoEquipamento(item)}</small>
+                        </div>
+                        <div className="consulta-equipamento-meta">
+                          <span className="badge-cat">{item.categoria}</span>
+                          <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
+                          {item.gerenteResponsavel&&<span className="badge-transferencia badge-transferencia-ok">{item.gerenteResponsavel}</span>}
+                        </div>
+                        <button className="btn-editar" onClick={()=>setItemDetalhe(item)}>Ficha</button>
+                      </article>
+                    ))
+                  }
+                </div>
+              </section>
+            </div>
+          </div>
+        </>)}
 
         {aba==="senhas"&&(administrador||gerenteAtual)&&(<>
           <header className="topbar">
