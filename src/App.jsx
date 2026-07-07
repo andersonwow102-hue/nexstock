@@ -4246,25 +4246,47 @@ function Sistema({onLogout}){
               </div>
               {historicoOperacional.length===0
                 ?<div className="hist-vazio"><div className="hist-vazio-icone">📋</div><div>Nenhuma movimentação registrada.</div></div>
-                :<div className="tabela-wrapper">
-                  <table className="tabela">
-                    <thead><tr><th>Tipo</th><th>Equipamento</th><th>Categoria</th><th>Antes</th><th>Depois</th><th>Observação</th><th>Data</th></tr></thead>
-                    <tbody>
-                      {historicoOperacional.map(h=>{
-                        const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
-                        return(<tr key={h.id}>
-                          <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
-                          <td className="td-nome">{ICONES[h.categoria]} {h.itemNome}</td>
-                          <td><span className="badge-cat">{h.categoria}</span></td>
-                          <td className="td-minimo">{h.qtdAntes}</td>
-                          <td className="td-minimo">{h.qtdDepois}</td>
-                          <td className="td-obs" style={{maxWidth:"200px"}}>{h.observacao}</td>
-                          <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
-                        </tr>);
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                :<>
+                  <div className="historico-mobile-lista historico-equip-mobile-lista">
+                    {historicoOperacional.map(h=>{
+                      const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
+                      return(
+                        <article className="historico-mobile-card" key={`equip-hist-mobile-${h.id}`}>
+                          <div className="historico-mobile-topo">
+                            <span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span>
+                            <small>{h.data}</small>
+                          </div>
+                          <strong>{ICONES[h.categoria]} {h.itemNome}</strong>
+                          <div className="historico-mobile-meta">
+                            <span>{h.categoria}</span>
+                            <span>Antes: {h.qtdAntes}</span>
+                            <span>Depois: {h.qtdDepois}</span>
+                          </div>
+                          <HistoricoDetalhes texto={h.observacao}/>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div className="tabela-wrapper historico-equip-desktop-tabela">
+                    <table className="tabela">
+                      <thead><tr><th>Tipo</th><th>Equipamento</th><th>Categoria</th><th>Antes</th><th>Depois</th><th>Observação</th><th>Data</th></tr></thead>
+                      <tbody>
+                        {historicoOperacional.map(h=>{
+                          const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
+                          return(<tr key={h.id}>
+                            <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
+                            <td className="td-nome">{ICONES[h.categoria]} {h.itemNome}</td>
+                            <td><span className="badge-cat">{h.categoria}</span></td>
+                            <td className="td-minimo">{h.qtdAntes}</td>
+                            <td className="td-minimo">{h.qtdDepois}</td>
+                            <td className="td-obs" style={{maxWidth:"200px"}}>{h.observacao}</td>
+                            <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
+                          </tr>);
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               }
             </section>
           )}
