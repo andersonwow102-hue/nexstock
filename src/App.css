@@ -2840,6 +2840,23 @@ body {
   box-shadow: 0 0 0 3px var(--azul-bg);
 }
 
+@media (max-width: 1200px) {
+  .historico-mobile-lista {
+    display: grid;
+    gap: 12px;
+  }
+  .historico-desktop-tabela {
+    display: none !important;
+  }
+  .dash-historico > .tabela-wrapper {
+    display: none !important;
+  }
+  .dash-historico-mobile-lista {
+    display: grid;
+    gap: 12px;
+  }
+}
+
 .chat-flutuante {
   position: fixed;
   right: 22px;
