@@ -4173,12 +4173,35 @@ function Sistema({onLogout}){
                       <span>📍 {textoLocalizacaoEquipamento(item)}</span>
                       {item.gerenteResponsavel&&<span>👤 {item.gerenteResponsavel}</span>}
                     </div>
-                    <div className="equip-card-acoes">
-                      {operador&&item.status==="Em conserto"?<button className="btn-movimentar btn-conserto-operador" disabled={statusPagamentoConserto(item)==="solicitado"} title={statusPagamentoConserto(item)==="solicitado"?"Aguardando pagamento do admin":""} onClick={()=>abrirConsertoOperador(item)}>🔧 {statusPagamentoConserto(item)==="pago"?"Concluir conserto":"Completar conserto"}</button>:
-                        item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar recebido</button>:podeMovimentarEquipamento(item)&&<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>}
-                      <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎 Ficha</button>
-                      {podeMovimentarEquipamento(item)&&<button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar">✏️ Editar</button>}
-                      {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir">🗑️</button>}
+                    <div className="equip-card-acoes equip-card-acoes-select">
+                      <select
+                        className="equip-card-acao-select"
+                        defaultValue=""
+                        aria-label={`Ações do equipamento ${item.nome}`}
+                        onChange={e=>{
+                          const acao=e.target.value;
+                          e.target.value="";
+                          if(!acao)return;
+                          if(acao==="conserto")abrirConsertoOperador(item);
+                          if(acao==="receber")confirmarRecebimento(item);
+                          if(acao==="movimentar")abrirMov(item);
+                          if(acao==="ficha")setItemDetalhe(item);
+                          if(acao==="editar")abrirEditar(item);
+                          if(acao==="excluir")setExcluindo(item.id);
+                        }}
+                      >
+                        <option value="">Selecionar ação</option>
+                        {operador&&item.status==="Em conserto"&&(
+                          <option value="conserto" disabled={statusPagamentoConserto(item)==="solicitado"}>
+                            {statusPagamentoConserto(item)==="solicitado"?"Aguardando pagamento":statusPagamentoConserto(item)==="pago"?"Concluir conserto":"Completar conserto"}
+                          </option>
+                        )}
+                        {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&gerenteAtual&&<option value="receber">Confirmar recebido</option>}
+                        {podeMovimentarEquipamento(item)&&<option value="movimentar">Movimentar</option>}
+                        <option value="ficha">Ver ficha</option>
+                        {podeMovimentarEquipamento(item)&&<option value="editar">Editar</option>}
+                        {podeEditar&&<option value="excluir">Excluir</option>}
+                      </select>
                     </div>
                   </article>
                 ))}

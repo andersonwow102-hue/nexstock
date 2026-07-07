@@ -2266,6 +2266,23 @@ body {
 .equip-card-acoes { display: flex; gap: 6px; padding-top: 2px; }
 .equip-card-acoes .btn-movimentar { flex: 1; padding: 8px; }
 .equip-card-acoes .btn-editar, .equip-card-acoes .btn-excluir { margin: 0; padding: 7px 10px; }
+.equip-card-acoes-select { display: block; }
+.equip-card-acao-select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  color: var(--txt-primary);
+  padding: 0 38px 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+.equip-card-acao-select:focus {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
 
 .recebimentos-pendentes {
   display: grid;
@@ -5849,6 +5866,14 @@ body {
   .ponto-card-acoes button {
     min-height: 40px;
     border-radius: 12px;
+  }
+  .equip-card-acoes-select {
+    display: block;
+  }
+  .equip-card-acao-select {
+    min-height: 44px;
+    border-radius: 14px;
+    font-size: 13.5px;
   }
   .ponto-card-linha {
     align-items: flex-start;
