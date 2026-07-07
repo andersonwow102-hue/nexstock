@@ -2259,8 +2259,10 @@ body {
 }
 .equip-card-conserto { border-color: var(--amarelo-border); box-shadow: inset 4px 0 0 var(--amarelo), var(--shadow-sm); }
 .equip-card-defeito { margin: -2px 0 0; color: var(--txt-secondary); font-size: 12.5px; line-height: 1.45; background: var(--amarelo-bg); border: 1px solid var(--amarelo-border); border-radius: var(--radius-sm); padding: 9px 11px; }
-.equip-card-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.equip-card-topo h3 { font-size: 13.5px; font-weight: 600; color: var(--txt-primary); margin-top: 4px; }
+.equip-card-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.equip-card-topo > div { min-width: 0; flex: 1; }
+.equip-card-topo h3 { font-size: 13.5px; font-weight: 600; color: var(--txt-primary); margin-top: 4px; overflow-wrap: anywhere; }
+.equip-card-topo .badge-status { flex: 0 0 auto; min-width: 94px; text-align: center; white-space: nowrap; }
 .equip-codigo { font-size: 11px; color: var(--txt-muted); font-family: 'JetBrains Mono', monospace; }
 .equip-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; color: var(--txt-secondary); font-size: 12px; }
 .equip-card-acoes { display: flex; gap: 6px; padding-top: 2px; }
@@ -5874,6 +5876,11 @@ body {
   .ponto-card-topo h3 {
     font-size: 14.5px;
     line-height: 1.25;
+  }
+  .equip-card-topo .badge-status {
+    min-width: 98px;
+    padding-inline: 10px;
+    font-size: 11px;
   }
   .equip-card-acoes,
   .ponto-card-acoes {
