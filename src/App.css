@@ -3386,6 +3386,27 @@ body {
   background: var(--bg-card);
   color: var(--txt-secondary);
 }
+.tema-claro .patrimonio-lote-card {
+  background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
+  border-color: #c5d3ef;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+}
+.tema-claro .patrimonio-lote-head label {
+  color: #4a5f82;
+}
+.tema-claro .patrimonio-lote-grid span {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.tema-claro .patrimonio-lote-grid input {
+  background: #ffffff;
+  border-color: #c5d3ef;
+  color: #0f1c35;
+}
+.tema-claro .patrimonio-lote-grid input[readonly] {
+  background: #f7f9fd;
+  color: #4a5f82;
+}
 .ponto-destino-form {
   background: var(--azul-bg); border: 1px solid var(--azul-border);
   border-radius: var(--radius-md); padding: 12px;
