@@ -160,7 +160,6 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
     const loginNome = formNovo.loginNome.trim().toLowerCase();
     if (!email || !email.includes("@") || !email.includes(".")) { setErro("Informe um e-mail verdadeiro para o novo login."); return; }
     if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) { setErro("Informe um login simples com 3 a 30 caracteres. Use letras, números, ponto, traço ou underline."); return; }
-    if (!formNovo.emailTemporario && /@(nexstock|stockon)\.com$/i.test(email)) { setErro("Use um e-mail real, como Gmail ou Outlook, para permitir recuperação de senha."); return; }
     if (formNovo.perfil === "gerente" && !formNovo.gerenteNome) { setErro("Selecione qual gerente este login representa."); return; }
     if (formNovo.senha.length < 10) { setErro("A senha provisória precisa ter pelo menos 10 caracteres."); return; }
     if (formNovo.senha !== formNovo.confirmar) { setErro("A confirmação da senha está diferente."); return; }
@@ -355,7 +354,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
             <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
             <form onSubmit={criarLogin}>
               <div className="modal-body">
-                <p className="senha-texto">Crie um acesso novo para sócio ou funcionário. Se ainda não souber o e-mail real, use um temporário por até 3 dias.</p>
+                <p className="senha-texto">Crie um acesso novo para sócio ou funcionário. Você pode usar um e-mail interno do app quando não precisar de recuperação por caixa de entrada.</p>
                 {erro && <div className="erro-msg">⚠️ {erro}</div>}
                 <div className="campo">
                   <label>E-mail de login *</label>
@@ -363,9 +362,9 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                 </div>
                 <div className="campo"><label>Login de entrada *</label><input type="text" placeholder="ex: operador" value={formNovo.loginNome} onChange={e => setFormNovo({ ...formNovo, loginNome: e.target.value.toLowerCase() })} /><small className="campo-hint">Pode entrar digitando só <strong>{formNovo.loginNome || (formNovo.perfil === "operador" ? "operador" : "beu")}</strong>, sem escrever o e-mail completo.</small></div>
                 <button type="button" className={`btn-secundario ${formNovo.emailTemporario ? "btn-temp-ativo" : ""}`} onClick={alternarEmailTemporario}>
-                  {formNovo.emailTemporario ? "Usando e-mail temporário" : "Criar e-mail temporário"}
+                  {formNovo.emailTemporario ? "Usando e-mail interno" : "Criar e-mail interno"}
                 </button>
-                {formNovo.emailTemporario && <p className="acessos-nota">Este login fica marcado como temporário e precisa ser atualizado para um e-mail real em até 3 dias.</p>}
+                {formNovo.emailTemporario && <p className="acessos-nota">Este login usa um e-mail interno apenas para autenticação. A senha pode ser trocada pelo administrador quando necessário.</p>}
                 <div className="campo"><label>Perfil *</label><select value={formNovo.perfil} onChange={e => {
                   const perfil = e.target.value;
                   setFormNovo(prev => ({ ...prev, perfil, gerenteNome: perfil === "gerente" ? prev.gerenteNome : "", email: prev.emailTemporario ? gerarEmailTemporario(perfil, prev.gerenteNome) : prev.email, loginNome: prev.loginNome || gerarLoginSugerido(perfil, prev.gerenteNome, prev.email) }));

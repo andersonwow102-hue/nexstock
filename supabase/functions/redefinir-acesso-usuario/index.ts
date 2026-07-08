@@ -37,13 +37,6 @@ export default {
         );
       }
 
-      if (/@(nexstock|stockon)\.com$/i.test(email)) {
-        return Response.json(
-          { error: "Informe um e-mail real que receba mensagens." },
-          { status: 400 }
-        );
-      }
-
       if (senha.length < 10) {
         return Response.json(
           { error: "A senha precisa ter ao menos 10 caracteres." },

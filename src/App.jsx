@@ -3813,8 +3813,8 @@ function Sistema({onLogout}){
       <main className="main">
         {perfilAtual.emailTemporario&&(
           <div className={`email-temp-banner ${prazoEmailTemporario(perfilAtual.emailTemporarioExpiraEm)==="vencido"?"email-temp-vencido":""}`}>
-            <strong>Login com e-mail temporário</strong>
-            <span>Este acesso precisa ser atualizado para um e-mail real pelo administrador. Prazo: {prazoEmailTemporario(perfilAtual.emailTemporarioExpiraEm)}.</span>
+            <strong>Login interno do sistema</strong>
+            <span>Este acesso usa um e-mail interno apenas para autenticação. Se precisar trocar a senha, solicite ao administrador.</span>
           </div>
         )}
         {perfilAtual.perfil==="gerente"&&(

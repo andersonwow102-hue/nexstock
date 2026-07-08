@@ -128,11 +128,9 @@ Deno.serve(async (req) => {
       const gerenteNome = String(body.gerenteNome || "").trim();
       const rotasPermitidas = Array.isArray(body.rotasPermitidas) ? body.rotasPermitidas.map((r) => String(r || "").trim()).filter(Boolean) : [];
       const emailTemporario = Boolean(body.emailTemporario);
-      const loginInternoStockOn = /@stockon\.com$/i.test(email);
 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta({ error: "Informe um e-mail verdadeiro." }, 400);
       if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) return resposta({ error: "Informe um login com 3 a 30 caracteres. Use letras, numeros, ponto, traco ou underline." }, 400);
-      if (!emailTemporario && !loginInternoStockOn && /@nexstock\.com$/i.test(email)) return resposta({ error: "Informe um e-mail real que receba mensagens." }, 400);
       if (senha.length < 10) return resposta({ error: "A senha precisa ter ao menos 10 caracteres." }, 400);
       if (!["administrador", "operador", "gerente", "consulta"].includes(perfilNovo)) return resposta({ error: "Perfil invalido." }, 400);
       if (perfilNovo === "gerente" && !gerenteNome) return resposta({ error: "Informe o gerente vinculado a este login." }, 400);
@@ -146,7 +144,7 @@ Deno.serve(async (req) => {
       if (createError) return resposta({ error: createError.message }, 400);
       if (!criado.user) return resposta({ error: "Usuario criado nao retornou identificacao." }, 500);
 
-      const expiraEm = emailTemporario ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() : null;
+      const expiraEm = null;
       const { error: perfilError } = await admin
         .from("perfis")
         .upsert({
@@ -166,7 +164,7 @@ Deno.serve(async (req) => {
         return resposta({ error: dica || `Login nao foi criado porque o perfil nao pode ser salvo: ${perfilError.message}` }, 400);
       }
 
-      return resposta({ ok: true, userId: criado.user.id, mensagem: emailTemporario ? "Novo login temporario criado. Atualize para um e-mail real em ate 3 dias." : "Novo login criado com sucesso." });
+      return resposta({ ok: true, userId: criado.user.id, mensagem: "Novo login criado com sucesso." });
     }
 
     const userId = String(body.userId || "");
@@ -217,7 +215,6 @@ Deno.serve(async (req) => {
       const senha = String(body.novaSenha || "");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta({ error: "Informe um e-mail verdadeiro." }, 400);
       if (!/^[a-z0-9._-]{3,30}$/.test(loginNome)) return resposta({ error: "Informe um login com 3 a 30 caracteres. Use letras, numeros, ponto, traco ou underline." }, 400);
-      if (/@(nexstock|stockon)\.com$/i.test(email)) return resposta({ error: "Informe um e-mail real que receba mensagens." }, 400);
       if (senha.length < 10) return resposta({ error: "A senha precisa ter ao menos 10 caracteres." }, 400);
 
       const { error: updateError } = await admin.auth.admin.updateUserById(userId, {

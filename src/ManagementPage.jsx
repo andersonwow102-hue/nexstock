@@ -221,10 +221,6 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       setErro("Informe o e-mail verdadeiro que o usuário consegue acessar.");
       return;
     }
-    if (/@(nexstock|stockon)\.com$/i.test(email)) {
-      setErro("Este domínio é usado apenas como login interno. Informe Gmail, Outlook ou outro e-mail real.");
-      return;
-    }
     if (formAcesso.novaSenha.length < 10) {
       setErro("A senha provisória precisa ter pelo menos 10 caracteres.");
       return;
@@ -374,7 +370,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
             {perfisFiltrados.length === 0 && <p className="tabela-vazia">Nenhum usuário encontrado com os filtros atuais.</p>}
           </div>
         )}
-        <p className="acessos-nota">Novos usuários começam como apenas consulta. Para permitir recuperação de senha, use um e-mail real ao criar ou redefinir o acesso. Seu próprio perfil não pode ser rebaixado nesta tela.</p>
+        <p className="acessos-nota">Novos usuários começam como apenas consulta. Você pode usar login interno do sistema ou e-mail real quando quiser recuperação por caixa de entrada. Seu próprio perfil não pode ser rebaixado nesta tela.</p>
       </section>
 
       {usuarioAcesso && (
@@ -383,9 +379,9 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
             <div className="modal-header"><h3>Redefinir Acesso</h3><button className="modal-fechar" onClick={() => setUsuarioAcesso(null)}>✕</button></div>
             <form onSubmit={confirmarRedefinicaoAcesso}>
               <div className="modal-body">
-                <p className="senha-texto">Usuário atual: <strong>{usuarioAcesso.nome}</strong>. Troque para um e-mail que realmente receba mensagens e informe uma senha provisória. O e-mail passará a ser o novo login.</p>
+                <p className="senha-texto">Usuário atual: <strong>{usuarioAcesso.nome}</strong>. Informe o e-mail de login e uma senha provisória. Pode ser um e-mail interno do sistema ou um e-mail real.</p>
                 {erro && <div className="erro-msg">⚠️ {erro}</div>}
-                <div className="campo"><label>Novo e-mail verdadeiro *</label><input type="email" placeholder="socio@gmail.com" value={formAcesso.novoEmail} onChange={e => setFormAcesso({ ...formAcesso, novoEmail: e.target.value })} autoFocus /></div>
+                <div className="campo"><label>Novo e-mail de login *</label><input type="email" placeholder="joao@stockon.com" value={formAcesso.novoEmail} onChange={e => setFormAcesso({ ...formAcesso, novoEmail: e.target.value })} autoFocus /></div>
                 <div className="campo"><label>Senha provisória *</label><input type="password" placeholder="Mínimo de 10 caracteres" value={formAcesso.novaSenha} onChange={e => setFormAcesso({ ...formAcesso, novaSenha: e.target.value })} /></div>
                 <div className="campo"><label>Confirmar senha *</label><input type="password" value={formAcesso.confirmacao} onChange={e => setFormAcesso({ ...formAcesso, confirmacao: e.target.value })} /></div>
               </div>
