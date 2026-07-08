@@ -162,6 +162,44 @@ function ordenarPontos(lista){
 
 const Auth={ deslogar:async()=>{ await supabase.auth.signOut(); } };
 
+function gerarBasePatrimonio(nome,categoria){
+  const texto=padronizarNomenclaturaEquipamento(nome||categoria)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^A-Z0-9]+/g," ")
+    .trim();
+  const tokens=texto.split(/\s+/).filter(Boolean);
+  const base=(tokens.length?tokens:["EQ"])
+    .slice(0,4)
+    .map(token=>token.length<=3?token:token.slice(0,3))
+    .join("-");
+  return base||"EQ";
+}
+
+function gerarPatrimoniosSugeridos({nome,categoria,quantidade,itens=[],atuais=[]}){
+  const qtd=Math.max(1,Math.min(100,Number(quantidade)||1));
+  const base=gerarBasePatrimonio(nome,categoria);
+  const usados=new Set(itens.map(i=>padronizarNomenclaturaEquipamento(i.patrimonio)).filter(Boolean));
+  const saida=[];
+  let seq=1;
+  for(let i=0;i<qtd;i+=1){
+    const atual=padronizarNomenclaturaEquipamento(atuais[i]);
+    if(atual){
+      saida.push(atual);
+      usados.add(atual);
+      continue;
+    }
+    let codigo="";
+    do{
+      codigo=`${base}-${String(seq).padStart(3,"0")}`;
+      seq+=1;
+    }while(usados.has(codigo));
+    saida.push(codigo);
+    usados.add(codigo);
+  }
+  return saida;
+}
+
 function validarItem(f,itens=[],itemId=null,{ exigirPatrimonio=true } = {}){
   if(!f.nome.trim())       return"Nome do equipamento é obrigatório.";
   if(!f.categoria)         return"Categoria é obrigatória.";
@@ -3140,6 +3178,7 @@ function Sistema({onLogout}){
   const [modalMov,setModalMov]     =useState(null);
   const [itemEdit,setItemEdit]     =useState(null);
   const [form,setForm]             =useState(formVazio);
+  const [patrimoniosLote,setPatrimoniosLote]=useState([]);
   const [mov,setMov]               =useState(movVazio);
   const [erroForm,setErroForm]     =useState("");
   const [erroMov,setErroMov]       =useState("");
@@ -3349,11 +3388,15 @@ function Sistema({onLogout}){
     if(!gerenteConsulta&&gerentesOperacionais.length)setGerenteConsulta(gerentesOperacionais[0]);
   },[gerenteConsulta,gerentesOperacionais]);
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
+  useEffect(()=>{
+    if(itemEdit||!modalForm)return;
+    setPatrimoniosLote(prev=>gerarPatrimoniosSugeridos({nome:form.nome,categoria:form.categoria,quantidade:form.quantidade,itens,atuais:prev}));
+  },[itemEdit,modalForm,form.nome,form.categoria,form.quantidade,itens]);
 
   function abrirNovo(){
     if(!podeCadastrarEquipamento)return;
     setItemEdit(null);
-    setForm({
+    const inicial={
       ...formVazio,
       quantidade:1,
       dataCadastro:hoje(),
@@ -3362,10 +3405,12 @@ function Sistema({onLogout}){
       gerenteResponsavel:gerenteAtual||"",
       transferenciaStatus:gerenteAtual?TRANSFERENCIA_GERENTE.recebido:"",
       transferenciaRecebidaEm:gerenteAtual?isoAgora():"",
-    });
+    };
+    setForm(inicial);
+    setPatrimoniosLote(gerarPatrimoniosSugeridos({nome:inicial.nome,categoria:inicial.categoria,quantidade:1,itens}));
     setErroForm("");setModalForm(true);
   }
-  function abrirEditar(i){if(!podeMovimentarEquipamento(i))return;setItemEdit(i);setForm({...i});setErroForm("");setModalForm(true);}
+  function abrirEditar(i){if(!podeMovimentarEquipamento(i))return;setItemEdit(i);setForm({...i,quantidade:1});setPatrimoniosLote([]);setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
   function abrirMov(item){
     if(!podeMovimentarEquipamento(item))return;
@@ -3421,10 +3466,14 @@ function Sistema({onLogout}){
     if(!podeCadastrarEquipamento){setErroForm("Seu perfil permite somente consulta.");return;}
     if(itemEdit&&!podeMovimentarEquipamento(itemEdit)){setErroForm("Este equipamento ainda não está liberado para seu perfil.");return;}
     const localizacao=form.status==="Em rota"?form.localizacao:form.status==="Em conserto"?"Em conserto":"";
+    const quantidadeCadastro=itemEdit?1:Math.max(1,Math.min(100,Number(form.quantidade)||1));
+    const patrimoniosCadastro=itemEdit
+      ?[padronizarNomenclaturaEquipamento(form.patrimonio)]
+      :gerarPatrimoniosSugeridos({nome:form.nome,categoria:form.categoria,quantidade:quantidadeCadastro,itens,atuais:patrimoniosLote});
     const ff={
       ...form,
       nome:padronizarNomenclaturaEquipamento(form.nome),
-      patrimonio:padronizarNomenclaturaEquipamento(form.patrimonio),
+      patrimonio:itemEdit?padronizarNomenclaturaEquipamento(form.patrimonio):patrimoniosCadastro[0],
       quantidade:1,
       minimo:5,
       localizacao,
@@ -3434,7 +3483,7 @@ function Sistema({onLogout}){
       transferenciaStatus:gerenteAtual?TRANSFERENCIA_GERENTE.recebido:(form.transferenciaStatus||""),
       transferenciaRecebidaEm:gerenteAtual?(form.transferenciaRecebidaEm||isoAgora()):(form.transferenciaRecebidaEm||""),
     };
-    const erro=validarItem(ff,itens,itemEdit?.id,{exigirPatrimonio:exigirPatrimonioEquipamento});if(erro){setErroForm(erro);return;}
+    const erro=validarItem(ff,itens,itemEdit?.id,{exigirPatrimonio:itemEdit?exigirPatrimonioEquipamento:false});if(erro){setErroForm(erro);return;}
     if(ff.status==="Em rota"&&!ff.localizacao){setErroForm("Selecione o ponto onde este equipamento ficará.");return;}
     if(itemEdit){
       await salvarEquipamento({...ff,id:itemEdit.id});
@@ -3444,12 +3493,24 @@ function Sistema({onLogout}){
       const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }else{
-      const itemNovo={...ff};
-      const novoId=await salvarEquipamento(itemNovo);
-      if(!novoId){setErroForm("Não foi possível salvar o equipamento no banco.");return;}
-      setItens(prev=>[...prev,{...itemNovo,id:novoId}]);
-      const h={id:Date.now(),tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:`Patrimônio: ${itemNovo.patrimonio}`,data:agora()};
-      await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
+      const patrimoniosNormalizados=patrimoniosCadastro.map(p=>padronizarNomenclaturaEquipamento(p));
+      if(patrimoniosNormalizados.some(p=>!p)){setErroForm("Preencha todos os patrimônios do lote antes de salvar.");return;}
+      const duplicadoNoLote=patrimoniosNormalizados.find((p,idx)=>patrimoniosNormalizados.indexOf(p)!==idx);
+      if(duplicadoNoLote){setErroForm(`Patrimônio duplicado no lote: ${duplicadoNoLote}.`);return;}
+      const duplicadoExistente=patrimoniosNormalizados.find(p=>itens.some(i=>(i.patrimonio||"").trim().toUpperCase()===p));
+      if(duplicadoExistente){setErroForm(`Código duplicado: o patrimônio ${duplicadoExistente} já está cadastrado.`);return;}
+      const novos=[];
+      const historicos=[];
+      for(const [idx,patrimonio] of patrimoniosNormalizados.entries()){
+        const itemNovo={...ff,patrimonio,quantidade:1};
+        const novoId=await salvarEquipamento(itemNovo);
+        if(!novoId){setErroForm("Não foi possível salvar todos os equipamentos no banco.");return;}
+        novos.push({...itemNovo,id:novoId});
+        historicos.push({id:Date.now()+idx,tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:`Patrimônio: ${patrimonio}`,data:agora()});
+      }
+      setItens(prev=>[...prev,...novos]);
+      for(const h of historicos)await adicionarHistoricoEquipamento(h);
+      setHistorico(prev=>[...historicos,...prev]);
     }
     fecharForm();
   }
@@ -4569,10 +4630,15 @@ function Sistema({onLogout}){
                 <div className="campo"><label>Nome do Equipamento *</label>
                   <input type="text" placeholder='Ex: TV HQ 32 BALCÃO' value={form.nome} onChange={e=>setForm({...form,nome:e.target.value.toUpperCase()})}/>
                   <span className="campo-hint">Obrigatório. Será salvo em CAIXA ALTA para manter o padrão.</span></div>
-                {exigirPatrimonioEquipamento&&(
+                {itemEdit&&exigirPatrimonioEquipamento&&(
                   <div className="campo"><label>Código / Patrimônio *</label>
                     <input type="text" placeholder="Ex: TV-SALA-001" value={form.patrimonio} onChange={e=>setForm({...form,patrimonio:e.target.value.toUpperCase()})}/>
                     <span className="campo-hint">Campo exclusivo da administração. O sistema bloqueia duplicados.</span></div>
+                )}
+                {!itemEdit&&(
+                  <div className="campo"><label>Quantidade *</label>
+                    <input type="number" min="1" max="100" value={form.quantidade} onChange={e=>setForm({...form,quantidade:e.target.value})}/>
+                    <span className="campo-hint">Cada unidade será cadastrada separadamente com patrimônio próprio.</span></div>
                 )}
               </div>
               <div className="campos-duplos">
@@ -4589,6 +4655,26 @@ function Sistema({onLogout}){
                     {statusListaVisivel.map(s=><option key={s}>{s}</option>)}
                   </select></div>
               </div>
+              {!itemEdit&&(
+                <div className="campo patrimonio-lote-card">
+                  <div className="patrimonio-lote-head">
+                    <label>Patrimônios gerados *</label>
+                    <button type="button" className="btn-secundario" onClick={()=>setPatrimoniosLote(gerarPatrimoniosSugeridos({nome:form.nome,categoria:form.categoria,quantidade:form.quantidade,itens,atuais:[]}))}>Regenerar</button>
+                  </div>
+                  <div className="patrimonio-lote-grid">
+                    {patrimoniosLote.map((codigo,idx)=>(
+                      <label key={`${idx}-${codigo}`}>
+                        <span>{idx+1}</span>
+                        <input type="text" value={codigo} readOnly={!administrador} onChange={e=>{
+                          const valor=e.target.value.toUpperCase();
+                          setPatrimoniosLote(lista=>lista.map((item,i)=>i===idx?valor:item));
+                        }}/>
+                      </label>
+                    ))}
+                  </div>
+                  <span className="campo-hint">{administrador?"Confira e ajuste os códigos antes de salvar. Depois o admin ainda pode editar qualquer patrimônio individualmente.":"O sistema gera os patrimônios automaticamente. Depois o admin pode editar qualquer código individualmente."}</span>
+                </div>
+              )}
               {form.status==="Em rota"&&(
                 <div className="campo ponto-destino-form">
                   <label>Ponto onde ficará o equipamento *</label>
@@ -4608,7 +4694,7 @@ function Sistema({onLogout}){
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={fecharForm}>Cancelar</button>
-              <button className="btn-primario" onClick={salvarItem}>{itemEdit?"Salvar Alterações":"Adicionar"}</button>
+              <button className="btn-primario" onClick={salvarItem}>{itemEdit?"Salvar Alterações":Number(form.quantidade)>1?`Adicionar ${Number(form.quantidade)||1} unidades`:"Adicionar"}</button>
             </div>
           </div>
         </div>
