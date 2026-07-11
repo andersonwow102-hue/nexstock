@@ -3338,75 +3338,6 @@ body {
 .campos-duplos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .campo-hint { font-size: 11.5px; color: var(--txt-muted); }
 .campo-hint strong { color: var(--verde); }
-.patrimonio-lote-card {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 12px;
-  background: var(--bg-soft);
-}
-.patrimonio-lote-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.patrimonio-lote-head label {
-  margin: 0;
-}
-.patrimonio-lote-head .btn-secundario {
-  min-height: 34px;
-  padding: 7px 12px;
-}
-.patrimonio-lote-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.patrimonio-lote-grid label {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  align-items: center;
-  gap: 8px;
-}
-.patrimonio-lote-grid span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--azul-bg);
-  color: var(--azul);
-  font-weight: 800;
-  font-size: 11px;
-}
-.patrimonio-lote-grid input {
-  min-width: 0;
-}
-.patrimonio-lote-grid input[readonly] {
-  background: var(--bg-card);
-  color: var(--txt-secondary);
-}
-.tema-claro .patrimonio-lote-card {
-  background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
-  border-color: #c5d3ef;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
-}
-.tema-claro .patrimonio-lote-head label {
-  color: #4a5f82;
-}
-.tema-claro .patrimonio-lote-grid span {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-.tema-claro .patrimonio-lote-grid input {
-  background: #ffffff;
-  border-color: #c5d3ef;
-  color: #0f1c35;
-}
-.tema-claro .patrimonio-lote-grid input[readonly] {
-  background: #f7f9fd;
-  color: #4a5f82;
-}
 .ponto-destino-form {
   background: var(--azul-bg); border: 1px solid var(--azul-border);
   border-radius: var(--radius-md); padding: 12px;
@@ -5922,18 +5853,6 @@ body {
   }
   .modal-largo, .modal-medio { max-width: 100%; }
   .modal-pequeno { max-width: 100%; }
-  .patrimonio-lote-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .patrimonio-lote-head .btn-secundario {
-    width: 100%;
-    justify-content: center;
-  }
-  .patrimonio-lote-grid {
-    grid-template-columns: 1fr;
-  }
-
   /* Ranking */
   .ranking-linha { grid-template-columns: 28px 1fr 60px; }
   .ranking-pct, .ranking-pts { display: none; }
