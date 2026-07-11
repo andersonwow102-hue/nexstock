@@ -150,7 +150,7 @@ function ordenarEquipamentos(lista){
     const categoriaA=CATEGORIAS.indexOf(a.categoria);
     const categoriaB=CATEGORIAS.indexOf(b.categoria);
     if(categoriaA!==categoriaB)return categoriaA-categoriaB;
-    return (a.patrimonio||"").localeCompare(b.patrimonio||"", "pt-BR", {numeric:true}) || a.nome.localeCompare(b.nome, "pt-BR");
+    return a.nome.localeCompare(b.nome, "pt-BR", {numeric:true});
   });
 }
 function ordenarPontos(lista){
@@ -162,14 +162,11 @@ function ordenarPontos(lista){
 
 const Auth={ deslogar:async()=>{ await supabase.auth.signOut(); } };
 
-function validarItem(f,itens=[],itemId=null,{ exigirPatrimonio=true } = {}){
+function validarItem(f){
   if(!f.nome.trim())       return"Nome do equipamento é obrigatório.";
   if(!f.categoria)         return"Categoria é obrigatória.";
   if(!f.status)            return"Status é obrigatório.";
   if(!padronizarNomenclaturaEquipamento(f.nome)) return"Nomenclatura do equipamento é obrigatória.";
-  if(exigirPatrimonio&&!padronizarNomenclaturaEquipamento(f.patrimonio)) return"Código / Patrimônio é obrigatório.";
-  const patrimonio=padronizarNomenclaturaEquipamento(f.patrimonio);
-  if(patrimonio&&itens.some(i=>i.id!==itemId&&(i.patrimonio||"").trim().toUpperCase()===patrimonio)) return`Código duplicado: o patrimônio ${patrimonio} já está cadastrado.`;
   return null;
 }
 function validarMov(mov,tipo,perfil=""){
@@ -230,7 +227,7 @@ async function gerarPDF(configuracao) {
 
 async function exportarEquipamentosExcel(itens){
   const dados=itens.map(i=>({
-    "Patrimônio":i.patrimonio||"—","Nome":i.nome,"Categoria":i.categoria,
+    "Nome":i.nome,"Categoria":i.categoria,
     "Status":i.status,"Ponto / Localização":i.localizacao||"—",
     "Responsável":i.responsavel||"—",
     "Observação":i.observacao||"—","Data Cadastro":i.dataCadastro||"—",
@@ -251,8 +248,8 @@ async function exportarEquipamentosPDF(itens){
       {label:"Em rota",valor:itens.filter(i=>i.status==="Em rota").length,destaque:[37,99,235]},
       {label:"Em conserto",valor:itens.filter(i=>i.status==="Em conserto").length,destaque:[201,125,0]},
     ],
-    colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
-    linhas:ordenados.map(i=>[i.patrimonio||"-",i.nome,i.categoria,i.status,i.localizacao||"Sem ponto",i.responsavel||"-"]),
+    colunas:["Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+    linhas:ordenados.map(i=>[i.nome,i.categoria,i.status,i.localizacao||"Sem ponto",i.responsavel||"-"]),
   });
 }
 
@@ -305,7 +302,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
   const locaisGerente = new Set(pontosGerente.map(p=>p.nomeFantasia));
   const equipamentosGerente = itens.filter(i=>locaisGerente.has(i.localizacao));
   const linhasEquipamentos = lista => ordenarEquipamentos(lista).map(i=>[
-    i.patrimonio||"-", i.nome, i.categoria, i.status, i.localizacao||"Sem ponto", i.responsavel||"-",
+    i.nome, i.categoria, i.status, i.localizacao||"Sem ponto", i.responsavel||"-",
   ]);
   const linhasPontos = lista => ordenarPontos(lista).map(p=>[
     p.nomeFantasia, p.nomeDono, rotaCanonica(p.gerente),
@@ -330,7 +327,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
       secoes:[
         {
           titulo:"Equipamentos",
-          colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+          colunas:["Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
           linhas:linhasEquipamentos(itens),
         },
         {
@@ -372,7 +369,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
           valor:disponiveis.filter(i=>i.categoria===categoria).length,
         })),
       ],
-      colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+      colunas:["Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
       linhas:linhasEquipamentos(disponiveis),
     });
   }
@@ -397,7 +394,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
         },
         {
           titulo:"Equipamentos nos pontos do gerente",
-          colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
+          colunas:["Equipamento","Categoria","Status","Ponto / Localização","Responsável"],
           linhas:linhasEquipamentos(equipamentosGerente),
         },
       ],
@@ -458,13 +455,13 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
             ?<p className="dash-vazio">Sem pendências críticas no momento. Operação respirando bem.</p>
             :<div className="central-lista">
               {pendentesConfirmacao.slice(0,4).map(item=><div key={item.id} className="central-item">
-                <span><Icon name="mail" /></span><div><strong>{item.patrimonio||item.nome}</strong><small>Aguardando confirmação de {item.gerenteResponsavel||"gerente"}</small></div>
+                <span><Icon name="mail" /></span><div><strong>{item.nome}</strong><small>Aguardando confirmação de {item.gerenteResponsavel||"gerente"}</small></div>
               </div>)}
               {alertaTerminais>0&&<div className="central-item">
                 <span><Icon name="warning" /></span><div><strong>Terminais abaixo do mínimo</strong><small>{terminaisDisponiveis} disponíveis de {MINIMO_CATEGORIA} necessários</small></div>
               </div>}
               {emConserto.slice(0,3).map(item=><div key={item.id} className="central-item">
-                <span><Icon name="wrench" /></span><div><strong>{item.patrimonio||item.nome}</strong><small>{item.nome} está em conserto</small></div>
+                <span><Icon name="wrench" /></span><div><strong>{item.nome}</strong><small>{item.nome} está em conserto</small></div>
               </div>)}
             </div>}
         </article>
@@ -563,7 +560,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
 
 function BuscaGlobalSearch({ consulta, onConsulta, itens, pontos, historico, onVerEquipamento, onAbrirPontos }) {
   const termo=consulta.trim().toLowerCase();
-  const equipamentos=termo?itens.filter(i=>[i.patrimonio,i.nome,i.categoria,i.status,i.localizacao,i.responsavel].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
+  const equipamentos=termo?itens.filter(i=>[i.nome,i.categoria,i.status,i.localizacao,i.responsavel].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
   const pontosEncontrados=termo?pontos.filter(p=>[p.nomeFantasia,p.nomeDono,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),p.telefone,...p.modalidades].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
   const movimentos=termo?historico.filter(h=>[h.itemNome,h.categoria,h.tipo,h.responsavel,h.observacao].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
   const totalResultados=equipamentos.length+pontosEncontrados.length+movimentos.length;
@@ -577,7 +574,7 @@ function BuscaGlobalSearch({ consulta, onConsulta, itens, pontos, historico, onV
             <button type="button" onClick={()=>onConsulta("")}>Limpar</button>
           </div>
           {totalResultados===0?<p className="busca-topo-vazio">Nenhum resultado encontrado.</p>:<>
-            {equipamentos.length>0&&<section><span>Equipamentos</span>{equipamentos.map(i=><button key={i.id} className="busca-topo-item" type="button" onClick={()=>{onVerEquipamento(i);onConsulta("");}}><strong>{i.patrimonio}</strong><em>{i.nome}</em><small>{i.status} · {i.localizacao||"Sem ponto"}</small></button>)}</section>}
+            {equipamentos.length>0&&<section><span>Equipamentos</span>{equipamentos.map(i=><button key={i.id} className="busca-topo-item" type="button" onClick={()=>{onVerEquipamento(i);onConsulta("");}}><strong>{i.nome}</strong><small>{i.status} · {i.localizacao||"Sem ponto"}</small></button>)}</section>}
             {pontosEncontrados.length>0&&<section><span>Pontos</span>{pontosEncontrados.map(p=><button key={p.id} className="busca-topo-item" type="button" onClick={()=>{onAbrirPontos();onConsulta("");}}><strong>{p.nomeFantasia}</strong><em>{rotaCanonica(p.gerente)}</em><small>{p.telefone||"Sem telefone"}</small></button>)}</section>}
             {movimentos.length>0&&<section><span>Movimentações</span>{movimentos.map(h=><div key={h.id} className="busca-topo-item busca-topo-item-fixo"><strong>{h.itemNome}</strong><em>{HIST_CFG[h.tipo]?.label||h.tipo}</em><small>{h.data}</small></div>)}</section>}
           </>}
@@ -2456,7 +2453,7 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
         <div className="modal-header"><h3>Ficha do Equipamento</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
         <div className="modal-body">
           <div className="ficha-cabecalho">
-            <div><span className="equip-codigo">{item.patrimonio}</span><h2>{ICONES[item.categoria]} {item.nome}</h2></div>
+            <div><h2>{ICONES[item.categoria]} {item.nome}</h2></div>
             <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
           </div>
           <div className="ficha-dados">
@@ -3217,7 +3214,6 @@ function Sistema({onLogout}){
   const gerenteAtual=perfilAtual.perfil==="gerente"?(perfilAtual.gerenteNome||perfilAtual.nome||""):"";
   const gerenteAtualKey=normalizarTexto(gerenteAtual);
   const podeCadastrarEquipamento=podeEditar||perfilAtual.perfil==="gerente";
-  const exigirPatrimonioEquipamento=false;
   const gerenteNomeBase=nomeBaseGerente(gerenteAtual);
   const gerenteAvatar=avatarLendario(gerenteAtual);
   const gerentesOperacionais=[...new Set([
@@ -3293,7 +3289,7 @@ function Sistema({onLogout}){
   });
   const inconsistencias=itensOperacionais.filter(item=>
     item.status!=="Em conserto"&&(
-      !padronizarNomenclaturaEquipamento(item.nome)||(exigirPatrimonioEquipamento&&!padronizarNomenclaturaEquipamento(item.patrimonio))
+      !padronizarNomenclaturaEquipamento(item.nome)
     )
   );
   const pontosComEquipamentos=pontosOperacionais.map(p=>({
@@ -3327,7 +3323,7 @@ function Sistema({onLogout}){
       (filtroEscopoEquip==="gerentes"&&Boolean(i.gerenteResponsavel)&&!i.localizacao)||
       (filtroEscopoEquip==="conserto"&&i.status==="Em conserto");
     const q=busca.toLowerCase();
-    const mB=!busca||[i.nome,i.patrimonio,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>(f||"").toLowerCase().includes(q));
+    const mB=!busca||[i.nome,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>(f||"").toLowerCase().includes(q));
     return mC&&mS&&mE&&mB;
   });
   const itensOrdenados=ordenarEquipamentos(itensFiltrados);
@@ -3369,7 +3365,7 @@ function Sistema({onLogout}){
   function fecharForm(){setModalForm(false);}
   function abrirMov(item){
     if(!podeMovimentarEquipamento(item))return;
-    const inconsistencia=validarItem(item,itens,item.id,{exigirPatrimonio:exigirPatrimonioEquipamento});
+    const inconsistencia=validarItem(item);
     if(inconsistencia){window.alert(`Corrija o cadastro antes de movimentar este equipamento. ${inconsistencia}`);return;}
     setModalMov(item);setMov({...movVazio,ponto:item.localizacao||"",gerente:item.gerenteResponsavel||""});setErroMov("");
   }
@@ -3435,7 +3431,7 @@ function Sistema({onLogout}){
       transferenciaStatus:gerenteAtual?TRANSFERENCIA_GERENTE.recebido:(form.transferenciaStatus||""),
       transferenciaRecebidaEm:gerenteAtual?(form.transferenciaRecebidaEm||isoAgora()):(form.transferenciaRecebidaEm||""),
     };
-    const erro=validarItem(ff,itens,itemEdit?.id,{exigirPatrimonio:itemEdit?exigirPatrimonioEquipamento:false});if(erro){setErroForm(erro);return;}
+    const erro=validarItem(ff);if(erro){setErroForm(erro);return;}
     if(ff.status==="Em rota"&&!ff.localizacao){setErroForm("Selecione o ponto onde este equipamento ficará.");return;}
     if(itemEdit){
       await salvarEquipamento({...ff,id:itemEdit.id});
@@ -3452,7 +3448,7 @@ function Sistema({onLogout}){
         const novoId=await salvarEquipamento(itemNovo);
         if(!novoId){setErroForm("Não foi possível salvar todos os equipamentos no banco.");return;}
         novos.push({...itemNovo,id:novoId});
-        historicos.push({id:Date.now()+idx,tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:"Equipamento cadastrado sem patrimônio",data:agora()});
+        historicos.push({id:Date.now()+idx,tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:"Equipamento cadastrado",data:agora()});
       }
       setItens(prev=>[...prev,...novos]);
       for(const h of historicos)await adicionarHistoricoEquipamento(h);
@@ -3587,7 +3583,7 @@ function Sistema({onLogout}){
 
   async function confirmarPagamentoConserto(item){
     if(perfilAtual.perfil!=="administrador"||statusPagamentoConserto(item)!=="solicitado")return;
-    const ok=window.confirm(`Confirmar pagamento do conserto de ${item.patrimonio||item.nome} no valor de ${formatarMoedaPDF(item.consertoValor||0)}?`);
+    const ok=window.confirm(`Confirmar pagamento do conserto de ${item.nome} no valor de ${formatarMoedaPDF(item.consertoValor||0)}?`);
     if(!ok)return;
     const atualizado={
       ...item,
@@ -3646,9 +3642,8 @@ function Sistema({onLogout}){
       },
       {
         titulo:"Equipamentos",
-        colunas:["Patrimônio","Equipamento","Categoria","Status","Ponto / Localização","Gerente"],
+        colunas:["Equipamento","Categoria","Status","Ponto / Localização","Gerente"],
         linhas:ordenarEquipamentos(itensOperacionais).map(i=>[
-          i.patrimonio||"-",
           i.nome||"-",
           i.categoria||"-",
           i.status||"-",
@@ -4052,7 +4047,7 @@ function Sistema({onLogout}){
                     {recebimentosPendentes.map(item=>(
                       <article key={item.id} className="recebimento-card">
                         <div>
-                          <strong>{ICONES[item.categoria]} {item.patrimonio||item.nome}</strong>
+                          <strong>{ICONES[item.categoria]} {item.nome}</strong>
                           <small>{item.nome} · enviado pela administração</small>
                         </div>
                         <button className="btn-primario" onClick={()=>confirmarRecebimento(item)}>Confirmar recebido</button>
@@ -4063,8 +4058,8 @@ function Sistema({onLogout}){
               )}
               {inconsistencias.length>0&&(
                 <div className="erro-msg alerta-inconsistencia">
-                  ⚠️ {inconsistencias.length} equipamento{inconsistencias.length!==1?"s":""} com cadastro inconsistente. Preencha {exigirPatrimonioEquipamento?"nome e código/patrimônio":"nome"} antes de novas movimentações:
-                  <strong>{inconsistencias.map(i=>i.patrimonio||i.nome).join(", ")}</strong>
+                  ⚠️ {inconsistencias.length} equipamento{inconsistencias.length!==1?"s":""} com cadastro inconsistente. Preencha o nome antes de novas movimentações:
+                  <strong>{inconsistencias.map(i=>i.nome).join(", ")}</strong>
                 </div>
               )}
               {administrador&&pagamentosConsertoPendentes.length>0&&(
@@ -4078,7 +4073,7 @@ function Sistema({onLogout}){
                   <div className="conserto-operacao-lista">
                     {pagamentosConsertoPendentes.slice(0,4).map(item=>(
                       <button key={item.id} type="button" className="conserto-operacao-item financeiro-pendente-item" onClick={()=>setItemDetalhe(item)}>
-                        <strong>{item.patrimonio||item.nome}</strong>
+                        <strong>{item.nome}</strong>
                         <span>{formatarMoedaPDF(item.consertoValor||0)} · {item.consertoFormaPagamento||"Forma não informada"}</span>
                         {item.consertoAssistencia&&<small>Assistência: {item.consertoAssistencia}</small>}
                         <em>Confirmar pagamento</em>
@@ -4099,7 +4094,7 @@ function Sistema({onLogout}){
                   <div className="conserto-operacao-lista">
                     {consertosPendentes.slice(0,4).map(item=>(
                       <button key={item.id} type="button" className="conserto-operacao-item" onClick={()=>setItemDetalhe(item)}>
-                        <strong>{item.patrimonio||item.nome}</strong>
+                        <strong>{item.nome}</strong>
                         <span>{item.gerenteResponsavel?`Enviado por ${item.gerenteResponsavel}`:"Enviado para operação"}</span>
                         {item.consertoDefeito&&<small>Defeito: {item.consertoDefeito}</small>}
                       </button>
@@ -4113,7 +4108,7 @@ function Sistema({onLogout}){
                   <p>{itensFiltrados.length} resultado{itensFiltrados.length!==1?"s":""} encontrado{itensFiltrados.length!==1?"s":""}</p>
                 </div>
                 <div className="filtros equip-filtros">
-                  <input className="input-busca" type="text" placeholder="Buscar nome, código, ponto ou gerente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
+                  <input className="input-busca" type="text" placeholder="Buscar nome, ponto ou gerente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
                   <select className="select-filtro" value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}>
                     <option value="Todos">Todos os status</option>
                     {statusListaVisivel.map(s=><option key={s}>{s}</option>)}
@@ -4125,9 +4120,9 @@ function Sistema({onLogout}){
               </div>
               <div className="tabela-wrapper equip-tabela">
                 <table className="tabela tabela-equipamentos">
-                  <thead><tr><th>Patrimônio</th><th>Equipamento</th><th>Categoria</th><th>Status</th><th>Ponto / Gerente</th><th>Movimentar</th><th>⚙️</th></tr></thead>
+                  <thead><tr><th>Equipamento</th><th>Categoria</th><th>Status</th><th>Ponto / Gerente</th><th>Movimentar</th><th>⚙️</th></tr></thead>
                   <tbody>
-                    {itensFiltrados.length===0?<tr><td colSpan={7} className="tabela-vazia">Nenhum item encontrado.</td></tr>
+                    {itensFiltrados.length===0?<tr><td colSpan={6} className="tabela-vazia">Nenhum item encontrado.</td></tr>
                     :itensPagina.map(item=>{
                       const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").length;
                       const emAlerta=item.categoria===CATEGORIA_COM_ALERTA&&totalCat<MINIMO_CATEGORIA;
@@ -4137,7 +4132,6 @@ function Sistema({onLogout}){
                       const pagamentoConserto=statusPagamentoConserto(item);
                       return(
                         <tr key={item.id} className={[emAlerta?"row-alerta":"",emConserto?"row-conserto":""].filter(Boolean).join(" ")}>
-                          <td className="td-minimo">{item.patrimonio||"—"}</td>
                           <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
                           <td><span className="badge-cat">{item.categoria}</span></td>
                           <td>
@@ -4168,7 +4162,7 @@ function Sistema({onLogout}){
                 :itensPagina.map(item=>(
                   <article className={`equip-card ${item.status==="Em conserto"?"equip-card-conserto":""}`} key={item.id}>
                     <div className="equip-card-topo">
-                      <div><span className="equip-codigo">{item.patrimonio||"—"}</span><h3>{ICONES[item.categoria]} {item.nome}</h3></div>
+                      <div><h3>{ICONES[item.categoria]} {item.nome}</h3></div>
                       <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
                     </div>
                     {item.status==="Em conserto"&&<span className="badge-conserto-operacao">Aguardando operador/admin</span>}
@@ -4399,7 +4393,6 @@ function Sistema({onLogout}){
                     ordenarEquipamentos(equipamentosDoGerenteConsulta).map(item=>(
                       <article key={item.id} className={`consulta-equipamento-item ${item.status==="Em conserto"?"em-conserto":""}`}>
                         <div className="consulta-equipamento-main">
-                          <span className="consulta-patrimonio">{item.patrimonio||"Sem cÃ³digo"}</span>
                           <strong>{ICONES[item.categoria]} {item.nome}</strong>
                           <small>{textoLocalizacaoEquipamento(item)}</small>
                         </div>
@@ -4576,15 +4569,10 @@ function Sistema({onLogout}){
                 <div className="campo"><label>Nome do Equipamento *</label>
                   <input type="text" placeholder='Ex: TV HQ 32 BALCÃO' value={form.nome} onChange={e=>setForm({...form,nome:e.target.value.toUpperCase()})}/>
                   <span className="campo-hint">Obrigatório. Será salvo em CAIXA ALTA para manter o padrão.</span></div>
-                {itemEdit&&exigirPatrimonioEquipamento&&(
-                  <div className="campo"><label>Código / Patrimônio *</label>
-                    <input type="text" placeholder="Ex: TV-SALA-001" value={form.patrimonio} onChange={e=>setForm({...form,patrimonio:e.target.value.toUpperCase()})}/>
-                    <span className="campo-hint">Campo exclusivo da administração. O sistema bloqueia duplicados.</span></div>
-                )}
                 {!itemEdit&&(
                   <div className="campo"><label>Quantidade *</label>
                     <input type="number" min="1" max="100" value={form.quantidade} onChange={e=>setForm({...form,quantidade:e.target.value})}/>
-                    <span className="campo-hint">Cada unidade será cadastrada separadamente, sem patrimônio por enquanto.</span></div>
+                    <span className="campo-hint">Cada unidade será cadastrada separadamente.</span></div>
                 )}
               </div>
               <div className="campos-duplos">
@@ -4649,7 +4637,6 @@ function Sistema({onLogout}){
                   <span className="badge-cat">{modalMov.categoria}</span>
                   <span className={`badge-status ${STATUS_CFG[modalMov.status]?.cor||""}`}>{modalMov.status}</span>
                   <span className="mov-item-qtd">Local atual: <strong>{modalMov.localizacao||"Sem ponto"}</strong></span>
-                  {modalMov.patrimonio&&<span className="mov-item-pat">{modalMov.patrimonio}</span>}
                 </div>
               </div>
               {erroMov&&<div className="erro-msg">⚠️ {erroMov}</div>}

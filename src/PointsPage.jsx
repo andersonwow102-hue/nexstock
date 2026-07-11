@@ -403,7 +403,7 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
                   {equipamentosDisponiveis.map(item=>(
                     <label key={item.id} className={`modalidade-item ${equipamentosSelecionados.includes(item.id)?"modalidade-ativa":""}`}>
                       <input type="checkbox" checked={equipamentosSelecionados.includes(item.id)} onChange={()=>setEquipamentosSelecionados(prev=>prev.includes(item.id)?prev.filter(id=>id!==item.id):[...prev,item.id])}/>
-                      {item.patrimonio||item.nome}
+                      {item.nome}
                     </label>
                   ))}
                 </div>}
@@ -560,7 +560,7 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
     const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
-    const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),...vinculados.map(i=>i.patrimonio)].some(f=>(f||"").toLowerCase().includes(q));
+    const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),...vinculados.map(i=>i.nome)].some(f=>(f||"").toLowerCase().includes(q));
     const mD=!mostrarDespesas||filtroDespesa==="todos"||p.possuiDespesa===filtroDespesa;
     return mB&&mD&&(filtroGerente==="Todos"||rotaCanonica(p.gerente)===filtroGerente);
   });
@@ -603,7 +603,7 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
                   <td>
                     {vinculados.length===0
                       ?<span className="td-obs">Nenhum</span>
-                      :<div className="equipamentos-ponto">{vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>)}</div>}
+                      :<div className="equipamentos-ponto">{vinculados.map(i=><span key={i.id} className="badge-cat">{i.nome}</span>)}</div>}
                   </td>
                   <td className="td-obs">{p.nomeDono}</td>
                   <td className="td-obs">{p.telefone}</td>
@@ -660,7 +660,7 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
                 {vinculados.length>0&&(
                   <details className="ponto-card-detalhes">
                     <summary>Ver equipamentos</summary>
-                    <div className="equipamentos-ponto">{vinculados.map(i=><span key={i.id} className="badge-cat">{i.patrimonio||i.nome}</span>)}</div>
+                    <div className="equipamentos-ponto">{vinculados.map(i=><span key={i.id} className="badge-cat">{i.nome}</span>)}</div>
                   </details>
                 )}
               </div>
@@ -1401,7 +1401,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
         <input
           className="input-busca points-busca-topo"
           type="text"
-          placeholder="🔍 Digite qualquer coisa: ponto, dono, telefone, gerente ou patrimônio..."
+          placeholder="🔍 Digite qualquer coisa: ponto, dono, telefone, gerente ou equipamento..."
           value={buscaPontos}
           onChange={e=>{setBuscaPontos(e.target.value);if(e.target.value.trim())setAbaInterna("pontos");}}
         />
@@ -1446,7 +1446,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
             <div className="modal-header"><h3>Confirmar Exclusão</h3><button className="modal-fechar" onClick={()=>setExcluindo(null)}>✕</button></div>
             <div className="modal-body">
               {equipamentosNoPonto.length>0
-                ?<div className="erro-msg">⚠️ Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.patrimonio||i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</div>
+                ?<div className="erro-msg">⚠️ Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</div>
                 :<p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja excluir este ponto?</p>}
             </div>
             <div className="modal-footer">
