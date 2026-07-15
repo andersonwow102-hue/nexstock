@@ -236,7 +236,7 @@ function mascaraMoeda(v) {
 }
 
 // ─── Modal Formulário ─────────────────────────────────────────────────────────
-export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual, acessos=[], podeEditarAcessos=false, onSalvar, onFechar, mostrarEquipamentos=true }) {
+export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual, acessos=[], podeEditarAcessos=false, onSalvar, onFechar, mostrarEquipamentos=true, onEditarEquipamento, onExcluirEquipamento }) {
   const gerenteDoPerfil = perfilAtual?.perfil==="gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
   const rotasDoPerfil = gerenteDoPerfil ? rotasPermitidasDoPerfil(perfilAtual) : [];
   const primeiraRotaPermitida = rotasDoPerfil[0] || "";
@@ -262,6 +262,7 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
   const equipamentosDisponiveis = equipamentos.filter(item=>
     !item.localizacao || (ponto && item.localizacao===ponto.nomeFantasia)
   );
+  const podeGerenciarEquipamentos = perfilAtual?.perfil === "administrador" && mostrarEquipamentos;
 
   function toggleModalidade(m) {
     setForm({...form, modalidades: form.modalidades.includes(m)
@@ -386,13 +387,42 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
               <label>Equipamentos disponíveis para este ponto</label>
               {equipamentosDisponiveis.length===0
                 ?<span className="campo-hint">Nenhum equipamento livre. Para trocar de ponto, use a aba Movimentar.</span>
-                :<div className="modalidades-grid">
-                  {equipamentosDisponiveis.map(item=>(
-                    <label key={item.id} className={`modalidade-item ${equipamentosSelecionados.includes(item.id)?"modalidade-ativa":""}`}>
-                      <input type="checkbox" checked={equipamentosSelecionados.includes(item.id)} onChange={()=>setEquipamentosSelecionados(prev=>prev.includes(item.id)?prev.filter(id=>id!==item.id):[...prev,item.id])}/>
-                      {item.nome}
-                    </label>
-                  ))}
+                :<div className="modalidades-grid ponto-equipamentos-grid">
+                  {equipamentosDisponiveis.map(item=>{
+                    const selecionado = equipamentosSelecionados.includes(item.id);
+                    return (
+                      <div key={item.id} className={`modalidade-item ponto-equipamento-item ${selecionado?"modalidade-ativa":""}`}>
+                        <label className="ponto-equipamento-check">
+                          <input type="checkbox" checked={selecionado} onChange={()=>setEquipamentosSelecionados(prev=>prev.includes(item.id)?prev.filter(id=>id!==item.id):[...prev,item.id])}/>
+                          <span>{item.nome}</span>
+                        </label>
+                        {podeGerenciarEquipamentos&&(
+                          <div className="ponto-equipamento-acoes">
+                            <button
+                              type="button"
+                              className="btn-editar"
+                              onClick={()=>{
+                                onFechar();
+                                onEditarEquipamento?.(item);
+                              }}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-excluir"
+                              onClick={()=>{
+                                onFechar();
+                                onExcluirEquipamento?.(item.id);
+                              }}
+                            >
+                              Excluir do estoque
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>}
               <span className="campo-hint">Equipamentos que já estão em outro ponto só podem ser transferidos em Movimentar.</span>
             </div>
@@ -1116,7 +1146,7 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange }) {
+export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange, onEditarEquipamento, onExcluirEquipamento }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [despesas,   setDespesas]  = useState([]);
@@ -1387,7 +1417,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}
 
-      {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
+      {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
       {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveis} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}

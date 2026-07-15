@@ -4324,7 +4324,7 @@ function Sistema({onLogout}){
                 <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
               </div>
             </header>
-          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos}/>
+          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos} onEditarEquipamento={abrirEditar} onExcluirEquipamento={setExcluindo}/>
           </>
         )}
 

@@ -4975,6 +4975,40 @@ body {
 .modalidade-item input { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; }
 .modalidade-item:hover { border-color: var(--border-light); color: var(--txt-primary); }
 .modalidade-ativa { background: var(--azul-bg) !important; border-color: var(--azul) !important; color: var(--azul) !important; }
+.ponto-equipamentos-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.ponto-equipamento-item {
+  align-items: stretch;
+  flex-direction: column;
+  cursor: default;
+}
+.ponto-equipamento-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+.ponto-equipamento-check span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.ponto-equipamento-acoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ponto-equipamento-acoes .btn-editar,
+.ponto-equipamento-acoes .btn-excluir {
+  margin: 0;
+  width: 100%;
+  justify-content: center;
+}
+.ponto-equipamento-acoes .btn-excluir {
+  font-size: 11.5px;
+}
 
 .btn-acessos-ponto { color:#1d4ed8; border-color:rgba(37,99,235,0.25); background:rgba(37,99,235,0.08); }
 .ponto-acessos-editor {
