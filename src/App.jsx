@@ -693,6 +693,8 @@ const APP_TIPOS_90_DA_SORTE = [
   { id: "terminal", label: "APK do Terminal" },
 ];
 
+const MODALIDADES_SEM_APP = new Set(["Play Bet", "Máquina de Brindes", "Jogo do Bicho"]);
+
 function chaveAppModalidade(modalidade, appTipo = "padrao") {
   return `${modalidade}::${appTipo || "padrao"}`;
 }
@@ -892,7 +894,7 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
             </div>
           </div>
           <div className="apps-download-lista">
-            {MODALIDADES.map(modalidade=>{
+            {MODALIDADES.filter(modalidade=>!MODALIDADES_SEM_APP.has(modalidade)).map(modalidade=>{
               if (modalidade === "90 da Sorte") {
                 return (
                   <article className="app-download-card app-download-card-grupo" key={modalidade}>
