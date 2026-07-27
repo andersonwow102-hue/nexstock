@@ -3304,12 +3304,16 @@ function Sistema({onLogout}){
     ?equipamentosConsultaSemPonto
     :consultaEquipFiltro==="conserto"
       ?equipamentosConsultaConserto
-      :equipamentosDoGerenteConsulta;
+      :consultaEquipFiltro==="pontos"
+        ?equipamentosConsultaEmPontos
+        :equipamentosDoGerenteConsulta;
   const tituloEquipamentosConsulta=consultaEquipFiltro==="gerente"
     ?"Equipamentos com o gerente"
     :consultaEquipFiltro==="conserto"
       ?"Consertos encaminhados ao operador"
-      :"Equipamentos localizados";
+      :consultaEquipFiltro==="pontos"
+        ?"Equipamentos nos pontos"
+        :"Equipamentos localizados";
 
   const filtroCatEquipAtivo=gerenteAtual?"Todas":filtroCatEquip;
   const itensFiltrados=itensOperacionais.filter(i=>{
@@ -4301,8 +4305,12 @@ function Sistema({onLogout}){
 
             <section className="consulta-gerentes-resumo">
               <div className="consulta-kpi"><span>Pontos</span><strong>{pontosDoGerenteConsulta.length}</strong><small>vinculados</small></div>
-              <div className="consulta-kpi"><span>Equipamentos</span><strong>{equipamentosDoGerenteConsulta.length}</strong><small>total localizado</small></div>
-              <div className="consulta-kpi"><span>Nos pontos</span><strong>{equipamentosConsultaEmPontos.length}</strong><small>em operação</small></div>
+              <button type="button" className={`consulta-kpi consulta-kpi-btn ${consultaEquipFiltro==="todos"?"ativo":""}`} aria-pressed={consultaEquipFiltro==="todos"} onClick={()=>setConsultaEquipFiltro("todos")}>
+                <span>Equipamentos</span><strong>{equipamentosDoGerenteConsulta.length}</strong><small>total localizado · clique para verificar</small>
+              </button>
+              <button type="button" className={`consulta-kpi consulta-kpi-btn ${consultaEquipFiltro==="pontos"?"ativo":""}`} aria-pressed={consultaEquipFiltro==="pontos"} onClick={()=>setConsultaEquipFiltro(atual=>atual==="pontos"?"todos":"pontos")}>
+                <span>Nos pontos</span><strong>{equipamentosConsultaEmPontos.length}</strong><small>em operação · clique para verificar</small>
+              </button>
               <button type="button" className={`consulta-kpi consulta-kpi-btn ${consultaEquipFiltro==="gerente"?"ativo":""}`} aria-pressed={consultaEquipFiltro==="gerente"} onClick={()=>setConsultaEquipFiltro(atual=>atual==="gerente"?"todos":"gerente")}>
                 <span>Com gerente</span><strong>{equipamentosConsultaSemPonto.length}</strong><small>sem ponto · clique para verificar</small>
               </button>
