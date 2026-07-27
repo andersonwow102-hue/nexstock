@@ -14,3 +14,4 @@ android/stock-on-release.keystore
 android/app-release-signed.apk
 android/app-release-bundle.aab
 android/local.properties
+.env.local
