@@ -435,7 +435,10 @@ export async function carregarDespesasMensais() {
 
 export async function salvarDespesaMensal(despesa) {
   const row = {
-    ponto_id: Number(despesa.pontoId), competencia: despesa.competencia,
+    ponto_id: despesa.pontoId ? Number(despesa.pontoId) : null,
+    gerente: normalizeFreeText(despesa.gerente || '') || null,
+    rota: normalizeFreeText(despesa.rota || '') || null,
+    competencia: despesa.competencia,
     descricao: normalizeFreeText(despesa.descricao || ''), tipo: despesa.tipo,
     valor_previsto: Number(despesa.valorPrevisto) || 0, valor_real: Number(despesa.valorReal) || 0,
     observacao: normalizeFreeText(despesa.observacao || ''),
@@ -754,6 +757,7 @@ export async function enviarPixParaGerente({ chave, gerente, rota, mensagem }) {
 function mapDespesaMensal(row) {
   return {
     id: row.id, pontoId: row.ponto_id, competencia: row.competencia,
+    gerente: normalizeFreeText(row.gerente || ''), rota: normalizeFreeText(row.rota || ''),
     descricao: normalizeFreeText(row.descricao || ''), tipo: row.tipo,
     valorPrevisto: Number(row.valor_previsto) || 0, valorReal: Number(row.valor_real) || 0,
     observacao: normalizeFreeText(row.observacao || ''), criadoEm: row.criado_em || '',

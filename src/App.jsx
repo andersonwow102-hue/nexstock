@@ -12,6 +12,7 @@ import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota,
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import { exportarCsvSeguro } from "./csvExport.js";
+import { expenseBelongsToManager, expenseBelongsToRoute, isManagerExpense } from "./expenseScope.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
@@ -965,7 +966,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
     .filter(d => {
       const mes = mesDespesaPrestacao(d.competencia);
       const data = diaDespesaPrestacao(d.criadoEm);
-      return idsPontosRota.has(Number(d.pontoId)) &&
+      return expenseBelongsToRoute(d, gerenteNome, rotaAtiva, idsPontosRota) &&
         (!competencia || mes === competencia) &&
         (!dia || data === dia);
     })
@@ -1044,7 +1045,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         formatarMoedaPDF(m.saldoBruto),
       ]);
     const linhasDespesas = despesasRota.map(d => [
-      d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`,
+      d.ponto?.nomeFantasia || (expenseBelongsToManager(d, gerenteNome) ? "Despesa do gerente" : `Ponto ${d.pontoId}`),
       d.descricao || "Despesa sem descrição",
       formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
       diaDespesaPrestacao(d.criadoEm) ? formatarDiaPrestacao(diaDespesaPrestacao(d.criadoEm)) : "-",
@@ -1300,7 +1301,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     );
     const idsPontos = new Set(pontosGerente.map(p => Number(p.id)));
     const totalDespesas = despesasFechamento
-      .filter(d => idsPontos.has(Number(d.pontoId)))
+      .filter(d => idsPontos.has(Number(d.pontoId)) || expenseBelongsToManager(d, gerente))
       .reduce((s,d)=>s+valorDespesaPrestacao(d),0);
     return { gerente, rotas, pontos:pontosGerente.length, equipamentos:equipamentos.length, totalDespesas, cor:corFechamento(gerente) };
   });
@@ -1317,7 +1318,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         normalizarTexto(i.gerenteResponsavel) === normalizarTexto(rota)
       );
       const totalDespesas = despesasFechamento
-        .filter(d => idsPontos.has(Number(d.pontoId)))
+        .filter(d => expenseBelongsToRoute(d, gerente, rota, idsPontos))
         .reduce((s,d)=>s+valorDespesaPrestacao(d),0);
       return { gerente, rota, pontos:pontosRota.length, equipamentos:equipamentos.length, totalDespesas, cor };
     });
@@ -1332,7 +1333,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const idsPontosDetalhe = new Set(pontosDetalhe.map(p => Number(p.id)));
   const nomesPontosDetalhe = new Set(pontosDetalhe.map(p => p.nomeFantasia));
   const despesasDetalhe = despesasFechamento
-    .filter(d => idsPontosDetalhe.has(Number(d.pontoId)))
+    .filter(d => expenseBelongsToRoute(d, gerenteSelecionado, rotaDetalheAtiva, idsPontosDetalhe))
     .map(d => ({ ...d, ponto: pontosDetalhe.find(p => Number(p.id) === Number(d.pontoId)) }))
     .sort((a,b)=>
       String(a.ponto?.nomeFantasia||"").localeCompare(String(b.ponto?.nomeFantasia||""), "pt-BR") ||
@@ -1544,7 +1545,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     const pontosRota = pontos.filter(p => rotaCanonica(p.gerente) === rota);
     const idsPontos = new Set(pontosRota.map(p => Number(p.id)));
     return despesasFechamento
-      .filter(d => idsPontos.has(Number(d.pontoId)))
+      .filter(d => expenseBelongsToRoute(d, gerenteSelecionado, rota, idsPontos))
       .map(d => ({ ...d, ponto: pontosRota.find(p => Number(p.id) === Number(d.pontoId)), rota }));
   }
 
@@ -1602,7 +1603,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         ]);
       const linhasDespesas = despesasRota.map(d => [
         rota,
-        d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`,
+        d.ponto?.nomeFantasia || (expenseBelongsToManager(d, gerenteSelecionado) ? "Despesa do gerente" : `Ponto ${d.pontoId}`),
         d.descricao || "Despesa sem descrição",
         formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
         formatarMoedaPDF(valorDespesaPrestacao(d)),
@@ -1867,7 +1868,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             ):despesasDetalhe.map(d=>(
               <article className="fechamento-despesa-card" key={d.id}>
                 <div>
-                  <strong>{d.ponto?.nomeFantasia || `Ponto ${d.pontoId}`}</strong>
+                  <strong>{d.ponto?.nomeFantasia || (expenseBelongsToManager(d, gerenteSelecionado) ? "Despesa do gerente" : `Ponto ${d.pontoId}`)}</strong>
                   <span>{d.descricao || "Despesa sem descrição"}</span>
                 </div>
                 <small>{formatarMesPrestacao(mesDespesaPrestacao(d.competencia))}</small>
@@ -2004,9 +2005,9 @@ function PrestacaoContasPage({ pontos = [], despesas = [] }) {
     const ponto = pontoPorId.get(Number(d.pontoId));
     return {
       ...d,
-      pontoNome: ponto?.nomeFantasia || `Ponto ${d.pontoId}`,
+      pontoNome: ponto?.nomeFantasia || (isManagerExpense(d) ? "Despesa do gerente" : `Ponto ${d.pontoId}`),
       dono: ponto?.nomeDono || "",
-      gerente: ponto?.gerente || "Sem gerente",
+      gerente: ponto?.gerente || d.gerente || "Sem gerente",
       valor: valorDespesaPrestacao(d),
       mes: mesDespesaPrestacao(d.competencia),
       diaLancamento: diaDespesaPrestacao(d.criadoEm),
@@ -3243,7 +3244,7 @@ function Sistema({onLogout}){
   const despesasOperacionais=operador
     ?[]
     :gerenteAtual
-    ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId))
+    ?despesasBackup.filter(d=>pontosOperacionais.some(p=>p.id===d.pontoId)||expenseBelongsToManager(d, gerenteAtual))
     :despesasBackup;
 
   async function copiarPixAviso(chave){
@@ -3668,7 +3669,7 @@ function Sistema({onLogout}){
         linhas:despesasOperacionais.map(d=>{
           const ponto=pontosOperacionais.find(p=>p.id===d.pontoId);
           return [
-            ponto?.nomeFantasia||`Ponto ${d.pontoId}`,
+            ponto?.nomeFantasia||(isManagerExpense(d)?"Despesa do gerente":`Ponto ${d.pontoId}`),
             d.competencia?new Date(d.competencia).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric",timeZone:"UTC"}):"-",
             d.descricao||"-",
             formatarMoedaPDF(d.valorPrevisto||0),
@@ -4324,7 +4325,7 @@ function Sistema({onLogout}){
                 <div><h1 className="page-title">Pontos</h1><p className="page-sub">Gerenciamento de pontos</p></div>
               </div>
             </header>
-          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos} onEditarEquipamento={abrirEditar} onExcluirEquipamento={setExcluindo}/>
+          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onExcluirEquipamento={setExcluindo}/>
           </>
         )}
 

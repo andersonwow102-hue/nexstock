@@ -11,6 +11,7 @@ import {
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
 import { exportarCsvSeguro } from "./csvExport.js";
+import { expenseBelongsToManager } from "./expenseScope.js";
 
 const partesDataLocal=()=>{
   const d = new Date();
@@ -573,7 +574,7 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos, pode
 function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onVerAcessos, onExportExcel, onExportPDF, podeEditar, podeExcluir=false, podeEditarDespesas, podeSolicitarModalidade, mostrarDespesas=true }) {
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [pagina, setPagina] = useState(1);
-  const POR_PAGINA=10;
+  const POR_PAGINA=25;
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
     const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
@@ -704,8 +705,10 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
   );
 }
 
-function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
+function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
   const gerente = perfilAtual?.perfil === "gerente";
+  const despesaDoGerente = Boolean(gerenteDespesa);
+  const [rota, setRota] = useState(rotasGerente[0] || "");
   const [competencia, setCompetencia] = useState(competenciaAtual());
   const criarLinha = () => ({ id:null, descricao:"", valor:"", observacao:"" });
   const [linhas, setLinhas] = useState([]);
@@ -716,11 +719,14 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
   const podeEditarAgora = podeEditar && gerenteNoMesAtual && gerenteDentroPrazo;
   const consultandoMesAnterior = gerente && competencia !== mesAtual;
   const competenciaTexto = new Date(`${competencia}-02T12:00:00`).toLocaleDateString("pt-BR", { month:"long", year:"numeric" });
-  const despesasMes = despesas.filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0,7) === competencia);
+  const pertenceAoContexto = d => despesaDoGerente
+    ? expenseBelongsToManager(d, gerenteDespesa) && (!rota || d.rota === rota)
+    : Number(d.pontoId) === Number(ponto?.id);
+  const despesasMes = despesas.filter(d => pertenceAoContexto(d) && String(d.competencia || "").slice(0,7) === competencia);
 
   useEffect(() => {
     const despesasDoMes = despesas
-      .filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0,7) === competencia);
+      .filter(d => pertenceAoContexto(d) && String(d.competencia || "").slice(0,7) === competencia);
     const base = despesasDoMes
       .map(d => ({
         id:d.id, descricao:d.descricao || "",
@@ -731,7 +737,7 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
       ? base
       : base.length ? [...base, criarLinha()] : [criarLinha(), criarLinha(), criarLinha(), criarLinha()]);
     setErro("");
-  }, [ponto.id, competencia, despesas]);
+  }, [ponto?.id, gerenteDespesa, rota, competencia, despesas]);
 
   const totalBrutoMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
   const totalMes = Math.max(0, totalBrutoMes);
@@ -769,12 +775,14 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
       const payload = validas.map(l => ({
         ...l,
         tipo:"fixa",
-        pontoId:ponto.id,
+        pontoId:despesaDoGerente ? null : ponto.id,
+        gerente:despesaDoGerente ? gerenteDespesa : "",
+        rota:despesaDoGerente ? rota : "",
         competencia:`${competencia}-01`,
         valorPrevisto:l.valorNumero,
         valorReal:l.valorNumero,
       }));
-      await onSalvar(ponto, competencia, payload);
+      await onSalvar(despesaDoGerente ? { gerente:gerenteDespesa, rota } : ponto, competencia, payload);
     } catch (e) {
       setErro(e?.message || "Não foi possível salvar as despesas. Tente novamente.");
     }
@@ -784,11 +792,20 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
     <div className="modal-overlay" onClick={onFechar}>
       <div className="modal modal-extra-largo" onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Despesas mensais · {ponto.nomeFantasia}</h3>
+          <h3>{despesaDoGerente ? `Minhas despesas · ${gerenteDespesa}` : `Despesas mensais · ${ponto.nomeFantasia}`}</h3>
           <button className="modal-fechar" onClick={onFechar}>✕</button>
         </div>
         <div className="modal-body">
           {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+          {despesaDoGerente&&rotasGerente.length>1&&(
+            <div className="campo despesa-rota-campo">
+              <label>Rota da despesa</label>
+              <select value={rota} onChange={e=>setRota(e.target.value)}>
+                {rotasGerente.map(item=><option key={item} value={item}>{item}</option>)}
+              </select>
+              <small>A despesa será somada ao fechamento desta rota.</small>
+            </div>
+          )}
           <div className={`despesa-planilha-topo ${gerente?"despesa-planilha-topo-gerente":""}`}>
             {gerente?(
               <div className="despesa-gerente-periodo">
@@ -857,7 +874,9 @@ function PointMonthlyExpensesModal({ ponto, despesas = [], onSalvar, onRemover, 
           {podeEditarAgora&&<button className="btn-secundario despesa-add-linha" onClick={()=>setLinhas(prev=>[...prev,criarLinha()])}>+ Adicionar mais despesas</button>}
           {despesasMes.length===0&&<p className="acessos-nota">{consultandoMesAnterior
             ?`Nenhuma despesa registrada em ${competenciaTexto}.`
-            :"Nenhuma despesa lançada para este ponto neste mês. Adicione uma despesa, informe o valor e salve."}</p>}
+            :despesaDoGerente
+              ?"Nenhuma despesa própria lançada neste mês. Adicione uma despesa, informe o valor e salve."
+              :"Nenhuma despesa lançada para este ponto neste mês. Adicione uma despesa, informe o valor e salve."}</p>}
         </div>
         <div className="modal-footer">
           <button className="btn-secundario" onClick={onFechar}>Fechar</button>
@@ -1146,7 +1165,7 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange, onEditarEquipamento, onExcluirEquipamento }) {
+export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange, onDespesasChange, onEditarEquipamento, onExcluirEquipamento }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [despesas,   setDespesas]  = useState([]);
@@ -1159,6 +1178,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [excluindo,  setExcluindo] = useState(null);
   const [verDespesas,setVerDespesas]=useState(false);
   const [pontoDespesas,setPontoDespesas]=useState(null);
+  const [despesasGerenteAbertas,setDespesasGerenteAbertas]=useState(false);
   const [pontoSolicitacao,setPontoSolicitacao]=useState(null);
   const [pontoAcessos,setPontoAcessos]=useState(null);
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
@@ -1186,7 +1206,10 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const mostrarDespesas = !operador;
   const pontosVisiveisBase = gerenteAtual ? pontos.filter(p=>rotaPermitidaAoPerfil(p.gerente, perfilAtual)) : pontos;
   const despesasEscopo = mostrarDespesas
-    ? despesas.filter(d=>pontosVisiveisBase.some(p=>Number(p.id)===Number(d.pontoId)))
+    ? despesas.filter(d=>
+      pontosVisiveisBase.some(p=>Number(p.id)===Number(d.pontoId)) ||
+      (gerenteAtual && expenseBelongsToManager(d, gerenteAtual))
+    )
     : [];
   const pontosVisiveis = mostrarDespesas
     ? aplicarResumoDespesaMes(pontosVisiveisBase, despesasEscopo, competenciaAtual())
@@ -1202,6 +1225,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const podeExcluirPonto = administrador;
   const podeEditarDespesas = mostrarDespesas && (administrador || perfilAtual?.perfil === "gerente");
   const podeSolicitarModalidade = perfilAtual?.perfil === "gerente";
+  const rotasDoGerente = gerenteAtual ? rotasPermitidasDoPerfil(perfilAtual) : [];
 
   useEffect(()=>{
     if(!mostrarDespesas && abaInterna==="analise") setAbaInterna("pontos");
@@ -1329,6 +1353,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       await Promise.all(linhas.map(linha=>salvarDespesaMensal(linha)));
       const atualizadas = await carregarDespesasMensais();
       setDespesas(atualizadas);
+      onDespesasChange?.(atualizadas);
       const totalMes = atualizadas
         .filter(d=>Number(d.pontoId)===Number(ponto.id)&&String(d.competencia||"").slice(0,7)===competencia)
         .reduce((s,d)=>s+valorDespesa(d),0);
@@ -1343,11 +1368,36 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     }
   }
 
+  async function salvarDespesasGerente(contexto, competencia, linhas) {
+    if(!gerenteAtual || !podeEditarDespesas)return;
+    if(competencia !== competenciaAtual()) {
+      window.alert("Gerente só pode lançar despesas do mês atual.");
+      return;
+    }
+    if(!gerentePodeLancarDespesas()) {
+      window.alert("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
+      return;
+    }
+    if(!contexto.rota || !rotasDoGerente.includes(contexto.rota)) {
+      window.alert("Selecione uma rota liberada para seu acesso.");
+      return;
+    }
+    await Promise.all(linhas.map(linha=>salvarDespesaMensal(linha)));
+    const atualizadas = await carregarDespesasMensais();
+    setDespesas(atualizadas);
+    onDespesasChange?.(atualizadas);
+    setDespesasGerenteAbertas(false);
+  }
+
   async function removerDespesaPonto(id) {
     if(!podeEditarDespesas)return;
     try{
       await excluirDespesaMensal(id);
-      setDespesas(prev=>prev.filter(d=>Number(d.id)!==Number(id)));
+      setDespesas(prev=>{
+        const atualizadas=prev.filter(d=>Number(d.id)!==Number(id));
+        onDespesasChange?.(atualizadas);
+        return atualizadas;
+      });
     }catch(e){console.error("Erro ao remover despesa mensal:",e);}
   }
 
@@ -1389,6 +1439,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
           onChange={e=>{setBuscaPontos(e.target.value);if(e.target.value.trim())setAbaInterna("pontos");}}
         />
         <p>{mostrarDespesas ? "Consulte estabelecimentos, despesas e equipamentos vinculados." : "Consulte estabelecimentos, rotas e equipamentos vinculados."}</p>
+        {gerenteAtual&&<button className="btn-secundario" onClick={()=>setDespesasGerenteAbertas(true)}>💼 Minhas despesas</button>}
         {podeCriarPonto&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
       </div>
 
@@ -1420,6 +1471,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
       {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveis} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
+      {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
       {pontoAcessos&&<PointAccessModal ponto={pontoAcessos} acessos={acessosDoPonto(acessosModalidades,pontoAcessos.id)} onFechar={()=>setPontoAcessos(null)}/>}
 
