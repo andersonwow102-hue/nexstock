@@ -29,8 +29,6 @@ import {
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Máquina de Brindes","Totens","Noteiro","PDV Touchscreen"];
 const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
 const ICONES = {"Televisões":"📺","Terminais":"🖥️","Impressoras":"🖨️","Tablets":"📱","Carregadores":"🔌","Máquina de Brindes":"🎁","Totens":"🗼","Noteiro":"💵","PDV Touchscreen":"🧾"};
-const MINIMO_CATEGORIA = 5;
-const CATEGORIA_COM_ALERTA = "Terminais";
 const STATUS_CFG = {
   "Disponível": {cor:"status-disponivel"},
   "Em rota":    {cor:"status-em-rota"},
@@ -287,8 +285,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
   const despesas = lista => lista.reduce((total,p)=>total+(p.possuiDespesa==="sim"?Number(p.valorDespesa||0):0),0);
   const emConserto = itens.filter(i=>i.status==="Em conserto");
   const pendentesConfirmacao = itens.filter(i=>i.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando);
-  const terminaisDisponiveis = itens.filter(i=>i.categoria===CATEGORIA_COM_ALERTA&&i.status==="Disponível").length;
-  const alertaTerminais = Math.max(0, MINIMO_CATEGORIA-terminaisDisponiveis);
+  const terminaisDisponiveis = itens.filter(i=>i.categoria==="Terminais"&&i.status==="Disponível").length;
   const pontosComEquipamento = new Set(itens.filter(i=>i.localizacao).map(i=>normalizarTexto(i.localizacao)));
   const pontosSemEquipamento = pontos.filter(p=>!pontosComEquipamento.has(normalizarTexto(p.nomeFantasia)));
   const historicoRecente = historico.slice(0, 6);
@@ -419,7 +416,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
         <div>
           <span className="dash-kicker">Central operacional</span>
           <h2>O que precisa de atenção agora?</h2>
-          <p>Um painel rápido para ver pendências, rotas, estoque crítico e gerar documentos quando precisar prestar conta.</p>
+          <p>Um painel rápido para ver pendências, rotas, estoque e gerar documentos quando precisar prestar conta.</p>
         </div>
         <div className="relatorios-resumo">
           <strong>{itens.length}</strong><small>equipamentos</small>
@@ -432,9 +429,9 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
           <span><Icon name="mail" /></span>
           <div><strong>{pendentesConfirmacao.length}</strong><small>envios aguardando gerente</small></div>
         </article>
-        <article className={alertaTerminais?"central-kpi central-kpi-alerta":"central-kpi"}>
+        <article className="central-kpi">
           <span><Icon name="monitor" /></span>
-          <div><strong>{terminaisDisponiveis}</strong><small>terminais disponíveis{alertaTerminais?` · faltam ${alertaTerminais}`:""}</small></div>
+          <div><strong>{terminaisDisponiveis}</strong><small>terminais disponíveis</small></div>
         </article>
         <article className="central-kpi">
           <span><Icon name="wrench" /></span>
@@ -452,15 +449,12 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
             <span className="dash-kicker">Prioridades</span>
             <strong>Ação imediata</strong>
           </div>
-          {pendentesConfirmacao.length===0&&emConserto.length===0&&alertaTerminais===0
+          {pendentesConfirmacao.length===0&&emConserto.length===0
             ?<p className="dash-vazio">Sem pendências críticas no momento. Operação respirando bem.</p>
             :<div className="central-lista">
               {pendentesConfirmacao.slice(0,4).map(item=><div key={item.id} className="central-item">
                 <span><Icon name="mail" /></span><div><strong>{item.nome}</strong><small>Aguardando confirmação de {item.gerenteResponsavel||"gerente"}</small></div>
               </div>)}
-              {alertaTerminais>0&&<div className="central-item">
-                <span><Icon name="warning" /></span><div><strong>Terminais abaixo do mínimo</strong><small>{terminaisDisponiveis} disponíveis de {MINIMO_CATEGORIA} necessários</small></div>
-              </div>}
               {emConserto.slice(0,3).map(item=><div key={item.id} className="central-item">
                 <span><Icon name="wrench" /></span><div><strong>{item.nome}</strong><small>{item.nome} está em conserto</small></div>
               </div>)}
@@ -490,7 +484,6 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
           </div>
           <div className="central-checklist">
             <label><input type="checkbox" readOnly checked={pendentesConfirmacao.length===0}/> Confirmar envios pendentes</label>
-            <label><input type="checkbox" readOnly checked={alertaTerminais===0}/> Manter terminais acima do mínimo</label>
             <label><input type="checkbox" readOnly checked={pontosSemEquipamento.length===0}/> Revisar pontos sem equipamento</label>
             <label><input type="checkbox" readOnly checked={emConserto.length===0}/> Acompanhar itens em conserto</label>
           </div>
@@ -2438,7 +2431,7 @@ function statusPagamentoConserto(item){
   return"";
 }
 
-function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, onCompletarConserto, onConfirmarPagamento, podeEditar, perfilAtual }) {
+function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, onCompletarConserto, onConfirmarPagamento, podeEditar, somenteLeitura=false, perfilAtual }) {
   const [notaAberta,setNotaAberta]=useState(false);
   const movimentos=historico.filter(h=>h.itemId===item.id);
   const operador=perfilAtual?.perfil==="operador";
@@ -2482,15 +2475,15 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
               {item.consertoNotaArquivo&&(
                 <button className="btn-secundario" type="button" onClick={()=>setNotaAberta(true)}>Visualizar nota fiscal</button>
               )}
-              {operador&&emConserto&&(
+              {operador&&emConserto&&!somenteLeitura&&(
                 <button className="btn-primario ficha-conserto-acao" type="button" disabled={pagamentoSolicitado} onClick={()=>{onFechar();onCompletarConserto(item);}}>
                   {pagamentoSolicitado?"Aguardando pagamento do admin":pagamentoPago?"Concluir conserto":"Completar dados do conserto"}
                 </button>
               )}
-              {admin&&emConserto&&pagamentoSolicitado&&(
+              {admin&&emConserto&&pagamentoSolicitado&&!somenteLeitura&&(
                 <button className="btn-primario ficha-conserto-acao" type="button" onClick={()=>onConfirmarPagamento(item)}>Confirmar pagamento realizado</button>
               )}
-              {admin&&emConserto&&!pagamentoSolicitado&&(
+              {admin&&emConserto&&(!pagamentoSolicitado||somenteLeitura)&&(
                 <p className="ficha-conserto-aviso">Administração apenas acompanha. O operador é responsável por nota, PIX, valor e retorno do conserto.</p>
               )}
             </div>
@@ -2500,7 +2493,7 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
             {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação registrada.</p>:movimentos.map(h=><div className="ficha-evento" key={h.id}><span className={`badge-hist ${HIST_CFG[h.tipo]?.cor||""}`}>{HIST_CFG[h.tipo]?.label||h.tipo}</span><div><strong>{h.observacao||"Sem detalhe"}</strong><small>{h.data} · {h.responsavel||"-"}</small></div></div>)}
           </div>
         </div>
-        {podeEditar&&!(admin&&emConserto)&&<div className="modal-footer">
+        {podeEditar&&!somenteLeitura&&!(admin&&emConserto)&&<div className="modal-footer">
           <button className="btn-secundario" onClick={()=>{onFechar();onEditar(item);}}>Editar</button>
           <button className="btn-primario" onClick={()=>{onFechar();onMovimentar(item);}}>Movimentar</button>
         </div>}
@@ -3150,13 +3143,14 @@ function Sistema({onLogout}){
   const [histBusca,setHistBusca]   =useState("");
   const [confirmLogout,setConfirmLogout]=useState(false);
   const [modalSenha,setModalSenha]=useState(false);
-  const [alertaEstoqueAtivo,setAlertaEstoqueAtivo]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
   const [sidebarAberta,setSidebarAberta]=useState(false);
   const [itemDetalhe,setItemDetalhe]=useState(null);
+  const [itemDetalheSomenteLeitura,setItemDetalheSomenteLeitura]=useState(false);
   const [buscaGlobal,setBuscaGlobal]=useState("");
   const [paginaItens,setPaginaItens]=useState(1);
   const [gerenteConsulta,setGerenteConsulta]=useState("");
+  const [consultaEquipFiltro,setConsultaEquipFiltro]=useState("todos");
   const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",emailTemporario:false,emailTemporarioExpiraEm:""});
 
   useEffect(()=>{
@@ -3272,12 +3266,6 @@ function Sistema({onLogout}){
     .filter(i=>i.status==="Em conserto"&&statusPagamentoConserto(i)==="solicitado")
     .sort((a,b)=>(b.consertoPagamentoSolicitadoEm||b.consertoSolicitadoEm||"").localeCompare(a.consertoPagamentoSolicitadoEm||a.consertoSolicitadoEm||""));
 
-  const alertas = [CATEGORIA_COM_ALERTA].map(cat=>{
-    const totalDisp=(gerenteAtual?itensOperacionais:estoqueInterno).filter(i=>i.categoria===cat&&i.status==="Disponível").length;
-    return{categoria:cat,totalDisponivel:totalDisp,faltam:MINIMO_CATEGORIA-totalDisp};
-  }).filter(a=>a.totalDisponivel<MINIMO_CATEGORIA);
-  const alertasVisiveis = gerenteAtual ? [] : alertas;
-
   const porCategoria=CATEGORIAS.map(cat=>{
     const ci=(gerenteAtual?itensOperacionais:estoqueInterno).filter(i=>i.categoria===cat);
     const totalDisp=ci.filter(i=>i.status==="Disponível").length;
@@ -3285,7 +3273,6 @@ function Sistema({onLogout}){
       disponivel:totalDisp,
       emRota:ci.filter(i=>i.status==="Em rota").length,
       conserto:ci.filter(i=>i.status==="Em conserto").length,
-      alertaBaixo:cat===CATEGORIA_COM_ALERTA&&totalDisp<MINIMO_CATEGORIA,
     };
   });
   const inconsistencias=itensOperacionais.filter(item=>
@@ -3312,7 +3299,17 @@ function Sistema({onLogout}){
   ):[];
   const equipamentosConsultaEmPontos=equipamentosDoGerenteConsulta.filter(i=>Boolean(i.localizacao));
   const equipamentosConsultaConserto=equipamentosDoGerenteConsulta.filter(i=>i.status==="Em conserto");
-  const equipamentosConsultaSemPonto=equipamentosDoGerenteConsulta.filter(i=>!i.localizacao);
+  const equipamentosConsultaSemPonto=equipamentosDoGerenteConsulta.filter(i=>!i.localizacao&&i.status!=="Em conserto");
+  const equipamentosConsultaExibidos=consultaEquipFiltro==="gerente"
+    ?equipamentosConsultaSemPonto
+    :consultaEquipFiltro==="conserto"
+      ?equipamentosConsultaConserto
+      :equipamentosDoGerenteConsulta;
+  const tituloEquipamentosConsulta=consultaEquipFiltro==="gerente"
+    ?"Equipamentos com o gerente"
+    :consultaEquipFiltro==="conserto"
+      ?"Consertos encaminhados ao operador"
+      :"Equipamentos localizados";
 
   const filtroCatEquipAtivo=gerenteAtual?"Todas":filtroCatEquip;
   const itensFiltrados=itensOperacionais.filter(i=>{
@@ -3345,6 +3342,7 @@ function Sistema({onLogout}){
   useEffect(()=>{
     if(!gerenteConsulta&&gerentesOperacionais.length)setGerenteConsulta(gerentesOperacionais[0]);
   },[gerenteConsulta,gerentesOperacionais]);
+  useEffect(()=>{setConsultaEquipFiltro("todos");},[gerenteConsultaAtivo]);
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
   function abrirNovo(){
     if(!podeCadastrarEquipamento)return;
@@ -3361,6 +3359,10 @@ function Sistema({onLogout}){
     };
     setForm(inicial);
     setErroForm("");setModalForm(true);
+  }
+  function abrirFichaEquipamento(item, somenteLeitura=false){
+    setItemDetalheSomenteLeitura(somenteLeitura);
+    setItemDetalhe(item);
   }
   function abrirEditar(i){if(!podeMovimentarEquipamento(i))return;setItemEdit(i);setForm({...i,quantidade:1});setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
@@ -3787,12 +3789,6 @@ function Sistema({onLogout}){
           </button>
         </nav>
         <div className="sidebar-footer">
-          {alertasVisiveis.length>0&&(
-            <button className="sidebar-alerta sidebar-alerta-btn" onClick={()=>{setAlertaEstoqueAtivo(true);navegar("itens");setAbaEquip("lista");setFiltroSt("Todos");setFiltroCatEquip("Todas");setBusca("");}}>
-              ⚠️ Terminais em alerta
-              <span className="sidebar-alerta-arrow">→</span>
-            </button>
-          )}
           <div className="sidebar-perfil">
             <span>Acesso atual</span>
             <strong>{perfilAtual.perfil}</strong>
@@ -3870,9 +3866,8 @@ function Sistema({onLogout}){
                 <div className="dash-lista-categorias">
                   {porCategoria.map(c=>{
                     const percentual=c.total?Math.round((c.disponivel/c.total)*100):0;
-                    const mostrarAlertaCategoria=!gerenteAtual&&c.alertaBaixo;
                     return(
-                      <button key={c.categoria} className={`dash-categoria ${mostrarAlertaCategoria?"em-alerta":""}`}
+                      <button key={c.categoria} className="dash-categoria"
                         onClick={()=>{navegar("itens");setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
                         <span className="dash-cat-icone">{ICONES[c.categoria]}</span>
                         <span className="dash-cat-info">
@@ -3880,7 +3875,6 @@ function Sistema({onLogout}){
                           <span className="dash-barra"><i style={{width:`${percentual}%`}}/></span>
                         </span>
                         <span className="dash-cat-numeros"><strong>{c.disponivel}</strong> / {c.total}<small> disponíveis</small></span>
-                        {mostrarAlertaCategoria&&<span className="dash-aviso">Baixo</span>}
                       </button>
                     );
                   })}
@@ -3888,18 +3882,6 @@ function Sistema({onLogout}){
               </section>
 
               <div className="dash-lateral">
-                <section className={`secao dash-atencao ${alertasVisiveis.length===0?"ok":""}`}>
-                  <h2 className="secao-titulo">Atenção</h2>
-                  {alertasVisiveis.length===0
-                    ?<p className="dash-vazio">Tudo certo: Terminais dentro do estoque mínimo.</p>
-                    :alertasVisiveis.map(a=>(
-                      <button key={a.categoria} className="dash-alerta" onClick={()=>{navegar("itens");setFiltroCatEquip(a.categoria);setAbaEquip("lista");}}>
-                        <span>{ICONES[a.categoria]}</span>
-                        <strong>{a.categoria}</strong>
-                        <small>faltam {a.faltam}</small>
-                      </button>
-                    ))}
-                </section>
                 <section className="secao dash-pontos">
                   <div className="dash-titulo-acao"><h2 className="secao-titulo">Pontos Ativos</h2><button className="btn-link" onClick={()=>navegar("pontos")}>Ver todos</button></div>
                   {pontosComEquipamentos.length===0
@@ -4004,37 +3986,6 @@ function Sistema({onLogout}){
             </>)}
           </div>
 
-          {alertaEstoqueAtivo&&alertasVisiveis.length>0&&(
-            <div className="alerta-estoque-banner">
-              <div className="alerta-banner-header">
-                <div className="alerta-banner-titulo">
-                  <span className="alerta-banner-emoji">🚨</span>
-                  <strong>Terminais com estoque abaixo do mínimo!</strong>
-                  <span className="alerta-banner-pulse"/>
-                </div>
-                <button className="alerta-banner-fechar" onClick={()=>setAlertaEstoqueAtivo(false)}>✕</button>
-              </div>
-              <div className="alerta-banner-itens">
-                {alertasVisiveis.map(a=>(
-                  <div key={a.categoria} className="alerta-banner-item">
-                    <span className="alerta-banner-icone">{ICONES[a.categoria]}</span>
-                    <div className="alerta-banner-info">
-                      <span className="alerta-banner-nome">{a.categoria}</span>
-                      <span className="alerta-banner-detalhe">
-                        Disponível: <strong style={{color:"var(--vermelho)"}}>{a.totalDisponivel}</strong>
-                        &nbsp;·&nbsp;Mínimo: <strong>{MINIMO_CATEGORIA}</strong>
-                        &nbsp;·&nbsp;Faltam: <strong style={{color:"var(--vermelho)"}}>{a.faltam}</strong> un.
-                      </span>
-                    </div>
-                    <div className="alerta-banner-acoes">
-                      <button className="btn-alerta-editar" onClick={()=>{setFiltroCatEquip(a.categoria);setAbaEquip("lista");setAlertaEstoqueAtivo(false);}}>🔍 Ver categoria</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {abaEquip==="lista"&&(
             <section className="secao equip-lista">
               {recebimentosPendentes.length>0&&(
@@ -4125,14 +4076,12 @@ function Sistema({onLogout}){
                   <tbody>
                     {itensFiltrados.length===0?<tr><td colSpan={6} className="tabela-vazia">Nenhum item encontrado.</td></tr>
                     :itensPagina.map(item=>{
-                      const totalCat=itens.filter(i=>i.categoria===item.categoria&&i.status==="Disponível").length;
-                      const emAlerta=item.categoria===CATEGORIA_COM_ALERTA&&totalCat<MINIMO_CATEGORIA;
                       const pendente=item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando;
                       const recebido=item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao;
                       const emConserto=item.status==="Em conserto";
                       const pagamentoConserto=statusPagamentoConserto(item);
                       return(
-                        <tr key={item.id} className={[emAlerta?"row-alerta":"",emConserto?"row-conserto":""].filter(Boolean).join(" ")}>
+                        <tr key={item.id} className={emConserto?"row-conserto":""}>
                           <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
                           <td><span className="badge-cat">{item.categoria}</span></td>
                           <td>
@@ -4148,7 +4097,7 @@ function Sistema({onLogout}){
                               podeMovimentarEquipamento(item)?<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>:<span className="td-obs">Consulta</span>}
                           </td>
                           <td className="td-acoes">
-                            <button className="btn-editar" onClick={()=>setItemDetalhe(item)} title="Ficha">🔎</button>
+                            <button className="btn-editar" onClick={()=>abrirFichaEquipamento(item)} title="Ficha">🔎</button>
                             {podeMovimentarEquipamento(item)&&<button className="btn-editar" onClick={()=>abrirEditar(item)}>✏️</button>}
                             {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)}>🗑️</button>}
                           </td>
@@ -4227,21 +4176,19 @@ function Sistema({onLogout}){
                   <div className="resumo-card resumo-disponivel"><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
                   <div className="resumo-card resumo-uso"><div className="resumo-num">{totalEmRota}</div><div className="resumo-label">Em Rota</div></div>
                   {!gerenteAtual&&<div className="resumo-card resumo-conserto"><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>}
-                  <div className={`resumo-card ${alertasVisiveis.length>0?"resumo-alerta-ativo":""}`}><div className="resumo-num">{alertasVisiveis.length}</div><div className="resumo-label">Alertas</div></div>
                 </div>
               </section>
               <section className="secao">
                 <h2 className="secao-titulo">Por Categoria</h2>
                 <div className="cat-detalhe-grid">
                   {porCategoria.map(c=>(
-                    <div key={c.categoria} className={`cat-detalhe-card ${c.alertaBaixo?"cat-detalhe-alerta":""}`}
+                    <div key={c.categoria} className="cat-detalhe-card"
                       onClick={()=>{setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
                       <div className="cat-detalhe-header">
                         <span className="cat-detalhe-icone">{ICONES[c.categoria]}</span>
                         <div style={{flex:1,minWidth:0}}>
                           <div className="cat-detalhe-nome">{c.categoria}</div>
                           <div className="cat-detalhe-registros">{c.qtdItens} registro{c.qtdItens!==1?"s":""}</div>
-                          {!gerenteAtual&&c.alertaBaixo&&<div className="cat-detalhe-badge-alerta">⚠ Estoque Baixo</div>}
                         </div>
                         <div className="cat-detalhe-total">
                           <span className="cat-total-num">{c.total}</span>
@@ -4332,8 +4279,8 @@ function Sistema({onLogout}){
         {aba==="buscar-gerentes"&&(administrador||operador)&&(<>
           <header className="topbar">
             <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>â˜°</button>
-              <div><h1 className="page-title">Buscar Gerentes</h1><p className="page-sub">Pontos, equipamentos e pendÃªncias por responsÃ¡vel</p></div>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Buscar Gerentes</h1><p className="page-sub">Pontos, equipamentos e pendências por responsável</p></div>
             </div>
           </header>
           <div className="consulta-gerentes-page">
@@ -4355,9 +4302,13 @@ function Sistema({onLogout}){
             <section className="consulta-gerentes-resumo">
               <div className="consulta-kpi"><span>Pontos</span><strong>{pontosDoGerenteConsulta.length}</strong><small>vinculados</small></div>
               <div className="consulta-kpi"><span>Equipamentos</span><strong>{equipamentosDoGerenteConsulta.length}</strong><small>total localizado</small></div>
-              <div className="consulta-kpi"><span>Nos pontos</span><strong>{equipamentosConsultaEmPontos.length}</strong><small>em operaÃ§Ã£o</small></div>
-              <div className="consulta-kpi"><span>Com gerente</span><strong>{equipamentosConsultaSemPonto.length}</strong><small>sem ponto</small></div>
-              <div className="consulta-kpi consulta-kpi-alerta"><span>Conserto</span><strong>{equipamentosConsultaConserto.length}</strong><small>fora de operaÃ§Ã£o</small></div>
+              <div className="consulta-kpi"><span>Nos pontos</span><strong>{equipamentosConsultaEmPontos.length}</strong><small>em operação</small></div>
+              <button type="button" className={`consulta-kpi consulta-kpi-btn ${consultaEquipFiltro==="gerente"?"ativo":""}`} aria-pressed={consultaEquipFiltro==="gerente"} onClick={()=>setConsultaEquipFiltro(atual=>atual==="gerente"?"todos":"gerente")}>
+                <span>Com gerente</span><strong>{equipamentosConsultaSemPonto.length}</strong><small>sem ponto · clique para verificar</small>
+              </button>
+              <button type="button" className={`consulta-kpi consulta-kpi-btn consulta-kpi-alerta ${consultaEquipFiltro==="conserto"?"ativo":""}`} aria-pressed={consultaEquipFiltro==="conserto"} onClick={()=>setConsultaEquipFiltro(atual=>atual==="conserto"?"todos":"conserto")}>
+                <span>Conserto</span><strong>{equipamentosConsultaConserto.length}</strong><small>encaminhado ao operador · clique para verificar</small>
+              </button>
             </section>
 
             <div className="consulta-gerentes-grid">
@@ -4374,7 +4325,7 @@ function Sistema({onLogout}){
                         <article key={ponto.id} className="consulta-ponto-item">
                           <div>
                             <strong>{ponto.nomeFantasia}</strong>
-                            <span>{ponto.gerente||"Rota nÃ£o informada"} Â· {ponto.telefone||"sem telefone"}</span>
+                            <span>{ponto.gerente||"Rota não informada"} · {ponto.telefone||"sem telefone"}</span>
                           </div>
                           <em>{qtd} equip.</em>
                         </article>
@@ -4386,12 +4337,16 @@ function Sistema({onLogout}){
 
               <section className="secao consulta-gerentes-card consulta-equipamentos-card">
                 <div className="tabela-header">
-                  <h2 className="secao-titulo" style={{margin:0}}>Equipamentos localizados</h2>
-                  <span className="consulta-contador">{equipamentosDoGerenteConsulta.length}</span>
+                  <div>
+                    <h2 className="secao-titulo" style={{margin:0}}>{tituloEquipamentosConsulta}</h2>
+                    {consultaEquipFiltro==="conserto"&&<p className="consulta-filtro-nota">Consulta visual: estes equipamentos foram encaminhados ao operador. Abra a ficha para conferir o defeito e o andamento.</p>}
+                    {consultaEquipFiltro==="gerente"&&<p className="consulta-filtro-nota">Equipamentos sob responsabilidade do gerente que ainda não estão vinculados a um ponto.</p>}
+                  </div>
+                  <span className="consulta-contador">{equipamentosConsultaExibidos.length}</span>
                 </div>
                 <div className="consulta-equipamentos-lista">
-                  {equipamentosDoGerenteConsulta.length===0?<div className="tabela-vazia">Nenhum equipamento localizado para este gerente.</div>:
-                    ordenarEquipamentos(equipamentosDoGerenteConsulta).map(item=>(
+                  {equipamentosConsultaExibidos.length===0?<div className="tabela-vazia">Nenhum equipamento encontrado neste filtro.</div>:
+                    ordenarEquipamentos(equipamentosConsultaExibidos).map(item=>(
                       <article key={item.id} className={`consulta-equipamento-item ${item.status==="Em conserto"?"em-conserto":""}`}>
                         <div className="consulta-equipamento-main">
                           <strong>{ICONES[item.categoria]} {item.nome}</strong>
@@ -4402,7 +4357,7 @@ function Sistema({onLogout}){
                           <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
                           {item.gerenteResponsavel&&<span className="badge-transferencia badge-transferencia-ok">{item.gerenteResponsavel}</span>}
                         </div>
-                        <button className="btn-editar" onClick={()=>setItemDetalhe(item)}>Ficha</button>
+                        <button className="btn-editar" onClick={()=>abrirFichaEquipamento(item,true)}>Ficha</button>
                       </article>
                     ))
                   }
@@ -4736,12 +4691,13 @@ function Sistema({onLogout}){
         <FichaEquipamento
           item={itemDetalhe}
           historico={historico}
-          onFechar={()=>setItemDetalhe(null)}
+          onFechar={()=>{setItemDetalhe(null);setItemDetalheSomenteLeitura(false);}}
           onEditar={abrirEditar}
           onMovimentar={abrirMov}
           onCompletarConserto={abrirConsertoOperador}
           onConfirmarPagamento={confirmarPagamentoConserto}
           podeEditar={podeMovimentarEquipamento(itemDetalhe)}
+          somenteLeitura={itemDetalheSomenteLeitura}
           perfilAtual={perfilAtual}
         />
       )}
