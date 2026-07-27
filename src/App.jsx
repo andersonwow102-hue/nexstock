@@ -701,7 +701,7 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
   const administrador = perfilAtual?.perfil === "administrador";
   const gerenteAtual = perfilAtual?.perfil === "gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
   const [form, setForm] = useState({ gerente: GERENTES[0] || "", modalidade: MODALIDADES[0] || "", login: "", senha: "", link: "", observacao: "" });
-  const [appForm, setAppForm] = useState({ modalidade: MODALIDADES[0] || "", appTipo: "terminal", arquivo: null });
+  const [appForm, setAppForm] = useState({ modalidade: MODALIDADES[0] || "", appTipo: "terminal", arquivo: null, linkExterno: "" });
   const [senhasVisiveis, setSenhasVisiveis] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [enviandoApp, setEnviandoApp] = useState(false);
@@ -779,9 +779,9 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
       const salvo = await enviarModalidadeApp(appForm);
       const atualizados = await carregarModalidadeApps();
       onAppsChange?.(atualizados.length ? atualizados : [salvo, ...apps.filter(app => chaveAppModalidade(app.modalidade, app.appTipo) !== chaveAppModalidade(salvo.modalidade, salvo.appTipo))]);
-      setAppForm({ modalidade: appForm.modalidade, appTipo: appForm.appTipo, arquivo: null });
+      setAppForm({ modalidade: appForm.modalidade, appTipo: appForm.appTipo, arquivo: null, linkExterno: "" });
       e.currentTarget.reset();
-      setOk("APK enviado para download dos gerentes.");
+      setOk(appForm.linkExterno.trim() ? "Link do app salvo para download dos gerentes." : "APK enviado para download dos gerentes.");
     } catch (err) {
       setErro(err.message || "Não foi possível enviar o APK.");
     } finally {
@@ -834,7 +834,7 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
           <form className="senhas-form-card" onSubmit={enviarApp}>
             <div>
               <span className="dash-kicker">Apps Android</span>
-              <h3>Upload do APK</h3>
+              <h3>Disponibilizar APK</h3>
             </div>
             <label>Modalidade<select value={appForm.modalidade} onChange={e=>{
               const modalidade = e.target.value;
@@ -845,8 +845,10 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
               <label>Tipo do APK<select value={appForm.appTipo} onChange={e=>setAppForm({...appForm,appTipo:e.target.value})}>{APP_TIPOS_90_DA_SORTE.map(tipo=><option key={tipo.id} value={tipo.id}>{tipo.label}</option>)}</select></label>
             )}
             <label>Arquivo APK<input type="file" accept=".apk,application/vnd.android.package-archive,application/octet-stream" onChange={e=>setAppForm({...appForm,arquivo:e.target.files?.[0]||null})}/></label>
-            <p className="campo-hint">O arquivo fica disponível para download dos gerentes logados.</p>
-            <button className="btn-primario" disabled={enviandoApp}>{enviandoApp?"Enviando...":"Enviar APK"}</button>
+            <div className="senhas-ou"><span>ou</span></div>
+            <label>Link externo do APK<input type="url" value={appForm.linkExterno} onChange={e=>setAppForm({...appForm,linkExterno:e.target.value})} placeholder="https://drive.google.com/..."/></label>
+            <p className="campo-hint">Escolha um arquivo ou cole um link público para download. Não use as duas opções ao mesmo tempo.</p>
+            <button className="btn-primario" disabled={enviandoApp}>{enviandoApp?"Salvando...":"Salvar APK ou link"}</button>
           </form>
         </div>
       )}
@@ -903,7 +905,7 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
                         const app = appsPorModalidade.get(chaveAppModalidade(modalidade, tipo.id));
                         return (
                           <div className={`app-download-opcao ${app?"disponivel":""}`} key={tipo.id}>
-                            <div><strong>{tipo.label}</strong>{app?<span>{app.appNome} · {formatarTamanhoArquivo(app.tamanho)}</span>:<span>Nenhum APK enviado</span>}</div>
+                            <div><strong>{tipo.label}</strong>{app?<span>{app.appNome}{app.downloadUrl?" · Link externo":` · ${formatarTamanhoArquivo(app.tamanho)}`}</span>:<span>Nenhum APK enviado</span>}</div>
                             <button className="btn-secundario" type="button" disabled={!app} onClick={()=>baixarApp(app)}>Baixar</button>
                           </div>
                         );
@@ -915,7 +917,7 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
               const app = appsPorModalidade.get(chaveAppModalidade(modalidade));
               return (
                 <article className={`app-download-card ${app?"disponivel":""}`} key={modalidade}>
-                  <div><strong>{modalidade}</strong>{app?<span>{app.appNome} · {formatarTamanhoArquivo(app.tamanho)}</span>:<span>Nenhum APK enviado</span>}</div>
+                  <div><strong>{modalidade}</strong>{app?<span>{app.appNome}{app.downloadUrl?" · Link externo":` · ${formatarTamanhoArquivo(app.tamanho)}`}</span>:<span>Nenhum APK enviado</span>}</div>
                   <button className="btn-secundario" type="button" disabled={!app} onClick={()=>baixarApp(app)}>Baixar app</button>
                 </article>
               );

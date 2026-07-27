@@ -178,32 +178,47 @@ export async function carregarModalidadeApps() {
   return data.map(mapModalidadeApp);
 }
 
-export async function enviarModalidadeApp({ modalidade, appTipo = 'padrao', arquivo }) {
+export async function enviarModalidadeApp({ modalidade, appTipo = 'padrao', arquivo, linkExterno = '' }) {
   const nomeModalidade = String(modalidade || '').trim();
   const tipoApp = nomeModalidade === '90 da Sorte' ? String(appTipo || 'terminal').trim() : 'padrao';
+  const urlExterna = String(linkExterno || '').trim();
   if (!nomeModalidade) throw new Error('Selecione a modalidade.');
-  if (!arquivo) throw new Error('Selecione o APK para enviar.');
-  const nomeArquivo = String(arquivo.name || '').trim();
-  if (!nomeArquivo.toLowerCase().endsWith('.apk')) throw new Error('Envie um arquivo APK válido.');
+  if (!arquivo && !urlExterna) throw new Error('Selecione um APK ou informe o link externo.');
+  if (arquivo && urlExterna) throw new Error('Use apenas uma opção: arquivo APK ou link externo.');
+  if (urlExterna) {
+    let url;
+    try {
+      url = new URL(urlExterna);
+    } catch {
+      throw new Error('Informe um link externo válido.');
+    }
+    if (url.protocol !== 'https:') throw new Error('O link externo precisa começar com https://.');
+  }
+  const nomeArquivo = arquivo ? String(arquivo.name || '').trim() : `App ${nomeModalidade}`;
+  if (arquivo && !nomeArquivo.toLowerCase().endsWith('.apk')) throw new Error('Envie um arquivo APK válido.');
   const { data: authData } = await supabase.auth.getUser();
-  const seguro = nomeArquivo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-');
-  const pasta = nomeModalidade.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
-  const subpasta = tipoApp.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
-  const caminho = `${pasta}/${subpasta}/${Date.now()}-${seguro}`;
-  const { error: uploadError } = await supabase.storage
-    .from('modalidade-apps')
-    .upload(caminho, arquivo, {
-      upsert: true,
-      contentType: arquivo.type || 'application/vnd.android.package-archive',
-    });
-  if (uploadError) throw await reportarErroDados(uploadError, { acao: 'upload_apk_modalidade', modalidade: nomeModalidade, appTipo: tipoApp });
+  let caminho = '';
+  if (arquivo) {
+    const seguro = nomeArquivo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-');
+    const pasta = nomeModalidade.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+    const subpasta = tipoApp.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+    caminho = `${pasta}/${subpasta}/${Date.now()}-${seguro}`;
+    const { error: uploadError } = await supabase.storage
+      .from('modalidade-apps')
+      .upload(caminho, arquivo, {
+        upsert: true,
+        contentType: arquivo.type || 'application/vnd.android.package-archive',
+      });
+    if (uploadError) throw await reportarErroDados(uploadError, { acao: 'upload_apk_modalidade', modalidade: nomeModalidade, appTipo: tipoApp });
+  }
   const row = {
     modalidade: nomeModalidade,
     app_tipo: tipoApp,
     app_nome: nomeArquivo,
     storage_path: caminho,
-    tamanho: Number(arquivo.size) || 0,
-    tipo: arquivo.type || 'application/vnd.android.package-archive',
+    download_url: urlExterna,
+    tamanho: Number(arquivo?.size) || 0,
+    tipo: arquivo?.type || 'application/vnd.android.package-archive',
     atualizado_em: new Date().toISOString(),
     atualizado_por: authData?.user?.id || null,
   };
@@ -222,6 +237,7 @@ export async function enviarModalidadeApp({ modalidade, appTipo = 'padrao', arqu
 }
 
 export async function obterLinkDownloadModalidadeApp(app) {
+  if (app?.downloadUrl) return app.downloadUrl;
   if (!app?.storagePath) throw new Error('App sem arquivo disponível.');
   const { data, error } = await supabase.storage
     .from('modalidade-apps')
@@ -933,6 +949,7 @@ function mapModalidadeApp(row) {
     appTipo: row.app_tipo || 'padrao',
     appNome: row.app_nome || '',
     storagePath: row.storage_path || '',
+    downloadUrl: row.download_url || '',
     tamanho: Number(row.tamanho) || 0,
     tipo: row.tipo || '',
     criadoEm: row.criado_em || '',
