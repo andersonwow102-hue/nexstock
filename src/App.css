@@ -5204,6 +5204,109 @@ body {
 }
 .despesas-total-banner strong { color: var(--verde); font-size: 20px; font-family: 'JetBrains Mono', monospace; margin-left: 8px; }
 
+.modal-despesas-pontos {
+  width: min(760px, calc(100vw - 28px));
+  max-width: 760px;
+}
+.despesas-pontos-lista,
+.despesas-lancamentos {
+  display: grid;
+  gap: 8px;
+}
+.despesas-ponto-linha {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(105px, auto) 18px;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--txt-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.despesas-ponto-linha:hover {
+  border-color: var(--azul);
+  background: var(--azul-bg);
+  transform: translateY(-1px);
+}
+.despesas-ponto-linha > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.despesas-ponto-linha strong,
+.despesas-ponto-linha small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.despesas-ponto-linha small { color: var(--txt-secondary); }
+.despesas-ponto-linha b,
+.despesas-lancamento b {
+  color: var(--verde);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+.despesas-ponto-linha > span:last-child {
+  color: var(--azul);
+  font-size: 24px;
+  line-height: 1;
+}
+.despesas-ponto-detalhe {
+  display: grid;
+  gap: 14px;
+}
+.despesas-voltar { justify-self: start; }
+.despesas-ponto-detalhe-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.despesas-ponto-detalhe-head > div { min-width: 0; }
+.despesas-ponto-detalhe-head span,
+.despesas-ponto-detalhe-head small {
+  color: var(--txt-secondary);
+}
+.despesas-ponto-detalhe-head h4 {
+  margin: 4px 0;
+  font-size: 18px;
+}
+.despesas-lancamento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.despesas-lancamento > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.despesas-lancamento small { color: var(--txt-secondary); }
+
+@media (max-width: 620px) {
+  .despesas-ponto-linha {
+    grid-template-columns: minmax(0, 1fr) auto 14px;
+    gap: 9px;
+  }
+  .despesas-ponto-linha .badge-gerente { display: none; }
+  .despesas-ponto-detalhe-head { align-items: flex-start; }
+  .despesas-lancamento { align-items: flex-start; }
+}
+
 .modal-extra-largo {
   width: min(860px, calc(100vw - 28px));
   max-width: 860px;

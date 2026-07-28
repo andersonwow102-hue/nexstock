@@ -502,33 +502,53 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
 }
 
 // ─── Modal Despesas ───────────────────────────────────────────────────────────
-function PointExpensesModal({ pontos, onFechar }) {
+function PointExpensesModal({ pontos, despesas = [], onFechar }) {
+  const [pontoSelecionado, setPontoSelecionado] = useState(null);
   const comDespesa = [...pontos].filter(p=>p.possuiDespesa==="sim"&&p.valorDespesa>0).sort((a,b)=>b.valorDespesa-a.valorDespesa);
   const total = comDespesa.reduce((s,p)=>s+p.valorDespesa,0);
+  const despesasDoPonto = pontoSelecionado
+    ? despesas
+      .filter(d=>Number(d.pontoId)===Number(pontoSelecionado.id)&&String(d.competencia||"").slice(0,7)===competenciaAtual())
+      .sort((a,b)=>String(a.descricao||"").localeCompare(String(b.descricao||""),"pt-BR"))
+    : [];
   return (
     <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
+      <div className="modal modal-largo modal-despesas-pontos" onClick={e=>e.stopPropagation()}>
         <div className="modal-header"><h3>💰 Despesas dos Pontos</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
         <div className="modal-body">
-          <div className="despesas-total-banner">Total Geral: <strong>{formatarReais(total)}</strong></div>
-          <div className="tabela-wrapper">
-            <table className="tabela">
-              <thead><tr><th>Nome Fantasia</th><th>Dono</th><th>Rota</th><th>Telefone</th><th>Valor</th></tr></thead>
-              <tbody>
-                {comDespesa.length===0
-                  ?<tr><td colSpan={5} className="tabela-vazia">Nenhum ponto com despesa.</td></tr>
-                  :comDespesa.map(p=>(
-                    <tr key={p.id}>
-                      <td className="td-nome">🏪 {p.nomeFantasia}</td>
-                      <td className="td-obs">{p.nomeDono}</td>
-                      <td><BadgeGerente gerente={p.gerente}/></td>
-                      <td className="td-obs">{p.telefone}</td>
-                      <td style={{color:"var(--verde)",fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{formatarReais(p.valorDespesa)}</td>
-                    </tr>
+          <div className="despesas-total-banner">{pontoSelecionado?"Total do ponto":"Total Geral"}: <strong>{formatarReais(pontoSelecionado?.valorDespesa??total)}</strong></div>
+          {pontoSelecionado ? (
+            <section className="despesas-ponto-detalhe">
+              <button type="button" className="btn-secundario despesas-voltar" onClick={()=>setPontoSelecionado(null)}>← Voltar aos pontos</button>
+              <div className="despesas-ponto-detalhe-head">
+                <div><span>🏪 Ponto selecionado</span><h4>{pontoSelecionado.nomeFantasia}</h4><small>{pontoSelecionado.nomeDono} · {pontoSelecionado.telefone}</small></div>
+                <BadgeGerente gerente={pontoSelecionado.gerente}/>
+              </div>
+              <div className="despesas-lancamentos">
+                {despesasDoPonto.length===0
+                  ?<p className="tabela-vazia">Não há lançamentos detalhados para este ponto no mês atual.</p>
+                  :despesasDoPonto.map(d=>(
+                    <article className="despesas-lancamento" key={d.id}>
+                      <div><strong>{d.descricao||"Despesa sem descrição"}</strong>{d.observacao&&<small>{d.observacao}</small>}</div>
+                      <b>{formatarReais(valorDespesa(d))}</b>
+                    </article>
                   ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </section>
+          ) : (
+            <div className="despesas-pontos-lista">
+              {comDespesa.length===0
+                ?<p className="tabela-vazia">Nenhum ponto com despesa.</p>
+                :comDespesa.map(p=>(
+                  <button type="button" className="despesas-ponto-linha" key={p.id} onClick={()=>setPontoSelecionado(p)}>
+                    <div><strong>🏪 {p.nomeFantasia}</strong><small>{p.nomeDono}</small></div>
+                    <BadgeGerente gerente={p.gerente}/>
+                    <b>{formatarReais(p.valorDespesa)}</b>
+                    <span aria-hidden="true">›</span>
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
         <div className="modal-footer"><button className="btn-primario" onClick={onFechar}>Fechar</button></div>
       </div>
@@ -1469,7 +1489,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       </>)}
 
       {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
-      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveis} onFechar={()=>setVerDespesas(false)}/>}
+      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveis} despesas={despesasVisiveis} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
       {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
