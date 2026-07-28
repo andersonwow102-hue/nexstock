@@ -5279,6 +5279,7 @@ body {
 .despesas-ponto-detalhe-head h4 {
   margin: 4px 0;
   font-size: 18px;
+  color: var(--txt-primary);
 }
 .despesas-lancamento {
   display: flex;
@@ -5289,12 +5290,14 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-card);
+  color: var(--txt-primary);
 }
 .despesas-lancamento > div {
   min-width: 0;
   display: grid;
   gap: 4px;
 }
+.despesas-lancamento strong { color: var(--txt-primary); }
 .despesas-lancamento small { color: var(--txt-secondary); }
 
 @media (max-width: 620px) {
