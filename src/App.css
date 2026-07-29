@@ -5213,6 +5213,74 @@ body {
   display: grid;
   gap: 8px;
 }
+.despesas-rotas-filtro {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.despesas-rotas-filtro > label {
+  display: grid;
+  gap: 6px;
+  color: var(--txt-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.despesas-rotas-filtro select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--txt-primary);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.despesas-rotas-ranking {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.despesas-rotas-ranking button {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--txt-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.despesas-rotas-ranking button:hover,
+.despesas-rotas-ranking button.ativo {
+  border-color: var(--azul);
+  background: var(--azul-bg);
+}
+.despesas-rotas-ranking span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.despesas-rotas-ranking i {
+  color: var(--azul);
+  font-style: normal;
+}
+.despesas-rotas-ranking strong {
+  color: var(--verde);
+  font-family: 'JetBrains Mono', monospace;
+}
+.despesas-rotas-ranking small { color: var(--txt-secondary); }
 .despesas-ponto-linha {
   width: 100%;
   display: grid;
@@ -5301,6 +5369,7 @@ body {
 .despesas-lancamento small { color: var(--txt-secondary); }
 
 @media (max-width: 620px) {
+  .despesas-rotas-ranking { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .despesas-ponto-linha {
     grid-template-columns: minmax(0, 1fr) auto 14px;
     gap: 9px;

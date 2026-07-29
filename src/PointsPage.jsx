@@ -504,8 +504,20 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
 // ─── Modal Despesas ───────────────────────────────────────────────────────────
 function PointExpensesModal({ pontos, despesas = [], onFechar }) {
   const [pontoSelecionado, setPontoSelecionado] = useState(null);
+  const [rotaSelecionada, setRotaSelecionada] = useState("Todas");
   const comDespesa = [...pontos].filter(p=>p.possuiDespesa==="sim"&&p.valorDespesa>0).sort((a,b)=>b.valorDespesa-a.valorDespesa);
-  const total = comDespesa.reduce((s,p)=>s+p.valorDespesa,0);
+  const resumoRotas = [...comDespesa.reduce((mapa,p)=>{
+    const rota = rotaCanonica(p.gerente) || "Sem rota";
+    const atual = mapa.get(rota) || { rota, total:0, pontos:0 };
+    atual.total += Number(p.valorDespesa) || 0;
+    atual.pontos += 1;
+    mapa.set(rota, atual);
+    return mapa;
+  },new Map()).values()].sort((a,b)=>b.total-a.total||a.rota.localeCompare(b.rota,"pt-BR"));
+  const pontosFiltrados = rotaSelecionada==="Todas"
+    ?comDespesa
+    :comDespesa.filter(p=>(rotaCanonica(p.gerente)||"Sem rota")===rotaSelecionada);
+  const totalFiltrado = pontosFiltrados.reduce((s,p)=>s+p.valorDespesa,0);
   const despesasDoPonto = pontoSelecionado
     ? despesas
       .filter(d=>Number(d.pontoId)===Number(pontoSelecionado.id)&&String(d.competencia||"").slice(0,7)===competenciaAtual())
@@ -516,7 +528,7 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
       <div className="modal modal-largo modal-despesas-pontos" onClick={e=>e.stopPropagation()}>
         <div className="modal-header"><h3>💰 Despesas dos Pontos</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
         <div className="modal-body">
-          <div className="despesas-total-banner">{pontoSelecionado?"Total do ponto":"Total Geral"}: <strong>{formatarReais(pontoSelecionado?.valorDespesa??total)}</strong></div>
+          <div className="despesas-total-banner">{pontoSelecionado?"Total do ponto":rotaSelecionada==="Todas"?"Total Geral":"Total da rota"}: <strong>{formatarReais(pontoSelecionado?.valorDespesa??totalFiltrado)}</strong></div>
           {pontoSelecionado ? (
             <section className="despesas-ponto-detalhe">
               <button type="button" className="btn-secundario despesas-voltar" onClick={()=>setPontoSelecionado(null)}>← Voltar aos pontos</button>
@@ -536,10 +548,28 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
               </div>
             </section>
           ) : (
-            <div className="despesas-pontos-lista">
-              {comDespesa.length===0
+            <>
+              <section className="despesas-rotas-filtro">
+                <label>Filtrar por rota
+                  <select value={rotaSelecionada} onChange={e=>setRotaSelecionada(e.target.value)}>
+                    <option value="Todas">Todas as rotas — {formatarReais(comDespesa.reduce((s,p)=>s+p.valorDespesa,0))}</option>
+                    {resumoRotas.map(item=><option key={item.rota} value={item.rota}>{item.rota} — {formatarReais(item.total)}</option>)}
+                  </select>
+                </label>
+                <div className="despesas-rotas-ranking">
+                  {resumoRotas.map((item,indice)=>(
+                    <button type="button" className={rotaSelecionada===item.rota?"ativo":""} key={item.rota} onClick={()=>setRotaSelecionada(item.rota)}>
+                      <span><i>{indice+1}º</i>{item.rota}</span>
+                      <strong>{formatarReais(item.total)}</strong>
+                      <small>{item.pontos} ponto{item.pontos!==1?"s":""}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <div className="despesas-pontos-lista">
+              {pontosFiltrados.length===0
                 ?<p className="tabela-vazia">Nenhum ponto com despesa.</p>
-                :comDespesa.map(p=>(
+                :pontosFiltrados.map(p=>(
                   <button type="button" className="despesas-ponto-linha" key={p.id} onClick={()=>setPontoSelecionado(p)}>
                     <div><strong>🏪 {p.nomeFantasia}</strong><small>{p.nomeDono}</small></div>
                     <BadgeGerente gerente={p.gerente}/>
@@ -547,7 +577,8 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
                     <span aria-hidden="true">›</span>
                   </button>
                 ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
         <div className="modal-footer"><button className="btn-primario" onClick={onFechar}>Fechar</button></div>
