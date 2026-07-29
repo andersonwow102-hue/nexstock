@@ -505,19 +505,28 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
 function PointExpensesModal({ pontos, despesas = [], onFechar }) {
   const [pontoSelecionado, setPontoSelecionado] = useState(null);
   const [rotaSelecionada, setRotaSelecionada] = useState("Todas");
-  const comDespesa = [...pontos].filter(p=>p.possuiDespesa==="sim"&&p.valorDespesa>0).sort((a,b)=>b.valorDespesa-a.valorDespesa);
-  const resumoRotas = [...comDespesa.reduce((mapa,p)=>{
+  const [situacaoSelecionada, setSituacaoSelecionada] = useState("com");
+  const pontoTemDespesa = p=>p.possuiDespesa==="sim"&&Number(p.valorDespesa)>0;
+  const comDespesa = pontos.filter(pontoTemDespesa);
+  const resumoRotas = [...pontos.reduce((mapa,p)=>{
     const rota = rotaCanonica(p.gerente) || "Sem rota";
-    const atual = mapa.get(rota) || { rota, total:0, pontos:0 };
+    const atual = mapa.get(rota) || { rota, total:0, pontos:0, comDespesa:0, semDespesa:0 };
     atual.total += Number(p.valorDespesa) || 0;
     atual.pontos += 1;
+    if (pontoTemDespesa(p)) atual.comDespesa += 1;
+    else atual.semDespesa += 1;
     mapa.set(rota, atual);
     return mapa;
   },new Map()).values()].sort((a,b)=>b.total-a.total||a.rota.localeCompare(b.rota,"pt-BR"));
-  const pontosFiltrados = rotaSelecionada==="Todas"
-    ?comDespesa
-    :comDespesa.filter(p=>(rotaCanonica(p.gerente)||"Sem rota")===rotaSelecionada);
-  const totalFiltrado = pontosFiltrados.reduce((s,p)=>s+p.valorDespesa,0);
+  const pontosDaRota = rotaSelecionada==="Todas"
+    ?pontos
+    :pontos.filter(p=>(rotaCanonica(p.gerente)||"Sem rota")===rotaSelecionada);
+  const pontosFiltrados = pontosDaRota
+    .filter(p=>situacaoSelecionada==="todos"||(situacaoSelecionada==="com"?pontoTemDespesa(p):!pontoTemDespesa(p)))
+    .sort((a,b)=>(Number(b.valorDespesa)||0)-(Number(a.valorDespesa)||0)||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
+  const totalFiltrado = pontosDaRota.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
+  const totalComDespesa = pontosDaRota.filter(pontoTemDespesa).length;
+  const totalSemDespesa = pontosDaRota.length-totalComDespesa;
   const despesasDoPonto = pontoSelecionado
     ? despesas
       .filter(d=>Number(d.pontoId)===Number(pontoSelecionado.id)&&String(d.competencia||"").slice(0,7)===competenciaAtual())
@@ -561,19 +570,24 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
                     <button type="button" className={rotaSelecionada===item.rota?"ativo":""} key={item.rota} onClick={()=>setRotaSelecionada(item.rota)}>
                       <span><i>{indice+1}º</i>{item.rota}</span>
                       <strong>{formatarReais(item.total)}</strong>
-                      <small>{item.pontos} ponto{item.pontos!==1?"s":""}</small>
+                      <small><em>{item.comDespesa} com despesa</em><em className="sem-despesa">{item.semDespesa} sem despesa</em></small>
                     </button>
                   ))}
+                </div>
+                <div className="despesas-situacao-filtro" role="group" aria-label="Filtrar pontos pela situação da despesa">
+                  <button type="button" className={situacaoSelecionada==="todos"?"ativo":""} onClick={()=>setSituacaoSelecionada("todos")}>Todos <b>{pontosDaRota.length}</b></button>
+                  <button type="button" className={situacaoSelecionada==="com"?"ativo":""} onClick={()=>setSituacaoSelecionada("com")}>Com despesas <b>{totalComDespesa}</b></button>
+                  <button type="button" className={`sem-despesa ${situacaoSelecionada==="sem"?"ativo":""}`} onClick={()=>setSituacaoSelecionada("sem")}>Sem despesas <b>{totalSemDespesa}</b></button>
                 </div>
               </section>
               <div className="despesas-pontos-lista">
               {pontosFiltrados.length===0
-                ?<p className="tabela-vazia">Nenhum ponto com despesa.</p>
+                ?<p className="tabela-vazia">Nenhum ponto encontrado neste filtro.</p>
                 :pontosFiltrados.map(p=>(
                   <button type="button" className="despesas-ponto-linha" key={p.id} onClick={()=>setPontoSelecionado(p)}>
                     <div><strong>🏪 {p.nomeFantasia}</strong><small>{p.nomeDono}</small></div>
                     <BadgeGerente gerente={p.gerente}/>
-                    <b>{formatarReais(p.valorDespesa)}</b>
+                    <b className={pontoTemDespesa(p)?"":"sem-despesa"}>{pontoTemDespesa(p)?formatarReais(p.valorDespesa):"Sem despesa"}</b>
                     <span aria-hidden="true">›</span>
                   </button>
                 ))}
