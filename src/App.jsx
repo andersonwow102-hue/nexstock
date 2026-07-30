@@ -2435,6 +2435,10 @@ function statusPagamentoConserto(item){
   return"";
 }
 
+function solicitacaoConsertoPendente(item){
+  return statusPagamentoConserto(item)==="comunicado";
+}
+
 function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, onCompletarConserto, onConfirmarPagamento, podeEditar, somenteLeitura=false, perfilAtual }) {
   const [notaAberta,setNotaAberta]=useState(false);
   const movimentos=historico.filter(h=>h.itemId===item.id);
@@ -2479,9 +2483,9 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
               {item.consertoNotaArquivo&&(
                 <button className="btn-secundario" type="button" onClick={()=>setNotaAberta(true)}>Visualizar nota fiscal</button>
               )}
-              {operador&&emConserto&&!somenteLeitura&&(
+              {operador&&(emConserto||pagamentoStatus==="comunicado")&&!somenteLeitura&&(
                 <button className="btn-primario ficha-conserto-acao" type="button" disabled={pagamentoSolicitado} onClick={()=>{onFechar();onCompletarConserto(item);}}>
-                  {pagamentoSolicitado?"Aguardando pagamento do admin":pagamentoPago?"Concluir conserto":"Completar dados do conserto"}
+                  {pagamentoSolicitado?"Aguardando pagamento do admin":pagamentoPago?"Concluir conserto":pagamentoStatus==="comunicado"?"Analisar e aprovar conserto":"Completar dados do conserto"}
                 </button>
               )}
               {admin&&emConserto&&pagamentoSolicitado&&!somenteLeitura&&(
@@ -3234,7 +3238,9 @@ function Sistema({onLogout}){
   const historicoOperacional=gerenteAtual?historico.filter(h=>itensOperacionaisIds.has(h.itemId)||itensOperacionaisNomes.has(h.itemNome)):historico;
   const historicoPontosOperacional=gerenteAtual?historicoPontos.filter(h=>pontosOperacionaisNomes.has(h.nome)):historicoPontos;
   const recebimentosPendentes=gerenteAtual?itensOperacionais.filter(i=>normalizarTexto(i.gerenteResponsavel)===gerenteAtualKey&&i.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando):[];
-  const podeMovimentarEquipamento=item=>podeEditar||(
+  const podeMovimentarEquipamento=item=>solicitacaoConsertoPendente(item)
+    ?operador
+    :podeEditar||(
     perfilAtual.perfil==="gerente"&&
     normalizarTexto(item.gerenteResponsavel)===gerenteAtualKey&&
     item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido
@@ -3262,9 +3268,12 @@ function Sistema({onLogout}){
   const totalDisponivel=gerenteAtual?itensOperacionais.filter(i=>i.status==="Disponível").length:estoqueInterno.length;
   const totalEmRota    =gerenteAtual?itensOperacionais.filter(i=>i.status==="Em rota").length:equipamentosEmPontos.length;
   const totalComGerentes=estoqueGerentes.length+equipamentosEmTransitoGerente.length;
-  const totalConserto  =itensOperacionais.filter(i=>i.status==="Em conserto").length;
+  const solicitacoesConsertoPendentes=itensOperacionais
+    .filter(solicitacaoConsertoPendente)
+    .sort((a,b)=>(b.consertoSolicitadoEm||"").localeCompare(a.consertoSolicitadoEm||""));
+  const totalConserto  =itensOperacionais.filter(i=>i.status==="Em conserto"||solicitacaoConsertoPendente(i)).length;
   const consertosPendentes=itensOperacionais
-    .filter(i=>i.status==="Em conserto")
+    .filter(i=>i.status==="Em conserto"&&!solicitacaoConsertoPendente(i))
     .sort((a,b)=>(b.consertoSolicitadoEm||"").localeCompare(a.consertoSolicitadoEm||""));
   const pagamentosConsertoPendentes=itensOperacionais
     .filter(i=>i.status==="Em conserto"&&statusPagamentoConserto(i)==="solicitado")
@@ -3327,7 +3336,7 @@ function Sistema({onLogout}){
       (filtroEscopoEquip==="interno"&&i.status==="Disponível"&&!i.localizacao&&!i.gerenteResponsavel)||
       (filtroEscopoEquip==="pontos"&&i.status==="Em rota"&&Boolean(i.localizacao))||
       (filtroEscopoEquip==="gerentes"&&Boolean(i.gerenteResponsavel)&&!i.localizacao)||
-      (filtroEscopoEquip==="conserto"&&i.status==="Em conserto");
+      (filtroEscopoEquip==="conserto"&&(i.status==="Em conserto"||solicitacaoConsertoPendente(i)));
     const q=busca.toLowerCase();
     const mB=!busca||[i.nome,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>(f||"").toLowerCase().includes(q));
     return mC&&mS&&mE&&mB;
@@ -3381,7 +3390,7 @@ function Sistema({onLogout}){
     setModalMov(item);setMov({...movVazio,ponto:item.localizacao||"",gerente:item.gerenteResponsavel||""});setErroMov("");
   }
   function abrirConsertoOperador(item){
-    if(perfilAtual.perfil!=="operador"||item.status!=="Em conserto")return;
+    if(perfilAtual.perfil!=="operador"||(item.status!=="Em conserto"&&!solicitacaoConsertoPendente(item)))return;
     const pagamento=statusPagamentoConserto(item);
     if(pagamento==="solicitado"){
       window.alert("Aguardando a administração confirmar o pagamento para concluir este conserto.");
@@ -3522,7 +3531,8 @@ function Sistema({onLogout}){
     if(tipo.id==="gerente"&&!mov.gerente){setErroMov("Selecione o gerente que vai receber este equipamento.");return;}
     setErroMov("");
     try {
-      const localizacao=tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
+      const apenasSolicitarConserto=tipo.id==="conserto"&&perfilAtual.perfil!=="operador";
+      const localizacao=apenasSolicitarConserto?modalMov.localizacao:tipo.id==="ponto"?mov.ponto:tipo.id==="conserto"?"Em conserto":"";
       const dadosConserto=tipo.id==="conserto"?{
         consertoDefeito: mov.defeito.trim(),
         consertoAssistencia: "",
@@ -3535,7 +3545,7 @@ function Sistema({onLogout}){
         consertoNotaArquivo: gerenteAtual ? "" : (mov.notaFiscalArquivo || ""),
         consertoSolicitadoEm: isoAgora(),
         consertoSolicitadoPor: perfilAtual.userId || "",
-        consertoPagamentoStatus: gerenteAtual ? "comunicado" : perfilAtual.perfil==="operador" ? "solicitado" : (modalMov.consertoPagamentoStatus||""),
+        consertoPagamentoStatus: apenasSolicitarConserto ? "comunicado" : "solicitado",
         consertoPagamentoSolicitadoEm: perfilAtual.perfil==="operador" ? isoAgora() : (modalMov.consertoPagamentoSolicitadoEm||""),
         consertoPagamentoSolicitadoPor: perfilAtual.perfil==="operador" ? (perfilAtual.userId || "") : (modalMov.consertoPagamentoSolicitadoPor||""),
         consertoPagamentoConfirmadoEm: modalMov.consertoPagamentoConfirmadoEm||"",
@@ -3561,7 +3571,9 @@ function Sistema({onLogout}){
         consertoPagamentoConfirmadoPor: "",
         consertoComunicadoPorGerente: false,
       }:{};
-      const upd=tipo.id==="gerente"
+      const upd=apenasSolicitarConserto
+        ?{...modalMov,quantidade:1,status:modalMov.status,localizacao:modalMov.localizacao,responsavel:modalMov.responsavel,gerenteResponsavel:modalMov.gerenteResponsavel,transferenciaStatus:modalMov.transferenciaStatus}
+        :tipo.id==="gerente"
         ?{...modalMov,quantidade:1,status:"Em rota",localizacao:"",responsavel:mov.responsavel||mov.gerente,gerenteResponsavel:mov.gerente,transferenciaStatus:TRANSFERENCIA_GERENTE.aguardando,transferenciaEnviadaEm:isoAgora(),transferenciaRecebidaEm:""}
         :tipo.id==="disponivel"&&!gerenteAtual
           ?{...modalMov,quantidade:1,status:tipo.novoStatus,localizacao:"",responsavel:mov.responsavel||modalMov.responsavel,gerenteResponsavel:"",transferenciaStatus:"",transferenciaEnviadaEm:"",transferenciaRecebidaEm:""}
@@ -3572,7 +3584,7 @@ function Sistema({onLogout}){
       const detalhe=tipo.id==="ponto"
         ?`Destino: ${mov.ponto}`
         :tipo.id==="conserto"
-          ?(gerenteAtual?`Gerente comunicou defeito para operação | Defeito: ${mov.defeito}`:perfilAtual.perfil==="operador"?`Operador registrou conserto e solicitou pagamento ao financeiro | Defeito: ${mov.defeito}`:`Atualização de conserto | Defeito: ${mov.defeito}`)
+          ?(apenasSolicitarConserto?`${gerenteAtual?"Gerente":"Administração"} solicitou avaliação do operador | Defeito: ${mov.defeito}`:`Operador aprovou e encaminhou para conserto | Defeito: ${mov.defeito}`)
           :tipo.id==="gerente"
             ?`Enviado para gerente: ${mov.gerente}`
             :tipo.label;
@@ -3584,7 +3596,7 @@ function Sistema({onLogout}){
       ]:[];
       const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
-      if(tipo.id==="conserto"&&gerenteAtual) window.alert("Equipamento comunicado à administração. A operação foi avisada para buscar o equipamento.");
+      if(tipo.id==="conserto"&&apenasSolicitarConserto) window.alert("Solicitação enviada ao operador. O equipamento só entrará em conserto após a aprovação dele.");
       if(tipo.id==="conserto"&&perfilAtual.perfil==="operador") window.alert("Solicitação de pagamento enviada ao financeiro. A administração já pode conferir e confirmar o pagamento.");
       fecharMov();
     } catch (err) {
@@ -3865,7 +3877,7 @@ function Sistema({onLogout}){
               <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"interno");setFiltroSt("Disponível");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>{gerenteAtual?"prontos para envio":"admin/operação"}</small></button>
               <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"pontos");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>nas rotas</small></button>
               {!gerenteAtual&&<button className="dash-kpi kpi-gerentes" onClick={()=>{navegar("itens");setFiltroEscopoEquip("gerentes");setFiltroSt("Todos");}}><span>Com gerentes</span><strong>{totalComGerentes}</strong><small>estoque/transferência</small></button>}
-              {!gerenteAtual&&<button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroEscopoEquip("conserto");setFiltroSt("Em conserto");}}><span>Conserto</span><strong>{totalConserto}</strong><small>fora de operação</small></button>}
+              {!gerenteAtual&&<button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroEscopoEquip("conserto");setFiltroSt("Todos");}}><span>Conserto</span><strong>{totalConserto}</strong><small>{solicitacoesConsertoPendentes.length} aguardando operador</small></button>}
             </section>
 
             <div className="dash-conteudo">
@@ -3977,8 +3989,9 @@ function Sistema({onLogout}){
                   ["gerentes","Com gerentes"],
                   ["conserto","Conserto"],
                 ].map(([id,label])=>(
-                  <button key={id} className={`points-aba-btn ${filtroEscopoEquip===id?"points-aba-ativa":""}`} onClick={()=>{setFiltroEscopoEquip(id);setAbaEquip("lista");}}>
-                    {label}
+                  <button key={id} className={`points-aba-btn ${id==="conserto"?"equip-escopo-conserto":""} ${filtroEscopoEquip===id?"points-aba-ativa":""}`} onClick={()=>{setFiltroEscopoEquip(id);setAbaEquip("lista");}}>
+                    {label}{id==="conserto"&&<strong>{totalConserto}</strong>}
+                    {id==="conserto"&&solicitacoesConsertoPendentes.length>0&&<small>{solicitacoesConsertoPendentes.length} pendente{solicitacoesConsertoPendentes.length!==1?"s":""}</small>}
                   </button>
                 ))}
               </div>
@@ -4042,6 +4055,27 @@ function Sistema({onLogout}){
                   </div>
                 </section>
               )}
+              {operador&&solicitacoesConsertoPendentes.length>0&&(
+                <section className="conserto-operacao-banner conserto-aprovacao-banner">
+                  <div className="conserto-operacao-topo">
+                    <div>
+                      <span>🔧 Aprovação obrigatória do operador</span>
+                      <h2>{solicitacoesConsertoPendentes.length} solicitação{solicitacoesConsertoPendentes.length!==1?"ões":""} aguardando análise</h2>
+                    </div>
+                    <button className="btn-secundario" onClick={()=>{setFiltroEscopoEquip("conserto");setFiltroSt("Todos");}}>Ver solicitações</button>
+                  </div>
+                  <div className="conserto-operacao-lista">
+                    {solicitacoesConsertoPendentes.slice(0,6).map(item=>(
+                      <button key={item.id} type="button" className="conserto-operacao-item conserto-aprovacao-item" onClick={()=>abrirConsertoOperador(item)}>
+                        <strong>{item.nome}</strong>
+                        <span>{item.gerenteResponsavel?`Solicitado por ${item.gerenteResponsavel}`:"Solicitado pela administração"}</span>
+                        <small>Problema: {item.consertoDefeito||"Não informado"}</small>
+                        <em>Analisar e aprovar</em>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
               {operador&&consertosPendentes.length>0&&(
                 <section className="conserto-operacao-banner">
                   <div className="conserto-operacao-topo">
@@ -4087,20 +4121,21 @@ function Sistema({onLogout}){
                       const pendente=item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando;
                       const recebido=item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao;
                       const emConserto=item.status==="Em conserto";
+                      const consertoAguardandoOperador=solicitacaoConsertoPendente(item);
                       const pagamentoConserto=statusPagamentoConserto(item);
                       return(
-                        <tr key={item.id} className={emConserto?"row-conserto":""}>
+                        <tr key={item.id} className={emConserto||consertoAguardandoOperador?"row-conserto":""}>
                           <td className="td-nome">{ICONES[item.categoria]} {item.nome}</td>
                           <td><span className="badge-cat">{item.categoria}</span></td>
                           <td>
                             <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
-                            {emConserto&&<span className="badge-conserto-operacao">Aguardando operador/admin</span>}
+                            {consertoAguardandoOperador?<span className="badge-conserto-operacao">Solicitação · aguardando operador</span>:emConserto&&<span className="badge-conserto-operacao">Conserto aprovado pelo operador</span>}
                             {pendente&&<span className="badge-transferencia">Aguardando confirmação</span>}
                             {recebido&&<span className="badge-transferencia badge-transferencia-ok">Estoque do gerente</span>}
                           </td>
                           <td><LocalizacaoGerenteCell item={item}/></td>
                           <td>
-                            {operador&&emConserto?<button className="btn-movimentar btn-conserto-operador" disabled={pagamentoConserto==="solicitado"} title={pagamentoConserto==="solicitado"?"Aguardando pagamento do admin":""} onClick={()=>abrirConsertoOperador(item)}>🔧 {pagamentoConserto==="pago"?"Concluir":"Completar"}</button>:
+                            {operador&&(emConserto||consertoAguardandoOperador)?<button className="btn-movimentar btn-conserto-operador" disabled={pagamentoConserto==="solicitado"} title={pagamentoConserto==="solicitado"?"Aguardando pagamento do admin":""} onClick={()=>abrirConsertoOperador(item)}>🔧 {consertoAguardandoOperador?"Analisar":pagamentoConserto==="pago"?"Concluir":"Completar"}</button>:
                               pendente&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}>✅ Confirmar</button>:
                               podeMovimentarEquipamento(item)?<button className="btn-movimentar" onClick={()=>abrirMov(item)}>📦 Movimentar</button>:<span className="td-obs">Consulta</span>}
                           </td>
@@ -4118,13 +4153,13 @@ function Sistema({onLogout}){
               <div className="equip-cards">
                 {itensFiltrados.length===0?<div className="tabela-vazia">Nenhum item encontrado.</div>
                 :itensPagina.map(item=>(
-                  <article className={`equip-card ${item.status==="Em conserto"?"equip-card-conserto":""}`} key={item.id}>
+                  <article className={`equip-card ${item.status==="Em conserto"||solicitacaoConsertoPendente(item)?"equip-card-conserto":""}`} key={item.id}>
                     <div className="equip-card-topo">
                       <div><h3>{ICONES[item.categoria]} {item.nome}</h3></div>
                       <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
                     </div>
-                    {item.status==="Em conserto"&&<span className="badge-conserto-operacao">Aguardando operador/admin</span>}
-                    {item.status==="Em conserto"&&item.consertoDefeito&&<p className="equip-card-defeito">Defeito: {item.consertoDefeito}</p>}
+                    {solicitacaoConsertoPendente(item)?<span className="badge-conserto-operacao">Solicitação · aguardando operador</span>:item.status==="Em conserto"&&<span className="badge-conserto-operacao">Conserto aprovado pelo operador</span>}
+                    {(item.status==="Em conserto"||solicitacaoConsertoPendente(item))&&item.consertoDefeito&&<p className="equip-card-defeito">Problema: {item.consertoDefeito}</p>}
                     {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&<span className="badge-transferencia">Aguardando confirmação</span>}
                     {item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao&&<span className="badge-transferencia badge-transferencia-ok">Estoque do gerente</span>}
                     <div className="equip-card-meta">
@@ -4150,9 +4185,9 @@ function Sistema({onLogout}){
                         }}
                       >
                         <option value="">Selecionar ação</option>
-                        {operador&&item.status==="Em conserto"&&(
+                        {operador&&(item.status==="Em conserto"||solicitacaoConsertoPendente(item))&&(
                           <option value="conserto" disabled={statusPagamentoConserto(item)==="solicitado"}>
-                            {statusPagamentoConserto(item)==="solicitado"?"Aguardando pagamento":statusPagamentoConserto(item)==="pago"?"Concluir conserto":"Completar conserto"}
+                            {solicitacaoConsertoPendente(item)?"Analisar e aprovar":statusPagamentoConserto(item)==="solicitado"?"Aguardando pagamento":statusPagamentoConserto(item)==="pago"?"Concluir conserto":"Completar conserto"}
                           </option>
                         )}
                         {item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando&&gerenteAtual&&<option value="receber">Confirmar recebido</option>}
@@ -4554,7 +4589,7 @@ function Sistema({onLogout}){
                     const status=e.target.value;
                     setForm({...form,status,localizacao:status==="Em rota"?form.localizacao:""});
                   }}>
-                    {statusListaVisivel.map(s=><option key={s}>{s}</option>)}
+                    {(operador?statusListaVisivel:statusListaVisivel.filter(s=>s!=="Em conserto")).map(s=><option key={s}>{s}</option>)}
                   </select></div>
               </div>
               {form.status==="Em rota"&&(
@@ -4614,7 +4649,7 @@ function Sistema({onLogout}){
                   {TIPOS_MOV.filter(t=>podeEditar||t.id!=="gerente").map(t=>(
                     <button key={t.id} className={`tipo-mov-btn ${mov.tipoId===t.id?"tipo-mov-ativo":""}`} onClick={()=>setMov({...mov,tipoId:t.id})}>
                       <span className="tipo-mov-icone">{t.icone}</span>
-                      <span className="tipo-mov-label">{t.label}</span>
+                      <span className="tipo-mov-label">{t.id==="conserto"&&!operador?"Solicitar Conserto":t.label}</span>
                     </button>
                   ))}
                 </div>
@@ -4644,7 +4679,7 @@ function Sistema({onLogout}){
                   <div className="campo">
                     <label>Defeito identificado *</label>
                     <textarea placeholder="Ex: tela apagando, fonte queimada..." rows={2} value={mov.defeito} onChange={e=>setMov({...mov,defeito:e.target.value})}/>
-                    {gerenteAtual&&<span className="campo-hint">Este envio comunica a administração para o operador buscar o equipamento. O operador registra nota fiscal, forma de pagamento, valor e PIX quando receber.</span>}
+                    {perfilAtual.perfil!=="operador"&&<span className="campo-hint">Esta ação apenas envia a descrição do problema ao operador. O equipamento mantém o status e o local atuais até o operador analisar e aprovar o conserto.</span>}
                   </div>
                   {!gerenteAtual&&(
                     <div className="campos-duplos">
@@ -4678,13 +4713,15 @@ function Sistema({onLogout}){
                   )}
                 </div>
               )}
-              <div className="mov-status-resultado">Novo status: <span className={`badge-status ${STATUS_CFG[tipoMovSel.novoStatus]?.cor||""}`}>{tipoMovSel.novoStatus}</span></div>
+              <div className="mov-status-resultado">{tipoMovSel.id==="conserto"&&perfilAtual.perfil!=="operador"
+                ?<>Destino da solicitação: <span className="badge-conserto-operacao">Aguardando aprovação do operador</span></>
+                :<>Novo status: <span className={`badge-status ${STATUS_CFG[tipoMovSel.novoStatus]?.cor||""}`}>{tipoMovSel.novoStatus}</span></>}</div>
               <div className="campos-duplos">
                 <div className="campo"><label>Responsável</label><input type="text" placeholder="Ex: Carlos" value={mov.responsavel} onChange={e=>setMov({...mov,responsavel:e.target.value})}/></div>
                 <div className="campo"><label>Observação</label><input type="text" placeholder="Motivo..." value={mov.observacao} onChange={e=>setMov({...mov,observacao:e.target.value})}/></div>
               </div>
             </div>
-            <div className="modal-footer"><button className="btn-secundario" onClick={fecharMov}>Cancelar</button><button className="btn-primario" onClick={confirmarMov}>Confirmar</button></div>
+            <div className="modal-footer"><button className="btn-secundario" onClick={fecharMov}>Cancelar</button><button className="btn-primario" onClick={confirmarMov}>{tipoMovSel.id==="conserto"&&perfilAtual.perfil!=="operador"?"Enviar solicitação ao operador":"Confirmar"}</button></div>
           </div>
         </div>
       )}
