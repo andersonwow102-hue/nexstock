@@ -5332,6 +5332,57 @@ body {
   font-style: normal;
 }
 .despesas-rotas-ranking small em.sem-despesa { color: var(--vermelho); }
+.despesas-rotas-ranking .despesas-gerente-sinal {
+  color: var(--laranja);
+  font-weight: 700;
+}
+.despesas-origem-resumo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.despesas-origem-resumo span {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.despesas-origem-resumo small { color: var(--txt-secondary); }
+.despesas-origem-resumo strong {
+  color: var(--verde);
+  font-family: 'JetBrains Mono', monospace;
+}
+.despesas-gerentes-resumo {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--laranja) 45%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--laranja) 7%, var(--bg-card));
+}
+.despesas-gerentes-resumo h4 {
+  margin: 0 0 2px;
+  color: var(--txt-primary);
+}
+.despesas-gerentes-resumo article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+.despesas-gerentes-resumo article div { display: grid; gap: 2px; }
+.despesas-gerentes-resumo article small { color: var(--txt-secondary); }
+.despesas-gerentes-resumo article b {
+  color: var(--laranja);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
 .despesas-situacao-filtro {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5455,6 +5506,7 @@ body {
 
 @media (max-width: 620px) {
   .despesas-rotas-ranking { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .despesas-origem-resumo { grid-template-columns: 1fr; }
   .despesas-situacao-filtro { grid-template-columns: 1fr; }
   .despesas-ponto-linha {
     grid-template-columns: minmax(0, 1fr) auto 14px;

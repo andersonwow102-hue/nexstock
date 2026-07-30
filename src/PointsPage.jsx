@@ -11,7 +11,7 @@ import {
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
 import { exportarCsvSeguro } from "./csvExport.js";
-import { expenseBelongsToManager } from "./expenseScope.js";
+import { expenseBelongsToManager, isManagerExpense } from "./expenseScope.js";
 
 const partesDataLocal=()=>{
   const d = new Date();
@@ -508,23 +508,40 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
   const [situacaoSelecionada, setSituacaoSelecionada] = useState("com");
   const pontoTemDespesa = p=>p.possuiDespesa==="sim"&&Number(p.valorDespesa)>0;
   const comDespesa = pontos.filter(pontoTemDespesa);
+  const despesasPessoais = despesas
+    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competenciaAtual());
+  const totalDespesasPontos = pontos.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
+  const totalDespesasPessoais = despesasPessoais.reduce((s,d)=>s+valorDespesa(d),0);
   const resumoRotas = [...pontos.reduce((mapa,p)=>{
     const rota = rotaCanonica(p.gerente) || "Sem rota";
-    const atual = mapa.get(rota) || { rota, total:0, pontos:0, comDespesa:0, semDespesa:0 };
-    atual.total += Number(p.valorDespesa) || 0;
+    const atual = mapa.get(rota) || { rota, totalPontos:0, totalGerente:0, total:0, pontos:0, comDespesa:0, semDespesa:0 };
+    atual.totalPontos += Number(p.valorDespesa) || 0;
     atual.pontos += 1;
     if (pontoTemDespesa(p)) atual.comDespesa += 1;
     else atual.semDespesa += 1;
     mapa.set(rota, atual);
     return mapa;
-  },new Map()).values()].sort((a,b)=>b.total-a.total||a.rota.localeCompare(b.rota,"pt-BR"));
+  },new Map()).values()];
+  despesasPessoais.forEach(d=>{
+    const rota = rotaCanonica(d.rota) || d.rota || "Sem rota";
+    const atual = resumoRotas.find(item=>item.rota===rota) || { rota, totalPontos:0, totalGerente:0, total:0, pontos:0, comDespesa:0, semDespesa:0 };
+    atual.totalGerente += valorDespesa(d);
+    if (!resumoRotas.includes(atual)) resumoRotas.push(atual);
+  });
+  resumoRotas.forEach(item=>{item.total=item.totalPontos+item.totalGerente;});
+  resumoRotas.sort((a,b)=>b.total-a.total||a.rota.localeCompare(b.rota,"pt-BR"));
   const pontosDaRota = rotaSelecionada==="Todas"
     ?pontos
     :pontos.filter(p=>(rotaCanonica(p.gerente)||"Sem rota")===rotaSelecionada);
   const pontosFiltrados = pontosDaRota
     .filter(p=>situacaoSelecionada==="todos"||(situacaoSelecionada==="com"?pontoTemDespesa(p):!pontoTemDespesa(p)))
     .sort((a,b)=>(Number(b.valorDespesa)||0)-(Number(a.valorDespesa)||0)||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
-  const totalFiltrado = pontosDaRota.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
+  const despesasPessoaisDaRota = rotaSelecionada==="Todas"
+    ? despesasPessoais
+    : despesasPessoais.filter(d=>(rotaCanonica(d.rota)||d.rota||"Sem rota")===rotaSelecionada);
+  const totalPontosFiltrado = pontosDaRota.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
+  const totalPessoalFiltrado = despesasPessoaisDaRota.reduce((s,d)=>s+valorDespesa(d),0);
+  const totalFiltrado = totalPontosFiltrado+totalPessoalFiltrado;
   const totalComDespesa = pontosDaRota.filter(pontoTemDespesa).length;
   const totalSemDespesa = pontosDaRota.length-totalComDespesa;
   const despesasDoPonto = pontoSelecionado
@@ -538,6 +555,12 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
         <div className="modal-header"><h3>💰 Despesas dos Pontos</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
         <div className="modal-body">
           <div className="despesas-total-banner">{pontoSelecionado?"Total do ponto":rotaSelecionada==="Todas"?"Total Geral":"Total da rota"}: <strong>{formatarReais(pontoSelecionado?.valorDespesa??totalFiltrado)}</strong></div>
+          {!pontoSelecionado&&(
+            <div className="despesas-origem-resumo">
+              <span><small>Despesas dos pontos</small><strong>{formatarReais(totalPontosFiltrado)}</strong></span>
+              <span><small>Despesas pessoais dos gerentes</small><strong>{formatarReais(totalPessoalFiltrado)}</strong></span>
+            </div>
+          )}
           {pontoSelecionado ? (
             <section className="despesas-ponto-detalhe">
               <button type="button" className="btn-secundario despesas-voltar" onClick={()=>setPontoSelecionado(null)}>← Voltar aos pontos</button>
@@ -561,7 +584,7 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
               <section className="despesas-rotas-filtro">
                 <label>Filtrar por rota
                   <select value={rotaSelecionada} onChange={e=>setRotaSelecionada(e.target.value)}>
-                    <option value="Todas">Todas as rotas — {formatarReais(comDespesa.reduce((s,p)=>s+p.valorDespesa,0))}</option>
+                    <option value="Todas">Todas as rotas — {formatarReais(totalDespesasPontos+totalDespesasPessoais)}</option>
                     {resumoRotas.map(item=><option key={item.rota} value={item.rota}>{item.rota} — {formatarReais(item.total)}</option>)}
                   </select>
                 </label>
@@ -571,9 +594,21 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
                       <span><i>{indice+1}º</i>{item.rota}</span>
                       <strong>{formatarReais(item.total)}</strong>
                       <small><em>{item.comDespesa} com despesa</em><em className="sem-despesa">{item.semDespesa} sem despesa</em></small>
+                      {item.totalGerente>0&&<small className="despesas-gerente-sinal">👤 Gerente: {formatarReais(item.totalGerente)}</small>}
                     </button>
                   ))}
                 </div>
+                {despesasPessoaisDaRota.length>0&&(
+                  <div className="despesas-gerentes-resumo">
+                    <h4>👤 Despesas pessoais dos gerentes</h4>
+                    {despesasPessoaisDaRota.map(d=>(
+                      <article key={d.id}>
+                        <div><strong>{d.gerente||"Gerente"}</strong><small>{d.rota||"Sem rota"} · {d.descricao||"Despesa sem descrição"}</small></div>
+                        <b>{formatarReais(valorDespesa(d))}</b>
+                      </article>
+                    ))}
+                  </div>
+                )}
                 <div className="despesas-situacao-filtro" role="group" aria-label="Filtrar pontos pela situação da despesa">
                   <button type="button" className={situacaoSelecionada==="todos"?"ativo":""} onClick={()=>setSituacaoSelecionada("todos")}>Todos <b>{pontosDaRota.length}</b></button>
                   <button type="button" className={situacaoSelecionada==="com"?"ativo":""} onClick={()=>setSituacaoSelecionada("com")}>Com despesas <b>{totalComDespesa}</b></button>
@@ -602,11 +637,15 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
 }
 
 // ─── ABA: Visão Geral ─────────────────────────────────────────────────────────
-function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos, podeEditar, mostrarDespesas=true }) {
+function AbaVisaoGeral({ pontos, despesas = [], onVerDespesas, onNovoClick, onAbrirPontos, podeEditar, mostrarDespesas=true }) {
   const totalPontos   = pontos.length;
   const comDespesa    = pontos.filter(p=>p.possuiDespesa==="sim").length;
   const semDespesa    = pontos.filter(p=>p.possuiDespesa==="nao").length;
-  const totalDespesas = pontos.reduce((s,p)=>s+(p.valorDespesa||0),0);
+  const totalPontosDespesas = pontos.reduce((s,p)=>s+(p.valorDespesa||0),0);
+  const totalGerentesDespesas = despesas
+    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competenciaAtual())
+    .reduce((s,d)=>s+valorDespesa(d),0);
+  const totalDespesas = totalPontosDespesas+totalGerentesDespesas;
 
   return (
     <>
@@ -619,7 +658,8 @@ function AbaVisaoGeral({ pontos, onVerDespesas, onNovoClick, onAbrirPontos, pode
             <button className="resumo-card resumo-defeito clickable" onClick={()=>onAbrirPontos("sim")}><div className="resumo-num">{comDespesa}</div><div className="resumo-label">Com Despesa</div><small>Mostrar lista</small></button>
             <button className="resumo-card resumo-conserto ponto-despesa-card clickable" onClick={onVerDespesas}>
               <div className="resumo-num" style={{fontSize:"18px"}}>{formatarReais(totalDespesas)}</div>
-              <div className="resumo-label">💰 Total Despesas</div><small>Ver detalhes</small>
+              <div className="resumo-label">💰 Total Despesas</div>
+              <small>Pontos {formatarReais(totalPontosDespesas)} · Gerentes {formatarReais(totalGerentesDespesas)}</small>
             </button>
           </>}
         </div>
@@ -1273,6 +1313,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const despesasEscopo = mostrarDespesas
     ? despesas.filter(d=>
       pontosVisiveisBase.some(p=>Number(p.id)===Number(d.pontoId)) ||
+      (administrador && isManagerExpense(d)) ||
       (gerenteAtual && expenseBelongsToManager(d, gerenteAtual))
     )
     : [];
@@ -1527,7 +1568,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       )}
 
       {!loading&&(<>
-        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} podeEditar={podeCriarPonto} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
+        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} despesas={despesasVisiveis} podeEditar={podeCriarPonto} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
         {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeExcluir={podeExcluirPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onVerAcessos={setPontoAcessos}
             onExportExcel={()=>exportarPontosExcel(pontosParaExportar)} onExportPDF={()=>exportarPontosPDF(pontosParaExportar)}/>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
