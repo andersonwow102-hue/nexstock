@@ -172,7 +172,6 @@ function validarMov(mov,tipo,perfil=""){
   if(tipo.exigePonto&&!mov.ponto)return"Selecione o ponto de destino.";
   if(tipo.id==="conserto"&&!mov.defeito.trim())return"Descreva o defeito antes de enviar o equipamento para conserto.";
   if(tipo.id==="conserto"&&perfil==="operador"){
-    if(!mov.notaFiscalArquivo)return"Anexe a foto da nota fiscal antes de enviar para conserto.";
     if(!String(mov.formaPagamento||"").trim())return"Informe a forma de pagamento do conserto.";
     if(mov.formaPagamento==="PIX"&&!String(mov.consertoPix||"").trim())return"Informe a chave PIX do conserto.";
     if(Number(mov.consertoValor||0)<=0)return"Informe o valor do conserto.";
@@ -4690,11 +4689,11 @@ function Sistema({onLogout}){
                     <div className={`conserto-fiscal-card ${perfilAtual.perfil!=="operador"?"conserto-fiscal-bloqueado":""}`}>
                       <div>
                         <span className="dash-kicker">Dados fiscais do conserto</span>
-                        <p>{perfilAtual.perfil==="operador"?"Obrigatório para operador antes de enviar o equipamento.":"Somente o operador registra nota, PIX e valor do conserto."}</p>
+                        <p>{perfilAtual.perfil==="operador"?"A foto da nota fiscal é opcional. Informe o valor e os dados de pagamento para aprovar.":"Somente o operador registra nota, PIX e valor do conserto."}</p>
                       </div>
                       <div className="campos-duplos">
                         <div className="campo">
-                          <label>Foto da nota fiscal {perfilAtual.perfil==="operador"?"*":""}</label>
+                          <label>Foto da nota fiscal (opcional)</label>
                           <input type="file" accept="image/*" disabled={perfilAtual.perfil!=="operador"} onChange={e=>anexarNotaFiscalConserto(e.target.files?.[0])}/>
                           {mov.notaFiscalNome&&<span className="campo-hint">Anexado: {mov.notaFiscalNome}</span>}
                           {mov.notaFiscalArquivo&&<button className="btn-link-mini" type="button" onClick={()=>window.open(mov.notaFiscalArquivo,"_blank","noopener,noreferrer")}>Visualizar nota anexada</button>}
