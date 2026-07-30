@@ -1335,6 +1335,24 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       String(a.ponto?.nomeFantasia||"").localeCompare(String(b.ponto?.nomeFantasia||""), "pt-BR") ||
       String(a.descricao||"").localeCompare(String(b.descricao||""), "pt-BR")
     );
+  const despesasDetalheAgrupadas = [...despesasDetalhe.reduce((grupos,d)=>{
+    const despesaGerente = expenseBelongsToManager(d, gerenteSelecionado);
+    const chave = despesaGerente
+      ? `gerente:${normalizarTexto(d.gerente)}:${normalizarTexto(d.rota)}`
+      : `ponto:${Number(d.pontoId)}`;
+    const grupo = grupos.get(chave) || {
+      chave,
+      nome: d.ponto?.nomeFantasia || (despesaGerente ? `Despesa pessoal de ${d.gerente || gerenteSelecionado}` : `Ponto ${d.pontoId}`),
+      lancamentos: [],
+      meses: new Set(),
+      total: 0,
+    };
+    grupo.lancamentos.push(d);
+    grupo.meses.add(formatarMesPrestacao(mesDespesaPrestacao(d.competencia)));
+    grupo.total += valorDespesaPrestacao(d);
+    grupos.set(chave, grupo);
+    return grupos;
+  },new Map()).values()];
   const equipamentosDetalhe = itens.filter(i =>
     nomesPontosDetalhe.has(i.localizacao) ||
     normalizarTexto(i.gerenteResponsavel) === normalizarTexto(gerenteSelecionado) ||
@@ -1857,18 +1875,25 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           <div className="fechamento-despesas-box">
             <div className="fechamento-despesas-head">
               <strong>Despesas da conferência</strong>
-              <span>{despesasDetalhe.length} lançamento{despesasDetalhe.length!==1?"s":""}</span>
+              <span>{despesasDetalheAgrupadas.length} grupo{despesasDetalheAgrupadas.length!==1?"s":""} · {despesasDetalhe.length} lançamento{despesasDetalhe.length!==1?"s":""}</span>
             </div>
             {despesasDetalhe.length===0?(
               <p className="dash-vazio">Nenhuma despesa encontrada para este recorte.</p>
-            ):despesasDetalhe.map(d=>(
-              <article className="fechamento-despesa-card" key={d.id}>
-                <div>
-                  <strong>{d.ponto?.nomeFantasia || (expenseBelongsToManager(d, gerenteSelecionado) ? "Despesa do gerente" : `Ponto ${d.pontoId}`)}</strong>
-                  <span>{d.descricao || "Despesa sem descrição"}</span>
+            ):despesasDetalheAgrupadas.map(grupo=>(
+              <article className="fechamento-despesa-card" key={grupo.chave}>
+                <div className="fechamento-despesa-conteudo">
+                  <strong>{grupo.nome}</strong>
+                  <div className="fechamento-despesa-itens">
+                    {grupo.lancamentos.map(d=>(
+                      <span key={d.id}>
+                        <span>{d.descricao || "Despesa sem descrição"}</span>
+                        <em>{formatarMoedaPDF(valorDespesaPrestacao(d))}</em>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <small>{formatarMesPrestacao(mesDespesaPrestacao(d.competencia))}</small>
-                <b>{formatarMoedaPDF(valorDespesaPrestacao(d))}</b>
+                <small>{[...grupo.meses].join(", ")}</small>
+                <b>{formatarMoedaPDF(grupo.total)}</b>
               </article>
             ))}
           </div>
