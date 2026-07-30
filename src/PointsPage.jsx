@@ -42,7 +42,7 @@ const pontoPossuiPlayBet = ponto =>
 
 function PlayBetBadge({ ponto }) {
   if (!pontoPossuiPlayBet(ponto)) return null;
-  return <span className="playbet-destaque" title="Este ponto possui a modalidade Play Bet">⭐ PLAY BET</span>;
+  return <span className="playbet-destaque" title="Modalidade Play Bet">PLAY BET</span>;
 }
 
 function resumoDespesaPontoMes(ponto, despesas=[], competencia=competenciaAtual()) {

@@ -5471,25 +5471,23 @@ body {
 .playbet-destaque {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
   margin-left: 6px;
-  padding: 2px 7px;
-  border: 1px solid #f59e0b;
+  padding: 2px 6px;
+  border: 1px solid var(--border-light);
   border-radius: 999px;
-  background: #fff7d6;
-  color: #9a5800;
+  background: var(--bg-elevated);
+  color: var(--txt-secondary);
   font-size: 9.5px;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.35;
   letter-spacing: .04em;
   vertical-align: middle;
   white-space: nowrap;
-  box-shadow: 0 2px 7px rgba(245,158,11,.16);
 }
 .tema-claro .playbet-destaque {
-  background: #fff7d6;
-  color: #8a4b00;
-  border-color: #f5b942;
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
 }
 .despesas-ponto-linha b,
 .despesas-lancamento b {
