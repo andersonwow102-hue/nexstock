@@ -35,6 +35,15 @@ const gerentePodeLancarDespesas=()=>diaAtual()>=10;
 const slugArquivo=t=>String(t||"geral").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
 const normalizarNomeFantasia = valor =>
   String(valor || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+const pontoPossuiPlayBet = ponto =>
+  (ponto?.modalidades || []).some(modalidade =>
+    String(modalidade || "").replace(/\s+/g, "").toLocaleLowerCase("pt-BR") === "playbet"
+  );
+
+function PlayBetBadge({ ponto }) {
+  if (!pontoPossuiPlayBet(ponto)) return null;
+  return <span className="playbet-destaque" title="Este ponto possui a modalidade Play Bet">⭐ PLAY BET</span>;
+}
 
 function resumoDespesaPontoMes(ponto, despesas=[], competencia=competenciaAtual()) {
   const total = despesas
@@ -565,7 +574,7 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
             <section className="despesas-ponto-detalhe">
               <button type="button" className="btn-secundario despesas-voltar" onClick={()=>setPontoSelecionado(null)}>← Voltar aos pontos</button>
               <div className="despesas-ponto-detalhe-head">
-                <div><span>🏪 Ponto selecionado</span><h4>{pontoSelecionado.nomeFantasia}</h4><small>{pontoSelecionado.nomeDono} · {pontoSelecionado.telefone}</small></div>
+                <div><span>🏪 Ponto selecionado</span><h4>{pontoSelecionado.nomeFantasia} <PlayBetBadge ponto={pontoSelecionado}/></h4><small>{pontoSelecionado.nomeDono} · {pontoSelecionado.telefone}</small></div>
                 <BadgeGerente gerente={pontoSelecionado.gerente}/>
               </div>
               <div className="despesas-lancamentos">
@@ -620,7 +629,7 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
                 ?<p className="tabela-vazia">Nenhum ponto encontrado neste filtro.</p>
                 :pontosFiltrados.map(p=>(
                   <button type="button" className="despesas-ponto-linha" key={p.id} onClick={()=>setPontoSelecionado(p)}>
-                    <div><strong>🏪 {p.nomeFantasia}</strong><small>{p.nomeDono}</small></div>
+                    <div><strong>🏪 {p.nomeFantasia} <PlayBetBadge ponto={p}/></strong><small>{p.nomeDono}</small></div>
                     <BadgeGerente gerente={p.gerente}/>
                     <b className={pontoTemDespesa(p)?"":"sem-despesa"}>{pontoTemDespesa(p)?formatarReais(p.valorDespesa):"Sem despesa"}</b>
                     <span aria-hidden="true">›</span>
@@ -721,6 +730,7 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
                 return <tr key={p.id} className={bloqueadas.length?"ponto-bloqueado-row":""}>
                   <td className="td-nome">
                     🏪 {p.nomeFantasia}
+                    <PlayBetBadge ponto={p}/>
                     {bloqueadas.length>0&&<small className="ponto-bloqueado-alerta">🚫 Bloqueado: {bloqueadas.join(", ")}</small>}
                   </td>
                   <td>
@@ -755,7 +765,7 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
           return(
             <article className={`ponto-card ${bloqueadas.length?"ponto-card-bloqueado-wrap":""}`} key={p.id}>
               <div className="ponto-card-topo">
-                <div><h3>🏪 {p.nomeFantasia}</h3><p>{p.nomeDono} · {p.telefone}</p></div>
+                <div><h3>🏪 {p.nomeFantasia} <PlayBetBadge ponto={p}/></h3><p>{p.nomeDono} · {p.telefone}</p></div>
                 {mostrarDespesas&&p.possuiDespesa==="sim"&&<span className="badge-status status-defeito">Despesa lançada</span>}
               </div>
               <div className="ponto-card-linha"><span>Rota</span><BadgeGerente gerente={p.gerente}/></div>
