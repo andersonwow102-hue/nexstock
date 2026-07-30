@@ -1887,7 +1887,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                     {grupo.lancamentos.map(d=>(
                       <span key={d.id}>
                         <span>{d.descricao || "Despesa sem descrição"}</span>
-                        <em>{formatarMoedaPDF(valorDespesaPrestacao(d))}</em>
                       </span>
                     ))}
                   </div>

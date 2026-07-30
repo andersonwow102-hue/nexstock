@@ -4310,19 +4310,9 @@ body {
   gap: 5px;
 }
 .fechamento-despesa-itens > span {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  display: block;
   color: var(--txt-secondary);
   font-size: 12px;
-}
-.fechamento-despesa-itens em {
-  color: var(--txt-muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-style: normal;
-  white-space: nowrap;
 }
 .fechamento-despesa-card span,
 .fechamento-despesa-card small {
