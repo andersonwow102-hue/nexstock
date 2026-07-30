@@ -3468,6 +3468,25 @@ body {
 .login-titulo    { font-size: 18px; font-weight: 700; color: var(--txt-primary); letter-spacing: -0.3px; }
 .login-subtitulo { font-size: 12.5px; color: var(--txt-secondary); margin-top: -4px; }
 .login-form { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.login-card .campo label { color: #b5c4da; }
+.login-card .campo input {
+  background: #0b1727;
+  border-color: #314761;
+  color: #f3f7ff;
+  -webkit-text-fill-color: #f3f7ff;
+  caret-color: #f3f7ff;
+}
+.login-card .campo input::placeholder {
+  color: #8192ad;
+  -webkit-text-fill-color: #8192ad;
+}
+.login-card .campo input:-webkit-autofill,
+.login-card .campo input:-webkit-autofill:hover,
+.login-card .campo input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f3f7ff;
+  box-shadow: 0 0 0 1000px #0b1727 inset;
+  transition: background-color 9999s ease-out 0s;
+}
 .login-erro {
   background: var(--vermelho-bg); color: var(--vermelho);
   border: 1px solid var(--vermelho-border);
@@ -5377,6 +5396,7 @@ body {
   background: var(--bg-card);
 }
 .despesas-gerentes-resumo article div { display: grid; gap: 2px; }
+.despesas-gerentes-resumo article strong { color: var(--txt-primary); }
 .despesas-gerentes-resumo article small { color: var(--txt-secondary); }
 .despesas-gerentes-resumo article b {
   color: var(--laranja);
