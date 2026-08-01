@@ -5333,6 +5333,40 @@ body {
   color: var(--txt-primary);
   font-weight: 600;
 }
+.aviso-prazo-overlay { z-index: 1600; }
+.aviso-prazo-despesas {
+  overflow: hidden;
+  border-color: var(--vermelho-border);
+}
+.aviso-prazo-faixa {
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--vermelho-border);
+  background: var(--vermelho-bg);
+  color: var(--vermelho);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.aviso-prazo-despesas .modal-body { display: grid; gap: 12px; }
+.aviso-prazo-despesas h3 {
+  color: var(--txt-primary);
+  font-size: 19px;
+  line-height: 1.35;
+}
+.aviso-prazo-despesas p {
+  color: var(--txt-secondary);
+  line-height: 1.6;
+}
+.aviso-prazo-responsabilidade {
+  padding: 13px 14px;
+  border: 1px solid var(--vermelho-border);
+  border-radius: var(--radius-md);
+  background: var(--vermelho-bg);
+  color: var(--txt-primary);
+  font-weight: 650;
+  line-height: 1.55;
+}
 
 .modal-despesas-pontos {
   width: min(760px, calc(100vw - 28px));

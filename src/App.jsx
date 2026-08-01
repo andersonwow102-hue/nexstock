@@ -3271,6 +3271,7 @@ function Sistema({onLogout}){
   const [gerenteConsulta,setGerenteConsulta]=useState("");
   const [consultaEquipFiltro,setConsultaEquipFiltro]=useState("todos");
   const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",emailTemporario:false,emailTemporarioExpiraEm:""});
+  const [avisoPrazoDespesas,setAvisoPrazoDespesas]=useState(null);
 
   useEffect(()=>{
     let ativo=true;
@@ -3327,6 +3328,29 @@ function Sistema({onLogout}){
   ])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const gerenteAtual=perfilAtual.perfil==="gerente"?(perfilAtual.gerenteNome||perfilAtual.nome||""):"";
   const gerenteAtualKey=normalizarTexto(gerenteAtual);
+  useEffect(()=>{
+    function verificarAviso(){
+      if(!gerenteAtual){setAvisoPrazoDespesas(null);return;}
+      const agora=new Date();
+      if(agora.getDate()<27){setAvisoPrazoDespesas(null);return;}
+      const ano=agora.getFullYear();
+      const mes=agora.getMonth();
+      const dia=agora.getDate();
+      const dataChave=`${ano}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+      const chave=`stockon_aviso_prazo_despesas_${normalizarTexto(gerenteAtual)}_${dataChave}`;
+      try{if(localStorage.getItem(chave)==="ciente")return;}catch{}
+      const ultimoDia=new Date(ano,mes+1,0).getDate();
+      const competencia=new Date(ano,mes,1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+      setAvisoPrazoDespesas({chave,ultimoDia,competencia});
+    }
+    verificarAviso();
+    const intervalo=window.setInterval(verificarAviso,60*1000);
+    return()=>window.clearInterval(intervalo);
+  },[gerenteAtual]);
+  function confirmarAvisoPrazoDespesas(){
+    if(avisoPrazoDespesas?.chave){try{localStorage.setItem(avisoPrazoDespesas.chave,"ciente");}catch{}}
+    setAvisoPrazoDespesas(null);
+  }
   const podeCadastrarEquipamento=podeEditar||perfilAtual.perfil==="gerente";
   const gerenteNomeBase=nomeBaseGerente(gerenteAtual);
   const gerenteAvatar=avatarLendario(gerenteAtual);
@@ -4868,6 +4892,25 @@ function Sistema({onLogout}){
             <div className="modal-header"><h3>Sair do Sistema</h3><button className="modal-fechar" onClick={()=>setConfirmLogout(false)}>✕</button></div>
             <div className="modal-body"><p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja sair?</p></div>
             <div className="modal-footer"><button className="btn-secundario" onClick={()=>setConfirmLogout(false)}>Cancelar</button><button className="btn-danger" onClick={onLogout}>Sair</button></div>
+          </div>
+        </div>
+      )}
+
+      {avisoPrazoDespesas&&(
+        <div className="modal-overlay aviso-prazo-overlay">
+          <div className="modal modal-pequeno aviso-prazo-despesas" role="alertdialog" aria-modal="true" aria-labelledby="aviso-prazo-titulo">
+            <div className="aviso-prazo-faixa">Prazo de lançamento se encerrando</div>
+            <div className="modal-body">
+              <h3 id="aviso-prazo-titulo">Conclua as despesas de {avisoPrazoDespesas.competencia}</h3>
+              <p>Todos os lançamentos devem ser concluídos até o dia {avisoPrazoDespesas.ultimoDia}, às 23:59.</p>
+              <p>Após o fechamento do mês, novas despesas ficarão bloqueadas, salvo quando houver uma prorrogação expressamente concedida pelo administrador.</p>
+              <div className="aviso-prazo-responsabilidade">
+                Despesas não registradas dentro do prazo não serão consideradas no fechamento. A omissão será tratada como falta de comprometimento operacional, e eventual prejuízo ficará sob responsabilidade do gerente.
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-primario" type="button" onClick={confirmarAvisoPrazoDespesas}>Li e estou ciente</button>
+            </div>
           </div>
         </div>
       )}
