@@ -32,6 +32,26 @@ const diaAtual=()=>Number(partesDataLocal().dia);
 const mesLabel=data=>new Date(`${String(data||"").slice(0,7)}-02T00:00:00`).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric"});
 const valorDespesa=d=>Number(d.valorReal || d.valorPrevisto || 0);
 const gerentePodeLancarDespesas=()=>diaAtual()>=10;
+const EXCECAO_YAGO_JULHO_COMPETENCIA="2026-07";
+const EXCECAO_YAGO_JULHO_EXPIRA_EM="2026-08-02T01:55:09.000Z";
+const EXCECAO_YAGO_JULHO_PRAZO="1º de agosto de 2026 às 22:55";
+const normalizarGerenteExcecao=valor=>String(valor||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLocaleLowerCase("pt-BR");
+const excecaoDespesasYagoAtiva=(gerente,competencia)=>
+  normalizarGerenteExcecao(gerente)==="yago"&&
+  competencia===EXCECAO_YAGO_JULHO_COMPETENCIA&&
+  Date.now()<Date.parse(EXCECAO_YAGO_JULHO_EXPIRA_EM);
+function useExcecaoDespesasYago(gerente,competencia) {
+  const [ativa,setAtiva]=useState(()=>excecaoDespesasYagoAtiva(gerente,competencia));
+  useEffect(()=>{
+    setAtiva(excecaoDespesasYagoAtiva(gerente,competencia));
+    if(normalizarGerenteExcecao(gerente)!=="yago"||competencia!==EXCECAO_YAGO_JULHO_COMPETENCIA)return undefined;
+    const restante=Date.parse(EXCECAO_YAGO_JULHO_EXPIRA_EM)-Date.now();
+    if(restante<=0)return undefined;
+    const timer=window.setTimeout(()=>setAtiva(false),restante);
+    return()=>window.clearTimeout(timer);
+  },[gerente,competencia]);
+  return ativa;
+}
 const slugArquivo=t=>String(t||"geral").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
 const normalizarNomeFantasia = valor =>
   String(valor || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
@@ -829,9 +849,11 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
   const [linhas, setLinhas] = useState([]);
   const [erro, setErro] = useState("");
   const mesAtual = competenciaAtual();
+  const nomeGerentePerfil = perfilAtual?.gerenteNome || perfilAtual?.nome || gerenteDespesa;
+  const excecaoYagoJulho = useExcecaoDespesasYago(nomeGerentePerfil, competencia) && gerente;
   const gerenteNoMesAtual = !gerente || competencia === mesAtual;
   const gerenteDentroPrazo = !gerente || gerentePodeLancarDespesas();
-  const podeEditarAgora = podeEditar && gerenteNoMesAtual && gerenteDentroPrazo;
+  const podeEditarAgora = podeEditar && ((gerenteNoMesAtual && gerenteDentroPrazo) || excecaoYagoJulho);
   const consultandoMesAnterior = gerente && competencia !== mesAtual;
   const competenciaTexto = new Date(`${competencia}-02T12:00:00`).toLocaleDateString("pt-BR", { month:"long", year:"numeric" });
   const pertenceAoContexto = d => despesaDoGerente
@@ -848,11 +870,11 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
         valor:valorDespesa(d) ? mascaraMoeda(String(Math.round(valorDespesa(d)*100))) : "",
         observacao:d.observacao || "",
       }));
-    setLinhas(gerente && competencia !== mesAtual
+    setLinhas(gerente && competencia !== mesAtual && !excecaoYagoJulho
       ? base
       : base.length ? [...base, criarLinha()] : [criarLinha(), criarLinha(), criarLinha(), criarLinha()]);
     setErro("");
-  }, [ponto?.id, gerenteDespesa, rota, competencia, despesas]);
+  }, [ponto?.id, gerenteDespesa, rota, competencia, despesas, excecaoYagoJulho]);
 
   const totalBrutoMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
   const totalMes = Math.max(0, totalBrutoMes);
@@ -873,11 +895,11 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
   }
 
   async function salvar() {
-    if (gerente && competencia !== mesAtual) {
+    if (gerente && competencia !== mesAtual && !excecaoYagoJulho) {
       setErro("Gerente só pode lançar despesas do mês atual. Meses anteriores ficam disponíveis apenas para conferência do administrador.");
       return;
     }
-    if (gerente && !gerenteDentroPrazo) {
+    if (gerente && !gerenteDentroPrazo && !excecaoYagoJulho) {
       setErro("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
       return;
     }
@@ -912,6 +934,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
         </div>
         <div className="modal-body">
           {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+          {excecaoYagoJulho&&<div className="info-box despesa-excecao-aviso">Prazo excepcional para Yago: despesas de julho de 2026 podem ser lançadas até {EXCECAO_YAGO_JULHO_PRAZO}. Após esse horário, o mês será bloqueado automaticamente.</div>}
           {despesaDoGerente&&rotasGerente.length>1&&(
             <div className="campo despesa-rota-campo">
               <label>Rota da despesa</label>
@@ -927,7 +950,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
                 <div className={`despesa-periodo-atual ${consultandoMesAnterior?"consulta":""} ${!consultandoMesAnterior&&!podeEditarAgora?"fechado":""}`}>
                   <span className="despesa-periodo-icone">📅</span>
                   <div>
-                    <small>{consultandoMesAnterior?"Consultando mês anterior":podeEditarAgora?"Lançamento do mês atual":"Mês atual · lançamento abre dia 10"}</small>
+                    <small>{excecaoYagoJulho?"Prazo excepcional para julho de 2026":consultandoMesAnterior?"Consultando mês anterior":podeEditarAgora?"Lançamento do mês atual":"Mês atual · lançamento abre dia 10"}</small>
                     <strong>{competenciaTexto}</strong>
                   </div>
                   {consultandoMesAnterior&&<button type="button" onClick={()=>setCompetencia(mesAtual)}>Voltar ao atual</button>}
@@ -937,7 +960,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
                   <div className="campo despesa-mes-campo">
                     <label>Escolha um mês anterior</label>
                     <input type="month" value={competencia} max={mesAtual} onChange={e=>setCompetencia(e.target.value||mesAtual)}/>
-                    <small>Meses anteriores ficam disponíveis somente para consulta.</small>
+                    <small>{excecaoYagoJulho?`Julho de 2026 pode ser editado até ${EXCECAO_YAGO_JULHO_PRAZO}.`:"Meses anteriores ficam disponíveis somente para consulta."}</small>
                   </div>
                 </details>
               </div>
@@ -1316,6 +1339,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   },[perfilAtual?.perfil]);
 
   const gerenteAtual = perfilAtual?.perfil === "gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
+  const excecaoYagoJulhoAtiva = useExcecaoDespesasYago(gerenteAtual, EXCECAO_YAGO_JULHO_COMPETENCIA);
   const administrador = perfilAtual?.perfil === "administrador";
   const operador = perfilAtual?.perfil === "operador";
   const mostrarDespesas = !operador;
@@ -1457,11 +1481,12 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
   async function salvarDespesasPonto(ponto, competencia, linhas) {
     if(!podeEditarDespesas)return;
-    if(gerenteAtual && competencia !== competenciaAtual()) {
+    const excecaoYagoJulho = excecaoDespesasYagoAtiva(gerenteAtual, competencia);
+    if(gerenteAtual && competencia !== competenciaAtual() && !excecaoYagoJulho) {
       window.alert("Gerente só pode lançar despesas do mês atual.");
       return;
     }
-    if(gerenteAtual && !gerentePodeLancarDespesas()) {
+    if(gerenteAtual && !gerentePodeLancarDespesas() && !excecaoYagoJulho) {
       window.alert("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
       return;
     }
@@ -1486,11 +1511,12 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
   async function salvarDespesasGerente(contexto, competencia, linhas) {
     if(!gerenteAtual || !podeEditarDespesas)return;
-    if(competencia !== competenciaAtual()) {
+    const excecaoYagoJulho = excecaoDespesasYagoAtiva(gerenteAtual, competencia);
+    if(competencia !== competenciaAtual() && !excecaoYagoJulho) {
       window.alert("Gerente só pode lançar despesas do mês atual.");
       return;
     }
-    if(!gerentePodeLancarDespesas()) {
+    if(!gerentePodeLancarDespesas() && !excecaoYagoJulho) {
       window.alert("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
       return;
     }
@@ -1558,6 +1584,12 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
         {gerenteAtual&&<button className="btn-secundario" onClick={()=>setDespesasGerenteAbertas(true)}>💼 Minhas despesas</button>}
         {podeCriarPonto&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
       </div>
+
+      {excecaoYagoJulhoAtiva&&(
+        <div className="info-box despesa-excecao-aviso">
+          Prazo excepcional: você pode concluir os lançamentos de julho de 2026 até {EXCECAO_YAGO_JULHO_PRAZO}. Após esse horário, o mês será bloqueado automaticamente.
+        </div>
+      )}
 
       <div className="points-abas">
         {ABAS.map(a=>(
