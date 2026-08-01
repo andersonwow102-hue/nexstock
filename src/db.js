@@ -474,6 +474,63 @@ export async function excluirDespesaMensal(id) {
   if (error) throw new Error(error.message);
 }
 
+export async function carregarProrrogacoesDespesas() {
+  const { data, error } = await supabase
+    .from('prorrogacoes_despesas')
+    .select('*')
+    .order('expira_em', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data || []).map(row => ({
+    id: row.id,
+    gerente: row.gerente || '',
+    competencia: String(row.competencia || '').slice(0, 7),
+    expiraEm: row.expira_em || '',
+    ativo: row.ativo !== false,
+    observacao: row.observacao || '',
+    criadoEm: row.criado_em || '',
+  }));
+}
+
+export async function salvarProrrogacaoDespesa({ gerente, competencia, expiraEm, observacao = '' }) {
+  const payload = {
+    gerente,
+    competencia: `${competencia}-01`,
+    expira_em: expiraEm,
+    ativo: true,
+    observacao: normalizeFreeText(observacao),
+    atualizado_em: new Date().toISOString(),
+  };
+  const { data: existente, error: erroConsulta } = await supabase
+    .from('prorrogacoes_despesas')
+    .select('id')
+    .ilike('gerente', gerente)
+    .eq('competencia', payload.competencia)
+    .maybeSingle();
+  if (erroConsulta) throw new Error(erroConsulta.message);
+  const consulta = existente?.id
+    ? supabase.from('prorrogacoes_despesas').update(payload).eq('id', existente.id)
+    : supabase.from('prorrogacoes_despesas').insert([payload]);
+  const { data, error } = await consulta.select().single();
+  if (error) throw new Error(error.message);
+  return {
+    id: data.id,
+    gerente: data.gerente,
+    competencia: String(data.competencia || '').slice(0, 7),
+    expiraEm: data.expira_em,
+    ativo: data.ativo !== false,
+    observacao: data.observacao || '',
+    criadoEm: data.criado_em || '',
+  };
+}
+
+export async function encerrarProrrogacaoDespesa(id) {
+  const { error } = await supabase
+    .from('prorrogacoes_despesas')
+    .update({ ativo: false, atualizado_em: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 export async function carregarSolicitacoesModalidade() {
   const { data, error } = await supabase
     .from('solicitacoes_modalidade')

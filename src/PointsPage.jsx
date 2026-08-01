@@ -7,6 +7,7 @@ import {
 import {
   carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
   carregarDespesasMensais, salvarDespesaMensal, excluirDespesaMensal,
+  carregarProrrogacoesDespesas,
   carregarSolicitacoesModalidade, criarSolicitacaoModalidade, concluirSolicitacaoModalidade,
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
@@ -32,24 +33,25 @@ const diaAtual=()=>Number(partesDataLocal().dia);
 const mesLabel=data=>new Date(`${String(data||"").slice(0,7)}-02T00:00:00`).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric"});
 const valorDespesa=d=>Number(d.valorReal || d.valorPrevisto || 0);
 const gerentePodeLancarDespesas=()=>diaAtual()>=10;
-const EXCECAO_YAGO_JULHO_COMPETENCIA="2026-07";
-const EXCECAO_YAGO_JULHO_EXPIRA_EM="2026-08-02T01:55:09.000Z";
-const EXCECAO_YAGO_JULHO_PRAZO="1º de agosto de 2026 às 22:55";
 const normalizarGerenteExcecao=valor=>String(valor||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLocaleLowerCase("pt-BR");
-const excecaoDespesasYagoAtiva=(gerente,competencia)=>
-  normalizarGerenteExcecao(gerente)==="yago"&&
-  competencia===EXCECAO_YAGO_JULHO_COMPETENCIA&&
-  Date.now()<Date.parse(EXCECAO_YAGO_JULHO_EXPIRA_EM);
-function useExcecaoDespesasYago(gerente,competencia) {
-  const [ativa,setAtiva]=useState(()=>excecaoDespesasYagoAtiva(gerente,competencia));
+const encontrarProrrogacaoAtiva=(prorrogacoes,gerente,competencia)=>(prorrogacoes||[]).find(item=>
+  item.ativo&&
+  normalizarGerenteExcecao(item.gerente)===normalizarGerenteExcecao(gerente)&&
+  item.competencia===competencia&&
+  Date.parse(item.expiraEm)>Date.now()
+);
+const formatarPrazoProrrogacao=valor=>new Date(valor).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});
+function useProrrogacaoDespesa(prorrogacoes,gerente,competencia) {
+  const [ativa,setAtiva]=useState(()=>encontrarProrrogacaoAtiva(prorrogacoes,gerente,competencia)||null);
   useEffect(()=>{
-    setAtiva(excecaoDespesasYagoAtiva(gerente,competencia));
-    if(normalizarGerenteExcecao(gerente)!=="yago"||competencia!==EXCECAO_YAGO_JULHO_COMPETENCIA)return undefined;
-    const restante=Date.parse(EXCECAO_YAGO_JULHO_EXPIRA_EM)-Date.now();
+    const prorrogacao=encontrarProrrogacaoAtiva(prorrogacoes,gerente,competencia)||null;
+    setAtiva(prorrogacao);
+    if(!prorrogacao)return undefined;
+    const restante=Date.parse(prorrogacao.expiraEm)-Date.now();
     if(restante<=0)return undefined;
-    const timer=window.setTimeout(()=>setAtiva(false),restante);
+    const timer=window.setTimeout(()=>setAtiva(null),restante);
     return()=>window.clearTimeout(timer);
-  },[gerente,competencia]);
+  },[prorrogacoes,gerente,competencia]);
   return ativa;
 }
 const slugArquivo=t=>String(t||"geral").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
@@ -840,7 +842,7 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
   );
 }
 
-function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
+function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], prorrogacoes = [], onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
   const gerente = perfilAtual?.perfil === "gerente";
   const despesaDoGerente = Boolean(gerenteDespesa);
   const [rota, setRota] = useState(rotasGerente[0] || "");
@@ -850,10 +852,10 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
   const [erro, setErro] = useState("");
   const mesAtual = competenciaAtual();
   const nomeGerentePerfil = perfilAtual?.gerenteNome || perfilAtual?.nome || gerenteDespesa;
-  const excecaoYagoJulho = useExcecaoDespesasYago(nomeGerentePerfil, competencia) && gerente;
+  const prorrogacaoAtiva = useProrrogacaoDespesa(prorrogacoes,nomeGerentePerfil,competencia);
   const gerenteNoMesAtual = !gerente || competencia === mesAtual;
   const gerenteDentroPrazo = !gerente || gerentePodeLancarDespesas();
-  const podeEditarAgora = podeEditar && ((gerenteNoMesAtual && gerenteDentroPrazo) || excecaoYagoJulho);
+  const podeEditarAgora = podeEditar && ((gerenteNoMesAtual && gerenteDentroPrazo) || Boolean(prorrogacaoAtiva));
   const consultandoMesAnterior = gerente && competencia !== mesAtual;
   const competenciaTexto = new Date(`${competencia}-02T12:00:00`).toLocaleDateString("pt-BR", { month:"long", year:"numeric" });
   const pertenceAoContexto = d => despesaDoGerente
@@ -870,11 +872,11 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
         valor:valorDespesa(d) ? mascaraMoeda(String(Math.round(valorDespesa(d)*100))) : "",
         observacao:d.observacao || "",
       }));
-    setLinhas(gerente && competencia !== mesAtual && !excecaoYagoJulho
+    setLinhas(gerente && competencia !== mesAtual && !prorrogacaoAtiva
       ? base
       : base.length ? [...base, criarLinha()] : [criarLinha(), criarLinha(), criarLinha(), criarLinha()]);
     setErro("");
-  }, [ponto?.id, gerenteDespesa, rota, competencia, despesas, excecaoYagoJulho]);
+  }, [ponto?.id, gerenteDespesa, rota, competencia, despesas, prorrogacaoAtiva]);
 
   const totalBrutoMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
   const totalMes = Math.max(0, totalBrutoMes);
@@ -895,11 +897,11 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
   }
 
   async function salvar() {
-    if (gerente && competencia !== mesAtual && !excecaoYagoJulho) {
+    if (gerente && competencia !== mesAtual && !prorrogacaoAtiva) {
       setErro("Gerente só pode lançar despesas do mês atual. Meses anteriores ficam disponíveis apenas para conferência do administrador.");
       return;
     }
-    if (gerente && !gerenteDentroPrazo && !excecaoYagoJulho) {
+    if (gerente && !gerenteDentroPrazo && !prorrogacaoAtiva) {
       setErro("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
       return;
     }
@@ -934,7 +936,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
         </div>
         <div className="modal-body">
           {erro&&<div className="erro-msg">⚠️ {erro}</div>}
-          {excecaoYagoJulho&&<div className="info-box despesa-excecao-aviso">Prazo excepcional para Yago: despesas de julho de 2026 podem ser lançadas até {EXCECAO_YAGO_JULHO_PRAZO}. Após esse horário, o mês será bloqueado automaticamente.</div>}
+          {prorrogacaoAtiva&&<div className="info-box despesa-excecao-aviso">Prazo prorrogado pelo administrador: esta competência pode ser editada até {formatarPrazoProrrogacao(prorrogacaoAtiva.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.</div>}
           {despesaDoGerente&&rotasGerente.length>1&&(
             <div className="campo despesa-rota-campo">
               <label>Rota da despesa</label>
@@ -950,7 +952,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
                 <div className={`despesa-periodo-atual ${consultandoMesAnterior?"consulta":""} ${!consultandoMesAnterior&&!podeEditarAgora?"fechado":""}`}>
                   <span className="despesa-periodo-icone">📅</span>
                   <div>
-                    <small>{excecaoYagoJulho?"Prazo excepcional para julho de 2026":consultandoMesAnterior?"Consultando mês anterior":podeEditarAgora?"Lançamento do mês atual":"Mês atual · lançamento abre dia 10"}</small>
+                    <small>{prorrogacaoAtiva?"Prazo prorrogado pelo administrador":consultandoMesAnterior?"Consultando mês anterior":podeEditarAgora?"Lançamento do mês atual":"Mês atual · lançamento abre dia 10"}</small>
                     <strong>{competenciaTexto}</strong>
                   </div>
                   {consultandoMesAnterior&&<button type="button" onClick={()=>setCompetencia(mesAtual)}>Voltar ao atual</button>}
@@ -960,7 +962,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
                   <div className="campo despesa-mes-campo">
                     <label>Escolha um mês anterior</label>
                     <input type="month" value={competencia} max={mesAtual} onChange={e=>setCompetencia(e.target.value||mesAtual)}/>
-                    <small>{excecaoYagoJulho?`Julho de 2026 pode ser editado até ${EXCECAO_YAGO_JULHO_PRAZO}.`:"Meses anteriores ficam disponíveis somente para consulta."}</small>
+                    <small>{prorrogacaoAtiva?`Esta competência pode ser editada até ${formatarPrazoProrrogacao(prorrogacaoAtiva.expiraEm)}.`:"Meses anteriores ficam disponíveis somente para consulta."}</small>
                   </div>
                 </details>
               </div>
@@ -1307,6 +1309,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [despesas,   setDespesas]  = useState([]);
+  const [prorrogacoes,setProrrogacoes]=useState([]);
   const [solicitacoes,setSolicitacoes]=useState([]);
   const [acessosModalidades,setAcessosModalidades]=useState([]);
   const [loading,    setLoading]   = useState(true);
@@ -1326,20 +1329,23 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     async function carregar(){
       setLoading(true);
       const operador = perfilAtual?.perfil === "operador";
-      const [pts, hist, desp, solic, acessos] = await Promise.all([
+      const [pts, hist, desp, solic, acessos, prorrogacoesCarregadas] = await Promise.all([
         carregarPontos(),
         carregarHistoricoPontos(),
         operador ? Promise.resolve([]) : carregarDespesasMensais(),
         carregarSolicitacoesModalidade(),
         carregarPontoModalidadeAcessos(),
+        operador ? Promise.resolve([]) : carregarProrrogacoesDespesas(),
       ]);
-      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setSolicitacoes(solic); setAcessosModalidades(acessos); setLoading(false);
+      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setSolicitacoes(solic); setAcessosModalidades(acessos); setProrrogacoes(prorrogacoesCarregadas); setLoading(false);
     }
     carregar();
   },[perfilAtual?.perfil]);
 
   const gerenteAtual = perfilAtual?.perfil === "gerente" ? (perfilAtual.gerenteNome || perfilAtual.nome || "") : "";
-  const excecaoYagoJulhoAtiva = useExcecaoDespesasYago(gerenteAtual, EXCECAO_YAGO_JULHO_COMPETENCIA);
+  const prorrogacoesAtivasGerente = prorrogacoes.filter(item=>
+    item.ativo&&normalizarGerenteExcecao(item.gerente)===normalizarGerenteExcecao(gerenteAtual)&&Date.parse(item.expiraEm)>Date.now()
+  );
   const administrador = perfilAtual?.perfil === "administrador";
   const operador = perfilAtual?.perfil === "operador";
   const mostrarDespesas = !operador;
@@ -1481,12 +1487,12 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
   async function salvarDespesasPonto(ponto, competencia, linhas) {
     if(!podeEditarDespesas)return;
-    const excecaoYagoJulho = excecaoDespesasYagoAtiva(gerenteAtual, competencia);
-    if(gerenteAtual && competencia !== competenciaAtual() && !excecaoYagoJulho) {
+    const prorrogacaoAtiva = encontrarProrrogacaoAtiva(prorrogacoes,gerenteAtual,competencia);
+    if(gerenteAtual && competencia !== competenciaAtual() && !prorrogacaoAtiva) {
       window.alert("Gerente só pode lançar despesas do mês atual.");
       return;
     }
-    if(gerenteAtual && !gerentePodeLancarDespesas() && !excecaoYagoJulho) {
+    if(gerenteAtual && !gerentePodeLancarDespesas() && !prorrogacaoAtiva) {
       window.alert("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
       return;
     }
@@ -1511,12 +1517,12 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
   async function salvarDespesasGerente(contexto, competencia, linhas) {
     if(!gerenteAtual || !podeEditarDespesas)return;
-    const excecaoYagoJulho = excecaoDespesasYagoAtiva(gerenteAtual, competencia);
-    if(competencia !== competenciaAtual() && !excecaoYagoJulho) {
+    const prorrogacaoAtiva = encontrarProrrogacaoAtiva(prorrogacoes,gerenteAtual,competencia);
+    if(competencia !== competenciaAtual() && !prorrogacaoAtiva) {
       window.alert("Gerente só pode lançar despesas do mês atual.");
       return;
     }
-    if(!gerentePodeLancarDespesas() && !excecaoYagoJulho) {
+    if(!gerentePodeLancarDespesas() && !prorrogacaoAtiva) {
       window.alert("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
       return;
     }
@@ -1585,11 +1591,11 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
         {podeCriarPonto&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
       </div>
 
-      {excecaoYagoJulhoAtiva&&(
-        <div className="info-box despesa-excecao-aviso">
-          Prazo excepcional: você pode concluir os lançamentos de julho de 2026 até {EXCECAO_YAGO_JULHO_PRAZO}. Após esse horário, o mês será bloqueado automaticamente.
+      {prorrogacoesAtivasGerente.map(prorrogacao=>(
+        <div className="info-box despesa-excecao-aviso" key={prorrogacao.id}>
+          Prazo prorrogado: você pode concluir os lançamentos de {mesLabel(prorrogacao.competencia)} até {formatarPrazoProrrogacao(prorrogacao.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.
         </div>
-      )}
+      ))}
 
       <div className="points-abas">
         {ABAS.map(a=>(
@@ -1618,8 +1624,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
       {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveis} despesas={despesasVisiveis} onFechar={()=>setVerDespesas(false)}/>}
-      {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
-      {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
+      {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
+      {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
       {pontoAcessos&&<PointAccessModal ponto={pontoAcessos} acessos={acessosDoPonto(acessosModalidades,pontoAcessos.id)} onFechar={()=>setPontoAcessos(null)}/>}
 

@@ -21,6 +21,7 @@ import {
   carregarMensagensInternas, enviarMensagemInterna, marcarMensagensInternasLidas,
   carregarPixEnvios, enviarPixParaGerente,
   carregarFechamentosRotas, salvarFechamentoRota, finalizarPrestacaoRota,
+  carregarProrrogacoesDespesas, salvarProrrogacaoDespesa, encerrarProrrogacaoDespesa,
   registrarVisualizacaoFechamento, confirmarFechamentoGerente,
   carregarGerenteModalidadeAcessos, salvarGerenteModalidadeAcesso, excluirGerenteModalidadeAcesso,
   carregarModalidadeApps, enviarModalidadeApp, obterLinkDownloadModalidadeApp,
@@ -1281,6 +1282,15 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [fechamentoOk,setFechamentoOk]=useState("");
   const [fechamentoErro,setFechamentoErro]=useState("");
   const [fechamentoSalvando,setFechamentoSalvando]=useState(false);
+  const [prorrogacoesDespesas,setProrrogacoesDespesas]=useState([]);
+  const [prorrogacaoForm,setProrrogacaoForm]=useState(()=>{
+    const limite=new Date(Date.now()+24*60*60*1000);
+    const local=new Date(limite.getTime()-limite.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    return {gerente:GERENTES[0]||"",competencia:hoje().slice(0,7),expiraEm:local};
+  });
+  const [prorrogacaoErro,setProrrogacaoErro]=useState("");
+  const [prorrogacaoOk,setProrrogacaoOk]=useState("");
+  const [prorrogacaoSalvando,setProrrogacaoSalvando]=useState(false);
   const despesasFechamento = despesas.filter(d => {
     const mes = mesDespesaPrestacao(d.competencia);
     const dia = diaDespesaPrestacao(d.criadoEm);
@@ -1419,11 +1429,48 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
 
   useEffect(()=>{
     let ativo=true;
-    carregarFechamentosRotas()
-      .then(lista=>{ if(ativo) setFechamentosRotas(lista); })
+    Promise.all([carregarFechamentosRotas(),carregarProrrogacoesDespesas()])
+      .then(([lista,prorrogacoes])=>{ if(ativo){setFechamentosRotas(lista);setProrrogacoesDespesas(prorrogacoes);} })
       .catch(err=>{ if(ativo) setFechamentoErro(err.message||"Não foi possível carregar os fechamentos."); });
     return ()=>{ativo=false;};
   },[]);
+
+  async function salvarProrrogacao() {
+    setProrrogacaoErro("");
+    setProrrogacaoOk("");
+    if(!prorrogacaoForm.gerente||!prorrogacaoForm.competencia||!prorrogacaoForm.expiraEm){
+      setProrrogacaoErro("Informe gerente, competência e prazo final.");
+      return;
+    }
+    const expiraEm=new Date(prorrogacaoForm.expiraEm);
+    if(Number.isNaN(expiraEm.getTime())||expiraEm.getTime()<=Date.now()){
+      setProrrogacaoErro("O prazo final deve ser posterior ao horário atual.");
+      return;
+    }
+    setProrrogacaoSalvando(true);
+    try{
+      const salva=await salvarProrrogacaoDespesa({...prorrogacaoForm,expiraEm:expiraEm.toISOString()});
+      setProrrogacoesDespesas(prev=>[salva,...prev.filter(item=>item.id!==salva.id)]);
+      setProrrogacaoOk(`Prazo liberado para ${salva.gerente}.`);
+    }catch(err){
+      setProrrogacaoErro(err.message||"Não foi possível liberar o prazo.");
+    }finally{
+      setProrrogacaoSalvando(false);
+    }
+  }
+
+  async function encerrarProrrogacao(item) {
+    if(!window.confirm(`Encerrar agora o prazo de ${item.gerente}?`))return;
+    setProrrogacaoErro("");
+    setProrrogacaoOk("");
+    try{
+      await encerrarProrrogacaoDespesa(item.id);
+      setProrrogacoesDespesas(prev=>prev.map(registro=>registro.id===item.id?{...registro,ativo:false}:registro));
+      setProrrogacaoOk(`Prazo de ${item.gerente} encerrado.`);
+    }catch(err){
+      setProrrogacaoErro(err.message||"Não foi possível encerrar o prazo.");
+    }
+  }
 
   useEffect(()=>{
     const modalidadesAtivas = modalidadesFechamentoPara(gerenteSelecionado, rotaDetalheAtiva);
@@ -1712,6 +1759,47 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         </div>
         <span className="perfil-selo perfil-administrador">Especial</span>
       </div>
+      <section className="prorrogacao-despesas-admin">
+        <div className="prorrogacao-despesas-head">
+          <div>
+            <span className="dash-kicker">Controle de prazos</span>
+            <h3>Prorrogação para lançamento de despesas</h3>
+            <p>Libere uma competência fechada para um gerente por prazo determinado.</p>
+          </div>
+        </div>
+        <div className="prorrogacao-despesas-form">
+          <div className="campo">
+            <label>Gerente</label>
+            <select value={prorrogacaoForm.gerente} onChange={e=>setProrrogacaoForm(prev=>({...prev,gerente:e.target.value}))}>
+              {GERENTES.map(gerente=><option key={gerente} value={gerente}>{gerente}</option>)}
+            </select>
+          </div>
+          <div className="campo">
+            <label>Competência</label>
+            <input type="month" value={prorrogacaoForm.competencia} onChange={e=>setProrrogacaoForm(prev=>({...prev,competencia:e.target.value}))}/>
+          </div>
+          <div className="campo">
+            <label>Prazo final</label>
+            <input type="datetime-local" value={prorrogacaoForm.expiraEm} onChange={e=>setProrrogacaoForm(prev=>({...prev,expiraEm:e.target.value}))}/>
+          </div>
+          <button className="btn-primario" type="button" onClick={salvarProrrogacao} disabled={prorrogacaoSalvando}>{prorrogacaoSalvando?"Salvando...":"Liberar prazo"}</button>
+        </div>
+        {prorrogacaoErro&&<div className="erro-box">{prorrogacaoErro}</div>}
+        {prorrogacaoOk&&<div className="sucesso-box">{prorrogacaoOk}</div>}
+        {prorrogacoesDespesas.length>0&&(
+          <div className="prorrogacao-despesas-lista">
+            {prorrogacoesDespesas.map(item=>{
+              const vigente=item.ativo&&Date.parse(item.expiraEm)>Date.now();
+              return <article key={item.id}>
+                <div><strong>{item.gerente}</strong><span>{formatarMesPrestacao(item.competencia)}</span></div>
+                <div><small>Prazo final</small><strong>{new Date(item.expiraEm).toLocaleString("pt-BR")}</strong></div>
+                <span className={`prorrogacao-status ${vigente?"vigente":"encerrada"}`}>{vigente?"Vigente":"Encerrada"}</span>
+                {vigente&&<button className="btn-secundario" type="button" onClick={()=>encerrarProrrogacao(item)}>Encerrar</button>}
+              </article>;
+            })}
+          </div>
+        )}
+      </section>
       <div className="fechamento-filtros">
         <div className="campo">
           <label>Mês do fechamento</label>
