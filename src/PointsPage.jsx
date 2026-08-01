@@ -1338,6 +1338,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [pontoAcessos,setPontoAcessos]=useState(null);
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
   const [buscaPontos,setBuscaPontos]=useState("");
+  const [competenciaDespesas,setCompetenciaDespesas]=useState(competenciaAtual());
 
   useEffect(()=>{
     async function carregar(){
@@ -1360,9 +1361,9 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const prorrogacoesAtivasGerente = prorrogacoes.filter(item=>
     item.ativo&&normalizarGerenteExcecao(item.gerente)===normalizarGerenteExcecao(gerenteAtual)&&Date.parse(item.expiraEm)>Date.now()
   );
-  const competenciaDespesas = gerenteAtual && prorrogacoesAtivasGerente.length
-    ? [...prorrogacoesAtivasGerente].sort((a,b)=>Date.parse(b.expiraEm)-Date.parse(a.expiraEm))[0].competencia
-    : competenciaAtual();
+  const competenciasAnterioresPermitidas = [...new Set(prorrogacoesAtivasGerente.map(item=>item.competencia))]
+    .filter(competencia=>competencia&&competencia!==competenciaAtual())
+    .sort((a,b)=>b.localeCompare(a));
   const administrador = perfilAtual?.perfil === "administrador";
   const operador = perfilAtual?.perfil === "operador";
   const mostrarDespesas = !operador;
@@ -1394,6 +1395,12 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     if(!mostrarDespesas && abaInterna==="analise") setAbaInterna("pontos");
     if(!mostrarDespesas && filtroDespesa!=="todos") setFiltroDespesa("todos");
   },[mostrarDespesas, abaInterna, filtroDespesa]);
+
+  useEffect(()=>{
+    if(competenciaDespesas!==competenciaAtual()&&!competenciasAnterioresPermitidas.includes(competenciaDespesas)) {
+      setCompetenciaDespesas(competenciaAtual());
+    }
+  },[competenciaDespesas, competenciasAnterioresPermitidas]);
 
   async function salvarPontoHandler(form, equipamentosSelecionados, acessosParaSalvar=null){
     if(pontoEdit && !podeEditarPonto)return;
@@ -1613,6 +1620,21 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
           Prazo para lançamento de {mesLabel(prorrogacao.competencia)}: disponível até {formatarPrazoProrrogacao(prorrogacao.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.
         </div>
       ))}
+
+      {gerenteAtual&&competenciasAnterioresPermitidas.length>0&&(
+        <div className="despesas-competencia-operacional">
+          <label htmlFor="competencia-despesas-gerente">Mês dos lançamentos</label>
+          <select
+            id="competencia-despesas-gerente"
+            value={competenciaDespesas}
+            onChange={e=>{setCompetenciaDespesas(e.target.value);setFiltroDespesa("todos");}}
+          >
+            <option value={competenciaAtual()}>{mesLabel(`${competenciaAtual()}-01`)}</option>
+            {competenciasAnterioresPermitidas.map(competencia=><option key={competencia} value={competencia}>{mesLabel(`${competencia}-01`)}</option>)}
+          </select>
+          <small>Selecione o mês antes de consultar os pontos ou lançar despesas.</small>
+        </div>
+      )}
 
       <div className="points-abas">
         {ABAS.map(a=>(

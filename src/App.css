@@ -5394,6 +5394,39 @@ body {
   font: inherit;
   font-weight: 600;
 }
+.despesas-competencia-operacional {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 280px) 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.despesas-competencia-operacional label {
+  color: var(--txt-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+.despesas-competencia-operacional select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--txt-primary);
+  font: inherit;
+  font-weight: 600;
+}
+.despesas-competencia-operacional small {
+  color: var(--txt-secondary);
+}
+@media (max-width: 700px) {
+  .despesas-competencia-operacional {
+    grid-template-columns: 1fr;
+  }
+}
 .despesas-pontos-lista,
 .despesas-lancamentos {
   display: grid;
