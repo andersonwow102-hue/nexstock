@@ -533,17 +533,19 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
 }
 
 // ─── Modal Despesas ───────────────────────────────────────────────────────────
-function PointExpensesModal({ pontos, despesas = [], onFechar }) {
+function PointExpensesModal({ pontos, despesas = [], permitirSelecionarCompetencia = false, onFechar }) {
+  const mesAtual = competenciaAtual();
+  const [competencia, setCompetencia] = useState(mesAtual);
   const [pontoSelecionado, setPontoSelecionado] = useState(null);
   const [rotaSelecionada, setRotaSelecionada] = useState("Todas");
   const [situacaoSelecionada, setSituacaoSelecionada] = useState("com");
+  const pontosCompetencia = aplicarResumoDespesaMes(pontos, despesas, competencia);
   const pontoTemDespesa = p=>p.possuiDespesa==="sim"&&Number(p.valorDespesa)>0;
-  const comDespesa = pontos.filter(pontoTemDespesa);
   const despesasPessoais = despesas
-    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competenciaAtual());
-  const totalDespesasPontos = pontos.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
+    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competencia);
+  const totalDespesasPontos = pontosCompetencia.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
   const totalDespesasPessoais = despesasPessoais.reduce((s,d)=>s+valorDespesa(d),0);
-  const resumoRotas = [...pontos.reduce((mapa,p)=>{
+  const resumoRotas = [...pontosCompetencia.reduce((mapa,p)=>{
     const rota = rotaCanonica(p.gerente) || "Sem rota";
     const atual = mapa.get(rota) || { rota, totalPontos:0, totalGerente:0, total:0, pontos:0, comDespesa:0, semDespesa:0 };
     atual.totalPontos += Number(p.valorDespesa) || 0;
@@ -562,8 +564,8 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
   resumoRotas.forEach(item=>{item.total=item.totalPontos+item.totalGerente;});
   resumoRotas.sort((a,b)=>b.total-a.total||a.rota.localeCompare(b.rota,"pt-BR"));
   const pontosDaRota = rotaSelecionada==="Todas"
-    ?pontos
-    :pontos.filter(p=>(rotaCanonica(p.gerente)||"Sem rota")===rotaSelecionada);
+    ?pontosCompetencia
+    :pontosCompetencia.filter(p=>(rotaCanonica(p.gerente)||"Sem rota")===rotaSelecionada);
   const pontosFiltrados = pontosDaRota
     .filter(p=>situacaoSelecionada==="todos"||(situacaoSelecionada==="com"?pontoTemDespesa(p):!pontoTemDespesa(p)))
     .sort((a,b)=>(Number(b.valorDespesa)||0)-(Number(a.valorDespesa)||0)||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
@@ -577,14 +579,26 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
   const totalSemDespesa = pontosDaRota.length-totalComDespesa;
   const despesasDoPonto = pontoSelecionado
     ? despesas
-      .filter(d=>Number(d.pontoId)===Number(pontoSelecionado.id)&&String(d.competencia||"").slice(0,7)===competenciaAtual())
+      .filter(d=>Number(d.pontoId)===Number(pontoSelecionado.id)&&String(d.competencia||"").slice(0,7)===competencia)
       .sort((a,b)=>String(a.descricao||"").localeCompare(String(b.descricao||""),"pt-BR"))
     : [];
+  const alterarCompetencia = valor => {
+    setCompetencia(valor || mesAtual);
+    setPontoSelecionado(null);
+    setRotaSelecionada("Todas");
+    setSituacaoSelecionada("com");
+  };
   return (
     <div className="modal-overlay" onClick={onFechar}>
       <div className="modal modal-largo modal-despesas-pontos" onClick={e=>e.stopPropagation()}>
         <div className="modal-header"><h3>💰 Despesas dos Pontos</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
         <div className="modal-body">
+          {permitirSelecionarCompetencia&&(
+            <label className="despesas-competencia-filtro">
+              <span>Mês de referência</span>
+              <input type="month" value={competencia} max={mesAtual} onChange={e=>alterarCompetencia(e.target.value)}/>
+            </label>
+          )}
           <div className="despesas-total-banner">{pontoSelecionado?"Total do ponto":rotaSelecionada==="Todas"?"Total Geral":"Total da rota"}: <strong>{formatarReais(pontoSelecionado?.valorDespesa??totalFiltrado)}</strong></div>
           {!pontoSelecionado&&(
             <div className="despesas-origem-resumo">
@@ -601,7 +615,7 @@ function PointExpensesModal({ pontos, despesas = [], onFechar }) {
               </div>
               <div className="despesas-lancamentos">
                 {despesasDoPonto.length===0
-                  ?<p className="tabela-vazia">Não há lançamentos detalhados para este ponto no mês atual.</p>
+                  ?<p className="tabela-vazia">Não há lançamentos detalhados para este ponto em {mesLabel(`${competencia}-01`)}.</p>
                   :despesasDoPonto.map(d=>(
                     <article className="despesas-lancamento" key={d.id}>
                       <div><strong>{d.descricao||"Despesa sem descrição"}</strong>{d.observacao&&<small>{d.observacao}</small>}</div>
@@ -1623,7 +1637,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       </>)}
 
       {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
-      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveis} despesas={despesasVisiveis} onFechar={()=>setVerDespesas(false)}/>}
+      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveisBase} despesas={despesasVisiveis} permitirSelecionarCompetencia={administrador} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
       {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
