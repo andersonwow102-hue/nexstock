@@ -533,9 +533,9 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
 }
 
 // ─── Modal Despesas ───────────────────────────────────────────────────────────
-function PointExpensesModal({ pontos, despesas = [], permitirSelecionarCompetencia = false, onFechar }) {
+function PointExpensesModal({ pontos, despesas = [], competenciaInicial = competenciaAtual(), permitirSelecionarCompetencia = false, onFechar }) {
   const mesAtual = competenciaAtual();
-  const [competencia, setCompetencia] = useState(mesAtual);
+  const [competencia, setCompetencia] = useState(competenciaInicial);
   const [pontoSelecionado, setPontoSelecionado] = useState(null);
   const [rotaSelecionada, setRotaSelecionada] = useState("Todas");
   const [situacaoSelecionada, setSituacaoSelecionada] = useState("com");
@@ -682,13 +682,13 @@ function PointExpensesModal({ pontos, despesas = [], permitirSelecionarCompetenc
 }
 
 // ─── ABA: Visão Geral ─────────────────────────────────────────────────────────
-function AbaVisaoGeral({ pontos, despesas = [], onVerDespesas, onNovoClick, onAbrirPontos, podeEditar, mostrarDespesas=true }) {
+function AbaVisaoGeral({ pontos, despesas = [], competencia = competenciaAtual(), onVerDespesas, onNovoClick, onAbrirPontos, podeEditar, mostrarDespesas=true }) {
   const totalPontos   = pontos.length;
   const comDespesa    = pontos.filter(p=>p.possuiDespesa==="sim").length;
   const semDespesa    = pontos.filter(p=>p.possuiDespesa==="nao").length;
   const totalPontosDespesas = pontos.reduce((s,p)=>s+(p.valorDespesa||0),0);
   const totalGerentesDespesas = despesas
-    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competenciaAtual())
+    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competencia)
     .reduce((s,d)=>s+valorDespesa(d),0);
   const totalDespesas = totalPontosDespesas+totalGerentesDespesas;
 
@@ -856,11 +856,11 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
   );
 }
 
-function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], prorrogacoes = [], onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
+function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], prorrogacoes = [], competenciaInicial=competenciaAtual(), onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
   const gerente = perfilAtual?.perfil === "gerente";
   const despesaDoGerente = Boolean(gerenteDespesa);
   const [rota, setRota] = useState(rotasGerente[0] || "");
-  const [competencia, setCompetencia] = useState(competenciaAtual());
+  const [competencia, setCompetencia] = useState(competenciaInicial);
   const criarLinha = () => ({ id:null, descricao:"", valor:"", observacao:"" });
   const [linhas, setLinhas] = useState([]);
   const [erro, setErro] = useState("");
@@ -1360,6 +1360,9 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const prorrogacoesAtivasGerente = prorrogacoes.filter(item=>
     item.ativo&&normalizarGerenteExcecao(item.gerente)===normalizarGerenteExcecao(gerenteAtual)&&Date.parse(item.expiraEm)>Date.now()
   );
+  const competenciaDespesas = gerenteAtual && prorrogacoesAtivasGerente.length
+    ? [...prorrogacoesAtivasGerente].sort((a,b)=>Date.parse(b.expiraEm)-Date.parse(a.expiraEm))[0].competencia
+    : competenciaAtual();
   const administrador = perfilAtual?.perfil === "administrador";
   const operador = perfilAtual?.perfil === "operador";
   const mostrarDespesas = !operador;
@@ -1372,7 +1375,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     )
     : [];
   const pontosVisiveis = mostrarDespesas
-    ? aplicarResumoDespesaMes(pontosVisiveisBase, despesasEscopo, competenciaAtual())
+    ? aplicarResumoDespesaMes(pontosVisiveisBase, despesasEscopo, competenciaDespesas)
     : pontosVisiveisBase.map(p=>({...p, possuiDespesa:"nao", valorDespesa:0}));
   const idsPontosAtuais = new Set(pontos.map(p=>Number(p.id)));
   const solicitacoesAtuais = solicitacoes.filter(s=>idsPontosAtuais.has(Number(s.pontoId)));
@@ -1630,16 +1633,16 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       )}
 
       {!loading&&(<>
-        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} despesas={despesasVisiveis} podeEditar={podeCriarPonto} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
+        {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} despesas={despesasVisiveis} competencia={competenciaDespesas} podeEditar={podeCriarPonto} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
         {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeExcluir={podeExcluirPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onVerAcessos={setPontoAcessos}
             onExportExcel={()=>exportarPontosExcel(pontosParaExportar)} onExportPDF={()=>exportarPontosPDF(pontosParaExportar)}/>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}
 
       {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
-      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveisBase} despesas={despesasVisiveis} permitirSelecionarCompetencia={administrador} onFechar={()=>setVerDespesas(false)}/>}
-      {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
-      {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
+      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveisBase} despesas={despesasVisiveis} competenciaInicial={competenciaDespesas} permitirSelecionarCompetencia={administrador} onFechar={()=>setVerDespesas(false)}/>}
+      {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
+      {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
       {pontoAcessos&&<PointAccessModal ponto={pontoAcessos} acessos={acessosDoPonto(acessosModalidades,pontoAcessos.id)} onFechar={()=>setPontoAcessos(null)}/>}
 
