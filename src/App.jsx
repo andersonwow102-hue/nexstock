@@ -4903,7 +4903,7 @@ function Sistema({onLogout}){
             <div className="modal-body">
               <h3 id="aviso-prazo-titulo">Conclua as despesas de {avisoPrazoDespesas.competencia}</h3>
               <p>Todos os lançamentos devem ser concluídos até o dia {avisoPrazoDespesas.ultimoDia}, às 23:59.</p>
-              <p>Após o fechamento do mês, novas despesas ficarão bloqueadas, salvo quando houver uma prorrogação expressamente concedida pelo administrador.</p>
+              <p>Após o fechamento do mês, novas despesas ficarão bloqueadas e não poderão ser incluídas posteriormente.</p>
               <div className="aviso-prazo-responsabilidade">
                 Despesas não registradas dentro do prazo não serão consideradas no fechamento. A omissão será tratada como falta de comprometimento operacional, e eventual prejuízo ficará sob responsabilidade do gerente.
               </div>

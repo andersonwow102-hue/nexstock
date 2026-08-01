@@ -936,7 +936,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
         </div>
         <div className="modal-body">
           {erro&&<div className="erro-msg">⚠️ {erro}</div>}
-          {prorrogacaoAtiva&&<div className="info-box despesa-excecao-aviso">Prazo prorrogado pelo administrador: esta competência pode ser editada até {formatarPrazoProrrogacao(prorrogacaoAtiva.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.</div>}
+          {prorrogacaoAtiva&&<div className="info-box despesa-excecao-aviso">Prazo disponível para esta competência: lançamentos permitidos até {formatarPrazoProrrogacao(prorrogacaoAtiva.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.</div>}
           {despesaDoGerente&&rotasGerente.length>1&&(
             <div className="campo despesa-rota-campo">
               <label>Rota da despesa</label>
@@ -952,7 +952,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
                 <div className={`despesa-periodo-atual ${consultandoMesAnterior?"consulta":""} ${!consultandoMesAnterior&&!podeEditarAgora?"fechado":""}`}>
                   <span className="despesa-periodo-icone">📅</span>
                   <div>
-                    <small>{prorrogacaoAtiva?"Prazo prorrogado pelo administrador":consultandoMesAnterior?"Consultando mês anterior":podeEditarAgora?"Lançamento do mês atual":"Mês atual · lançamento abre dia 10"}</small>
+                    <small>{prorrogacaoAtiva?"Prazo disponível para lançamento":consultandoMesAnterior?"Consultando mês anterior":podeEditarAgora?"Lançamento do mês atual":"Mês atual · lançamento abre dia 10"}</small>
                     <strong>{competenciaTexto}</strong>
                   </div>
                   {consultandoMesAnterior&&<button type="button" onClick={()=>setCompetencia(mesAtual)}>Voltar ao atual</button>}
@@ -1593,7 +1593,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {prorrogacoesAtivasGerente.map(prorrogacao=>(
         <div className="info-box despesa-excecao-aviso" key={prorrogacao.id}>
-          Prazo prorrogado: você pode concluir os lançamentos de {mesLabel(prorrogacao.competencia)} até {formatarPrazoProrrogacao(prorrogacao.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.
+          Prazo para lançamento de {mesLabel(prorrogacao.competencia)}: disponível até {formatarPrazoProrrogacao(prorrogacao.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.
         </div>
       ))}
 
