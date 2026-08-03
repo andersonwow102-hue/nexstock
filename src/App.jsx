@@ -1003,7 +1003,8 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
   const saldoBruto = calculosModalidades.reduce((s,m)=>s+m.saldoBruto,0);
   const totalDespesasBrutas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
   const subtracaoPlayBet = Math.max(0, Number(fechamentosDaRota[0]?.subtrairDespesasPlayBet) || 0);
-  const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet);
+  const ajudaCusto = Math.max(0, Number(fechamentosDaRota[0]?.ajudaCusto) || 0);
+  const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet + ajudaCusto);
   const saldoFinal = saldoBruto - totalDespesas;
   const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
   const saldoRepassar = saldoFinal - comissaoGerente;
@@ -1069,8 +1070,8 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
       secoes: [
         {
           titulo: "Ajuste de despesas",
-          colunas: ["Despesas brutas","Subtrair despesas da Play Bet","Despesas finais"],
-          linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(totalDespesas)]],
+          colunas: ["Despesas lanÃ§adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
+          linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCusto),formatarMoedaPDF(totalDespesas)]],
         },
         {
           titulo: "Entradas, comissões e saídas por modalidade",
@@ -1273,6 +1274,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [fechamentosRotas,setFechamentosRotas]=useState([]);
   const [fechamentoValores,setFechamentoValores]=useState(criarFechamentoVazio);
   const [subtrairDespesasPlayBet,setSubtrairDespesasPlayBet]=useState("");
+  const [ajudaCusto,setAjudaCusto]=useState("");
   const [fechamentoOk,setFechamentoOk]=useState("");
   const [fechamentoErro,setFechamentoErro]=useState("");
   const [fechamentoSalvando,setFechamentoSalvando]=useState(false);
@@ -1369,7 +1371,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const modalidadesDaRota = modalidadesFechamentoPara(gerenteSelecionado, rotaDetalheAtiva);
   const totalDetalheSistema = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
   const subtracaoPlayBetFechamento = Math.max(0, numeroFechamento(subtrairDespesasPlayBet));
-  const totalDetalhe = Math.max(0, totalDetalheSistema - subtracaoPlayBetFechamento);
+  const ajudaCustoFechamento = Math.max(0, numeroFechamento(ajudaCusto));
+  const totalDetalhe = Math.max(0, totalDetalheSistema - subtracaoPlayBetFechamento + ajudaCustoFechamento);
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
   const calculosModalidades = modalidadesDaRota.map(modalidade => {
     const valores = fechamentoValores[modalidade.id] || {};
@@ -1480,6 +1483,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     if(!gerenteSelecionado || !rotaDetalheAtiva){
       setFechamentoValores(vazio);
       setSubtrairDespesasPlayBet("");
+      setAjudaCusto("");
       return;
     }
     const competencia = competenciaFechamento || hoje().slice(0,7);
@@ -1500,6 +1504,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         };
       });
     setSubtrairDespesasPlayBet(textoFechamentoSalvo(registrosDoFechamento[0]?.subtrairDespesasPlayBet));
+    setAjudaCusto(textoFechamentoSalvo(registrosDoFechamento[0]?.ajudaCusto));
     setFechamentoValores(vazio);
     setFechamentoOk("");
     setFechamentoErro("");
@@ -1545,6 +1550,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         modalidades: modalidadesParaSalvar,
         enviarAoGerente,
         subtrairDespesasPlayBet: subtracaoPlayBetFechamento,
+        ajudaCusto: ajudaCustoFechamento,
       });
       setFechamentosRotas(atual => [
         ...atual.filter(f =>
@@ -1648,6 +1654,18 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     return Math.max(0, Number(registro?.subtrairDespesasPlayBet) || 0);
   }
 
+  function ajudaCustoDaRota(rota) {
+    if (rota === rotaDetalheAtiva) return ajudaCustoFechamento;
+    const competencia = competenciaFechamento || hoje().slice(0,7);
+    const registro = fechamentosRotas.find(f =>
+      f.gerente === gerenteSelecionado &&
+      f.rota === rota &&
+      f.competencia === competencia &&
+      (f.dia || "") === (diaFechamento || "")
+    );
+    return Math.max(0, Number(registro?.ajudaCusto) || 0);
+  }
+
   async function baixarFechamentoPDF(tipo = "rota", visualizar = false) {
     if (!gerenteSelecionado) {
       window.alert("Selecione um gerente/rota para gerar o PDF.");
@@ -1677,7 +1695,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       const totalBruto = modalidades.reduce((s,m)=>s+m.saldoBruto,0);
       const totalDespesasBrutas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
       const subtracaoPlayBet = subtracaoPlayBetDaRota(rota);
-      const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet);
+      const ajudaCustoRota = ajudaCustoDaRota(rota);
+      const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet + ajudaCustoRota);
       const saldoFinal = totalBruto - totalDespesas;
       const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
       const saldoRepassar = saldoFinal - comissaoGerente;
@@ -1718,8 +1737,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         secoes: [
           {
             titulo: "Ajuste de despesas",
-            colunas: ["Despesas brutas","Subtrair despesas da Play Bet","Despesas finais"],
-            linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(totalDespesas)]],
+            colunas: ["Despesas lanÃ§adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
+            linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCustoRota),formatarMoedaPDF(totalDespesas)]],
           },
           {
             titulo: "Entradas, comissões e saídas por modalidade",
@@ -1973,17 +1992,32 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
               ))}
             </div>
             <div className="fechamento-ajuste-playbet">
-              <label>
-                <span>Subtrair despesas da Play Bet</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={subtrairDespesasPlayBet}
-                  onChange={e=>setSubtrairDespesasPlayBet(e.target.value)}
-                  placeholder="R$ 0,00"
-                />
-              </label>
-              <small>Valor manual descontado do total de despesas desta rota.</small>
+              <div className="fechamento-ajuste-campo">
+                <label>
+                  <span>Subtrair despesas da Play Bet</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={subtrairDespesasPlayBet}
+                    onChange={e=>setSubtrairDespesasPlayBet(e.target.value)}
+                    placeholder="R$ 0,00"
+                  />
+                </label>
+                <small>Valor manual descontado do total de despesas desta rota.</small>
+              </div>
+              <div className="fechamento-ajuste-campo">
+                <label>
+                  <span>Ajuda de Custo</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={ajudaCusto}
+                    onChange={e=>setAjudaCusto(e.target.value)}
+                    placeholder="R$ 0,00"
+                  />
+                </label>
+                <small>Valor manual somado às despesas desta rota.</small>
+              </div>
             </div>
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">

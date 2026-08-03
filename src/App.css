@@ -5668,18 +5668,23 @@ body {
   line-height: 1.35;
 }
 .fechamento-ajuste-playbet {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
+  display: grid;
+  gap: 14px;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-card);
 }
+.fechamento-ajuste-campo {
+  display: grid;
+  grid-template-columns: minmax(260px, 400px) minmax(220px, 1fr);
+  align-items: end;
+  gap: 20px;
+}
 .fechamento-ajuste-playbet label {
   display: grid;
   gap: 7px;
-  width: min(320px, 100%);
+  width: 100%;
   color: var(--txt-secondary);
   font-size: 12px;
   font-weight: 700;
@@ -5767,6 +5772,13 @@ body {
   }
   .fechamento-salvar-linha {
     grid-template-columns: 1fr;
+  }
+  .fechamento-ajuste-campo {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .fechamento-ajuste-playbet small {
+    padding-bottom: 0;
   }
 }
 .despesas-pontos-lista,
