@@ -80,24 +80,26 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
       resumo.forEach((item, indice) => {
         const linha = Math.floor(indice / 6);
         const coluna = indice % 6;
-        const x = 12 + coluna * (larguraCard + espaco);
+        const principal = Boolean(item.principal);
+        const x = principal ? 12 : 12 + coluna * (larguraCard + espaco);
         const y = 41 + linha * 21;
-        doc.setFillColor(247, 249, 253);
-        doc.setDrawColor(219, 228, 240);
-        doc.roundedRect(x, y, larguraCard, 17, 2, 2, "FD");
-        doc.setTextColor(...CINZA);
+        const larguraItem = principal ? largura - 24 : larguraCard;
+        doc.setFillColor(...(principal ? [238, 242, 255] : [247, 249, 253]));
+        doc.setDrawColor(...(principal ? [129, 140, 248] : [219, 228, 240]));
+        doc.roundedRect(x, y, larguraItem, 17, 2, 2, "FD");
+        doc.setTextColor(...(principal ? AZUL : CINZA));
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
-        doc.text(String(item.label).toUpperCase(), x + 4, y + 6);
+        doc.text(String(item.label).toUpperCase(), x + 4, principal ? y + 10 : y + 6);
         doc.setTextColor(...(item.destaque || AZUL));
         const textoValor = String(item.valor);
-        const linhasValor = doc.splitTextToSize(textoValor, larguraCard - 8);
+        const linhasValor = doc.splitTextToSize(textoValor, larguraItem - 8);
         if (linhasValor.length > 2) {
           linhasValor.length = 2;
           linhasValor[1] = `${linhasValor[1].replace(/\s+\S*$/, "")}...`;
         }
-        doc.setFontSize(linhasValor.length > 1 || textoValor.length > 18 ? 9.5 : 12);
-        doc.text(linhasValor, x + 4, y + 12);
+        doc.setFontSize(principal ? 14 : linhasValor.length > 1 || textoValor.length > 18 ? 9.5 : 12);
+        doc.text(linhasValor, principal ? x + larguraItem - 4 : x + 4, principal ? y + 11 : y + 12, principal ? { align: "right" } : undefined);
       });
       inicioTabela = 41 + linhasResumo * 21 + 5;
     }

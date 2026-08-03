@@ -677,6 +677,10 @@ function textoFechamentoSalvo(valor) {
   return Number.isFinite(numero) ? numero.toFixed(2) : "";
 }
 
+function textoMoedaFechamento(valor) {
+  return formatarMoedaPDF(numeroFechamento(valor));
+}
+
 function encontrarFechamentoDaModalidade(lista, modalidade, filtro) {
   const ids = [modalidade.id, ...(modalidade.legacyIds || [])];
   return lista.find(f => filtro(f) && ids.includes(f.modalidade));
@@ -1065,12 +1069,12 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
         { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
         { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
-        { label: "Saldo a repassar", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229] },
+        { label: "Saldo a repassar para a administraÃ§Ã£o", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229], principal: true },
       ],
       secoes: [
         {
           titulo: "Ajuste de despesas",
-          colunas: ["Despesas lanÃ§adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
+          colunas: ["Despesas lan\u00e7adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
           linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCusto),formatarMoedaPDF(totalDespesas)]],
         },
         {
@@ -1503,8 +1507,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           saida: textoFechamentoSalvo(f.saida),
         };
       });
-    setSubtrairDespesasPlayBet(textoFechamentoSalvo(registrosDoFechamento[0]?.subtrairDespesasPlayBet));
-    setAjudaCusto(textoFechamentoSalvo(registrosDoFechamento[0]?.ajudaCusto));
+    setSubtrairDespesasPlayBet(textoMoedaFechamento(registrosDoFechamento[0]?.subtrairDespesasPlayBet));
+    setAjudaCusto(textoMoedaFechamento(registrosDoFechamento[0]?.ajudaCusto));
     setFechamentoValores(vazio);
     setFechamentoOk("");
     setFechamentoErro("");
@@ -1732,12 +1736,12 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
           { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
           { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
-          { label: "Saldo a repassar", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229] },
+          { label: "Saldo a repassar para a administraÃ§Ã£o", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229], principal: true },
         ],
         secoes: [
           {
             titulo: "Ajuste de despesas",
-            colunas: ["Despesas lanÃ§adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
+            colunas: ["Despesas lan\u00e7adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
             linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCustoRota),formatarMoedaPDF(totalDespesas)]],
           },
           {
@@ -2000,6 +2004,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                     inputMode="decimal"
                     value={subtrairDespesasPlayBet}
                     onChange={e=>setSubtrairDespesasPlayBet(e.target.value)}
+                    onBlur={()=>setSubtrairDespesasPlayBet(textoMoedaFechamento(subtrairDespesasPlayBet))}
                     placeholder="R$ 0,00"
                   />
                 </label>
@@ -2013,6 +2018,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                     inputMode="decimal"
                     value={ajudaCusto}
                     onChange={e=>setAjudaCusto(e.target.value)}
+                    onBlur={()=>setAjudaCusto(textoMoedaFechamento(ajudaCusto))}
                     placeholder="R$ 0,00"
                   />
                 </label>
