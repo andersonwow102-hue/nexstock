@@ -1036,8 +1036,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
     const linhasResumo = [[
       rotaAtiva || "Todas",
       formatarMoedaPDF(saldoBruto),
-      formatarMoedaPDF(totalDespesasBrutas),
-      formatarMoedaPDF(subtracaoPlayBet),
       formatarMoedaPDF(totalDespesas),
       formatarMoedaPDF(saldoFinal),
       formatarMoedaPDF(comissaoGerente),
@@ -1063,8 +1061,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         { label: "Gerente", valor: gerenteNome },
         { label: "Rota", valor: rotaAtiva || "Todas" },
         { label: "Saldo bruto", valor: formatarMoedaPDF(saldoBruto), destaque: [37,99,235] },
-        { label: "Despesas brutas", valor: formatarMoedaPDF(totalDespesasBrutas), destaque: [220,38,38] },
-        { label: "Subtrair despesas da Play Bet", valor: formatarMoedaPDF(subtracaoPlayBet), destaque: [124,58,237] },
         { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
         { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
         { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
@@ -1072,14 +1068,14 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
       ],
       secoes: [
         {
-          titulo: "Entradas, comissões e saídas por modalidade",
-          colunas: ["Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
-          linhas: linhasModalidades.length ? linhasModalidades : [["Sem lançamento","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
-        },
-        {
           titulo: "Ajuste de despesas",
           colunas: ["Despesas brutas","Subtrair despesas da Play Bet","Despesas finais"],
           linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(totalDespesas)]],
+        },
+        {
+          titulo: "Entradas, comissões e saídas por modalidade",
+          colunas: ["Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
+          linhas: linhasModalidades.length ? linhasModalidades : [["Sem lançamento","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
         },
         {
           titulo: "Resumo financeiro",
@@ -1688,8 +1684,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       const linhasResumo = [[
         rota,
         formatarMoedaPDF(totalBruto),
-        formatarMoedaPDF(totalDespesasBrutas),
-        formatarMoedaPDF(subtracaoPlayBet),
         formatarMoedaPDF(totalDespesas),
         formatarMoedaPDF(saldoFinal),
         formatarMoedaPDF(comissaoGerente),
@@ -1716,8 +1710,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           { label: "Gerente", valor: gerenteSelecionado },
           { label: "Rota", valor: rota },
           { label: "Saldo bruto", valor: formatarMoedaPDF(totalBruto), destaque: [37,99,235] },
-          { label: "Despesas brutas", valor: formatarMoedaPDF(totalDespesasBrutas), destaque: [220,38,38] },
-          { label: "Subtrair despesas da Play Bet", valor: formatarMoedaPDF(subtracaoPlayBet), destaque: [124,58,237] },
           { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
           { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
           { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
@@ -1725,14 +1717,14 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         ],
         secoes: [
           {
-            titulo: "Entradas, comissões e saídas por modalidade",
-            colunas: ["Rota","Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
-            linhas: linhasModalidades.length ? linhasModalidades : [[rota,"Sem lançamentos","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
-          },
-          {
             titulo: "Ajuste de despesas",
             colunas: ["Despesas brutas","Subtrair despesas da Play Bet","Despesas finais"],
             linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(totalDespesas)]],
+          },
+          {
+            titulo: "Entradas, comissões e saídas por modalidade",
+            colunas: ["Rota","Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
+            linhas: linhasModalidades.length ? linhasModalidades : [[rota,"Sem lançamentos","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
           },
           {
             titulo: "Resumo financeiro da rota",
