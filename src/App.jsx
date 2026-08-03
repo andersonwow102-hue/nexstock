@@ -1401,7 +1401,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       ? numeroFechamento(valores.comissao)
       : valores.comissaoAutomatica !== false
         ? entrada * modalidade.comissao
-        : entrada * (Math.max(0, numeroFechamento(valores.percentualComissao)) / 100);
+        : numeroFechamento(valores.comissao);
     const saida = numeroFechamento(valores.saida);
     const saldoBruto = entrada - comissao - saida;
     return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
@@ -1572,7 +1572,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           ? 0
           : fechamentoValores[m.id]?.comissaoAutomatica !== false
             ? m.comissao * 100
-            : numeroFechamento(fechamentoValores[m.id]?.percentualComissao),
+            : 0,
         saida: m.saida,
         saldoBruto: m.saldoBruto,
       }));
@@ -2034,34 +2034,18 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                   </div>
                   <div className="fechamento-campos-grid">
                     {m.comissao!==null&&(
+                      <>
                       <div className="fechamento-comissao-config">
-                        <label>ComissÃ£o automÃ¡tica
-                          <select
-                            value={fechamentoValores[m.id]?.comissaoAutomatica!==false?"sim":"nao"}
-                            onChange={e=>alterarFechamentoModalidade(m.id,"comissaoAutomatica",e.target.value==="sim")}
-                          >
-                            <option value="sim">Sim</option>
-                            <option value="nao">NÃ£o</option>
-                          </select>
-                        </label>
-                        {fechamentoValores[m.id]?.comissaoAutomatica===false&&(
-                          <label>Percentual manual
-                            <div className="fechamento-percentual-input">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={fechamentoValores[m.id]?.percentualComissao||""}
-                                onChange={e=>alterarFechamentoModalidade(m.id,"percentualComissao",e.target.value)}
-                                placeholder="10,00"
-                              />
-                              <span>%</span>
-                            </div>
-                          </label>
-                        )}
+                        <span>{"Comiss\u00e3o autom\u00e1tica"}</span>
+                        <div className="fechamento-comissao-opcoes" role="group" aria-label={"Configurar comiss\u00e3o autom\u00e1tica"}>
+                          <button type="button" className={fechamentoValores[m.id]?.comissaoAutomatica!==false?"ativo":""} aria-pressed={fechamentoValores[m.id]?.comissaoAutomatica!==false} onClick={()=>alterarFechamentoModalidade(m.id,"comissaoAutomatica",true)}><i aria-hidden="true"/>Sim</button>
+                          <button type="button" className={fechamentoValores[m.id]?.comissaoAutomatica===false?"ativo":""} aria-pressed={fechamentoValores[m.id]?.comissaoAutomatica===false} onClick={()=>alterarFechamentoModalidade(m.id,"comissaoAutomatica",false)}><i aria-hidden="true"/>{"N\u00e3o"}</button>
+                        </div>
                       </div>
+                      </>
                     )}
                     <label>Entrada<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.entrada||""} onChange={e=>alterarFechamentoModalidade(m.id,"entrada",e.target.value)} placeholder="R$ 0,00"/></label>
-                    <label>Comissão<input type="text" inputMode="decimal" value={m.comissao===null?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} disabled={m.comissao!==null} placeholder="R$ 0,00"/></label>
+                    <label>{"Comiss\u00e3o"}<input type="text" inputMode="decimal" value={m.comissao===null||fechamentoValores[m.id]?.comissaoAutomatica===false?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} onBlur={()=>{if(m.comissao===null||fechamentoValores[m.id]?.comissaoAutomatica===false)alterarFechamentoModalidade(m.id,"comissao",textoMoedaFechamento(fechamentoValores[m.id]?.comissao));}} disabled={m.comissao!==null&&fechamentoValores[m.id]?.comissaoAutomatica!==false} placeholder="R$ 0,00"/></label>
                     <label>Saída<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.saida||""} onChange={e=>alterarFechamentoModalidade(m.id,"saida",e.target.value)} placeholder="R$ 0,00"/></label>
                     <div className="fechamento-modalidade-saldo"><span>Saldo</span><b>{formatarMoedaPDF(m.saldoBruto)}</b></div>
                   </div>
