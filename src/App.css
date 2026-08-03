@@ -4429,7 +4429,7 @@ body {
     linear-gradient(120deg, rgba(255,255,255,0.96), rgba(245,248,255,0.92));
 }
 .prestacao-gerente-page .fechamento-filtros {
-  grid-template-columns: 180px 180px minmax(220px,1fr) auto;
+  grid-template-columns: 180px minmax(220px,1fr) auto;
 }
 .prestacao-pix-box {
   margin-bottom: 0;

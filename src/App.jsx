@@ -1157,7 +1157,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
 
       <div className="fechamento-filtros prestacao-filtros-desktop">
         <label>Mês<input type="month" value={competencia} onChange={e=>{setCompetencia(e.target.value);setDia("");}}/></label>
-        <label>Dia<input type="date" value={dia} onChange={e=>{setDia(e.target.value);if(e.target.value)setCompetencia(e.target.value.slice(0,7));}}/></label>
         <label>Rota
           <select value={rotaAtiva} onChange={e=>setRotaSelecionada(e.target.value)}>
             {rotasGerente.map(rota=><option key={rota} value={rota}>{rota}</option>)}
@@ -1176,7 +1175,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         </summary>
         <div className="prestacao-filtros-mobile-corpo">
           <label>Mês<input type="month" value={competencia} onChange={e=>{setCompetencia(e.target.value);setDia("");}}/></label>
-          <label>Dia específico<input type="date" value={dia} onChange={e=>{setDia(e.target.value);if(e.target.value)setCompetencia(e.target.value.slice(0,7));}}/></label>
           <label>Rota
             <select value={rotaAtiva} onChange={e=>setRotaSelecionada(e.target.value)}>
               {rotasGerente.map(rota=><option key={rota} value={rota}>{rota}</option>)}
