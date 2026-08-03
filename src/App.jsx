@@ -640,6 +640,13 @@ function criarFechamentoVazio(modalidades = MODALIDADES_FECHAMENTO) {
   }, {});
 }
 
+function competenciaFechamentoPadrao() {
+  const data = new Date();
+  data.setDate(1);
+  data.setMonth(data.getMonth() - 1);
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function numeroFechamento(valor) {
   if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
   const texto = String(valor || "")
@@ -1275,7 +1282,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [pixSalvando,setPixSalvando]=useState(false);
   const [gerenteSelecionado,setGerenteSelecionado]=useState("");
   const [rotaSelecionada,setRotaSelecionada]=useState("");
-  const [competenciaFechamento,setCompetenciaFechamento]=useState(hoje().slice(0,7));
+  const [competenciaFechamento,setCompetenciaFechamento]=useState(competenciaFechamentoPadrao);
   const [diaFechamento,setDiaFechamento]=useState("");
   const [fechamentosRotas,setFechamentosRotas]=useState([]);
   const [fechamentoValores,setFechamentoValores]=useState(criarFechamentoVazio);
@@ -1759,7 +1766,15 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         </div>
         <span className="perfil-selo perfil-administrador">Especial</span>
       </div>
-      <section className="prorrogacao-despesas-admin">
+      <details className="prorrogacao-despesas-admin fechamento-ferramenta-secundaria">
+        <summary>
+          <div>
+            <span className="dash-kicker">Ferramenta administrativa</span>
+            <strong>Controle de prazos para despesas</strong>
+          </div>
+          <span>Configurar</span>
+        </summary>
+        <div className="prorrogacao-despesas-conteudo">
         <div className="prorrogacao-despesas-head">
           <div>
             <span className="dash-kicker">Controle de prazos</span>
@@ -1799,18 +1814,19 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             })}
           </div>
         )}
-      </section>
+        </div>
+      </details>
       <div className="fechamento-filtros">
         <div className="campo">
-          <label>Mês do fechamento</label>
-          <input type="month" value={competenciaFechamento} onChange={e=>{setCompetenciaFechamento(e.target.value);setDiaFechamento("");}}/>
+          <label>Competência do fechamento</label>
+          <input type="month" value={competenciaFechamento} max={hoje().slice(0,7)} onChange={e=>{setCompetenciaFechamento(e.target.value||competenciaFechamentoPadrao());setDiaFechamento("");}}/>
         </div>
         <div className="campo">
           <label>Dia de lançamento</label>
           <input type="date" value={diaFechamento} onChange={e=>{setDiaFechamento(e.target.value);if(e.target.value)setCompetenciaFechamento(e.target.value.slice(0,7));}}/>
         </div>
-        <button className="btn-secundario" type="button" onClick={()=>{setCompetenciaFechamento(hoje().slice(0,7));setDiaFechamento("");}}>
-          Limpar dia
+        <button className="btn-secundario" type="button" onClick={()=>{setCompetenciaFechamento(competenciaFechamentoPadrao());setDiaFechamento("");}}>
+          Voltar ao mês anterior
         </button>
         <div className="fechamento-periodo-info">
           <span>Recorte atual</span>
@@ -1909,12 +1925,13 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             )}
           </div>
           <div className="fechamento-kpis">
-            <article className="kpi-bruto"><i>📈</i><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong><small>Entrada menos comissão e saída</small></article>
-            <article className="kpi-despesas"><i>🧾</i><span>Despesas contabilizadas</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>Puxado automaticamente das despesas</small></article>
-            <article className="kpi-final"><i>💎</i><span>Saldo final</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong><small>Saldo bruto menos despesas</small></article>
-            <article className="kpi-comissao"><i>🏆</i><span>Comissão gerente 10%</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong><small>Calculado sobre o saldo final</small></article>
-            <article className="kpi-repassar"><i>💳</i><span>Saldo final a repassar</span><strong>{formatarMoedaPDF(saldoRepassarFechamento)}</strong><small>Saldo final menos comissão do gerente</small></article>
+            <article className="kpi-bruto"><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong><small>Entradas menos comissões e saídas</small></article>
+            <article className="kpi-despesas"><span>Despesas</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>Competência selecionada</small></article>
+            <article className="kpi-final"><span>Saldo após despesas</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong><small>Saldo bruto menos despesas</small></article>
+            <article className="kpi-comissao"><span>Comissão do gerente</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong><small>10% sobre o saldo após despesas</small></article>
+            <article className="kpi-repassar"><span>Valor a repassar</span><strong>{formatarMoedaPDF(saldoRepassarFechamento)}</strong><small>Resultado final do fechamento</small></article>
           </div>
+          <div className="fechamento-conteudo-grid">
           <div className="fechamento-operacao-box">
             <div className="fechamento-operacao-head">
               <div>
@@ -1983,6 +2000,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                 <b>{formatarMoedaPDF(grupo.total)}</b>
               </article>
             ))}
+          </div>
           </div>
         </section>
       )}
