@@ -7871,3 +7871,276 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Fechamento: a operação permanece ampla no desktop e se reorganiza sem rolagem lateral no celular. */
+@media (max-width: 760px) {
+  .fechamento-page,
+  .fechamento-page > *,
+  .fechamento-detalhe,
+  .fechamento-conteudo-grid,
+  .fechamento-operacao-box,
+  .fechamento-modalidades-grid,
+  .fechamento-modalidade-card,
+  .fechamento-campos-grid,
+  .fechamento-despesas-box {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .fechamento-page {
+    gap: 12px;
+    overflow-x: clip;
+  }
+
+  .fechamento-page > .fechamento-filtros {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .fechamento-page > .fechamento-filtros .campo,
+  .fechamento-page > .fechamento-filtros input,
+  .fechamento-page > .fechamento-filtros button,
+  .fechamento-periodo-info {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .fechamento-periodo-info {
+    justify-self: stretch;
+    text-align: left;
+  }
+
+  .fechamento-lista-seletor {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .fechamento-rota-picker,
+  .fechamento-rota-lista,
+  .fechamento-lista-resumo {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .fechamento-rota-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 8px 10px;
+    padding: 11px;
+  }
+
+  .fechamento-rota-metricas,
+  .fechamento-rota-status {
+    grid-column: 2;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .fechamento-rota-metricas {
+    flex-flow: row wrap;
+  }
+
+  .fechamento-detalhe {
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .fechamento-detalhe-head,
+  .fechamento-operacao-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fechamento-rota-select,
+  .fechamento-rota-select select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .fechamento-kpis {
+    grid-template-columns: minmax(0, 1fr);
+    border-radius: 12px;
+  }
+
+  .fechamento-kpis article,
+  .fechamento-kpis article:last-child {
+    min-height: 0;
+    padding: 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .fechamento-kpis article:last-child {
+    border-bottom: 0;
+  }
+
+  .fechamento-kpis span {
+    margin-bottom: 7px;
+  }
+
+  .fechamento-conteudo-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .fechamento-operacao-box {
+    gap: 14px;
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  .fechamento-operacao-head small {
+    max-width: none;
+    text-align: left;
+  }
+
+  .fechamento-modalidades-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fechamento-modalidade-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .fechamento-modalidade-topo,
+  .fechamento-modalidade-topo > div:not(.fechamento-modalidade-marca) {
+    min-width: 0;
+  }
+
+  .fechamento-campos-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .fechamento-campos-grid label,
+  .fechamento-campos-grid input,
+  .fechamento-modalidade-saldo,
+  .fechamento-modalidade-saldo b {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .fechamento-comissao-config {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .fechamento-comissao-opcoes {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .fechamento-comissao-opcoes button {
+    flex: 1 1 110px;
+  }
+
+  .fechamento-ajuste-playbet {
+    padding: 14px;
+  }
+
+  .fechamento-ajuste-campo,
+  .fechamento-salvar-linha {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .fechamento-ajuste-campo label,
+  .fechamento-ajuste-campo input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .fechamento-ajuste-playbet small {
+    padding-bottom: 0;
+  }
+
+  .fechamento-acoes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .fechamento-acoes button {
+    min-height: 46px;
+  }
+
+  .fechamento-despesas-box {
+    max-height: 560px;
+    overflow-x: hidden;
+  }
+
+  .fechamento-despesas-head {
+    display: flex;
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .fechamento-despesas-head strong,
+  .fechamento-despesas-head span {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .fechamento-despesa-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .prestacao-gerente-page {
+    padding-inline: 0;
+  }
+
+  .prestacao-pdf-recebido,
+  .prestacao-pdf-resumo,
+  .prestacao-filtros-mobile,
+  .prestacao-pix-box,
+  .prestacao-gerente-page .info-box,
+  .prestacao-gerente-page .erro-box,
+  .prestacao-gerente-page .sucesso-box {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .fechamento-campos-grid,
+  .fechamento-acoes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fechamento-modalidade-topo {
+    align-items: center;
+  }
+
+  .fechamento-despesa-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fechamento-despesa-card > b {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .fechamento-despesa-modalidades,
+  .fechamento-despesa-card > small {
+    grid-column: 1;
+  }
+}
