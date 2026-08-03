@@ -635,7 +635,13 @@ function modalidadesFechamentoPara(gerente="", rota="") {
 
 function criarFechamentoVazio(modalidades = MODALIDADES_FECHAMENTO) {
   return modalidades.reduce((acc, modalidade) => {
-    acc[modalidade.id] = { entrada: "", comissao: "", saida: "" };
+    acc[modalidade.id] = {
+      entrada: "",
+      comissao: "",
+      saida: "",
+      comissaoAutomatica: modalidade.comissao !== null,
+      percentualComissao: modalidade.comissao !== null ? String(modalidade.comissao * 100) : "",
+    };
     return acc;
   }, {});
 }
@@ -1393,7 +1399,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     const entrada = numeroFechamento(valores.entrada);
     const comissao = modalidade.comissao === null
       ? numeroFechamento(valores.comissao)
-      : entrada * modalidade.comissao;
+      : valores.comissaoAutomatica !== false
+        ? entrada * modalidade.comissao
+        : entrada * (Math.max(0, numeroFechamento(valores.percentualComissao)) / 100);
     const saida = numeroFechamento(valores.saida);
     const saldoBruto = entrada - comissao - saida;
     return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
@@ -1516,6 +1524,10 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           entrada: textoFechamentoSalvo(f.entrada),
           comissao: textoFechamentoSalvo(f.comissao),
           saida: textoFechamentoSalvo(f.saida),
+          comissaoAutomatica: modalidadeAtual.comissao !== null ? f.comissaoAutomatica !== false : false,
+          percentualComissao: modalidadeAtual.comissao !== null
+            ? textoFechamentoSalvo(f.percentualComissao || modalidadeAtual.comissao * 100)
+            : "",
         };
       });
     setSubtrairDespesasPlayBet(textoMoedaFechamento(registrosDoFechamento[0]?.subtrairDespesasPlayBet));
@@ -1555,6 +1567,12 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         modalidade: m.id,
         entrada: m.entrada,
         comissao: m.comissaoCalculada,
+        comissaoAutomatica: m.comissao === null ? false : fechamentoValores[m.id]?.comissaoAutomatica !== false,
+        percentualComissao: m.comissao === null
+          ? 0
+          : fechamentoValores[m.id]?.comissaoAutomatica !== false
+            ? m.comissao * 100
+            : numeroFechamento(fechamentoValores[m.id]?.percentualComissao),
         saida: m.saida,
         saldoBruto: m.saldoBruto,
       }));
@@ -2015,6 +2033,33 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                     </div>
                   </div>
                   <div className="fechamento-campos-grid">
+                    {m.comissao!==null&&(
+                      <div className="fechamento-comissao-config">
+                        <label>ComissÃ£o automÃ¡tica
+                          <select
+                            value={fechamentoValores[m.id]?.comissaoAutomatica!==false?"sim":"nao"}
+                            onChange={e=>alterarFechamentoModalidade(m.id,"comissaoAutomatica",e.target.value==="sim")}
+                          >
+                            <option value="sim">Sim</option>
+                            <option value="nao">NÃ£o</option>
+                          </select>
+                        </label>
+                        {fechamentoValores[m.id]?.comissaoAutomatica===false&&(
+                          <label>Percentual manual
+                            <div className="fechamento-percentual-input">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={fechamentoValores[m.id]?.percentualComissao||""}
+                                onChange={e=>alterarFechamentoModalidade(m.id,"percentualComissao",e.target.value)}
+                                placeholder="10,00"
+                              />
+                              <span>%</span>
+                            </div>
+                          </label>
+                        )}
+                      </div>
+                    )}
                     <label>Entrada<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.entrada||""} onChange={e=>alterarFechamentoModalidade(m.id,"entrada",e.target.value)} placeholder="R$ 0,00"/></label>
                     <label>Comissão<input type="text" inputMode="decimal" value={m.comissao===null?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} disabled={m.comissao!==null} placeholder="R$ 0,00"/></label>
                     <label>Saída<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.saida||""} onChange={e=>alterarFechamentoModalidade(m.id,"saida",e.target.value)} placeholder="R$ 0,00"/></label>
