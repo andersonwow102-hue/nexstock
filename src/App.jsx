@@ -681,6 +681,11 @@ function textoMoedaFechamento(valor) {
   return formatarMoedaPDF(numeroFechamento(valor));
 }
 
+function permiteComissaoExtra(gerente, rota) {
+  if (normalizarTexto(gerente) !== "yago") return false;
+  return ["miroros", "ibitita"].includes(normalizarTexto(rota));
+}
+
 function encontrarFechamentoDaModalidade(lista, modalidade, filtro) {
   const ids = [modalidade.id, ...(modalidade.legacyIds || [])];
   return lista.find(f => filtro(f) && ids.includes(f.modalidade));
@@ -1008,7 +1013,9 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
   const totalDespesasBrutas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
   const subtracaoPlayBet = Math.max(0, Number(fechamentosDaRota[0]?.subtrairDespesasPlayBet) || 0);
   const ajudaCusto = Math.max(0, Number(fechamentosDaRota[0]?.ajudaCusto) || 0);
-  const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet + ajudaCusto);
+  const comissaoExtraPermitida = permiteComissaoExtra(gerenteNome, rotaAtiva);
+  const comissaoExtra = comissaoExtraPermitida ? Math.max(0, Number(fechamentosDaRota[0]?.comissaoExtra) || 0) : 0;
+  const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet + ajudaCusto + comissaoExtra);
   const saldoFinal = saldoBruto - totalDespesas;
   const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
   const saldoRepassar = saldoFinal - comissaoGerente;
@@ -1074,8 +1081,8 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
       secoes: [
         {
           titulo: "Ajuste de despesas",
-          colunas: ["Despesas lan\u00e7adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
-          linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCusto),formatarMoedaPDF(totalDespesas)]],
+          colunas: ["Despesas lan\u00e7adas pelo gerente","Despesas Play Bet","Ajuda de Custo",...(comissaoExtraPermitida?["Comiss\u00e3o Extra"]:[]),"Despesas finais"],
+          linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCusto),...(comissaoExtraPermitida?[formatarMoedaPDF(comissaoExtra)]:[]),formatarMoedaPDF(totalDespesas)]],
         },
         {
           titulo: "Entradas, comissões e saídas por modalidade",
@@ -1279,6 +1286,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [fechamentoValores,setFechamentoValores]=useState(criarFechamentoVazio);
   const [subtrairDespesasPlayBet,setSubtrairDespesasPlayBet]=useState("");
   const [ajudaCusto,setAjudaCusto]=useState("");
+  const [comissaoExtra,setComissaoExtra]=useState("");
   const [fechamentoOk,setFechamentoOk]=useState("");
   const [fechamentoErro,setFechamentoErro]=useState("");
   const [fechamentoSalvando,setFechamentoSalvando]=useState(false);
@@ -1376,7 +1384,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const totalDetalheSistema = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
   const subtracaoPlayBetFechamento = Math.max(0, numeroFechamento(subtrairDespesasPlayBet));
   const ajudaCustoFechamento = Math.max(0, numeroFechamento(ajudaCusto));
-  const totalDetalhe = Math.max(0, totalDetalheSistema - subtracaoPlayBetFechamento + ajudaCustoFechamento);
+  const comissaoExtraPermitida = permiteComissaoExtra(gerenteSelecionado, rotaDetalheAtiva);
+  const comissaoExtraFechamento = comissaoExtraPermitida ? Math.max(0, numeroFechamento(comissaoExtra)) : 0;
+  const totalDetalhe = Math.max(0, totalDetalheSistema - subtracaoPlayBetFechamento + ajudaCustoFechamento + comissaoExtraFechamento);
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
   const calculosModalidades = modalidadesDaRota.map(modalidade => {
     const valores = fechamentoValores[modalidade.id] || {};
@@ -1488,6 +1498,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       setFechamentoValores(vazio);
       setSubtrairDespesasPlayBet("");
       setAjudaCusto("");
+      setComissaoExtra("");
       return;
     }
     const competencia = competenciaFechamento || hoje().slice(0,7);
@@ -1509,6 +1520,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       });
     setSubtrairDespesasPlayBet(textoMoedaFechamento(registrosDoFechamento[0]?.subtrairDespesasPlayBet));
     setAjudaCusto(textoMoedaFechamento(registrosDoFechamento[0]?.ajudaCusto));
+    setComissaoExtra(textoMoedaFechamento(registrosDoFechamento[0]?.comissaoExtra));
     setFechamentoValores(vazio);
     setFechamentoOk("");
     setFechamentoErro("");
@@ -1555,6 +1567,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         enviarAoGerente,
         subtrairDespesasPlayBet: subtracaoPlayBetFechamento,
         ajudaCusto: ajudaCustoFechamento,
+        comissaoExtra: comissaoExtraFechamento,
       });
       setFechamentosRotas(atual => [
         ...atual.filter(f =>
@@ -1670,6 +1683,19 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     return Math.max(0, Number(registro?.ajudaCusto) || 0);
   }
 
+  function comissaoExtraDaRota(rota) {
+    if (!permiteComissaoExtra(gerenteSelecionado, rota)) return 0;
+    if (rota === rotaDetalheAtiva) return comissaoExtraFechamento;
+    const competencia = competenciaFechamento || hoje().slice(0,7);
+    const registro = fechamentosRotas.find(f =>
+      f.gerente === gerenteSelecionado &&
+      f.rota === rota &&
+      f.competencia === competencia &&
+      (f.dia || "") === (diaFechamento || "")
+    );
+    return Math.max(0, Number(registro?.comissaoExtra) || 0);
+  }
+
   async function baixarFechamentoPDF(tipo = "rota", visualizar = false) {
     if (!gerenteSelecionado) {
       window.alert("Selecione um gerente/rota para gerar o PDF.");
@@ -1700,7 +1726,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       const totalDespesasBrutas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
       const subtracaoPlayBet = subtracaoPlayBetDaRota(rota);
       const ajudaCustoRota = ajudaCustoDaRota(rota);
-      const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet + ajudaCustoRota);
+      const comissaoExtraPermitidaRota = permiteComissaoExtra(gerenteSelecionado, rota);
+      const comissaoExtraRota = comissaoExtraDaRota(rota);
+      const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet + ajudaCustoRota + comissaoExtraRota);
       const saldoFinal = totalBruto - totalDespesas;
       const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
       const saldoRepassar = saldoFinal - comissaoGerente;
@@ -1741,8 +1769,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         secoes: [
           {
             titulo: "Ajuste de despesas",
-            colunas: ["Despesas lan\u00e7adas pelo gerente","Despesas Play Bet","Ajuda de Custo","Despesas finais"],
-            linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCustoRota),formatarMoedaPDF(totalDespesas)]],
+            colunas: ["Despesas lan\u00e7adas pelo gerente","Despesas Play Bet","Ajuda de Custo",...(comissaoExtraPermitidaRota?["Comiss\u00e3o Extra"]:[]),"Despesas finais"],
+            linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(ajudaCustoRota),...(comissaoExtraPermitidaRota?[formatarMoedaPDF(comissaoExtraRota)]:[]),formatarMoedaPDF(totalDespesas)]],
           },
           {
             titulo: "Entradas, comissões e saídas por modalidade",
@@ -2024,6 +2052,22 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                 </label>
                 <small>Valor manual somado às despesas desta rota.</small>
               </div>
+              {comissaoExtraPermitida&&(
+                <div className="fechamento-ajuste-campo">
+                  <label>
+                    <span>ComissÃ£o Extra</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={comissaoExtra}
+                      onChange={e=>setComissaoExtra(e.target.value)}
+                      onBlur={()=>setComissaoExtra(textoMoedaFechamento(comissaoExtra))}
+                      placeholder="R$ 0,00"
+                    />
+                  </label>
+                  <small>{"Valor manual somado \u00e0s despesas de Yago nesta rota."}</small>
+                </div>
+              )}
             </div>
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">

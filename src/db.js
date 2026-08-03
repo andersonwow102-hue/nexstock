@@ -697,11 +697,14 @@ export async function carregarFechamentosRotas() {
   return data.map(mapFechamentoRota);
 }
 
-export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '', modalidades = [], enviarAoGerente = true, subtrairDespesasPlayBet = 0, ajudaCusto = 0 }) {
+export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '', modalidades = [], enviarAoGerente = true, subtrairDespesasPlayBet = 0, ajudaCusto = 0, comissaoExtra = 0 }) {
   const atualizadoEm = new Date().toISOString();
   const enviadoEm = enviarAoGerente ? atualizadoEm : null;
   const valorPlayBet = Math.max(0, Number(subtrairDespesasPlayBet) || 0);
   const valorAjudaCusto = Math.max(0, Number(ajudaCusto) || 0);
+  const normalizarEscopo = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const comissaoExtraPermitida = normalizarEscopo(gerente) === 'yago' && ['miroros', 'ibitita'].includes(normalizarEscopo(rota));
+  const valorComissaoExtra = comissaoExtraPermitida ? Math.max(0, Number(comissaoExtra) || 0) : 0;
   const rows = modalidades.map(m => ({
     gerente,
     rota,
@@ -714,6 +717,7 @@ export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '
     saldo_bruto: Number(m.saldoBruto) || 0,
     subtrair_despesas_play_bet: valorPlayBet,
     ajuda_custo: valorAjudaCusto,
+    comissao_extra: valorComissaoExtra,
     enviado_em: enviadoEm,
     finalizado_em: null,
     finalizado_por: null,
@@ -732,6 +736,7 @@ export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '
       enviado_em: enviadoEm,
       subtrair_despesas_play_bet: valorPlayBet,
       ajuda_custo: valorAjudaCusto,
+      comissao_extra: valorComissaoExtra,
       finalizado_em: null,
       finalizado_por: null,
       gerente_visualizado_em: null,
@@ -907,6 +912,7 @@ function mapFechamentoRota(row) {
     saldoBruto: Number(row.saldo_bruto) || 0,
     subtrairDespesasPlayBet: Number(row.subtrair_despesas_play_bet) || 0,
     ajudaCusto: Number(row.ajuda_custo) || 0,
+    comissaoExtra: Number(row.comissao_extra) || 0,
     atualizadoEm: row.atualizado_em || '',
     enviadoEm: row.enviado_em || '',
     finalizadoEm: row.finalizado_em || '',
