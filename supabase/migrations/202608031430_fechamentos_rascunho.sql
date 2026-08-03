@@ -4,7 +4,7 @@ create policy fechamentos_rotas_gerente_select
 on public.fechamentos_rotas for select
 to authenticated
 using (
-  public.perfil_atual() = 'administrador'
+  private.perfil_atual() = 'administrador'
   or (
     fechamentos_rotas.enviado_em is not null
     and exists (
