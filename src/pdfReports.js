@@ -81,13 +81,14 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
         const linha = Math.floor(indice / 6);
         const coluna = indice % 6;
         const principal = Boolean(item.principal);
+        const negativo = Boolean(item.negativo);
         const x = principal ? 12 : 12 + coluna * (larguraCard + espaco);
         const y = 41 + linha * 21;
         const larguraItem = principal ? largura - 24 : larguraCard;
-        doc.setFillColor(...(principal ? [238, 242, 255] : [247, 249, 253]));
-        doc.setDrawColor(...(principal ? [129, 140, 248] : [219, 228, 240]));
+        doc.setFillColor(...(negativo ? [254, 242, 242] : principal ? [238, 242, 255] : [247, 249, 253]));
+        doc.setDrawColor(...(negativo ? [248, 113, 113] : principal ? [129, 140, 248] : [219, 228, 240]));
         doc.roundedRect(x, y, larguraItem, 17, 2, 2, "FD");
-        doc.setTextColor(...(principal ? AZUL : CINZA));
+        doc.setTextColor(...(negativo ? [185, 28, 28] : principal ? AZUL : CINZA));
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.text(String(item.label).toUpperCase(), x + 4, principal ? y + 10 : y + 6);

@@ -1069,7 +1069,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
         { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
         { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
-        { label: "Saldo a repassar para a administraÃ§Ã£o", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229], principal: true },
+        { label: "Saldo a repassar para a administraÃ§Ã£o", valor: formatarMoedaPDF(saldoRepassar), destaque: saldoRepassar < 0 ? [220,38,38] : [79,70,229], principal: true, negativo: saldoRepassar < 0 },
       ],
       secoes: [
         {
@@ -1736,7 +1736,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
           { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
           { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
-          { label: "Saldo a repassar para a administraÃ§Ã£o", valor: formatarMoedaPDF(saldoRepassar), destaque: [79,70,229], principal: true },
+          { label: "Saldo a repassar para a administraÃ§Ã£o", valor: formatarMoedaPDF(saldoRepassar), destaque: saldoRepassar < 0 ? [220,38,38] : [79,70,229], principal: true, negativo: saldoRepassar < 0 },
         ],
         secoes: [
           {
