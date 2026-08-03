@@ -1048,14 +1048,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         formatarMoedaPDF(m.saida),
         formatarMoedaPDF(m.saldoBruto),
       ]);
-    const linhasDespesas = despesasRota.map(d => [
-      d.ponto?.nomeFantasia || (expenseBelongsToManager(d, gerenteNome) ? "Despesa do gerente" : `Ponto ${d.pontoId}`),
-      d.descricao || "Despesa sem descrição",
-      formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
-      diaDespesaPrestacao(d.criadoEm) ? formatarDiaPrestacao(diaDespesaPrestacao(d.criadoEm)) : "-",
-      formatarMoedaPDF(valorDespesaPrestacao(d)),
-      d.observacao || "-",
-    ]);
     const pdfGerado = await gerarPDF({
       titulo: `Prestação de Conta - ${gerenteNome}`,
       descricao: `${rotaAtiva ? `Rota ${rotaAtiva}` : "Todas as rotas"} | ${periodoPrestacaoLabel(competencia,dia)}`,
@@ -1082,19 +1074,6 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
           titulo: "Resumo financeiro",
           colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente","Saldo a repassar"],
           linhas: linhasResumo,
-        },
-        {
-          titulo: "Histórico de despesas",
-          colunas: ["Ponto","Descrição","Mês","Data","Valor","Observação"],
-          linhas: linhasDespesas.length ? linhasDespesas : [["-","Nenhuma despesa lançada neste recorte","-","-","R$ 0,00","-"]],
-          rodape: ["","","","Total",formatarMoedaPDF(totalDespesas),""],
-          estilosColunas: {
-            0: { cellWidth: 38 },
-            1: { cellWidth: 58 },
-            2: { cellWidth: 30 },
-            3: { cellWidth: 25 },
-            4: { cellWidth: 28, halign: "right" },
-          },
         },
       ],
     });
@@ -1362,10 +1341,14 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       nome: d.ponto?.nomeFantasia || (despesaGerente ? `Despesa pessoal de ${d.gerente || gerenteSelecionado}` : `Ponto ${d.pontoId}`),
       lancamentos: [],
       meses: new Set(),
+      modalidades: new Set(),
       total: 0,
     };
     grupo.lancamentos.push(d);
     grupo.meses.add(formatarMesPrestacao(mesDespesaPrestacao(d.competencia)));
+    if (!despesaGerente) {
+      (Array.isArray(d.ponto?.modalidades) ? d.ponto.modalidades : []).forEach(modalidade=>grupo.modalidades.add(modalidade));
+    }
     grupo.total += valorDespesaPrestacao(d);
     grupos.set(chave, grupo);
     return grupos;
@@ -1691,13 +1674,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           formatarMoedaPDF(m.saida),
           formatarMoedaPDF(m.saldoBruto),
         ]);
-      const linhasDespesas = despesasRota.map(d => [
-        rota,
-        d.ponto?.nomeFantasia || (expenseBelongsToManager(d, gerenteSelecionado) ? "Despesa do gerente" : `Ponto ${d.pontoId}`),
-        d.descricao || "Despesa sem descrição",
-        formatarMesPrestacao(mesDespesaPrestacao(d.competencia)),
-        formatarMoedaPDF(valorDespesaPrestacao(d)),
-      ]);
       await gerarPDF({
         titulo: `Fechamento - ${gerenteSelecionado} · ${rota}`,
         descricao: `Prestação de contas individual da rota | ${periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}`,
@@ -1724,19 +1700,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             titulo: "Resumo financeiro da rota",
             colunas: ["Rota","Saldo bruto","Despesas","Saldo final","Comissão gerente","Saldo a repassar"],
             linhas: linhasResumo,
-          },
-          {
-            titulo: "Histórico de despesas",
-            colunas: ["Rota","Ponto","Descrição","Mês","Valor"],
-            linhas: linhasDespesas.length ? linhasDespesas : [[rota,"-","Nenhuma despesa lançada neste recorte","-","R$ 0,00"]],
-            rodape: ["","","","Total das despesas",formatarMoedaPDF(totalDespesas)],
-            estilosColunas: {
-              0: { cellWidth: 30 },
-              1: { cellWidth: 72 },
-              2: { cellWidth: 64 },
-              3: { cellWidth: 48 },
-              4: { cellWidth: 38, halign: "right" },
-            },
           },
         ],
       });
@@ -2003,15 +1966,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
               <strong>Despesas da conferência</strong>
               <span>{despesasDetalheAgrupadas.length} grupo{despesasDetalheAgrupadas.length!==1?"s":""} · {despesasDetalhe.length} lançamento{despesasDetalhe.length!==1?"s":""}</span>
             </div>
-            <div className="fechamento-conferencia-modalidades">
-              <h4>Modalidades do fechamento</h4>
-              {calculosModalidades.map(modalidade=>(
-                <article key={modalidade.id}>
-                  <div><strong>{modalidade.nome}</strong><small>{modalidade.descricao}</small></div>
-                  <b>{formatarMoedaPDF(modalidade.saldoBruto)}</b>
-                </article>
-              ))}
-            </div>
             {despesasDetalhe.length===0?(
               <p className="dash-vazio">Nenhuma despesa encontrada para este recorte.</p>
             ):despesasDetalheAgrupadas.map(grupo=>(
@@ -2027,6 +1981,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                   </div>
                 </div>
                 <small>{[...grupo.meses].join(", ")}</small>
+                {grupo.modalidades.size>0&&<span className="fechamento-despesa-modalidades">Modalidades: {[...grupo.modalidades].join(", ")}</span>}
                 <b>{formatarMoedaPDF(grupo.total)}</b>
               </article>
             ))}
