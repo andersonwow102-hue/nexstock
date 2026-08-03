@@ -697,9 +697,10 @@ export async function carregarFechamentosRotas() {
   return data.map(mapFechamentoRota);
 }
 
-export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '', modalidades = [], enviarAoGerente = true }) {
+export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '', modalidades = [], enviarAoGerente = true, subtrairDespesasPlayBet = 0 }) {
   const atualizadoEm = new Date().toISOString();
   const enviadoEm = enviarAoGerente ? atualizadoEm : null;
+  const valorPlayBet = Math.max(0, Number(subtrairDespesasPlayBet) || 0);
   const rows = modalidades.map(m => ({
     gerente,
     rota,
@@ -710,6 +711,7 @@ export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '
     comissao: Number(m.comissao) || 0,
     saida: Number(m.saida) || 0,
     saldo_bruto: Number(m.saldoBruto) || 0,
+    subtrair_despesas_play_bet: valorPlayBet,
     enviado_em: enviadoEm,
     finalizado_em: null,
     finalizado_por: null,
@@ -721,6 +723,27 @@ export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '
   }));
   if (!gerente || !rota || !competencia) throw new Error('Selecione gerente, rota e competência para salvar o fechamento.');
   if (rows.length === 0) throw new Error('Nenhuma modalidade informada para salvar.');
+
+  const { error: statusError } = await supabase
+    .from('fechamentos_rotas')
+    .update({
+      enviado_em: enviadoEm,
+      subtrair_despesas_play_bet: valorPlayBet,
+      finalizado_em: null,
+      finalizado_por: null,
+      gerente_visualizado_em: null,
+      gerente_visualizado_por: null,
+      gerente_confirmado_em: null,
+      gerente_confirmado_por: null,
+      atualizado_em: atualizadoEm,
+    })
+    .eq('gerente', gerente)
+    .eq('rota', rota)
+    .eq('competencia', competencia)
+    .eq('dia', dia || '');
+  if (statusError) {
+    throw await reportarErroDados(statusError, { acao: 'atualizar_status_fechamento_rota', gerente, rota, competencia, dia });
+  }
 
   const { data, error } = await supabase
     .from('fechamentos_rotas')
@@ -879,6 +902,7 @@ function mapFechamentoRota(row) {
     comissao: Number(row.comissao) || 0,
     saida: Number(row.saida) || 0,
     saldoBruto: Number(row.saldo_bruto) || 0,
+    subtrairDespesasPlayBet: Number(row.subtrair_despesas_play_bet) || 0,
     atualizadoEm: row.atualizado_em || '',
     enviadoEm: row.enviado_em || '',
     finalizadoEm: row.finalizado_em || '',

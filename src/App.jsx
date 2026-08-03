@@ -1001,7 +1001,9 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
   const fechamentoVisualizadoEm = fechamentosDaRota.map(f=>f.gerenteVisualizadoEm).filter(Boolean).sort().at(-1) || "";
   const fechamentoConfirmadoEm = fechamentosDaRota.map(f=>f.gerenteConfirmadoEm).filter(Boolean).sort().at(-1) || "";
   const saldoBruto = calculosModalidades.reduce((s,m)=>s+m.saldoBruto,0);
-  const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+  const totalDespesasBrutas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+  const subtracaoPlayBet = Math.max(0, Number(fechamentosDaRota[0]?.subtrairDespesasPlayBet) || 0);
+  const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet);
   const saldoFinal = saldoBruto - totalDespesas;
   const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
   const saldoRepassar = saldoFinal - comissaoGerente;
@@ -1034,6 +1036,8 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
     const linhasResumo = [[
       rotaAtiva || "Todas",
       formatarMoedaPDF(saldoBruto),
+      formatarMoedaPDF(totalDespesasBrutas),
+      formatarMoedaPDF(subtracaoPlayBet),
       formatarMoedaPDF(totalDespesas),
       formatarMoedaPDF(saldoFinal),
       formatarMoedaPDF(comissaoGerente),
@@ -1059,6 +1063,8 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
         { label: "Gerente", valor: gerenteNome },
         { label: "Rota", valor: rotaAtiva || "Todas" },
         { label: "Saldo bruto", valor: formatarMoedaPDF(saldoBruto), destaque: [37,99,235] },
+        { label: "Despesas brutas", valor: formatarMoedaPDF(totalDespesasBrutas), destaque: [220,38,38] },
+        { label: "Subtrair despesas da Play Bet", valor: formatarMoedaPDF(subtracaoPlayBet), destaque: [124,58,237] },
         { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
         { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
         { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
@@ -1069,6 +1075,11 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
           titulo: "Entradas, comissões e saídas por modalidade",
           colunas: ["Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
           linhas: linhasModalidades.length ? linhasModalidades : [["Sem lançamento","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
+        },
+        {
+          titulo: "Ajuste de despesas",
+          colunas: ["Despesas brutas","Subtrair despesas da Play Bet","Despesas finais"],
+          linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(totalDespesas)]],
         },
         {
           titulo: "Resumo financeiro",
@@ -1265,6 +1276,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [diaFechamento,setDiaFechamento]=useState("");
   const [fechamentosRotas,setFechamentosRotas]=useState([]);
   const [fechamentoValores,setFechamentoValores]=useState(criarFechamentoVazio);
+  const [subtrairDespesasPlayBet,setSubtrairDespesasPlayBet]=useState("");
   const [fechamentoOk,setFechamentoOk]=useState("");
   const [fechamentoErro,setFechamentoErro]=useState("");
   const [fechamentoSalvando,setFechamentoSalvando]=useState(false);
@@ -1360,7 +1372,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   );
   const modalidadesDaRota = modalidadesFechamentoPara(gerenteSelecionado, rotaDetalheAtiva);
   const totalDetalheSistema = despesasDetalhe.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
-  const totalDetalhe = totalDetalheSistema;
+  const subtracaoPlayBetFechamento = Math.max(0, numeroFechamento(subtrairDespesasPlayBet));
+  const totalDetalhe = Math.max(0, totalDetalheSistema - subtracaoPlayBetFechamento);
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
   const calculosModalidades = modalidadesDaRota.map(modalidade => {
     const valores = fechamentoValores[modalidade.id] || {};
@@ -1384,7 +1397,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     f.competencia === competenciaStatusFechamento &&
     (f.dia || "") === diaStatusFechamento
   );
-  const fechamentoDetalheEnviadoEm = fechamentosDetalheStatus.map(f=>f.enviadoEm || f.atualizadoEm).filter(Boolean).sort().at(-1) || "";
+  const fechamentoDetalheEnviadoEm = fechamentosDetalheStatus.map(f=>f.enviadoEm).filter(Boolean).sort().at(-1) || "";
   const fechamentoDetalheFinalizadoEm = fechamentosDetalheStatus.map(f=>f.finalizadoEm).filter(Boolean).sort().at(-1) || "";
   const fechamentoDetalheVisualizadoEm = fechamentosDetalheStatus.map(f=>f.gerenteVisualizadoEm).filter(Boolean).sort().at(-1) || "";
   const fechamentoDetalheConfirmadoEm = fechamentosDetalheStatus.map(f=>f.gerenteConfirmadoEm).filter(Boolean).sort().at(-1) || "";
@@ -1410,7 +1423,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     const finalizado = registros.map(f => f.finalizadoEm).filter(Boolean).sort().at(-1);
     const confirmado = registros.map(f => f.gerenteConfirmadoEm).filter(Boolean).sort().at(-1);
     const visualizado = registros.map(f => f.gerenteVisualizadoEm).filter(Boolean).sort().at(-1);
-    const enviado = registros.map(f => f.enviadoEm || f.atualizadoEm).filter(Boolean).sort().at(-1);
+    const enviado = registros.map(f => f.enviadoEm).filter(Boolean).sort().at(-1);
 
     if (finalizado) return { classe: "finalizado", titulo: "Finalizado", descricao: new Date(finalizado).toLocaleString("pt-BR") };
     if (confirmado) return { classe: "confirmado", titulo: "Confirmado", descricao: new Date(confirmado).toLocaleString("pt-BR") };
@@ -1470,18 +1483,18 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     const vazio = criarFechamentoVazio(modalidadesAtivas);
     if(!gerenteSelecionado || !rotaDetalheAtiva){
       setFechamentoValores(vazio);
+      setSubtrairDespesasPlayBet("");
       return;
     }
     const competencia = competenciaFechamento || hoje().slice(0,7);
     const dia = diaFechamento || "";
-    fechamentosRotas
-      .filter(f =>
+    const registrosDoFechamento = fechamentosRotas.filter(f =>
         f.gerente === gerenteSelecionado &&
         f.rota === rotaDetalheAtiva &&
         f.competencia === competencia &&
         (f.dia || "") === dia
-      )
-      .forEach(f => {
+      );
+    registrosDoFechamento.forEach(f => {
         const modalidadeAtual = modalidadesAtivas.find(m => [m.id, ...(m.legacyIds || [])].includes(f.modalidade));
         if (!modalidadeAtual) return;
         vazio[modalidadeAtual.id] = {
@@ -1490,6 +1503,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           saida: textoFechamentoSalvo(f.saida),
         };
       });
+    setSubtrairDespesasPlayBet(textoFechamentoSalvo(registrosDoFechamento[0]?.subtrairDespesasPlayBet));
     setFechamentoValores(vazio);
     setFechamentoOk("");
     setFechamentoErro("");
@@ -1534,6 +1548,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         dia: diaFechamento || "",
         modalidades: modalidadesParaSalvar,
         enviarAoGerente,
+        subtrairDespesasPlayBet: subtracaoPlayBetFechamento,
       });
       setFechamentosRotas(atual => [
         ...atual.filter(f =>
@@ -1625,6 +1640,18 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     });
   }
 
+  function subtracaoPlayBetDaRota(rota) {
+    if (rota === rotaDetalheAtiva) return subtracaoPlayBetFechamento;
+    const competencia = competenciaFechamento || hoje().slice(0,7);
+    const registro = fechamentosRotas.find(f =>
+      f.gerente === gerenteSelecionado &&
+      f.rota === rota &&
+      f.competencia === competencia &&
+      (f.dia || "") === (diaFechamento || "")
+    );
+    return Math.max(0, Number(registro?.subtrairDespesasPlayBet) || 0);
+  }
+
   async function baixarFechamentoPDF(tipo = "rota", visualizar = false) {
     if (!gerenteSelecionado) {
       window.alert("Selecione um gerente/rota para gerar o PDF.");
@@ -1652,13 +1679,17 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       const modalidades = calculosDaRota(rota);
       const despesasRota = despesasDaRota(rota);
       const totalBruto = modalidades.reduce((s,m)=>s+m.saldoBruto,0);
-      const totalDespesas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+      const totalDespesasBrutas = despesasRota.reduce((s,d)=>s+valorDespesaPrestacao(d),0);
+      const subtracaoPlayBet = subtracaoPlayBetDaRota(rota);
+      const totalDespesas = Math.max(0, totalDespesasBrutas - subtracaoPlayBet);
       const saldoFinal = totalBruto - totalDespesas;
       const comissaoGerente = Math.max(0, saldoFinal) * 0.10;
       const saldoRepassar = saldoFinal - comissaoGerente;
       const linhasResumo = [[
         rota,
         formatarMoedaPDF(totalBruto),
+        formatarMoedaPDF(totalDespesasBrutas),
+        formatarMoedaPDF(subtracaoPlayBet),
         formatarMoedaPDF(totalDespesas),
         formatarMoedaPDF(saldoFinal),
         formatarMoedaPDF(comissaoGerente),
@@ -1685,6 +1716,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           { label: "Gerente", valor: gerenteSelecionado },
           { label: "Rota", valor: rota },
           { label: "Saldo bruto", valor: formatarMoedaPDF(totalBruto), destaque: [37,99,235] },
+          { label: "Despesas brutas", valor: formatarMoedaPDF(totalDespesasBrutas), destaque: [220,38,38] },
+          { label: "Subtrair despesas da Play Bet", valor: formatarMoedaPDF(subtracaoPlayBet), destaque: [124,58,237] },
           { label: "Despesas", valor: formatarMoedaPDF(totalDespesas), destaque: [220,38,38] },
           { label: "Saldo final", valor: formatarMoedaPDF(saldoFinal), destaque: [5,150,105] },
           { label: "Comissão gerente", valor: formatarMoedaPDF(comissaoGerente), destaque: [201,125,0] },
@@ -1695,6 +1728,11 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             titulo: "Entradas, comissões e saídas por modalidade",
             colunas: ["Rota","Modalidade","Entrada","Comissão","Saída / Prêmios","Saldo bruto"],
             linhas: linhasModalidades.length ? linhasModalidades : [[rota,"Sem lançamentos","R$ 0,00","R$ 0,00","R$ 0,00","R$ 0,00"]],
+          },
+          {
+            titulo: "Ajuste de despesas",
+            colunas: ["Despesas brutas","Subtrair despesas da Play Bet","Despesas finais"],
+            linhas: [[formatarMoedaPDF(totalDespesasBrutas),formatarMoedaPDF(subtracaoPlayBet),formatarMoedaPDF(totalDespesas)]],
           },
           {
             titulo: "Resumo financeiro da rota",
@@ -1941,6 +1979,19 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                   </div>
                 </article>
               ))}
+            </div>
+            <div className="fechamento-ajuste-playbet">
+              <label>
+                <span>Subtrair despesas da Play Bet</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={subtrairDespesasPlayBet}
+                  onChange={e=>setSubtrairDespesasPlayBet(e.target.value)}
+                  placeholder="R$ 0,00"
+                />
+              </label>
+              <small>Valor manual descontado do total de despesas desta rota.</small>
             </div>
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">
