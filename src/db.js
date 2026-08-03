@@ -697,8 +697,9 @@ export async function carregarFechamentosRotas() {
   return data.map(mapFechamentoRota);
 }
 
-export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '', modalidades = [] }) {
-  const enviadoEm = new Date().toISOString();
+export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '', modalidades = [], enviarAoGerente = true }) {
+  const atualizadoEm = new Date().toISOString();
+  const enviadoEm = enviarAoGerente ? atualizadoEm : null;
   const rows = modalidades.map(m => ({
     gerente,
     rota,
@@ -716,7 +717,7 @@ export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '
     gerente_visualizado_por: null,
     gerente_confirmado_em: null,
     gerente_confirmado_por: null,
-    atualizado_em: enviadoEm,
+    atualizado_em: atualizadoEm,
   }));
   if (!gerente || !rota || !competencia) throw new Error('Selecione gerente, rota e competência para salvar o fechamento.');
   if (rows.length === 0) throw new Error('Nenhuma modalidade informada para salvar.');
@@ -734,8 +735,8 @@ export async function salvarFechamentoRota({ gerente, rota, competencia, dia = '
   }
   await registrarAcaoCritica({
     acao: 'salvar_fechamento_rota',
-    mensagem: 'Fechamento de rota enviado ao gerente.',
-    contexto: { gerente, rota, competencia, dia, modalidades: rows.length },
+    mensagem: enviarAoGerente ? 'Fechamento de rota enviado ao gerente.' : 'Fechamento de rota salvo como rascunho.',
+    contexto: { gerente, rota, competencia, dia, modalidades: rows.length, enviarAoGerente },
   });
   return data.map(mapFechamentoRota);
 }
@@ -879,7 +880,7 @@ function mapFechamentoRota(row) {
     saida: Number(row.saida) || 0,
     saldoBruto: Number(row.saldo_bruto) || 0,
     atualizadoEm: row.atualizado_em || '',
-    enviadoEm: row.enviado_em || row.atualizado_em || '',
+    enviadoEm: row.enviado_em || '',
     finalizadoEm: row.finalizado_em || '',
     finalizadoPor: row.finalizado_por || '',
     gerenteVisualizadoEm: row.gerente_visualizado_em || '',

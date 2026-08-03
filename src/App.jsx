@@ -994,7 +994,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
     const saldoBruto = Number(salvo?.saldoBruto ?? salvo?.saldo_bruto ?? entrada - comissao - saida);
     return { ...modalidade, entrada, comissaoCalculada: comissao, saida, saldoBruto };
   });
-  const fechamentosDaRota = fechamentosRotas.filter(filtroFechamentoGerente);
+  const fechamentosDaRota = fechamentosRotas.filter(f=>filtroFechamentoGerente(f)&&Boolean(f.enviadoEm));
   const fechamentoEnviado = fechamentosDaRota.length > 0;
   const fechamentoEnviadoEm = fechamentosDaRota.map(f=>f.enviadoEm || f.atualizadoEm).filter(Boolean).sort().at(-1) || "";
   const fechamentoFinalizadoEm = fechamentosDaRota.map(f=>f.finalizadoEm).filter(Boolean).sort().at(-1) || "";
@@ -1413,7 +1413,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         ? `Gerente visualizou o PDF em ${new Date(fechamentoDetalheVisualizadoEm).toLocaleString("pt-BR")} e ainda não confirmou`
     : fechamentoDetalheEnviadoEm
       ? `Enviado em ${new Date(fechamentoDetalheEnviadoEm).toLocaleString("pt-BR")} · aguardando o gerente visualizar`
-      : "Ainda não enviado ao gerente";
+      : fechamentosDetalheStatus.length
+        ? "Rascunho salvo · ainda não enviado ao gerente"
+        : "Ainda não enviado ao gerente";
 
   function statusDaRotaFechamento({ gerente, rota }) {
     const registros = fechamentosRotas.filter(f =>
@@ -1431,6 +1433,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     if (confirmado) return { classe: "confirmado", titulo: "Confirmado", descricao: new Date(confirmado).toLocaleString("pt-BR") };
     if (visualizado) return { classe: "visualizado", titulo: "Visualizado", descricao: "Aguardando confirmação" };
     if (enviado) return { classe: "enviado", titulo: "Enviado", descricao: "Aguardando gerente" };
+    if (registros.length) return { classe: "rascunho", titulo: "Rascunho", descricao: "Salvo no sistema" };
     return { classe: "pendente", titulo: "Sem envio", descricao: "Pronto para lançar" };
   }
 
@@ -1524,7 +1527,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     }));
   }
 
-  async function salvarFechamentoSelecionado() {
+  async function salvarFechamentoSelecionado(enviarAoGerente = false) {
     setFechamentoOk("");
     setFechamentoErro("");
     if(!gerenteSelecionado || !rotaDetalheAtiva){
@@ -1547,6 +1550,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         competencia,
         dia: diaFechamento || "",
         modalidades: modalidadesParaSalvar,
+        enviarAoGerente,
       });
       setFechamentosRotas(atual => [
         ...atual.filter(f =>
@@ -1559,7 +1563,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         ),
         ...salvos,
       ]);
-      setFechamentoOk(`Fechamento enviado para ${gerenteSelecionado} · ${rotaDetalheAtiva}. O gerente já pode abrir a Prestação de Conta e baixar o PDF dessa rota.`);
+      setFechamentoOk(enviarAoGerente
+        ? `Fechamento enviado para ${gerenteSelecionado} · ${rotaDetalheAtiva}. O gerente já pode abrir a Prestação de Conta e baixar o PDF dessa rota.`
+        : `Fechamento de ${gerenteSelecionado} · ${rotaDetalheAtiva} salvo como rascunho. O gerente ainda não tem acesso.`);
     }catch(err){
       setFechamentoErro(err.message||"Não foi possível salvar o fechamento.");
     }finally{
@@ -1642,6 +1648,22 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       return;
     }
 
+    const rotasPDF = tipo === "gerente" ? rotasDetalhe.filter(Boolean) : [rotaDetalheAtiva].filter(Boolean);
+    if (rotasPDF.length === 0) {
+      window.alert("Selecione uma rota para gerar o PDF.");
+      return;
+    }
+
+    const janelaVisualizacao = visualizar && tipo === "rota" ? window.open("", "_blank") : null;
+    if (visualizar && tipo === "rota" && !janelaVisualizacao) {
+      window.alert("O navegador bloqueou a nova janela. Libere pop-ups para visualizar o PDF.");
+      return;
+    }
+    if (janelaVisualizacao) {
+      janelaVisualizacao.document.write("<title>Gerando PDF...</title><body style='font-family:Arial,sans-serif;padding:24px;color:#0f2348'>Gerando PDF do fechamento...</body>");
+      janelaVisualizacao.document.close();
+    }
+
     async function gerarPDFDaRota(rota, visualizarRota = false) {
       if (!rota) return;
       const modalidades = calculosDaRota(rota);
@@ -1681,6 +1703,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         descricao: `Prestação de contas individual da rota | ${periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}`,
         nomeArquivo: `stock-on_fechamento_${slugArquivoBackup(gerenteSelecionado)}_${slugArquivoBackup(rota)}_${competenciaFechamento || "todos"}${diaFechamento?`_${diaFechamento}`:""}.pdf`,
         visualizar: visualizarRota,
+        janelaVisualizacao: visualizarRota ? janelaVisualizacao : null,
         total: 1,
         resumo: [
           { label: "Gerente", valor: gerenteSelecionado },
@@ -1719,11 +1742,6 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       });
     }
 
-    const rotasPDF = tipo === "gerente" ? rotasDetalhe.filter(Boolean) : [rotaDetalheAtiva].filter(Boolean);
-    if (rotasPDF.length === 0) {
-      window.alert("Selecione uma rota para gerar o PDF.");
-      return;
-    }
     for (const rota of rotasPDF) {
       await gerarPDFDaRota(rota, visualizar && tipo === "rota");
     }
@@ -1899,7 +1917,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                 <div className={`fechamento-status-envio ${fechamentoDetalheEnviadoEm ? "enviado" : ""}`}>
                   <span>{fechamentoDetalheVisualizadoEm
                     ?"PDF visualizado"
-                    :fechamentoDetalheEnviadoEm?"Aguardando gerente":"Aguardando envio"}</span>
+                    :fechamentoDetalheEnviadoEm
+                      ?"Aguardando gerente"
+                      :fechamentosDetalheStatus.length?"Rascunho salvo":"Aguardando envio"}</span>
                   <strong>{fechamentoDetalheStatusTexto}</strong>
                 </div>
               )}
@@ -1949,12 +1969,12 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                       <strong>{m.nome}</strong>
                       <span>{m.descricao}</span>
                     </div>
-                    <b>{formatarMoedaPDF(m.saldoBruto)}</b>
                   </div>
                   <div className="fechamento-campos-grid">
                     <label>Entrada<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.entrada||""} onChange={e=>alterarFechamentoModalidade(m.id,"entrada",e.target.value)} placeholder="R$ 0,00"/></label>
                     <label>Comissão<input type="text" inputMode="decimal" value={m.comissao===null?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} disabled={m.comissao!==null} placeholder="R$ 0,00"/></label>
                     <label>Saída<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.saida||""} onChange={e=>alterarFechamentoModalidade(m.id,"saida",e.target.value)} placeholder="R$ 0,00"/></label>
+                    <div className="fechamento-modalidade-saldo"><span>Saldo</span><b>{formatarMoedaPDF(m.saldoBruto)}</b></div>
                   </div>
                 </article>
               ))}
@@ -1973,7 +1993,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
                       ?"Marcar prestação finalizada"
                       :"Aguardando confirmação do gerente"}
                 </button>
-                <button className="fechamento-save-btn" type="button" onClick={salvarFechamentoSelecionado} disabled={fechamentoSalvando}>{fechamentoSalvando?"Enviando...":"Enviar ao gerente"}</button>
+                <button className="btn-secundario fechamento-rascunho-btn" type="button" onClick={()=>salvarFechamentoSelecionado(false)} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
+                <button className="fechamento-save-btn" type="button" onClick={()=>salvarFechamentoSelecionado(true)} disabled={fechamentoSalvando}>{fechamentoSalvando?"Processando...":"Enviar ao gerente"}</button>
               </div>
             </div>
           </div>
@@ -1981,6 +2002,15 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             <div className="fechamento-despesas-head">
               <strong>Despesas da conferência</strong>
               <span>{despesasDetalheAgrupadas.length} grupo{despesasDetalheAgrupadas.length!==1?"s":""} · {despesasDetalhe.length} lançamento{despesasDetalhe.length!==1?"s":""}</span>
+            </div>
+            <div className="fechamento-conferencia-modalidades">
+              <h4>Modalidades do fechamento</h4>
+              {calculosModalidades.map(modalidade=>(
+                <article key={modalidade.id}>
+                  <div><strong>{modalidade.nome}</strong><small>{modalidade.descricao}</small></div>
+                  <b>{formatarMoedaPDF(modalidade.saldoBruto)}</b>
+                </article>
+              ))}
             </div>
             {despesasDetalhe.length===0?(
               <p className="dash-vazio">Nenhuma despesa encontrada para este recorte.</p>
