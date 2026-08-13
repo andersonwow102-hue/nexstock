@@ -264,7 +264,7 @@ begin
   select count(*) into v_count from public.devedores_dividas where id = v_divida;
   if v_count <> 1 then raise exception 'Administrador nao possui leitura global.'; end if;
   perform public.devedores_corrigir_fase1_admin(
-    v_divida, 2, 1, 'pessoa', 'Pessoa Corrigida pelo Admin', null, 'Rua Local', '10', null, null,
+    v_divida, 2, 2, 'pessoa', 'Pessoa Corrigida pelo Admin', null, 'Rua Local', '10', null, null,
     'Cidade Teste', 'BA', '(74) 90000-0000', null, 120.00, v_modalidade, current_date, null,
     'Correcao administrativa ficticia'
   );
@@ -276,7 +276,7 @@ begin
 
   begin
     perform public.devedores_corrigir_fase1_admin(
-      v_divida, 3, 2, 'pessoa', 'Pessoa Corrigida pelo Admin', null, 'Rua Local', '10', null, null,
+      v_divida, 3, 3, 'pessoa', 'Pessoa Corrigida pelo Admin', null, 'Rua Local', '10', null, null,
       'Cidade Teste', 'BA', '(74) 90000-0000', null, 120, v_modalidade_inativa, current_date, null,
       'Modalidade inativa deve falhar'
     );
