@@ -13,6 +13,10 @@ const sqlByFile = new Map(
   phase1Files.map((name) => [name, readFileSync(join(migrationsDir, name), "utf8")]),
 );
 const allSql = [...sqlByFile.values()].join("\n").toLowerCase();
+const localBootstrap = readFileSync(
+  join(projectRoot, "supabase", "tests", "bootstrap_perfis_local.sql"),
+  "utf8",
+);
 
 test("fase 1 possui migrations pequenas na ordem aprovada", () => {
   assert.deepEqual(phase1Files, [
@@ -54,8 +58,23 @@ test("tabelas possuem RLS e escrita direta permanece revogada", () => {
 });
 
 test("consulta recebe leitura global sem politica de escrita", () => {
-  assert.match(allSql, /'operador',\s*'administrador',\s*'consulta'/i);
+  const rls = sqlByFile.get("202608130940_devedores_rls_leitura.sql");
+  assert.match(rls, /exists\s*\(\s*select\s+1\s+from\s+public\.perfis/i);
+  assert.match(rls, /p\.user_id\s*=\s*auth\.uid\(\)/i);
+  assert.match(rls, /p\.perfil\s+in\s*\(\s*'operador',\s*'administrador',\s*'consulta'\s*\)/i);
+  assert.doesNotMatch(rls, /private\.perfil_atual\(\)/i);
   assert.doesNotMatch(allSql, /create\s+policy[^;]+for\s+(?:insert|update|delete|all)[^;]+consulta/is);
+});
+
+test("todas as policies exigem perfil real e gerente usa UUID da sessao", () => {
+  const rls = sqlByFile.get("202608130940_devedores_rls_leitura.sql");
+  const policies = rls.match(/create policy[\s\S]*?;/gi) || [];
+  assert.equal(policies.length, 4);
+  for (const policy of policies) {
+    assert.match(policy, /exists\s*\(\s*select\s+1\s+from\s+public\.perfis/i);
+    assert.match(policy, /p\.user_id\s*=\s*auth\.uid\(\)/i);
+  }
+  assert.match(rls, /p\.perfil\s*=\s*'gerente'\s+and\s+gerente_responsavel_id\s*=\s*p\.user_id/i);
 });
 
 test("RPCs mutaveis validam perfil, autenticacao e usam search_path fixo", () => {
@@ -147,4 +166,16 @@ test("banco limita payloads textuais da fase 1", () => {
 
 test("testes estaticos sao contratos textuais, nao execucao PostgreSQL", () => {
   assert.ok(phase1Files.length > 0);
+});
+
+test("bootstrap local reproduz o contrato real de perfis sem virar migration", () => {
+  assert.match(localBootstrap, /BOOTSTRAP EXCLUSIVO PARA TESTE LOCAL DESCARTAVEL/i);
+  assert.match(localBootstrap, /perfil text not null default 'consulta'/i);
+  assert.match(localBootstrap, /perfil in \('administrador', 'operador', 'gerente', 'consulta'\)/i);
+  assert.match(localBootstrap, /rotas_permitidas text\[\] not null default '\{\}'::text\[\]/i);
+  assert.match(localBootstrap, /create or replace function private\.perfil_atual\(\)/i);
+  assert.match(localBootstrap, /create or replace function private\.gerente_atual\(\)/i);
+  assert.match(localBootstrap, /create trigger criar_perfil_ao_cadastrar_usuario/i);
+  assert.match(localBootstrap, /new\.raw_user_meta_data->>'name'/i);
+  assert.doesNotMatch(localBootstrap, /devedores_/i);
 });

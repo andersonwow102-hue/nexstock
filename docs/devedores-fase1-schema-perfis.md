@@ -1,38 +1,33 @@
-# DEVEDORES — pressupostos locais sobre `public.perfis`
+# DEVEDORES — estrutura confirmada de `public.perfis`
 
-Este documento mapeia somente referências presentes no repositório. Não descreve nem confirma o schema remoto atual e não contém dados de usuários.
+Este documento registra metadados estruturais confirmados por inspeção de catálogo autorizada. Não contém dados de usuários nem credenciais.
 
-## Schema mínimo presumido pelo código
+## Schema confirmado
 
 O conjunto atual de SQL e frontend presume, em diferentes pontos, as seguintes colunas:
 
 | Coluna | Tipo mínimo presumido | Evidência de uso |
 |---|---|---|
-| `user_id` | `uuid` único ou chave | associação com `auth.uid()` e conflitos por usuário |
-| `nome` | `text` | nome de exibição e fallback de identidade |
-| `perfil` | `text` | autorização para `administrador`, `operador`, `gerente` e `consulta` |
-| `gerente_nome` | `text`, anulável | vínculo nominal do gerente |
-| `login_nome` | `text`, anulável | fallback de identidade e login |
-| `rotas_permitidas` | `text[]`, anulável | escopo de rotas dos gerentes |
+| `user_id` | `uuid not null`, PK e FK para `auth.users(id)` com cascade | associação com `auth.uid()` |
+| `nome` | `text`, anulável | nome de exibição |
+| `perfil` | `text not null default 'consulta'` | `administrador`, `operador`, `gerente` ou `consulta` |
+| `criado_em` | `timestamptz not null default now()` | auditoria cadastral |
+| `gerente_nome` | `text`, anulável, default vazio | vínculo nominal do gerente |
+| `email_temporario` | `boolean not null default false` | fluxo interno de login |
+| `email_temporario_expira_em` | `timestamptz`, anulável | fluxo interno de login |
+| `login_nome` | `text`, anulável | login alternativo; índice único parcial em minúsculas |
+| `rotas_permitidas` | `text[] not null default '{}'` | escopo de rotas dos gerentes |
 
 O frontend também referencia `email_temporario`, `email_temporario_expira_em` e `criado_em`, mas esses campos não são necessários para as RPCs da Fase 1 de DEVEDORES.
 
-`supabase/setup_profissional.sql` reproduz apenas `user_id`, `nome`, `perfil` e `criado_em`, com valores de perfil originalmente limitados a `administrador`, `operador` e `consulta`. Migrations posteriores e o frontend presumem `gerente`, `gerente_nome`, `login_nome` e `rotas_permitidas`. Portanto, uma instalação limpa ainda não é comprovadamente reproduzível sem conhecer a estrutura real atual.
+RLS está ativa e não forçada. O usuário lê o próprio perfil; o administrador possui leitura e administração conforme policies existentes. O helper real `private.perfil_atual()` retorna `consulta` quando não encontra perfil, portanto DEVEDORES exige adicionalmente a existência da linha real em `public.perfis`.
 
-## Metadados ainda necessários
+## Reprodução local
 
-Antes de executar os testes SQL locais, é necessário obter somente metadados de estrutura:
+O arquivo `supabase/tests/bootstrap_perfis_local.sql` reproduz somente a estrutura necessária ao teste descartável, helpers, policies mínimas e trigger confirmado. Ele não é migration de produção.
 
-- colunas, tipos, nulabilidade e defaults de `public.perfis`;
-- chave primária, índices e constraints de unicidade;
-- constraints e valores admitidos por `perfil`;
-- chaves estrangeiras;
-- políticas RLS e grants;
-- definição das funções `public.perfil_atual()` e `private.perfil_atual()`;
-- triggers associados à tabela.
+O cadastro público e anônimo desativados são configurações externas do Supabase Auth e não são comprovados nem reproduzidos por migration.
 
-## Método proposto, não executado
+## Bloqueio de produção
 
-Em ambiente autorizado, usar uma conexão somente leitura e consultar `information_schema.columns`, `pg_constraint`, `pg_indexes`, `pg_policies`, `information_schema.role_table_grants`, `pg_proc` e `pg_trigger`, filtrando exclusivamente `public.perfis` e as duas funções de perfil. Não selecionar linhas de `public.perfis`, `auth.users` ou qualquer tabela operacional.
-
-Alternativamente, gerar somente o schema com `pg_dump --schema-only --table=public.perfis`, desde que a credencial e o ambiente tenham sido explicitamente autorizados. Nenhum desses acessos foi executado nesta rodada.
+O painel confirmou ausência de backups. Nenhuma migration de DEVEDORES pode ser aplicada em produção antes de existir estratégia aprovada e testada de backup e restauração.

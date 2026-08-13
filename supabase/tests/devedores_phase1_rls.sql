@@ -82,6 +82,15 @@ begin
     (v_sem_perfil, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sem-perfil@example.invalid', '', now(), now(), now())
   on conflict (id) do nothing;
 
+  select count(*) into v_count
+  from public.perfis
+  where user_id = v_sem_perfil and perfil = 'consulta';
+  if v_count <> 1 then raise exception 'Trigger local nao criou perfil consulta.'; end if;
+
+  -- O trigger real cria perfil consulta. Remove-se apenas o perfil ficticio deste
+  -- usuario para comprovar que o fallback do helper nao concede acesso.
+  delete from public.perfis where user_id = v_sem_perfil;
+
   insert into public.perfis (user_id, nome, perfil, gerente_nome)
   values
     (v_manager_a, 'Gerente A', 'gerente', 'Gerente A'),
@@ -278,6 +287,10 @@ begin
   reset role;
   perform set_config('request.jwt.claim.sub', v_sem_perfil::text, true);
   set local role authenticated;
+  select count(*) into v_count from public.devedores_dividas;
+  if v_count <> 0 then raise exception 'Usuario sem perfil recebeu leitura pelo fallback consulta.'; end if;
+  select count(*) into v_count from public.devedores_modalidades;
+  if v_count <> 0 then raise exception 'Usuario sem perfil visualizou catalogo de modalidades.'; end if;
   begin
     perform public.devedores_cadastrar_relatorio_divida(
       'pessoa', 'Sem perfil', null, 'Rua', '1', null, null, 'Cidade', 'BA', '74900000000', null,
