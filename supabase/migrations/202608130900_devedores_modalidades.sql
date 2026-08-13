@@ -10,7 +10,7 @@ create table public.devedores_modalidades (
   atualizado_por uuid references auth.users(id) on delete set null,
   atualizado_em timestamptz not null default now(),
   versao bigint not null default 1,
-  constraint devedores_modalidades_nome_check check (char_length(btrim(nome)) between 1 and 100),
+  constraint devedores_modalidades_nome_check check (char_length(btrim(nome)) between 1 and 80),
   constraint devedores_modalidades_versao_check check (versao > 0)
 );
 

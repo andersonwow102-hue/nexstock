@@ -17,7 +17,14 @@ create table public.devedores_historico (
   criado_em timestamptz not null default now(),
   constraint devedores_historico_entidade_check check (entidade in ('relatorio', 'divida')),
   constraint devedores_historico_acao_check check (char_length(btrim(acao)) between 1 and 100),
-  constraint devedores_historico_referencia_check check (relatorio_id is not null or divida_id is not null)
+  constraint devedores_historico_motivo_check check (motivo is null or char_length(btrim(motivo)) between 1 and 1000),
+  constraint devedores_historico_referencia_check check (
+    relatorio_id is not null and divida_id is not null
+    and (
+      (entidade = 'relatorio' and entidade_id = relatorio_id)
+      or (entidade = 'divida' and entidade_id = divida_id)
+    )
+  )
 );
 
 create index devedores_historico_relatorio_idx

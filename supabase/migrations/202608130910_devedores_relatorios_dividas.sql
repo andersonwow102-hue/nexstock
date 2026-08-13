@@ -23,11 +23,15 @@ create table public.devedores_relatorios (
   versao bigint not null default 1,
   constraint devedores_relatorios_tipo_check check (tipo in ('pessoa', 'ponto')),
   constraint devedores_relatorios_nome_check check (char_length(btrim(nome)) between 1 and 200),
+  constraint devedores_relatorios_nome_fantasia_check check (nome_fantasia is null or char_length(nome_fantasia) <= 200),
   constraint devedores_relatorios_endereco_check check (char_length(btrim(endereco)) between 1 and 300),
   constraint devedores_relatorios_numero_check check (char_length(btrim(numero)) between 1 and 30),
+  constraint devedores_relatorios_complemento_check check (complemento is null or char_length(complemento) <= 150),
+  constraint devedores_relatorios_bairro_check check (bairro is null or char_length(bairro) <= 150),
   constraint devedores_relatorios_cidade_check check (char_length(btrim(cidade)) between 1 and 150),
   constraint devedores_relatorios_estado_check check (estado ~ '^[A-Z]{2}$'),
   constraint devedores_relatorios_telefone_check check (char_length(btrim(telefone)) between 8 and 30),
+  constraint devedores_relatorios_observacoes_check check (observacoes_cadastrais is null or char_length(observacoes_cadastrais) <= 2000),
   constraint devedores_relatorios_versao_check check (versao > 0)
 );
 
@@ -53,6 +57,7 @@ create table public.devedores_dividas (
   versao bigint not null default 1,
   constraint devedores_dividas_valor_check check (valor_original > 0),
   constraint devedores_dividas_snapshot_check check (jsonb_typeof(relatorio_snapshot) = 'object'),
+  constraint devedores_dividas_observacoes_check check (observacoes_originais is null or char_length(observacoes_originais) <= 2000),
   constraint devedores_dividas_versao_check check (versao > 0)
 );
 

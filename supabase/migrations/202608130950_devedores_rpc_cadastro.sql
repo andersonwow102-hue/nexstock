@@ -35,7 +35,7 @@ begin
   end if;
 
   select * into v_identidade from private.devedores_identidade_atual();
-  if v_identidade.perfil <> 'gerente' then
+  if v_identidade.user_id is null or v_identidade.perfil is distinct from 'gerente' then
     raise exception 'Somente gerente pode cadastrar divida nesta fase.' using errcode = '42501';
   end if;
 

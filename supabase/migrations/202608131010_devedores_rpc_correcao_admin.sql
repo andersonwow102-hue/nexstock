@@ -35,10 +35,16 @@ declare
   v_modalidade public.devedores_modalidades%rowtype;
   v_correlation_id uuid := gen_random_uuid();
   v_snapshot jsonb;
+  v_relatorio_anteriores jsonb := '{}'::jsonb;
+  v_relatorio_novos jsonb := '{}'::jsonb;
+  v_divida_anteriores jsonb := '{}'::jsonb;
+  v_divida_novos jsonb := '{}'::jsonb;
 begin
   if auth.uid() is null then raise exception 'Acesso nao autenticado.' using errcode = '42501'; end if;
   select * into v_identidade from private.devedores_identidade_atual();
-  if v_identidade.perfil <> 'administrador' then raise exception 'Acesso exclusivo do administrador.' using errcode = '42501'; end if;
+  if v_identidade.user_id is null or v_identidade.perfil is distinct from 'administrador' then
+    raise exception 'Acesso exclusivo do administrador.' using errcode = '42501';
+  end if;
   if coalesce(btrim(p_motivo), '') = '' then raise exception 'Motivo da correcao obrigatorio.' using errcode = '22023'; end if;
   if p_tipo not in ('pessoa', 'ponto') or coalesce(btrim(p_nome), '') = ''
      or coalesce(btrim(p_endereco), '') = '' or coalesce(btrim(p_numero), '') = ''
@@ -55,16 +61,63 @@ begin
     raise exception 'Registro alterado por outro usuario. Atualize e tente novamente.' using errcode = '40001';
   end if;
 
-  select * into v_modalidade from public.devedores_modalidades where id = p_modalidade_id;
-  if not found then raise exception 'Modalidade nao encontrada.' using errcode = 'P0002'; end if;
+  select * into v_modalidade from public.devedores_modalidades where id = p_modalidade_id and ativo;
+  if not found then raise exception 'Modalidade ativa nao encontrada.' using errcode = 'P0002'; end if;
 
-  update public.devedores_relatorios set
-    tipo = p_tipo, nome = btrim(p_nome), nome_fantasia = nullif(btrim(p_nome_fantasia), ''),
-    endereco = btrim(p_endereco), numero = btrim(p_numero), complemento = nullif(btrim(p_complemento), ''),
-    bairro = nullif(btrim(p_bairro), ''), cidade = btrim(p_cidade), estado = upper(btrim(p_estado)),
-    telefone = btrim(p_telefone), observacoes_cadastrais = nullif(btrim(p_observacoes_cadastrais), ''),
-    atualizado_por = auth.uid(), atualizado_em = now(), versao = versao + 1
-  where id = v_relatorio_anterior.id and versao = p_versao_relatorio returning * into v_relatorio_novo;
+  v_relatorio_anteriores := v_relatorio_anteriores
+    || case when v_relatorio_anterior.tipo is distinct from p_tipo then jsonb_build_object('tipo', v_relatorio_anterior.tipo) else '{}'::jsonb end
+    || case when v_relatorio_anterior.nome is distinct from btrim(p_nome) then jsonb_build_object('nome', v_relatorio_anterior.nome) else '{}'::jsonb end
+    || case when v_relatorio_anterior.nome_fantasia is distinct from nullif(btrim(p_nome_fantasia), '') then jsonb_build_object('nome_fantasia', v_relatorio_anterior.nome_fantasia) else '{}'::jsonb end
+    || case when v_relatorio_anterior.endereco is distinct from btrim(p_endereco) then jsonb_build_object('endereco', v_relatorio_anterior.endereco) else '{}'::jsonb end
+    || case when v_relatorio_anterior.numero is distinct from btrim(p_numero) then jsonb_build_object('numero', v_relatorio_anterior.numero) else '{}'::jsonb end
+    || case when v_relatorio_anterior.complemento is distinct from nullif(btrim(p_complemento), '') then jsonb_build_object('complemento', v_relatorio_anterior.complemento) else '{}'::jsonb end
+    || case when v_relatorio_anterior.bairro is distinct from nullif(btrim(p_bairro), '') then jsonb_build_object('bairro', v_relatorio_anterior.bairro) else '{}'::jsonb end
+    || case when v_relatorio_anterior.cidade is distinct from btrim(p_cidade) then jsonb_build_object('cidade', v_relatorio_anterior.cidade) else '{}'::jsonb end
+    || case when v_relatorio_anterior.estado is distinct from upper(btrim(p_estado)) then jsonb_build_object('estado', v_relatorio_anterior.estado) else '{}'::jsonb end
+    || case when v_relatorio_anterior.telefone is distinct from btrim(p_telefone) then jsonb_build_object('telefone', v_relatorio_anterior.telefone) else '{}'::jsonb end
+    || case when v_relatorio_anterior.observacoes_cadastrais is distinct from nullif(btrim(p_observacoes_cadastrais), '') then jsonb_build_object('observacoes_cadastrais', v_relatorio_anterior.observacoes_cadastrais) else '{}'::jsonb end;
+
+  v_relatorio_novos := v_relatorio_novos
+    || case when v_relatorio_anteriores ? 'tipo' then jsonb_build_object('tipo', p_tipo) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'nome' then jsonb_build_object('nome', btrim(p_nome)) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'nome_fantasia' then jsonb_build_object('nome_fantasia', nullif(btrim(p_nome_fantasia), '')) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'endereco' then jsonb_build_object('endereco', btrim(p_endereco)) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'numero' then jsonb_build_object('numero', btrim(p_numero)) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'complemento' then jsonb_build_object('complemento', nullif(btrim(p_complemento), '')) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'bairro' then jsonb_build_object('bairro', nullif(btrim(p_bairro), '')) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'cidade' then jsonb_build_object('cidade', btrim(p_cidade)) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'estado' then jsonb_build_object('estado', upper(btrim(p_estado))) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'telefone' then jsonb_build_object('telefone', btrim(p_telefone)) else '{}'::jsonb end
+    || case when v_relatorio_anteriores ? 'observacoes_cadastrais' then jsonb_build_object('observacoes_cadastrais', nullif(btrim(p_observacoes_cadastrais), '')) else '{}'::jsonb end;
+
+  v_divida_anteriores := v_divida_anteriores
+    || case when v_divida_anterior.valor_original is distinct from round(p_valor_original, 2) then jsonb_build_object('valor_original', v_divida_anterior.valor_original) else '{}'::jsonb end
+    || case when v_divida_anterior.modalidade_id is distinct from v_modalidade.id then jsonb_build_object('modalidade_id', v_divida_anterior.modalidade_id, 'modalidade', v_divida_anterior.modalidade_nome_snapshot) else '{}'::jsonb end
+    || case when v_divida_anterior.data_registro is distinct from p_data_registro then jsonb_build_object('data_registro', v_divida_anterior.data_registro) else '{}'::jsonb end
+    || case when v_divida_anterior.observacoes_originais is distinct from nullif(btrim(p_observacoes_originais), '') then jsonb_build_object('observacoes_originais', v_divida_anterior.observacoes_originais) else '{}'::jsonb end;
+
+  v_divida_novos := v_divida_novos
+    || case when v_divida_anteriores ? 'valor_original' then jsonb_build_object('valor_original', round(p_valor_original, 2)) else '{}'::jsonb end
+    || case when v_divida_anteriores ? 'modalidade_id' then jsonb_build_object('modalidade_id', v_modalidade.id, 'modalidade', v_modalidade.nome) else '{}'::jsonb end
+    || case when v_divida_anteriores ? 'data_registro' then jsonb_build_object('data_registro', p_data_registro) else '{}'::jsonb end
+    || case when v_divida_anteriores ? 'observacoes_originais' then jsonb_build_object('observacoes_originais', nullif(btrim(p_observacoes_originais), '')) else '{}'::jsonb end;
+
+  if v_relatorio_anteriores = '{}'::jsonb and v_divida_anteriores = '{}'::jsonb then
+    raise exception 'Nenhuma alteracao informada.' using errcode = 'P0004';
+  end if;
+
+  if v_relatorio_anteriores <> '{}'::jsonb then
+    update public.devedores_relatorios set
+      tipo = p_tipo, nome = btrim(p_nome), nome_fantasia = nullif(btrim(p_nome_fantasia), ''),
+      endereco = btrim(p_endereco), numero = btrim(p_numero), complemento = nullif(btrim(p_complemento), ''),
+      bairro = nullif(btrim(p_bairro), ''), cidade = btrim(p_cidade), estado = upper(btrim(p_estado)),
+      telefone = btrim(p_telefone), observacoes_cadastrais = nullif(btrim(p_observacoes_cadastrais), ''),
+      atualizado_por = auth.uid(), atualizado_em = now(), versao = versao + 1
+    where id = v_relatorio_anterior.id and versao = p_versao_relatorio returning * into v_relatorio_novo;
+    if not found then raise exception 'Conflito de versao.' using errcode = '40001'; end if;
+  else
+    v_relatorio_novo := v_relatorio_anterior;
+  end if;
 
   v_snapshot := jsonb_build_object(
     'tipo', v_relatorio_novo.tipo, 'nome', v_relatorio_novo.nome, 'nome_fantasia', v_relatorio_novo.nome_fantasia,
@@ -79,19 +132,31 @@ begin
     observacoes_originais = nullif(btrim(p_observacoes_originais), ''), relatorio_snapshot = v_snapshot,
     atualizado_por = auth.uid(), atualizado_em = now(), versao = versao + 1
   where id = p_divida_id and versao = p_versao_divida returning * into v_divida_nova;
-  if v_relatorio_novo.id is null or v_divida_nova.id is null then raise exception 'Conflito de versao.' using errcode = '40001'; end if;
+  if not found then raise exception 'Conflito de versao.' using errcode = '40001'; end if;
+
+  if v_relatorio_anteriores <> '{}'::jsonb then
+    v_relatorio_anteriores := v_relatorio_anteriores || jsonb_build_object('versao', v_relatorio_anterior.versao);
+    v_relatorio_novos := v_relatorio_novos || jsonb_build_object('versao', v_relatorio_novo.versao);
+  end if;
+  v_divida_anteriores := v_divida_anteriores || jsonb_build_object('versao', v_divida_anterior.versao);
+  v_divida_novos := v_divida_novos || jsonb_build_object('versao', v_divida_nova.versao);
+
+  if v_relatorio_anteriores <> '{}'::jsonb then
+    insert into public.devedores_historico (
+    relatorio_id, divida_id, entidade, entidade_id, acao, dados_anteriores, dados_novos, motivo,
+    usuario_id, usuario_nome_snapshot, perfil_snapshot, correlation_id
+    ) values
+    (v_relatorio_novo.id, p_divida_id, 'relatorio', v_relatorio_novo.id, 'cadastro_corrigido_admin',
+     v_relatorio_anteriores, v_relatorio_novos, btrim(p_motivo),
+     auth.uid(), v_identidade.usuario_nome, v_identidade.perfil, v_correlation_id);
+  end if;
 
   insert into public.devedores_historico (
     relatorio_id, divida_id, entidade, entidade_id, acao, dados_anteriores, dados_novos, motivo,
     usuario_id, usuario_nome_snapshot, perfil_snapshot, correlation_id
   ) values
-    (v_relatorio_novo.id, p_divida_id, 'relatorio', v_relatorio_novo.id, 'cadastro_corrigido_admin',
-     to_jsonb(v_relatorio_anterior) - array['criado_por','atualizado_por'],
-     to_jsonb(v_relatorio_novo) - array['criado_por','atualizado_por'], btrim(p_motivo),
-     auth.uid(), v_identidade.usuario_nome, v_identidade.perfil, v_correlation_id),
     (v_relatorio_novo.id, p_divida_id, 'divida', p_divida_id, 'divida_corrigida_admin',
-     to_jsonb(v_divida_anterior) - array['criado_por','atualizado_por'],
-     to_jsonb(v_divida_nova) - array['criado_por','atualizado_por'], btrim(p_motivo),
+     v_divida_anteriores, v_divida_novos, btrim(p_motivo),
      auth.uid(), v_identidade.usuario_nome, v_identidade.perfil, v_correlation_id);
 
   return query select v_relatorio_novo.versao, v_divida_nova.versao;
