@@ -316,6 +316,7 @@ begin
     raise exception 'Anonimo executou RPC.';
   exception when insufficient_privilege then null;
   end;
+  reset role;
 end;
 $$;
 
