@@ -15,7 +15,7 @@ select
   case
     when coalesce(sum(pg.valor) filter (where e.id is null), 0::numeric) >= p.valor then 'paga'
     when coalesce(sum(pg.valor) filter (where e.id is null), 0::numeric) > 0 then 'parcialmente_paga'
-    when p.vencimento < current_date then 'vencida'
+    when p.vencimento < (now() at time zone 'America/Sao_Paulo')::date then 'vencida'
     else 'pendente'
   end as situacao
 from public.devedores_parcelas p
@@ -46,11 +46,11 @@ select
   case
     when n.id is null then 'aberta'
     when coalesce(sum(pg.valor) filter (where e.id is null), 0::numeric) >= n.valor_negociado then 'quitada'
-    when (n.forma_pagamento = 'vista' and n.data_prevista_quitacao < current_date)
+    when (n.forma_pagamento = 'vista' and n.data_prevista_quitacao < (now() at time zone 'America/Sao_Paulo')::date)
       or exists (
         select 1 from public.devedores_parcelas px
         where px.negociacao_id = n.id
-          and px.vencimento < current_date
+          and px.vencimento < (now() at time zone 'America/Sao_Paulo')::date
           and coalesce((
             select sum(pgx.valor)
             from public.devedores_pagamentos pgx

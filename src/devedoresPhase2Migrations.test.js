@@ -71,10 +71,47 @@ test("concorrencia usa locks, versao e idempotencia", () => {
   assert.match(sql, /errcode\s*=\s*'40001'/gi);
   assert.match(sql, /idempotencia\s+uuid\s+not\s+null/gi);
   assert.match(sql, /uma negociacao ativa|negociacoes_ativa_uidx/i);
+  assert.match(sql, /idempotencia_payload\s+jsonb\s+not\s+null/gi);
+  assert.match(sql, /reutilizada com dados diferentes/gi);
 });
 
 test("consulta e usuarios sem perfil nao recebem escrita", () => {
   assert.match(sql, /p\.perfil\s+in\s*\('operador',\s*'administrador',\s*'consulta'\)/gi);
   assert.doesNotMatch(sql, /v_identidade\.perfil\s+in\s*\([^)]*consulta/i);
   assert.doesNotMatch(sql, /grant\s+execute[^;]+to\s+anon/i);
+});
+
+test("valores, datas e vencimentos rejeitam estados nao finitos", () => {
+  assert.match(sql, /'NaN'::numeric/gi);
+  assert.match(sql, /'Infinity'::numeric/gi);
+  assert.match(sql, /isfinite\(/gi);
+  assert.match(sql, /America\/Sao_Paulo/gi);
+});
+
+test("security definer fixa search_path e revoga execucao publica imediatamente", () => {
+  const definers = [...sql.matchAll(/security\s+definer\s+set\s+search_path\s*=\s*([^\n]+)/gi)];
+  assert.ok(definers.length >= 8);
+  for (const match of definers) assert.match(match[1], /^pg_catalog,\s*public,\s*private,\s*pg_temp/i);
+  for (const rpc of [
+    "devedores_criar_negociacao",
+    "devedores_substituir_negociacao",
+    "devedores_registrar_pagamento",
+    "devedores_estornar_pagamento",
+    "devedores_corrigir_negociacao_admin",
+  ]) {
+    assert.match(sql, new RegExp(`revoke\\s+all\\s+on\\s+function\\s+public\\.${rpc}[^;]+from\\s+public,\\s*anon`, "i"));
+  }
+});
+
+test("views usam invoker e sequences nao sao expostas", () => {
+  assert.equal((sql.match(/with\s*\(security_invoker\s*=\s*true\)/gi) || []).length, 2);
+  for (const sequence of ["negociacoes", "parcelas", "pagamentos", "pagamentos_estornos"]) {
+    assert.match(sql, new RegExp(`revoke\\s+all\\s+on\\s+sequence\\s+public\\.devedores_${sequence}_id_seq\\s+from\\s+public,\\s*anon,\\s*authenticated`, "i"));
+  }
+  assert.doesNotMatch(sql, /grant\s+(?:usage|select|update|all)\s+on\s+(?:sequence|all\s+sequences)/i);
+});
+
+test("campos internos de idempotencia nao recebem select", () => {
+  assert.doesNotMatch(sql, /grant\s+select\s+on\s+table\s+public\.devedores_(?:negociacoes|pagamentos|pagamentos_estornos)/i);
+  assert.doesNotMatch(sql, /grant\s+select\s*\([^)]*idempotencia/gi);
 });

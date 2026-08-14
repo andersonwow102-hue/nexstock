@@ -9,6 +9,8 @@ create or replace function private.devedores_gravar_negociacao(
   p_primeiro_vencimento date,
   p_observacoes text,
   p_idempotencia uuid,
+  p_idempotencia_operacao text,
+  p_idempotencia_payload jsonb,
   p_usuario_id uuid,
   p_usuario_nome text,
   p_perfil text,
@@ -19,7 +21,7 @@ create or replace function private.devedores_gravar_negociacao(
 returns bigint
 language plpgsql
 security definer
-set search_path = public, private, pg_temp
+set search_path = pg_catalog, public, private, pg_temp
 as $$
 declare
   v_negociacao_id bigint;
@@ -28,8 +30,14 @@ declare
   v_numero integer;
 begin
   if p_idempotencia is null then raise exception 'Chave de idempotencia obrigatoria.' using errcode = '22023'; end if;
-  if p_valor_negociado is null or round(p_valor_negociado, 2) <= 0 then
+  if p_valor_negociado is null
+     or p_valor_negociado in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)
+     or round(p_valor_negociado, 2) <= 0 then
     raise exception 'Valor negociado deve ser maior que zero.' using errcode = '22023';
+  end if;
+  if (p_data_prevista_quitacao is not null and not isfinite(p_data_prevista_quitacao))
+     or (p_primeiro_vencimento is not null and not isfinite(p_primeiro_vencimento)) then
+    raise exception 'Datas da negociacao devem ser finitas.' using errcode = '22023';
   end if;
   if p_forma_pagamento = 'vista' then
     if p_data_prevista_quitacao is null or p_quantidade_parcelas is not null or p_primeiro_vencimento is not null then
@@ -50,11 +58,13 @@ begin
   insert into public.devedores_negociacoes (
     divida_id, negociacao_anterior_id, forma_pagamento, valor_negociado,
     data_prevista_quitacao, quantidade_parcelas, primeiro_vencimento, observacoes,
-    idempotencia, criado_por, criado_por_nome_snapshot, criado_por_perfil_snapshot
+    idempotencia, idempotencia_operacao, idempotencia_payload,
+    criado_por, criado_por_nome_snapshot, criado_por_perfil_snapshot
   ) values (
     p_divida_id, p_negociacao_anterior_id, p_forma_pagamento, round(p_valor_negociado, 2),
     p_data_prevista_quitacao, p_quantidade_parcelas, p_primeiro_vencimento, nullif(btrim(p_observacoes), ''),
-    p_idempotencia, p_usuario_id, p_usuario_nome, p_perfil
+    p_idempotencia, p_idempotencia_operacao, p_idempotencia_payload,
+    p_usuario_id, p_usuario_nome, p_perfil
   ) returning id into v_negociacao_id;
 
   if p_forma_pagamento = 'parcelada' then
@@ -88,8 +98,7 @@ begin
       'valor_negociado', round(p_valor_negociado, 2),
       'data_prevista_quitacao', p_data_prevista_quitacao,
       'quantidade_parcelas', p_quantidade_parcelas,
-      'primeiro_vencimento', p_primeiro_vencimento,
-      'idempotencia', p_idempotencia
+      'primeiro_vencimento', p_primeiro_vencimento
     ),
     p_usuario_id, p_usuario_nome, p_perfil, p_correlation_id
   from public.devedores_dividas d where d.id = p_divida_id;
@@ -109,7 +118,39 @@ begin
 end;
 $$;
 
-revoke all on function private.devedores_gravar_negociacao(bigint,text,numeric,date,integer,date,text,uuid,uuid,text,text,bigint,text,uuid)
+revoke all on function private.devedores_gravar_negociacao(bigint,text,numeric,date,integer,date,text,uuid,text,jsonb,uuid,text,text,bigint,text,uuid)
+  from public, anon, authenticated;
+
+create or replace function private.devedores_validar_idempotencia_negociacao(
+  p_usuario_id uuid,
+  p_idempotencia uuid,
+  p_operacao text,
+  p_payload jsonb
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private, pg_temp
+as $$
+declare
+  v_existente public.devedores_negociacoes%rowtype;
+begin
+  if p_idempotencia is null then
+    raise exception 'Chave de idempotencia obrigatoria.' using errcode = '22023';
+  end if;
+  select * into v_existente
+  from public.devedores_negociacoes
+  where criado_por = p_usuario_id and idempotencia = p_idempotencia;
+  if not found then return null; end if;
+  if v_existente.idempotencia_operacao is distinct from p_operacao
+     or v_existente.idempotencia_payload is distinct from p_payload then
+    raise exception 'Chave de idempotencia reutilizada com operacao ou dados diferentes.' using errcode = '22023';
+  end if;
+  return v_existente.id;
+end;
+$$;
+
+revoke all on function private.devedores_validar_idempotencia_negociacao(uuid,uuid,text,jsonb)
   from public, anon, authenticated;
 
 create or replace function public.devedores_criar_negociacao(
@@ -126,12 +167,13 @@ create or replace function public.devedores_criar_negociacao(
 returns bigint
 language plpgsql
 security definer
-set search_path = public, private, pg_temp
+set search_path = pg_catalog, public, private, pg_temp
 as $$
 declare
   v_identidade record;
   v_divida public.devedores_dividas%rowtype;
   v_existente bigint;
+  v_payload jsonb;
 begin
   if auth.uid() is null then raise exception 'Acesso nao autenticado.' using errcode = '42501'; end if;
   select * into v_identidade from private.devedores_identidade_atual();
@@ -139,15 +181,25 @@ begin
     raise exception 'Acesso negado.' using errcode = '42501';
   end if;
 
-  select id into v_existente from public.devedores_negociacoes
-  where criado_por = auth.uid() and idempotencia = p_idempotencia;
-  if found then return v_existente; end if;
+  v_payload := jsonb_build_object(
+    'divida_id', p_divida_id, 'forma_pagamento', p_forma_pagamento,
+    'valor_negociado', round(p_valor_negociado, 2),
+    'data_prevista_quitacao', p_data_prevista_quitacao,
+    'quantidade_parcelas', p_quantidade_parcelas,
+    'primeiro_vencimento', p_primeiro_vencimento,
+    'observacoes', nullif(btrim(p_observacoes), '')
+  );
+  v_existente := private.devedores_validar_idempotencia_negociacao(
+    auth.uid(), p_idempotencia, 'negociacao_criada', v_payload
+  );
+  if v_existente is not null then return v_existente; end if;
 
   select * into v_divida from public.devedores_dividas where id = p_divida_id for update;
   if not found then raise exception 'Divida nao encontrada.' using errcode = 'P0002'; end if;
-  select id into v_existente from public.devedores_negociacoes
-  where criado_por = auth.uid() and idempotencia = p_idempotencia;
-  if found then return v_existente; end if;
+  v_existente := private.devedores_validar_idempotencia_negociacao(
+    auth.uid(), p_idempotencia, 'negociacao_criada', v_payload
+  );
+  if v_existente is not null then return v_existente; end if;
   if v_divida.versao <> p_versao_esperada then raise exception 'Versao desatualizada.' using errcode = '40001'; end if;
   if exists (select 1 from public.devedores_negociacoes where divida_id = p_divida_id and situacao = 'ativa') then
     raise exception 'A divida ja possui negociacao ativa.' using errcode = '23505';
@@ -157,17 +209,22 @@ begin
     return private.devedores_gravar_negociacao(
       p_divida_id, p_forma_pagamento, p_valor_negociado, p_data_prevista_quitacao,
       p_quantidade_parcelas, p_primeiro_vencimento, p_observacoes, p_idempotencia,
+      'negociacao_criada', v_payload,
       auth.uid(), v_identidade.usuario_nome, v_identidade.perfil, null,
       'negociacao_criada', gen_random_uuid()
     );
   exception when unique_violation then
-    select id into v_existente from public.devedores_negociacoes
-    where criado_por = auth.uid() and idempotencia = p_idempotencia;
-    if found then return v_existente; end if;
+    v_existente := private.devedores_validar_idempotencia_negociacao(
+      auth.uid(), p_idempotencia, 'negociacao_criada', v_payload
+    );
+    if v_existente is not null then return v_existente; end if;
     raise;
   end;
 end;
 $$;
+
+revoke all on function public.devedores_criar_negociacao(bigint,bigint,text,numeric,date,integer,date,text,uuid)
+  from public, anon;
 
 create or replace function public.devedores_substituir_negociacao(
   p_divida_id bigint,
@@ -184,13 +241,14 @@ create or replace function public.devedores_substituir_negociacao(
 returns bigint
 language plpgsql
 security definer
-set search_path = public, private, pg_temp
+set search_path = pg_catalog, public, private, pg_temp
 as $$
 declare
   v_identidade record;
   v_divida public.devedores_dividas%rowtype;
   v_anterior public.devedores_negociacoes%rowtype;
   v_existente bigint;
+  v_payload jsonb;
   v_correlation_id uuid := gen_random_uuid();
 begin
   if auth.uid() is null then raise exception 'Acesso nao autenticado.' using errcode = '42501'; end if;
@@ -200,15 +258,26 @@ begin
   end if;
   if coalesce(btrim(p_motivo), '') = '' then raise exception 'Motivo obrigatorio.' using errcode = '22023'; end if;
 
-  select id into v_existente from public.devedores_negociacoes
-  where criado_por = auth.uid() and idempotencia = p_idempotencia;
-  if found then return v_existente; end if;
+  v_payload := jsonb_build_object(
+    'divida_id', p_divida_id, 'forma_pagamento', p_forma_pagamento,
+    'valor_negociado', round(p_valor_negociado, 2),
+    'data_prevista_quitacao', p_data_prevista_quitacao,
+    'quantidade_parcelas', p_quantidade_parcelas,
+    'primeiro_vencimento', p_primeiro_vencimento,
+    'observacoes', nullif(btrim(p_observacoes), ''),
+    'motivo', nullif(btrim(p_motivo), '')
+  );
+  v_existente := private.devedores_validar_idempotencia_negociacao(
+    auth.uid(), p_idempotencia, 'negociacao_substituta_criada', v_payload
+  );
+  if v_existente is not null then return v_existente; end if;
 
   select * into v_divida from public.devedores_dividas where id = p_divida_id for update;
   if not found then raise exception 'Divida nao encontrada.' using errcode = 'P0002'; end if;
-  select id into v_existente from public.devedores_negociacoes
-  where criado_por = auth.uid() and idempotencia = p_idempotencia;
-  if found then return v_existente; end if;
+  v_existente := private.devedores_validar_idempotencia_negociacao(
+    auth.uid(), p_idempotencia, 'negociacao_substituta_criada', v_payload
+  );
+  if v_existente is not null then return v_existente; end if;
   if v_divida.versao <> p_versao_esperada then raise exception 'Versao desatualizada.' using errcode = '40001'; end if;
 
   select * into v_anterior from public.devedores_negociacoes
@@ -232,17 +301,22 @@ begin
     usuario_id, usuario_nome_snapshot, perfil_snapshot, correlation_id
   ) values (
     v_divida.relatorio_id, v_divida.id, 'negociacao', v_anterior.id, 'negociacao_substituida',
-    to_jsonb(v_anterior) - 'idempotencia', jsonb_build_object('situacao', 'substituida'), btrim(p_motivo),
+    to_jsonb(v_anterior) - array['idempotencia', 'idempotencia_payload'],
+    jsonb_build_object('situacao', 'substituida'), btrim(p_motivo),
     auth.uid(), v_identidade.usuario_nome, v_identidade.perfil, v_correlation_id
   );
 
   return private.devedores_gravar_negociacao(
     p_divida_id, p_forma_pagamento, p_valor_negociado, p_data_prevista_quitacao,
     p_quantidade_parcelas, p_primeiro_vencimento, p_observacoes, p_idempotencia,
+    'negociacao_substituta_criada', v_payload,
     auth.uid(), v_identidade.usuario_nome, v_identidade.perfil, v_anterior.id,
     'negociacao_substituta_criada', v_correlation_id
   );
 end;
 $$;
+
+revoke all on function public.devedores_substituir_negociacao(bigint,bigint,text,numeric,date,integer,date,text,text,uuid)
+  from public, anon;
 
 commit;
