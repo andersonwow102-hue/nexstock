@@ -3,12 +3,25 @@ import test from "node:test";
 import {
   adicionarMesCivil,
   centavosDeEntrada,
+  criarControleRequisicoes,
   formatarDataCivil,
   formatarMoedaBR,
   mensagemErroDevedores,
   permissoesDevedores,
   preverParcelas,
 } from "./devedoresUtils.js";
+
+test("controle assincrono ignora respostas antigas e respostas apos fechamento", () => {
+  const controle = criarControleRequisicoes();
+  const primeira = controle.iniciar();
+  const segunda = controle.iniciar();
+
+  assert.equal(controle.vigente(primeira), false);
+  assert.equal(controle.vigente(segunda), true);
+
+  controle.invalidar();
+  assert.equal(controle.vigente(segunda), false);
+});
 
 test("matriz visual respeita os quatro perfis e bloqueia perfil inexistente", () => {
   assert.equal(permissoesDevedores("gerente").cadastrar, true);

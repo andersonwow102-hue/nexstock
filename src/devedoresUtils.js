@@ -84,6 +84,22 @@ export function criarChaveIdempotencia() {
   });
 }
 
+export function criarControleRequisicoes() {
+  let sequencia = 0;
+  return {
+    iniciar() {
+      sequencia += 1;
+      return sequencia;
+    },
+    vigente(requisicao) {
+      return requisicao === sequencia;
+    },
+    invalidar() {
+      sequencia += 1;
+    },
+  };
+}
+
 export function mensagemErroDevedores(erro) {
   const codigo = String(erro?.code || erro?.status || "");
   const mensagem = String(erro?.message || erro || "Não foi possível concluir a operação.");
