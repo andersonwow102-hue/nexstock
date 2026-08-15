@@ -39,7 +39,7 @@ function Campo({ label, obrigatorio, className = "", children }) {
 function CadastroForm({ item, modalidades, admin, onCancelar, onConcluir }) {
   const rel = item?.relatorio || {};
   const [form, setForm] = useState({
-    tipo: rel.tipo || "pessoa_fisica", nome: rel.nome || "", nomeFantasia: rel.nome_fantasia || "",
+    tipo: rel.tipo || "pessoa", nome: rel.nome || "", nomeFantasia: rel.nome_fantasia || "",
     endereco: rel.endereco || "", numero: rel.numero || "", complemento: rel.complemento || "",
     bairro: rel.bairro || "", cidade: rel.cidade || "", estado: rel.estado || "BA",
     telefone: rel.telefone || "", observacoesCadastrais: rel.observacoes_cadastrais || "",
@@ -66,7 +66,7 @@ function CadastroForm({ item, modalidades, admin, onCancelar, onConcluir }) {
   return <Modal titulo={item ? "Corrigir cadastro" : "Cadastrar devedor"} subtitulo={admin ? "A correção administrativa ficará no histórico." : "Cadastro e dívida original."} onFechar={onCancelar} largo footer={<><button className="btn-secundario" onClick={onCancelar}>Cancelar</button><button className="btn-primario" disabled={enviando} onClick={salvar}>{enviando ? "Processando..." : confirmando ? "Confirmar" : "Revisar"}</button></>}>
     {erro && <Estado tipo="erro">{erro}</Estado>}{confirmando && <Estado tipo="aviso">Confira os dados antes de confirmar. A ação ficará registrada no histórico.</Estado>}
     <div className="dev-form-grid">
-      <Campo label="Tipo" obrigatorio><select value={form.tipo} onChange={e=>alterar("tipo",e.target.value)} disabled={item&&!admin}><option value="pessoa_fisica">Pessoa física</option><option value="pessoa_juridica">Pessoa jurídica</option></select></Campo>
+      <Campo label="Tipo" obrigatorio><select value={form.tipo} onChange={e=>alterar("tipo",e.target.value)} disabled={item&&!admin}><option value="pessoa">Pessoa</option><option value="ponto">Ponto comercial</option></select></Campo>
       <Campo label="Nome do devedor" obrigatorio><input value={form.nome} onChange={e=>alterar("nome",e.target.value)}/></Campo>
       <Campo label="Nome fantasia"><input value={form.nomeFantasia} onChange={e=>alterar("nomeFantasia",e.target.value)}/></Campo>
       <Campo label="Telefone" obrigatorio><input inputMode="tel" value={mascaraTelefone(form.telefone)} onChange={e=>alterar("telefone",mascaraTelefone(e.target.value))}/></Campo>
@@ -149,10 +149,10 @@ function Detalhe({ item, detalhe, permissao, carregando, erro, onFechar, onRecar
 export default function DevedoresPage({ perfilAtual }) {
   const permissao=permissoesDevedores(perfilAtual?.perfil,perfilAtual?.perfilReal===true);
   const [dados,setDados]=useState({itens:[],modalidades:[],limiteAtingido:false}),[carregando,setCarregando]=useState(true),[erro,setErro]=useState(""),[busca,setBusca]=useState(""),[filtros,setFiltros]=useState({situacao:"",modalidade:"",gerente:"",forma:"",marcador:"",periodo:""}),[ordenacao,setOrdenacao]=useState("atualizado"),[pagina,setPagina]=useState(1),[item,setItem]=useState(null),[detalhe,setDetalhe]=useState(null),[detalheErro,setDetalheErro]=useState(""),[detalheCarregando,setDetalheCarregando]=useState(false),[acao,setAcao]=useState(null),[pagamentoEstorno,setPagamentoEstorno]=useState(null);
-  const carregar=async()=>{setCarregando(true);setErro("");try{setDados(await api.carregarDevedores());}catch(e){setErro(mensagemErroDevedores(e));}finally{setCarregando(false);}};
+  const carregar=async()=>{setCarregando(true);setErro("");try{const resultado=await api.carregarDevedores();setDados(resultado);return resultado;}catch(e){setErro(mensagemErroDevedores(e));return null;}finally{setCarregando(false);}};
   useEffect(()=>{if(permissao.acessar)carregar();else setCarregando(false);},[permissao.acessar]);
   const abrirDetalhe=async(alvo=item)=>{if(!alvo)return;setItem(alvo);setDetalheCarregando(true);setDetalheErro("");try{setDetalhe(await api.carregarDetalheDevedor(alvo.id));}catch(e){setDetalheErro(mensagemErroDevedores(e));}finally{setDetalheCarregando(false);}};
-  const concluirAcao=async()=>{setAcao(null);setPagamentoEstorno(null);await carregar();await abrirDetalhe(item);};
+  const concluirAcao=async()=>{setAcao(null);setPagamentoEstorno(null);const atualizados=await carregar();const atualizado=atualizados?.itens.find(registro=>String(registro.id)===String(item?.id));if(atualizado)await abrirDetalhe(atualizado);};
   const gerentes=useMemo(()=>[...new Set(dados.itens.map(i=>i.relatorio.gerente_nome_snapshot).filter(Boolean))].sort(),[dados.itens]);
   const filtrados=useMemo(()=>{const termo=busca.toLocaleLowerCase("pt-BR");return dados.itens.filter(i=>{const r=i.relatorio,s=i.resumo,alvo=[r.nome,r.nome_fantasia,r.telefone,r.cidade,r.gerente_nome_snapshot].join(" ").toLocaleLowerCase("pt-BR");return !(termo&&!alvo.includes(termo))&&!(filtros.situacao&&s.situacao!==filtros.situacao)&&!(filtros.modalidade&&String(i.modalidade_id)!==filtros.modalidade)&&!(filtros.gerente&&r.gerente_nome_snapshot!==filtros.gerente)&&!(filtros.forma&&s.forma_pagamento!==filtros.forma)&&!(filtros.marcador==="vencidas"&&s.situacao!=="vencida")&&!(filtros.marcador==="quitadas"&&s.situacao!=="quitada")&&!(filtros.periodo&&!String(i.data_registro).startsWith(filtros.periodo));}).sort((a,b)=>ordenacao==="nome"?a.relatorio.nome.localeCompare(b.relatorio.nome,"pt-BR"):ordenacao==="saldo"?Number(b.resumo.saldo_restante)-Number(a.resumo.saldo_restante):String(b.atualizado_em).localeCompare(String(a.atualizado_em)));},[dados.itens,busca,filtros,ordenacao]);
   useEffect(()=>setPagina(1),[busca,filtros,ordenacao]); const paginas=Math.max(1,Math.ceil(filtrados.length/POR_PAGINA)),exibidos=filtrados.slice((pagina-1)*POR_PAGINA,pagina*POR_PAGINA);

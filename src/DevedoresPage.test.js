@@ -30,6 +30,17 @@ test("fluxos usam RPCs pela camada isolada e protegem duplo envio", () => {
   assert.match(pagina, /useState\(criarChaveIdempotencia\)/);
 });
 
+test("cadastro envia os tipos aceitos pelo contrato SQL", () => {
+  assert.match(pagina, /option value="pessoa">Pessoa/);
+  assert.match(pagina, /option value="ponto">Ponto comercial/);
+  assert.doesNotMatch(pagina, /pessoa_fisica|pessoa_juridica/);
+});
+
+test("detalhe reabre com a versao atualizada depois de uma acao", () => {
+  assert.match(pagina, /const atualizados=await carregar\(\)/);
+  assert.match(pagina, /abrirDetalhe\(atualizado\)/);
+});
+
 test("lista possui busca, filtros, estados e paginação segura", () => {
   for (const termo of ["Buscar por nome", "Todas as situações", "Todas as modalidades", "Todos os gerentes", "Somente vencidas", "Somente quitadas", "Página"]) {
     assert.ok(pagina.includes(termo), `ausente: ${termo}`);
