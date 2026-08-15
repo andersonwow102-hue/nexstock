@@ -17,6 +17,10 @@ const localBootstrap = readFileSync(
   join(projectRoot, "supabase", "tests", "bootstrap_perfis_local.sql"),
   "utf8",
 );
+const phase1RlsTest = readFileSync(
+  join(projectRoot, "supabase", "tests", "devedores_phase1_rls.sql"),
+  "utf8",
+);
 
 test("fase 1 possui migrations pequenas na ordem aprovada", () => {
   assert.deepEqual(phase1Files, [
@@ -166,6 +170,14 @@ test("banco limita payloads textuais da fase 1", () => {
 
 test("testes estaticos sao contratos textuais, nao execucao PostgreSQL", () => {
   assert.ok(phase1Files.length > 0);
+});
+
+test("roteiro de RLS prepara perfis sem depender de trigger de autenticacao", () => {
+  assert.match(phase1RlsTest, /insert\s+into\s+public\.perfis[\s\S]*v_manager_a[\s\S]*v_consulta/i);
+  assert.match(phase1RlsTest, /delete\s+from\s+public\.perfis\s+where\s+user_id\s*=\s*v_sem_perfil/i);
+  assert.match(phase1RlsTest, /request\.jwt\.claim\.sub',\s*v_sem_perfil::text/i);
+  assert.doesNotMatch(phase1RlsTest, /trigger\s+local\s+nao\s+criou\s+perfil/i);
+  assert.match(phase1RlsTest, /rollback\s*;\s*$/i);
 });
 
 test("bootstrap local reproduz o contrato real de perfis sem virar migration", () => {

@@ -82,15 +82,13 @@ begin
     (v_sem_perfil, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sem-perfil@example.invalid', '', now(), now(), now())
   on conflict (id) do nothing;
 
-  select count(*) into v_count
-  from public.perfis
-  where user_id = v_sem_perfil and perfil = 'consulta';
-  if v_count <> 1 then raise exception 'Trigger local nao criou perfil consulta.'; end if;
-
-  -- O trigger real cria perfil consulta. Remove-se apenas o perfil ficticio deste
-  -- usuario para comprovar que o fallback do helper nao concede acesso.
+  -- O bootstrap local pode criar um perfil automaticamente, enquanto o schema
+  -- operacional exige cadastro explicito. O cenario sem perfil deve ser igual
+  -- nos dois ambientes e continuar autenticado somente em auth.users.
   delete from public.perfis where user_id = v_sem_perfil;
 
+  -- Os perfis usados pelo teste fazem parte da preparacao transacional do
+  -- cenario e nao dependem de trigger em auth.users.
   insert into public.perfis (user_id, nome, perfil, gerente_nome)
   values
     (v_manager_a, 'Gerente A', 'gerente', 'Gerente A'),
