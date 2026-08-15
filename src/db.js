@@ -341,7 +341,7 @@ export async function adicionarHistoricoPonto(h) {
 export async function carregarPerfilAtual() {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const user = authData?.user;
-  if (authError || !user) return { userId: '', nome: '', perfil: 'consulta' };
+  if (authError || !user) return { userId: '', nome: '', perfil: 'consulta', perfilReal: false };
   let { data, error } = await supabase
     .from('perfis')
     .select('user_id,nome,perfil,gerente_nome,rotas_permitidas,login_nome,email_temporario,email_temporario_expira_em')
@@ -358,11 +358,11 @@ export async function carregarPerfilAtual() {
   }
   if (error) {
     console.error('Erro ao carregar perfil atual:', error);
-    return { userId: user.id, nome: user.email || '', email: user.email || '', perfil: 'consulta' };
+    return { userId: user.id, nome: user.email || '', email: user.email || '', perfil: 'consulta', perfilReal: false };
   }
   return data
-    ? { userId: data.user_id, nome: data.nome || user.email || '', email: user.email || '', perfil: data.perfil, gerenteNome: data.gerente_nome || '', rotasPermitidas: data.rotas_permitidas || [], loginNome: data.login_nome || '', emailTemporario: Boolean(data.email_temporario), emailTemporarioExpiraEm: data.email_temporario_expira_em || '' }
-    : { userId: user.id, nome: user.email || '', email: user.email || '', perfil: 'consulta' };
+    ? { userId: data.user_id, nome: data.nome || user.email || '', email: user.email || '', perfil: data.perfil, perfilReal: true, gerenteNome: data.gerente_nome || '', rotasPermitidas: data.rotas_permitidas || [], loginNome: data.login_nome || '', emailTemporario: Boolean(data.email_temporario), emailTemporarioExpiraEm: data.email_temporario_expira_em || '' }
+    : { userId: user.id, nome: user.email || '', email: user.email || '', perfil: 'consulta', perfilReal: false };
 }
 
 export async function carregarPerfis() {

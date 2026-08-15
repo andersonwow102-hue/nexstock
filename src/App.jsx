@@ -8,6 +8,8 @@ import "./App.css";
 import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
+import DevedoresPage from "./DevedoresPage.jsx";
+import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
@@ -3427,7 +3429,7 @@ function Sistema({onLogout}){
   const [paginaItens,setPaginaItens]=useState(1);
   const [gerenteConsulta,setGerenteConsulta]=useState("");
   const [consultaEquipFiltro,setConsultaEquipFiltro]=useState("todos");
-  const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",emailTemporario:false,emailTemporarioExpiraEm:""});
+  const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",perfilReal:false,emailTemporario:false,emailTemporarioExpiraEm:""});
   const [avisoPrazoDespesas,setAvisoPrazoDespesas]=useState(null);
 
   useEffect(()=>{
@@ -3479,6 +3481,7 @@ function Sistema({onLogout}){
   const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
   const administrador=perfilAtual.perfil==="administrador";
   const operador=perfilAtual.perfil==="operador";
+  const acessoDevedores=permissoesDevedores(perfilAtual.perfil,perfilAtual.perfilReal===true).acessar;
   const gerentesChat=[...new Set([
     ...GERENTES,
     ...pontos.map(p=>gerenteDaRota(p.gerente)).filter(Boolean),
@@ -4089,6 +4092,7 @@ function Sistema({onLogout}){
           <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><Icon name="dashboard" className="nav-icon" /> Dashboard</button>
           <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><Icon name="package" className="nav-icon" /> Equipamentos</button>
           <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><Icon name="mapPin" className="nav-icon" /> Pontos</button>
+          {acessoDevedores&&<button className={`nav-item ${aba==="devedores"?"active":""}`} onClick={()=>navegar("devedores")}><Icon name="fileText" className="nav-icon" /> Devedores</button>}
           {(administrador||operador)&&<button className={`nav-item ${aba==="buscar-gerentes"?"active":""}`} onClick={()=>navegar("buscar-gerentes")}><Icon name="user" className="nav-icon" /> Buscar Gerentes</button>}
           {gerenteAtual&&<button className={`nav-item ${aba==="prestacao-gerente"?"active":""}`} onClick={()=>navegar("prestacao-gerente")}><Icon name="fileText" className="nav-icon" /> Prestação de Conta</button>}
           {(administrador||gerenteAtual)&&<button className={`nav-item ${aba==="senhas"?"active":""}`} onClick={()=>navegar("senhas")}><Icon name="shieldKey" className="nav-icon" /> Senhas</button>}
@@ -4610,6 +4614,16 @@ function Sistema({onLogout}){
           <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onExcluirEquipamento={setExcluindo}/>
           </>
         )}
+
+        {aba==="devedores"&&acessoDevedores&&(<>
+          <header className="topbar">
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
+              <div><h1 className="page-title">Devedores</h1><p className="page-sub">Cadastro, negociação e recebimentos internos</p></div>
+            </div>
+          </header>
+          <DevedoresPage perfilAtual={perfilAtual}/>
+        </>)}
 
         {aba==="buscar-gerentes"&&(administrador||operador)&&(<>
           <header className="topbar">
