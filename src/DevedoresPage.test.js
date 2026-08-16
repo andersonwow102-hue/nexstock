@@ -56,6 +56,16 @@ test("responsividade troca tabela por cards sem rolagem horizontal obrigatória"
   assert.match(css, /\.dev-modal-fundo\{padding:0/);
 });
 
+test("operador possui fluxo mobile com filtros, parcelas e pagamento seguro", () => {
+  for (const termo of ["Mais filtros", "Aplicar filtros", "Saldo pendente", "Registrar pagamento", "Saldo projetado", "Registrando pagamento...", "Resumo do pagamento"]) {
+    assert.ok(pagina.includes(termo), `ausente: ${termo}`);
+  }
+  assert.match(pagina, /acimaDoSaldo/);
+  assert.match(pagina, /dev-parcelas/);
+  assert.match(css, /env\(safe-area-inset-bottom\)/);
+  assert.match(css, /width: 100vw/);
+});
+
 test("datas civis e prévia de parcelas usam utilitários dedicados", () => {
   assert.match(pagina, /formatarDataCivil/);
   assert.match(pagina, /preverParcelas/);
