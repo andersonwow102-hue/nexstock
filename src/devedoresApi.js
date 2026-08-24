@@ -16,9 +16,9 @@ async function executar(consulta) {
 
 export async function carregarDevedores() {
   const [relatorios, dividas, resumos, modalidades] = await Promise.all([
-    executar(supabase.from("devedores_relatorios").select("id,gerente_responsavel_id,gerente_nome_snapshot,tipo,nome,nome_fantasia,endereco,numero,complemento,bairro,cidade,estado,telefone,observacoes_cadastrais,criado_em,atualizado_em,versao").order("atualizado_em", { ascending: false }).limit(LIMITE_SEGURO)),
+    executar(supabase.from("devedores_relatorios").select("id,gerente_responsavel_id,gerente_nome_snapshot,tipo,nome,nome_fantasia,endereco,numero,complemento,bairro,cidade,estado,telefone,observacoes_cadastrais,criado_em,atualizado_em,versao,excluido_em,excluido_por,excluido_por_nome_snapshot,motivo_exclusao").order("atualizado_em", { ascending: false }).limit(LIMITE_SEGURO)),
     executar(supabase.from("devedores_dividas").select("id,relatorio_id,gerente_responsavel_id,gerente_nome_snapshot,valor_original,modalidade_id,modalidade_nome_snapshot,data_registro,observacoes_originais,criado_em,atualizado_em,versao").order("atualizado_em", { ascending: false }).limit(LIMITE_SEGURO)),
-    executar(supabase.from("devedores_dividas_resumo").select("divida_id,relatorio_id,gerente_responsavel_id,valor_original,negociacao_id,forma_pagamento,valor_negociado,total_pago,saldo_restante,evolucao_percentual,situacao").limit(LIMITE_SEGURO)),
+    executar(supabase.from("devedores_dividas_resumo_administrativo").select("divida_id,relatorio_id,gerente_responsavel_id,valor_original,negociacao_id,forma_pagamento,valor_negociado,total_pago,saldo_restante,evolucao_percentual,situacao,excluido_em,excluido_por,excluido_por_nome_snapshot,motivo_exclusao").limit(LIMITE_SEGURO)),
     executar(supabase.from("devedores_modalidades").select("id,nome,ativo").eq("ativo", true).order("nome")),
   ]);
   const relatorioPorId = new Map(relatorios.map(item => [Number(item.id), item]));
@@ -44,7 +44,7 @@ export async function carregarDevedores() {
 export async function carregarDetalheDevedor(dividaId) {
   const [divida, resumo, negociacoes, parcelas, pagamentos, estornos, historico] = await Promise.all([
     executar(supabase.from("devedores_dividas").select("id,relatorio_id,gerente_responsavel_id,gerente_nome_snapshot,valor_original,modalidade_id,modalidade_nome_snapshot,data_registro,observacoes_originais,criado_em,atualizado_em,versao,relatorio_snapshot").eq("id", dividaId).limit(1)),
-    executar(supabase.from("devedores_dividas_resumo").select("divida_id,relatorio_id,gerente_responsavel_id,valor_original,negociacao_id,forma_pagamento,valor_negociado,total_pago,saldo_restante,evolucao_percentual,situacao").eq("divida_id", dividaId).limit(1)),
+    executar(supabase.from("devedores_dividas_resumo_administrativo").select("divida_id,relatorio_id,gerente_responsavel_id,valor_original,negociacao_id,forma_pagamento,valor_negociado,total_pago,saldo_restante,evolucao_percentual,situacao,excluido_em,excluido_por,excluido_por_nome_snapshot,motivo_exclusao").eq("divida_id", dividaId).limit(1)),
     executar(supabase.from("devedores_negociacoes").select("id,divida_id,negociacao_anterior_id,forma_pagamento,valor_negociado,data_prevista_quitacao,quantidade_parcelas,primeiro_vencimento,observacoes,situacao,motivo_substituicao,criado_por,criado_por_nome_snapshot,criado_por_perfil_snapshot,criado_em,substituida_por,substituida_em,versao").eq("divida_id", dividaId).order("criado_em", { ascending: false })),
     executar(supabase.from("devedores_parcelas_resumo").select("id,negociacao_id,divida_id,numero,valor,vencimento,valor_pago,saldo,situacao").eq("divida_id", dividaId).order("numero")),
     executar(supabase.from("devedores_pagamentos").select("id,divida_id,negociacao_id,parcela_id,valor,data_pagamento,observacao,registrado_por,registrado_por_nome_snapshot,registrado_por_perfil_snapshot,registrado_em").eq("divida_id", dividaId).order("registrado_em", { ascending: false })),
@@ -169,6 +169,14 @@ export function estornarPagamento(dados) {
   }));
 }
 
+export function excluirDevedorAdministrativamente(dados) {
+  return executar(supabase.rpc("devedores_excluir_administrativamente", {
+    p_divida_id: dados.dividaId,
+    p_versao_esperada: dados.versaoEsperada,
+    p_motivo: dados.motivo,
+  }));
+}
+
 export const contratoEscritaDevedores = Object.freeze([
   "devedores_cadastrar_relatorio_divida",
   "devedores_corrigir_relatorio_gerente",
@@ -178,4 +186,5 @@ export const contratoEscritaDevedores = Object.freeze([
   "devedores_corrigir_negociacao_admin",
   "devedores_registrar_pagamento",
   "devedores_estornar_pagamento",
+  "devedores_excluir_administrativamente",
 ]);

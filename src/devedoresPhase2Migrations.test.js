@@ -115,3 +115,12 @@ test("campos internos de idempotencia nao recebem select", () => {
   assert.doesNotMatch(sql, /grant\s+select\s+on\s+table\s+public\.devedores_(?:negociacoes|pagamentos|pagamentos_estornos)/i);
   assert.doesNotMatch(sql, /grant\s+select\s*\([^)]*idempotencia/gi);
 });
+
+test("exclusão administrativa é aditiva e auditável", () => {
+  const migration = readFileSync(join(migrationsDir, "202608251000_devedores_exclusao_administrativa.sql"), "utf8");
+  for (const trecho of ["excluido_em", "motivo_exclusao", "devedores_excluir_administrativamente", "exclusao_administrativa", "security_invoker = true", "devedores_bloquear_registro_excluido"]) {
+    assert.match(migration, new RegExp(trecho));
+  }
+  assert.doesNotMatch(migration, /on delete cascade/i);
+  assert.doesNotMatch(migration, /delete\s+from\s+public\.devedores_/i);
+});

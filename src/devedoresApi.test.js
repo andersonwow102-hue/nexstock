@@ -6,7 +6,8 @@ const fonte = readFileSync(new URL("./devedoresApi.js", import.meta.url), "utf8"
 
 test("camada de devedores nao faz escrita direta", () => {
   assert.doesNotMatch(fonte, /\.from\(["']devedores_[^)]*\)[\s\S]{0,180}\.(?:insert|update|delete|upsert)\s*\(/i);
-  assert.equal((fonte.match(/supabase\.rpc\(/g) || []).length, 8);
+  assert.equal((fonte.match(/supabase\.rpc\(/g) || []).length, 9);
+  assert.match(fonte, /devedores_excluir_administrativamente/);
 });
 
 test("camada nao referencia modulos operacionais ou segredo administrativo", () => {

@@ -12,6 +12,7 @@ export function permissoesDevedores(perfil, perfilReal = true) {
     substituirNegociacao: valido && ["operador", "administrador"].includes(perfil),
     estornar: valido && perfil === "administrador",
     corrigirAdministrativamente: valido && perfil === "administrador",
+    excluirAdministrativamente: valido && perfil === "administrador",
   };
 }
 
@@ -127,6 +128,7 @@ export function situacaoApresentacao(situacao) {
     parcialmente_paga: "Parcialmente paga",
     vencida: "Vencida",
     quitada: "Quitada",
+    excluida: "Excluída administrativamente",
     pendente: "Pendente",
     paga: "Paga",
   };

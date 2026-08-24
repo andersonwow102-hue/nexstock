@@ -81,3 +81,11 @@ test("datas civis e prévia de parcelas usam utilitários dedicados", () => {
   assert.match(pagina, /preverParcelas/);
   assert.match(pagina, /Prévia ilustrativa/);
 });
+
+test("exclusão administrativa exige motivo e preserva histórico", () => {
+  for (const termo of ["Excluir devedor", "Motivo da exclusão", "EXCLUÍDO ADMINISTRATIVAMENTE", "preservará negociações, parcelas, pagamentos e histórico", "excluirDevedorAdministrativamente"]) {
+    assert.match(pagina, new RegExp(termo, "i"));
+  }
+  assert.match(pagina, /permissao\.excluirAdministrativamente/);
+  assert.match(pagina, /filter\(i=>!i\.relatorio\.excluido_em\)/);
+});

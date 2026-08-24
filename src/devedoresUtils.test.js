@@ -29,6 +29,10 @@ test("matriz visual respeita os quatro perfis e bloqueia perfil inexistente", ()
   assert.equal(permissoesDevedores("operador").negociar, true);
   assert.equal(permissoesDevedores("operador").estornar, false);
   assert.equal(permissoesDevedores("administrador").estornar, true);
+  assert.equal(permissoesDevedores("administrador").excluirAdministrativamente, true);
+  assert.equal(permissoesDevedores("operador").excluirAdministrativamente, false);
+  assert.equal(permissoesDevedores("gerente").excluirAdministrativamente, false);
+  assert.equal(permissoesDevedores("consulta").excluirAdministrativamente, false);
   assert.equal(permissoesDevedores("consulta").somenteLeitura, true);
   assert.equal(permissoesDevedores("consulta").corrigirCadastro, false);
   assert.equal(permissoesDevedores("consulta", false).acessar, false);
