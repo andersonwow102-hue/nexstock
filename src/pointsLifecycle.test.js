@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const migration = fs.readFileSync(new URL('../supabase/migrations/202608241000_pontos_ciclo_operacional.sql', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('./App.jsx', import.meta.url), 'utf8');
 const page = fs.readFileSync(new URL('./PointsPage.jsx', import.meta.url), 'utf8');
 const db = fs.readFileSync(new URL('./db.js', import.meta.url), 'utf8');
 
@@ -57,4 +58,18 @@ test('interface distingue modalidade bloqueada de ponto desativado', () => {
   assert.match(db, /\.rpc\('solicitar_desativacao_ponto'/);
   assert.match(db, /\.rpc\('decidir_desativacao_ponto'/);
   assert.match(db, /\.rpc\('reativar_ponto'/);
+});
+
+test('pontos desativados não aparecem como destinos operacionais de equipamento', () => {
+  assert.match(app, /pontosDestinoOperacional=pontosOperacionais\.filter\(p=>p\.situacaoOperacional!=="desativado"\)/);
+  assert.match(app, /pontosDestinoOperacional\.map\(p=><option/g);
+  assert.match(app, /Selecione um ponto ativo para receber o equipamento\./);
+  assert.doesNotMatch(app, /pontosOperacionais\.map\(p=><option/);
+});
+
+test('interface evita solicitação duplicada e traduz erros do ciclo do ponto', () => {
+  assert.match(page, /desativacaoPendente/);
+  assert.match(page, /Desativação pendente/);
+  assert.match(page, /mensagemErroCicloPonto/);
+  assert.match(page, /encerramento operacional|encerra a operação do ponto/);
 });

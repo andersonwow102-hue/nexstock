@@ -3520,6 +3520,7 @@ function Sistema({onLogout}){
     ...itens.map(i=>i.gerenteResponsavel).filter(Boolean),
   ])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const pontosOperacionais=gerenteAtual?pontos.filter(p=>rotaPermitidaAoPerfil(p.gerente, perfilAtual)):pontos;
+  const pontosDestinoOperacional=pontosOperacionais.filter(p=>p.situacaoOperacional!=="desativado");
   const pontosOperacionaisNomes=new Set(pontosOperacionais.map(p=>p.nomeFantasia));
   const itensOperacionaisBase=gerenteAtual
     ?itens.filter(i=>pontosOperacionaisNomes.has(i.localizacao)||normalizarTexto(i.gerenteResponsavel)===gerenteAtualKey)
@@ -3748,6 +3749,9 @@ function Sistema({onLogout}){
     };
     const erro=validarItem(ff);if(erro){setErroForm(erro);return;}
     if(ff.status==="Em rota"&&!ff.localizacao){setErroForm("Selecione o ponto onde este equipamento ficará.");return;}
+    if(ff.status==="Em rota"&&!pontosDestinoOperacional.some(p=>p.nomeFantasia===ff.localizacao)){
+      setErroForm("Selecione um ponto ativo para receber o equipamento.");return;
+    }
     if(itemEdit){
       await salvarEquipamento({...ff,id:itemEdit.id});
       setItens(itens.map(i=>i.id===itemEdit.id?{...ff,id:itemEdit.id}:i));
@@ -3824,6 +3828,9 @@ function Sistema({onLogout}){
     const tipo=TIPOS_MOV.find(t=>t.id===mov.tipoId);
     const erro=validarMov(mov,tipo,perfilAtual.perfil);if(erro){setErroMov(erro);return;}
     if(tipo.id==="gerente"&&!mov.gerente){setErroMov("Selecione o gerente que vai receber este equipamento.");return;}
+    if(tipo.id==="ponto"&&!pontosDestinoOperacional.some(p=>p.nomeFantasia===mov.ponto)){
+      setErroMov("Selecione um ponto ativo para receber o equipamento.");return;
+    }
     setErroMov("");
     try {
       const apenasSolicitarConserto=tipo.id==="conserto"&&perfilAtual.perfil!=="operador";
@@ -4904,7 +4911,7 @@ function Sistema({onLogout}){
                   <div className="ponto-destino-linha">
                     <select value={form.localizacao} onChange={e=>setForm({...form,localizacao:e.target.value})}>
                       <option value="">Selecione um ponto...</option>
-                      {pontosOperacionais.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
+                      {pontosDestinoOperacional.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
                     </select>
                     <button type="button" className="btn-secundario" onClick={()=>setModalPontoRapido(true)}>+ Criar ponto agora</button>
                   </div>
@@ -4965,9 +4972,9 @@ function Sistema({onLogout}){
                   <label>Ponto de destino *</label>
                   <select value={mov.ponto} onChange={e=>setMov({...mov,ponto:e.target.value})}>
                     <option value="">Selecione um ponto...</option>
-                    {pontosOperacionais.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
+                    {pontosDestinoOperacional.map(p=><option key={p.id} value={p.nomeFantasia}>{p.nomeFantasia}</option>)}
                   </select>
-                  {pontosOperacionais.length===0&&<span className="campo-hint">Cadastre um ponto antes de enviar o equipamento.</span>}
+                  {pontosDestinoOperacional.length===0&&<span className="campo-hint">Cadastre ou reative um ponto antes de enviar o equipamento.</span>}
                 </div>
               )}
               {tipoMovSel?.id==="gerente"&&(
