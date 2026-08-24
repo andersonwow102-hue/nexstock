@@ -66,6 +66,16 @@ test("operador possui fluxo mobile com filtros, parcelas e pagamento seguro", ()
   assert.match(css, /width: 100vw/);
 });
 
+test("detalhe diferencia parcelas quitadas e apresenta progresso da divida", () => {
+  assert.match(pagina, /Progresso da dívida/);
+  assert.match(pagina, /parcelas quitadas/);
+  assert.match(pagina, /dev-progresso-trilha/);
+  assert.match(pagina, /dev-parcela-concluida/);
+  assert.match(pagina, /Parcela quitada/);
+  assert.match(pagina, /perfilResponsavel\(ativa\.criado_por_perfil_snapshot\)/);
+  assert.match(css, /\.dev-tabela td:last-child button \{ min-width: 76px; white-space: nowrap; \}/);
+});
+
 test("datas civis e prévia de parcelas usam utilitários dedicados", () => {
   assert.match(pagina, /formatarDataCivil/);
   assert.match(pagina, /preverParcelas/);
