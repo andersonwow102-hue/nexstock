@@ -580,6 +580,47 @@ export async function concluirSolicitacaoModalidade(id) {
   return mapSolicitacaoModalidade(data);
 }
 
+export async function carregarSolicitacoesStatusPonto() {
+  const { data, error } = await supabase
+    .from('solicitacoes_status_ponto')
+    .select('*')
+    .order('solicitado_em', { ascending: false })
+    .limit(300);
+  if (error) {
+    if (String(error.message || '').includes('solicitacoes_status_ponto')) return [];
+    throw new Error(error.message);
+  }
+  return (data || []).map(mapSolicitacaoStatusPonto);
+}
+
+export async function solicitarDesativacaoPonto({ pontoId, motivo }) {
+  const { data, error } = await supabase.rpc('solicitar_desativacao_ponto', {
+    p_ponto_id: pontoId,
+    p_motivo: String(motivo || '').trim(),
+  });
+  if (error) throw new Error(error.message);
+  return mapSolicitacaoStatusPonto(data);
+}
+
+export async function decidirDesativacaoPonto({ solicitacaoId, aprovar, motivoDecisao = '' }) {
+  const { data, error } = await supabase.rpc('decidir_desativacao_ponto', {
+    p_solicitacao_id: solicitacaoId,
+    p_aprovar: Boolean(aprovar),
+    p_motivo_decisao: String(motivoDecisao || '').trim() || null,
+  });
+  if (error) throw new Error(error.message);
+  return mapSolicitacaoStatusPonto(data);
+}
+
+export async function reativarPonto({ pontoId, motivo }) {
+  const { data, error } = await supabase.rpc('reativar_ponto', {
+    p_ponto_id: pontoId,
+    p_motivo: String(motivo || '').trim(),
+  });
+  if (error) throw new Error(error.message);
+  return mapPonto(data);
+}
+
 export async function carregarMensagensInternas(gerenteNome = '') {
   let query = supabase
     .from('mensagens_internas')
@@ -1020,6 +1061,10 @@ function mapPonto(row) {
     modalidades: row.modalidades || [],
     possuiDespesa: row.possui_despesa, valorDespesa: Number(row.valor_despesa) || 0,
     observacao: normalizeFreeText(row.observacao || ''),
+    situacaoOperacional: row.situacao_operacional || 'ativo',
+    situacaoAlteradaEm: row.situacao_alterada_em || '',
+    desativadoEm: row.desativado_em || '',
+    versaoOperacional: Number(row.versao_operacional) || 1,
   };
 }
 
@@ -1082,6 +1127,24 @@ function mapSolicitacaoModalidade(row) {
     criadoPor: row.criado_por || '',
     criadoEm: row.criado_em || '',
     concluidoEm: row.concluido_em || '',
+  };
+}
+
+function mapSolicitacaoStatusPonto(row) {
+  return {
+    id: row.id,
+    pontoId: row.ponto_id,
+    pontoNome: row.ponto_nome || '',
+    gerente: row.gerente || '',
+    acao: row.acao || 'desativar',
+    motivo: normalizeFreeText(row.motivo || ''),
+    status: row.status || 'pendente',
+    solicitadoPor: row.solicitado_por || '',
+    solicitadoEm: row.solicitado_em || '',
+    decididoPor: row.decidido_por || '',
+    decididoEm: row.decidido_em || '',
+    motivoDecisao: normalizeFreeText(row.motivo_decisao || ''),
+    versaoPonto: Number(row.versao_ponto) || 1,
   };
 }
 

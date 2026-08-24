@@ -9,6 +9,7 @@ import {
   carregarDespesasMensais, salvarDespesaMensal, excluirDespesaMensal,
   carregarProrrogacoesDespesas,
   carregarSolicitacoesModalidade, criarSolicitacaoModalidade, concluirSolicitacaoModalidade,
+  carregarSolicitacoesStatusPonto, solicitarDesativacaoPonto, decidirDesativacaoPonto, reativarPonto,
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
 import { exportarCsvSeguro } from "./csvExport.js";
@@ -721,7 +722,7 @@ function AbaVisaoGeral({ pontos, despesas = [], competencia = competenciaAtual()
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onVerAcessos, onExportExcel, onExportPDF, podeEditar, podeExcluir=false, podeEditarDespesas, podeSolicitarModalidade, mostrarDespesas=true }) {
+function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onExportExcel, onExportPDF, podeEditar, podeExcluir=false, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA=25;
@@ -763,10 +764,12 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
                 const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
                 const bloqueadas = modalidadesBloqueadasDoPonto(p, solicitacoes);
                 const totalAcessos = acessosDoPonto(acessos, p.id).length;
-                return <tr key={p.id} className={bloqueadas.length?"ponto-bloqueado-row":""}>
+                const desativado = p.situacaoOperacional === "desativado";
+                return <tr key={p.id} className={`${bloqueadas.length?"ponto-bloqueado-row":""} ${desativado?"ponto-desativado-row":""}`}>
                   <td className="td-nome">
                     🏪 {p.nomeFantasia}
                     <PlayBetBadge ponto={p}/>
+                    {desativado&&<span className="ponto-status-desativado">DESATIVADO</span>}
                     {bloqueadas.length>0&&<small className="ponto-bloqueado-alerta">🚫 Bloqueado: {bloqueadas.join(", ")}</small>}
                   </td>
                   <td>
@@ -782,6 +785,8 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
                   <td className="td-acoes">
                     {totalAcessos>0&&<button className="btn-editar btn-acessos-ponto" onClick={()=>onVerAcessos?.(p)} title="Login e senha das modalidades">🔐</button>}
                     {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)} title="Solicitar bloqueio ou desbloqueio">🚨</button>}
+                    {podeSolicitarDesativacao&&!desativado&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onSolicitarDesativacao(p)} title="Solicitar desativação">Desativar</button>}
+                    {podeReativar&&desativado&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onReativar(p)}>Reativar</button>}
                     {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)} title="Despesas mensais">💰</button>}
                     {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)} title="Editar">✏️</button>}
                     {podeExcluir&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)} title="Excluir">🗑️</button>}
@@ -798,10 +803,11 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
           const bloqueadas = modalidadesBloqueadasDoPonto(p, solicitacoes);
           const modalidadesAtivas=(p.modalidades||[]).filter(m=>!bloqueadas.includes(m));
           const totalAcessos = acessosDoPonto(acessos, p.id).length;
+          const desativado = p.situacaoOperacional === "desativado";
           return(
-            <article className={`ponto-card ${bloqueadas.length?"ponto-card-bloqueado-wrap":""}`} key={p.id}>
+            <article className={`ponto-card ${bloqueadas.length?"ponto-card-bloqueado-wrap":""} ${desativado?"ponto-card-desativado":""}`} key={p.id}>
               <div className="ponto-card-topo">
-                <div><h3>🏪 {p.nomeFantasia} <PlayBetBadge ponto={p}/></h3><p>{p.nomeDono} · {p.telefone}</p></div>
+                <div><h3>🏪 {p.nomeFantasia} <PlayBetBadge ponto={p}/>{desativado&&<span className="ponto-status-desativado">DESATIVADO</span>}</h3><p>{p.nomeDono} · {p.telefone}</p></div>
                 {mostrarDespesas&&p.possuiDespesa==="sim"&&<span className="badge-status status-defeito">Despesa lançada</span>}
               </div>
               <div className="ponto-card-linha"><span>Rota</span><BadgeGerente gerente={p.gerente}/></div>
@@ -837,6 +843,8 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], busca, o
               <div className="ponto-card-acoes">
                 {totalAcessos>0&&<button className="btn-editar btn-acessos-ponto" onClick={()=>onVerAcessos?.(p)}>🔐 Acessos</button>}
                 {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)}>🚨 Bloquear / liberar</button>}
+                {podeSolicitarDesativacao&&!desativado&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onSolicitarDesativacao(p)}>Solicitar desativação</button>}
+                {podeReativar&&desativado&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onReativar(p)}>Reativar ponto</button>}
                 {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)}>💰 Despesas</button>}
                 {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)}>✏️ Editar</button>}
                 {podeExcluir&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)}>🗑️ Excluir</button>}
@@ -1113,11 +1121,52 @@ function SolicitacaoModalidadeModal({ ponto, perfilAtual, onSalvar, onFechar }) 
   );
 }
 
+function MotivoCicloPontoModal({ ponto, titulo, acaoLabel, onConfirmar, onFechar }) {
+  const [motivo, setMotivo] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  async function confirmar() {
+    if (motivo.trim().length < 5) { setErro("Informe um motivo com pelo menos 5 caracteres."); return; }
+    setEnviando(true); setErro("");
+    try { await onConfirmar(motivo.trim()); onFechar(); }
+    catch (e) { setErro(e?.message || "Não foi possível concluir a operação."); }
+    finally { setEnviando(false); }
+  }
+  return <div className="modal-overlay" onClick={onFechar}>
+    <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
+      <div className="modal-header"><h3>{titulo}</h3><button className="modal-fechar" onClick={onFechar}>×</button></div>
+      <div className="modal-body">
+        <div className="solicitacao-ponto-resumo"><small>Ponto</small><strong>{ponto.nomeFantasia}</strong><span>{rotaCanonica(ponto.gerente)}</span></div>
+        <label className="campo"><span>Motivo</span><textarea rows="4" value={motivo} onChange={e=>setMotivo(e.target.value)} maxLength="1000" autoFocus/></label>
+        {erro&&<div className="erro-msg">{erro}</div>}
+      </div>
+      <div className="modal-footer"><button className="btn-secundario" onClick={onFechar}>Cancelar</button><button className="btn-primario" disabled={enviando} onClick={confirmar}>{enviando?"Processando...":acaoLabel}</button></div>
+    </div>
+  </div>;
+}
+
 function formatarDataSolicitacao(data) {
   if (!data) return "-";
   const dt = new Date(data);
   if (Number.isNaN(dt.getTime())) return "-";
   return dt.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
+
+function PainelSolicitacoesStatusPonto({ solicitacoes, equipamentos, onDecidir }) {
+  const pendentes = solicitacoes.filter(s=>s.status==="pendente");
+  if (!pendentes.length) return null;
+  return <section className="solicitacoes-modalidade-panel solicitacoes-status-ponto-panel">
+    <div className="solicitacoes-panel-head"><div><span>Central administrativa</span><h3>Desativação de pontos</h3><p>Resolva os equipamentos vinculados antes de aprovar.</p></div><strong>{pendentes.length} pendente{pendentes.length!==1?"s":""}</strong></div>
+    <div className="solicitacoes-grid">{pendentes.map(s=>{
+      const vinculados=equipamentos.filter(e=>String(e.localizacao||"").trim().toLowerCase()===String(s.pontoNome||"").trim().toLowerCase());
+      return <article key={s.id} className="solicitacao-card solicitacao-desativar">
+        <div className="solicitacao-card-top"><span>Desativar ponto</span><small>{formatarDataSolicitacao(s.solicitadoEm)}</small></div>
+        <h4>{s.pontoNome}</h4><p>Gerente: <strong>{s.gerente}</strong></p><blockquote>{s.motivo}</blockquote>
+        {vinculados.length>0&&<div className="solicitacao-equipamentos"><strong>Equipamentos vinculados</strong><ul>{vinculados.map(e=><li key={e.id}>{e.nome}</li>)}</ul><small>Use o fluxo existente de Equipamentos para movimentar ou disponibilizar cada item.</small></div>}
+        <div className="solicitacao-decisoes"><button className="btn-secundario" disabled={vinculados.length>0} onClick={()=>onDecidir(s,true)}>Aprovar</button><button className="btn-danger" onClick={()=>onDecidir(s,false)}>Rejeitar</button></div>
+      </article>;
+    })}</div>
+  </section>;
 }
 
 function PainelSolicitacoesModalidade({ solicitacoes, onConcluir }) {
@@ -1325,6 +1374,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [despesas,   setDespesas]  = useState([]);
   const [prorrogacoes,setProrrogacoes]=useState([]);
   const [solicitacoes,setSolicitacoes]=useState([]);
+  const [solicitacoesStatus,setSolicitacoesStatus]=useState([]);
   const [acessosModalidades,setAcessosModalidades]=useState([]);
   const [loading,    setLoading]   = useState(true);
   const [abaInterna, setAbaInterna]= useState("geral");
@@ -1335,6 +1385,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [pontoDespesas,setPontoDespesas]=useState(null);
   const [despesasGerenteAbertas,setDespesasGerenteAbertas]=useState(false);
   const [pontoSolicitacao,setPontoSolicitacao]=useState(null);
+  const [pontoDesativacao,setPontoDesativacao]=useState(null);
+  const [pontoReativacao,setPontoReativacao]=useState(null);
   const [pontoAcessos,setPontoAcessos]=useState(null);
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
   const [buscaPontos,setBuscaPontos]=useState("");
@@ -1344,15 +1396,16 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     async function carregar(){
       setLoading(true);
       const operador = perfilAtual?.perfil === "operador";
-      const [pts, hist, desp, solic, acessos, prorrogacoesCarregadas] = await Promise.all([
+      const [pts, hist, desp, solic, solicStatus, acessos, prorrogacoesCarregadas] = await Promise.all([
         carregarPontos(),
         carregarHistoricoPontos(),
         operador ? Promise.resolve([]) : carregarDespesasMensais(),
         carregarSolicitacoesModalidade(),
+        carregarSolicitacoesStatusPonto(),
         carregarPontoModalidadeAcessos(),
         operador ? Promise.resolve([]) : carregarProrrogacoesDespesas(),
       ]);
-      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setSolicitacoes(solic); setAcessosModalidades(acessos); setProrrogacoes(prorrogacoesCarregadas); setLoading(false);
+      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setSolicitacoes(solic); setSolicitacoesStatus(solicStatus); setAcessosModalidades(acessos); setProrrogacoes(prorrogacoesCarregadas); setLoading(false);
     }
     carregar();
   },[perfilAtual?.perfil]);
@@ -1389,6 +1442,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const podeExcluirPonto = administrador;
   const podeEditarDespesas = mostrarDespesas && (administrador || perfilAtual?.perfil === "gerente");
   const podeSolicitarModalidade = perfilAtual?.perfil === "gerente";
+  const podeSolicitarDesativacao = perfilAtual?.perfil === "gerente";
+  const podeReativar = administrador;
   const rotasDoGerente = gerenteAtual ? rotasPermitidasDoPerfil(perfilAtual) : [];
 
   useEffect(()=>{
@@ -1587,6 +1642,32 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     }
   }
 
+  async function enviarSolicitacaoDesativacao(ponto, motivo) {
+    const nova = await solicitarDesativacaoPonto({ pontoId:ponto.id, motivo });
+    setSolicitacoesStatus(prev=>[nova,...prev]);
+  }
+
+  async function decidirSolicitacaoDesativacao(solicitacao, aprovar) {
+    let motivoDecisao = "";
+    if (!aprovar) {
+      motivoDecisao = window.prompt("Informe o motivo da rejeição:") || "";
+      if (motivoDecisao.trim().length < 5) return;
+    }
+    try {
+      const atualizada = await decidirDesativacaoPonto({ solicitacaoId:solicitacao.id, aprovar, motivoDecisao });
+      setSolicitacoesStatus(prev=>prev.map(s=>Number(s.id)===Number(atualizada.id)?atualizada:s));
+      if (aprovar) {
+        const pts = await carregarPontos(); setPontos(pts); onPontosChange?.(pts);
+      }
+    } catch (e) { window.alert(e?.message || "Não foi possível decidir a solicitação."); }
+  }
+
+  async function confirmarReativacao(ponto, motivo) {
+    const atualizado = await reativarPonto({ pontoId:ponto.id, motivo });
+    const pts = pontos.map(p=>Number(p.id)===Number(atualizado.id)?atualizado:p);
+    setPontos(pts); onPontosChange?.(pts);
+  }
+
   const ABAS = [
     {id:"geral",    label:"📊 Visão Geral"},
     {id:"pontos",   label:`🏪 Pontos (${pontosVisiveis.length})`},
@@ -1646,6 +1727,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       </div>
 
       {administrador&&<PainelSolicitacoesModalidade solicitacoes={solicitacoesAtuais} onConcluir={concluirSolicitacao}/>}
+      {administrador&&<PainelSolicitacoesStatusPonto solicitacoes={solicitacoesStatus} equipamentos={equipamentos} onDecidir={decidirSolicitacaoDesativacao}/>}
 
       {loading&&(
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"60px",gap:"12px",color:"var(--txt-secondary)"}}>
@@ -1656,7 +1738,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {!loading&&(<>
         {abaInterna==="geral"    &&<AbaVisaoGeral pontos={pontosVisiveis} despesas={despesasVisiveis} competencia={competenciaDespesas} podeEditar={podeCriarPonto} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onNovoClick={()=>setModalForm(true)} onAbrirPontos={abrirPontosFiltrados}/>}
-        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeExcluir={podeExcluirPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onVerAcessos={setPontoAcessos}
+        {abaInterna==="pontos"   &&<AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} busca={buscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeExcluir={podeExcluirPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} podeSolicitarDesativacao={podeSolicitarDesativacao} podeReativar={podeReativar} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onSolicitarDesativacao={setPontoDesativacao} onReativar={setPontoReativacao} onVerAcessos={setPontoAcessos}
             onExportExcel={()=>exportarPontosExcel(pontosParaExportar)} onExportPDF={()=>exportarPontosPDF(pontosParaExportar)}/>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}
@@ -1666,6 +1748,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
       {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
+      {pontoDesativacao&&podeSolicitarDesativacao&&<MotivoCicloPontoModal ponto={pontoDesativacao} titulo="Solicitar desativação" acaoLabel="Enviar solicitação" onConfirmar={motivo=>enviarSolicitacaoDesativacao(pontoDesativacao,motivo)} onFechar={()=>setPontoDesativacao(null)}/>}
+      {pontoReativacao&&podeReativar&&<MotivoCicloPontoModal ponto={pontoReativacao} titulo="Reativar ponto" acaoLabel="Reativar" onConfirmar={motivo=>confirmarReativacao(pontoReativacao,motivo)} onFechar={()=>setPontoReativacao(null)}/>}
       {pontoAcessos&&<PointAccessModal ponto={pontoAcessos} acessos={acessosDoPonto(acessosModalidades,pontoAcessos.id)} onFechar={()=>setPontoAcessos(null)}/>}
 
       {excluindo&&(

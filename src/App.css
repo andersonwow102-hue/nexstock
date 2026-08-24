@@ -5380,6 +5380,40 @@ body {
   color: var(--txt-primary);
   font-weight: 600;
 }
+
+.ponto-status-desativado {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 3px 8px;
+  border: 1px solid rgba(185,28,28,.28);
+  border-radius: 999px;
+  background: rgba(220,38,38,.09);
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  vertical-align: middle;
+}
+.ponto-desativado-row,
+.ponto-card-desativado { opacity: .78; }
+.ponto-desativado-row { background: rgba(148,163,184,.08); }
+.btn-ciclo-ponto { min-width: 76px; }
+.solicitacao-desativar { border-left: 3px solid #b91c1c; }
+.solicitacao-desativar .solicitacao-card-top span { color: #b91c1c; }
+.solicitacao-equipamentos {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--vermelho-border);
+  border-radius: var(--radius-sm);
+  background: var(--vermelho-bg);
+  color: var(--txt-primary);
+  font-size: 12px;
+}
+.solicitacao-equipamentos ul { margin: 6px 0; padding-left: 18px; }
+.solicitacao-equipamentos small { color: var(--txt-secondary); }
+.solicitacao-decisoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.solicitacao-decisoes button { flex: 1 1 110px; }
+.tema-claro .ponto-status-desativado { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
 .aviso-prazo-overlay { z-index: 1600; }
 .aviso-prazo-despesas {
   overflow: hidden;
