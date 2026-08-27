@@ -287,7 +287,7 @@
 .so-button:active:not(:disabled),
 .so-icon-button:active:not(:disabled) {
   transform: translateY(1px) scale(0.985);
-  box-shadow: inset 0 1px 2px rgba(4, 10, 7, 0.24);
+  box-shadow: var(--shadow-press, inset 0 1px 2px rgba(4, 10, 7, 0.24));
   transition-duration: var(--motion-fast, 160ms);
 }
 
@@ -359,7 +359,7 @@
 .so-icon-button--danger {
   border-color: var(--state-danger, var(--vermelho, #a7443a));
   background: var(--state-danger, var(--vermelho, #a7443a));
-  color: var(--text-inverse, #fff);
+  color: var(--text-on-danger, var(--text-inverse, #fff));
 }
 
 .so-button--danger-outline {
@@ -450,7 +450,7 @@
   min-width: 0;
   min-height: var(--control-md, 40px);
   padding: var(--space-2, 8px) var(--space-3, 12px);
-  border: 1px solid var(--surface-border, var(--border, #d8d8d0));
+  border: 1px solid var(--border-control, var(--surface-border, var(--border, #d8d8d0)));
   border-radius: var(--radius-sm, 6px);
   background: var(--surface-input, var(--bg-input, #fff));
   color: var(--text-strong, var(--txt-primary, #19201c));
@@ -477,7 +477,7 @@ textarea.so-field__control {
 }
 
 .so-field__control:hover:not(:disabled) {
-  border-color: var(--surface-border-strong, var(--border-light, #adb4ae));
+  border-color: var(--border-control-hover, var(--surface-border-strong, var(--border-light, #adb4ae)));
 }
 
 .so-field__control:focus-visible {
@@ -705,7 +705,7 @@ textarea.so-field__control {
 .so-kpi-card__icon {
   display: grid;
   place-items: center;
-  color: var(--brand-action, var(--azul, #147a58));
+  color: var(--kpi-icon-color, var(--brand-action, var(--azul, #147a58)));
 }
 
 .so-kpi-card > strong {
@@ -786,7 +786,7 @@ textarea.so-field__control {
 
 .so-data-table tbody tr:hover td:first-child,
 .so-data-table__row--interactive:focus-visible td:first-child {
-  box-shadow: inset 2px 0 0 var(--brand-action-vivid, #46c08c);
+  box-shadow: inset 2px 0 0 var(--table-row-accent, var(--brand-action-vivid, #46c08c));
 }
 
 .so-data-table__row--interactive {
@@ -1104,7 +1104,7 @@ textarea.so-field__control {
   border: 1px solid var(--surface-border, var(--border, #d8d8d0));
   border-radius: var(--radius-md, 8px);
   background: var(--surface-subtle, var(--bg-elevated, #eeefe8));
-  color: var(--brand-action, var(--azul, #147a58));
+  color: var(--empty-state-icon-color, var(--brand-action, var(--azul, #147a58)));
 }
 
 .so-empty-state > div {

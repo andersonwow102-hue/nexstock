@@ -1548,7 +1548,7 @@
 .dev-filtros .so-field__control,
 .dev-campo .so-field__control {
   min-height: 40px;
-  border-color: var(--border-subtle);
+  border-color: var(--border-control, var(--border-subtle));
   border-radius: 9px;
   background: var(--surface-input);
   color: var(--text-strong);
@@ -1561,7 +1561,7 @@
 
 .dev-filtros .so-field__control:hover,
 .dev-campo .so-field__control:hover {
-  border-color: var(--border-strong);
+  border-color: var(--border-control-hover, var(--border-strong));
 }
 
 .dev-filtros .so-field__control:focus-visible,
@@ -3250,4 +3250,483 @@
 
 @keyframes dev-skeleton-sweep {
   to { transform: translateX(100%); }
+}
+
+/* ══════════════════════════════════════════════════════
+   DEVEDORES V2.1 — GRAFITE DE CONFERÊNCIA
+   Refinamento incremental do dark: superfícies neutras, menos caixas e
+   uma linha champagne que conecta cabeçalho, razão e liquidação.
+══════════════════════════════════════════════════════ */
+
+.topbar-devedores.so-page-header {
+  isolation: isolate;
+  border-bottom: 0;
+}
+
+.app.operations-shell:not(.tema-claro) .topbar-devedores.so-page-header {
+  border-bottom-color: transparent;
+}
+
+.topbar-devedores.so-page-header::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: -1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--brand-signature) 0 72px,
+    color-mix(in srgb, var(--brand-signature) 24%, var(--border-subtle)) 72px 34%,
+    var(--border-subtle) 68%,
+    transparent
+  );
+  content: "";
+}
+
+.topbar-devedores .so-page-header__identity {
+  padding-inline-start: 16px;
+}
+
+.topbar-devedores .so-page-header__identity::before {
+  inset-block: 2px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--brand-signature), color-mix(in srgb, var(--brand-signature) 48%, transparent));
+}
+
+.dev-header-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.105em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dev-header-context-mark {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 8px;
+}
+
+.dev-header-context-mark::before {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--brand-signature) 72%, transparent);
+  transform: scaleX(1);
+  transform-origin: right center;
+  transition: transform var(--motion-standard) var(--ease-emphasized);
+  content: "";
+}
+
+.dev-header-context-mark::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--brand-signature);
+  background: var(--surface-canvas);
+  transform: translateY(-50%) rotate(45deg);
+  content: "";
+}
+
+.topbar-devedores:hover .dev-header-context-mark::before {
+  transform: scaleX(1.18);
+}
+
+.app.operations-shell:not(.tema-claro) .main {
+  background:
+    radial-gradient(circle at 86% -14%, rgba(244, 241, 233, 0.055), transparent 31%),
+    radial-gradient(circle at 38% 112%, rgba(208, 183, 124, 0.035), transparent 32%),
+    var(--surface-canvas);
+}
+
+.app.operations-shell:not(.tema-claro) .sidebar {
+  box-shadow: 12px 0 42px rgba(8, 9, 8, 0.2);
+}
+
+/* Contexto aberto: a introdução deixa de competir com os indicadores. */
+.app.operations-shell:not(.tema-claro) .dev-page .dev-hero.so-page-intro {
+  padding-inline: 20px 4px;
+  border-width: 0 0 1px;
+  border-color: color-mix(in srgb, var(--brand-signature) 22%, var(--border-subtle));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-page .dev-hero.so-page-intro::before {
+  inset-block: 15px;
+}
+
+/* Indicadores: uma âncora, um valor positivo e dois agrupamentos contínuos. */
+.app.operations-shell:not(.tema-claro) :is(
+  .dev-kpis-v2 > .so-kpi-card,
+  .dev-kpi-cluster > .so-kpi-card,
+  .dev-kpi-rodape > .so-kpi-card
+) {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.app.operations-shell:not(.tema-claro) :is(
+  .dev-kpis-v2 > .so-kpi-card,
+  .dev-kpi-cluster > .so-kpi-card,
+  .dev-kpi-rodape > .so-kpi-card
+):hover {
+  border-color: transparent;
+  transform: none;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpis-v2 > .dev-kpi-saldo-dominante {
+  background: linear-gradient(145deg, var(--surface-raised), var(--surface-panel) 76%);
+  box-shadow: var(--shadow-sm);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpis-v2 > .dev-kpi-saldo-dominante::after {
+  width: 38px;
+  background: linear-gradient(90deg, var(--brand-signature), color-mix(in srgb, var(--brand-signature) 42%, transparent));
+  transition: width var(--motion-standard) var(--ease-emphasized);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpis-v2 > .dev-kpi-saldo-dominante:hover {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-signature) 5%, var(--surface-raised)), var(--surface-panel) 78%);
+  box-shadow: var(--shadow-md);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpis-v2 > .dev-kpi-saldo-dominante:hover::after {
+  width: 52px;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpis-v2 > .dev-kpi-pago-forte {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-action) 12%, var(--surface-raised)), var(--surface-raised));
+  box-shadow: var(--shadow-xs);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpis-v2 > .dev-kpi-pago-forte:hover {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-action-vivid) 15%, var(--surface-raised)), var(--surface-raised));
+  box-shadow: var(--shadow-sm);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpi-cluster {
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  box-shadow: var(--shadow-xs);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpi-cluster > .so-kpi-card {
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-panel);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpi-cluster > .so-kpi-card:hover {
+  background: var(--surface-hover);
+  box-shadow: inset 0 -2px color-mix(in srgb, var(--brand-action-vivid) 58%, transparent);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpi-rodape {
+  gap: 0;
+  border-top: 1px solid color-mix(in srgb, var(--brand-signature) 26%, var(--border-subtle));
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpi-rodape > .so-kpi-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpi-rodape > .so-kpi-card + .so-kpi-card {
+  border-left: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-kpi-rodape > .so-kpi-card:hover {
+  background: color-mix(in srgb, var(--surface-raised) 62%, transparent);
+}
+
+/* Filtros permanecem uma barra de comando, não mais uma caixa dentro da página. */
+.app.operations-shell:not(.tema-claro) .dev-filtros.so-filter-bar {
+  padding: 12px 0 14px;
+  border-width: 0 0 1px;
+  border-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-filtros .so-field__control {
+  background: var(--surface-input);
+  box-shadow: inset 0 1px var(--surface-highlight);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-filtros .so-field__control:hover {
+  background: color-mix(in srgb, var(--surface-raised) 52%, var(--surface-input));
+}
+
+.app.operations-shell:not(.tema-claro) .dev-filtros .so-filter-bar__secondary {
+  border-color: var(--border-subtle);
+  background: var(--surface-raised);
+}
+
+/* Razão financeiro: um único plano, separador único e ação quieta. */
+.app.operations-shell:not(.tema-claro) .dev-tabela-wrap.so-data-table-shell {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: var(--surface-panel);
+  box-shadow: inset 0 1px var(--surface-highlight);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela-wrap.so-data-table-shell::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  height: 2px;
+  background: linear-gradient(90deg, var(--brand-signature), color-mix(in srgb, var(--brand-signature) 24%, transparent) 18%, transparent 44%);
+  pointer-events: none;
+  content: "";
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table th {
+  border-bottom-color: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: var(--surface-raised);
+  color: var(--text-default);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table td {
+  border-top-color: color-mix(in srgb, var(--border-subtle) 62%, transparent);
+  border-bottom: 0;
+  background: var(--surface-panel);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table tbody tr:hover td {
+  background: var(--surface-interactive);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-identidade b {
+  font-size: 0.84rem;
+  font-weight: 720;
+  letter-spacing: -0.012em;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-identidade small {
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table td:nth-child(5) {
+  color: var(--text-muted);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table td:nth-child(6) {
+  color: var(--state-success);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table td:nth-child(7) b {
+  color: var(--text-strong);
+  font-weight: 720;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table td:last-child .btn-secundario {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-tabela.so-data-table td:last-child .btn-secundario:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--surface-raised);
+  color: var(--brand-action-vivid);
+}
+
+/* Dossiê: painel financeiro contínuo; células viram divisores tipográficos. */
+.app.operations-shell:not(.tema-claro) .dev-modal.so-modal {
+  border-color: var(--border-subtle);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-dossie-cabecalho {
+  gap: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--brand-signature) 54%, var(--border-subtle));
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-xs);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-dossie-identidade {
+  background: linear-gradient(145deg, var(--surface-raised), color-mix(in srgb, var(--surface-panel) 70%, var(--surface-raised)));
+}
+
+.app.operations-shell:not(.tema-claro) .dev-dossie-identidade::after {
+  background: linear-gradient(90deg, var(--brand-signature), color-mix(in srgb, var(--brand-signature) 38%, transparent));
+}
+
+.app.operations-shell:not(.tema-claro) .dev-dossie-resumo.dev-resumo {
+  gap: 0;
+  background: var(--surface-panel);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-dossie-resumo.dev-resumo > div {
+  position: relative;
+  background: transparent;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-dossie-resumo.dev-resumo > div + div {
+  border-left: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-dossie-trilho.dev-progresso {
+  padding: 14px 4px 14px 16px;
+  border: 0;
+  border-left: 2px solid var(--brand-action-vivid);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-progresso-trilha {
+  border-color: var(--border-strong);
+  background: var(--surface-input);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-progresso-trilha > span::after {
+  right: 0;
+  box-shadow: none;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-acoes-operacionais.so-action-bar {
+  padding-inline: 0;
+  border-width: 1px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-bloco {
+  border-color: transparent;
+  background: var(--surface-raised);
+  box-shadow: inset 0 1px var(--surface-highlight);
+}
+
+.app.operations-shell:not(.tema-claro) .dev-parcela {
+  border-width: 0 0 1px 3px;
+  border-bottom-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-parcela-concluida,
+.app.operations-shell:not(.tema-claro) .dev-parcela-vencida {
+  background: transparent;
+}
+
+.app.operations-shell:not(.tema-claro) .dev-lista-interna article {
+  border-width: 0 0 1px;
+  border-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 1040px) {
+  .app.operations-shell:not(.tema-claro) .dev-dossie-resumo.dev-resumo > div:nth-child(3n + 1) {
+    border-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .dev-header-context {
+    display: none;
+  }
+
+  .app.operations-shell:not(.tema-claro) .main {
+    background:
+      radial-gradient(circle at 92% -10%, rgba(244, 241, 233, 0.045), transparent 28%),
+      var(--surface-canvas);
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-page .dev-hero.so-page-intro {
+    padding: 13px 0 13px 17px;
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-kpi-rodape > .so-kpi-card + .so-kpi-card {
+    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+    border-left: 0;
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-filtros.so-filter-bar {
+    padding: 11px 0 13px;
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-filtros .so-filter-bar__secondary {
+    background: var(--surface-panel);
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-cards .so-mobile-record-card {
+    border-width: 0 0 1px 3px;
+    border-bottom-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+    border-radius: 0 12px 12px 0;
+    box-shadow: inset 0 1px var(--surface-highlight);
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-dossie-identidade {
+    border-radius: 14px 14px 0 0;
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-dossie-trilho.dev-progresso {
+    padding: 13px 4px 13px 16px;
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-acoes-operacionais.so-action-bar {
+    padding: 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-raised));
+    box-shadow: var(--shadow-sm);
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-dossie-resumo.dev-resumo > div:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .app.operations-shell:not(.tema-claro) .dev-dossie-resumo.dev-resumo > div:nth-child(even) {
+    border-left: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .app.operations-shell:not(.tema-claro) {
+    --border-control: var(--text-default);
+    --border-control-hover: var(--text-strong);
+  }
+
+  .app.operations-shell:not(.tema-claro) :is(
+    .dev-kpis-v2 > .dev-kpi-saldo-dominante,
+    .dev-kpi-cluster,
+    .dev-tabela-wrap.so-data-table-shell,
+    .dev-dossie-cabecalho,
+    .dev-bloco
+  ) {
+    outline: 1px solid var(--border-strong);
+    outline-offset: -1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev-header-context-mark::before,
+  .dev-kpis-v2 > .dev-kpi-saldo-dominante::after {
+    transform: none !important;
+    transition: none !important;
+  }
 }

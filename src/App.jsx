@@ -3488,7 +3488,7 @@ function Sistema({onLogout}){
     const metaTema=document.querySelector('meta[name="theme-color"]');
     if(!metaTema)return;
     const cor=aba==="devedores"&&acessoDevedores
-      ?(temaClaro?"#f3f0e7":"#0e1210")
+      ?(temaClaro?"#f3f0e7":"#1c1f1e")
       :(temaClaro?"#f7f9fd":"#081627");
     metaTema.setAttribute("content",cor);
   },[aba,acessoDevedores,temaClaro]);
@@ -4639,7 +4639,12 @@ function Sistema({onLogout}){
             leading={<IconButton icon="menu" label="Abrir menu principal" className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}/>}
             title="Devedores"
             subtitle="Carteira, acordos e liquidações"
-          />
+          >
+            <span className="dev-header-context">
+              <span className="dev-header-context-mark" aria-hidden="true"/>
+              Carteira operacional
+            </span>
+          </PageHeader>
           <DevedoresPage perfilAtual={perfilAtual}/>
         </>)}
 
