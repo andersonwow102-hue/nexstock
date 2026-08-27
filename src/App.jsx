@@ -9,6 +9,7 @@ import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
 import DevedoresPage from "./DevedoresPage.jsx";
+import { IconButton, PageHeader } from "./components/operations/OperationsUI.jsx";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
@@ -28,6 +29,7 @@ import {
   carregarGerenteModalidadeAcessos, salvarGerenteModalidadeAcesso, excluirGerenteModalidadeAcesso,
   carregarModalidadeApps, enviarModalidadeApp, obterLinkDownloadModalidadeApp,
 } from "./db.js";
+import "./styles/foundations.css";
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Máquina de Brindes","Totens","Noteiro","PDV Touchscreen"];
 const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
@@ -4623,12 +4625,14 @@ function Sistema({onLogout}){
         )}
 
         {aba==="devedores"&&acessoDevedores&&(<>
-          <header className="topbar">
-            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Devedores</h1><p className="page-sub">Cadastro, negociação e recebimentos internos</p></div>
-            </div>
-          </header>
+          <PageHeader
+            className="topbar topbar-devedores"
+            compact
+            leading={<IconButton icon="menu" label="Abrir menu principal" className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}/>}
+            eyebrow="Central de Operações"
+            title="Devedores"
+            subtitle="Cadastro, negociação e recebimentos internos"
+          />
           <DevedoresPage perfilAtual={perfilAtual}/>
         </>)}
 

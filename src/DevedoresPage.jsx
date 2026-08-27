@@ -5,6 +5,24 @@ import {
   formatarMoedaBR, hojeEmSaoPaulo, mensagemErroDevedores,
   permissoesDevedores, preverParcelas, situacaoApresentacao,
 } from "./devedoresUtils.js";
+import {
+  ActionBar,
+  Button,
+  DataTable,
+  EmptyState,
+  FeedbackBanner,
+  Field,
+  FilterBar,
+  FloatingActionSafeArea,
+  KpiCard,
+  KpiGrid,
+  MobileRecordCard,
+  Modal as OperationsModal,
+  PageIntro,
+  Pagination,
+  SelectField,
+  StatusBadge,
+} from "./components/operations/OperationsUI.jsx";
 import "./DevedoresPage.css";
 
 const POR_PAGINA = 20;
@@ -26,21 +44,30 @@ const mascaraTelefone = valor => {
 };
 
 function Estado({ tipo, children, acao }) {
-  return <div className={`dev-estado dev-estado-${tipo}`} role={tipo === "erro" ? "alert" : "status"}><span>{children}</span>{acao}</div>;
+  if (tipo === "vazio" || tipo === "carregando") {
+    return <EmptyState className={`dev-estado dev-estado-${tipo}`} icon={tipo === "carregando" ? "clock" : "search"} title={children} action={acao}/>;
+  }
+  const tone = { erro: "danger", aviso: "warning", sucesso: "success", info: "info" }[tipo] || "info";
+  return <FeedbackBanner className={`dev-estado dev-estado-${tipo}`} tone={tone} action={acao}>{children}</FeedbackBanner>;
 }
 
 function Modal({ titulo, subtitulo, children, onFechar, footer, largo, bloqueado = false }) {
-  const fechar = () => { if (!bloqueado) onFechar(); };
-  return <div className="dev-modal-fundo" onMouseDown={e => e.target === e.currentTarget && fechar()}>
-    <section className={`dev-modal ${largo ? "dev-modal-largo" : ""}`} role="dialog" aria-modal="true" aria-label={titulo}>
-      <header><div><h2>{titulo}</h2>{subtitulo && <p>{subtitulo}</p>}</div><button type="button" className="dev-fechar" onClick={fechar} disabled={bloqueado} aria-label="Fechar">×</button></header>
-      <div className="dev-modal-corpo">{children}</div>{footer && <footer>{footer}</footer>}
-    </section>
-  </div>;
+  return <OperationsModal
+    title={titulo}
+    subtitle={subtitulo}
+    onClose={onFechar}
+    blocked={bloqueado}
+    size={largo ? "xl" : "md"}
+    overlayClassName="dev-modal-fundo"
+    className={`dev-modal ${largo ? "dev-modal-largo" : ""}`}
+    footer={footer ? <FloatingActionSafeArea><ActionBar className="dev-modal-acoes">{footer}</ActionBar></FloatingActionSafeArea> : null}
+  >
+    <div className="dev-modal-corpo">{children}</div>
+  </OperationsModal>;
 }
 
 function Campo({ label, obrigatorio, className = "", children }) {
-  return <label className={`dev-campo ${className}`}><span>{label}{obrigatorio ? " *" : ""}</span>{children}</label>;
+  return <Field className={`dev-campo ${className}`} label={label} required={obrigatorio}>{children}</Field>;
 }
 
 function CadastroForm({ item, modalidades, admin, onCancelar, onConcluir }) {
@@ -150,14 +177,14 @@ function Detalhe({ item, detalhe, permissao, carregando, erro, onFechar, onRecar
   const rel=item.relatorio,res=detalhe.resumo||item.resumo,excluido=Boolean(rel.excluido_em||res.excluido_em),ativa=detalhe.negociacoes.find(n=>n.situacao==="ativa")||detalhe.negociacoes[0],proxima=detalhe.parcelas.filter(p=>Number(p.saldo)>0).sort((a,b)=>String(a.vencimento).localeCompare(String(b.vencimento)))[0],estornados=new Set(detalhe.estornos.map(e=>String(e.pagamento_id)));
   const percentual=Math.max(0,Math.min(100,Number(res.evolucao_percentual||0))),parcelasQuitadas=detalhe.parcelas.filter(p=>Number(p.saldo)<=0||["paga","quitada"].includes(p.situacao)).length,totalParcelas=detalhe.parcelas.length;
   return <Modal titulo={rel.nome_fantasia||rel.nome} subtitulo={`${rel.nome} · ${rel.gerente_nome_snapshot}`} onFechar={onFechar} largo footer={<button className="btn-secundario" onClick={onFechar}>Fechar</button>}>
-    {excluido&&<section className="dev-exclusao-aviso"><strong>EXCLUÍDO ADMINISTRATIVAMENTE</strong><span>{rel.motivo_exclusao}</span><small>Por {rel.excluido_por_nome_snapshot} em {new Date(rel.excluido_em).toLocaleString("pt-BR")}</small></section>}<div className="dev-detalhe-topo"><span className={`dev-situacao dev-situacao-${excluido?"excluida":res.situacao}`}>{excluido?"Excluído administrativamente":situacaoApresentacao(res.situacao)}</span><span>{item.modalidade_nome_snapshot}</span><span>{rel.telefone}</span></div>
+    {excluido&&<section className="dev-exclusao-aviso"><strong>EXCLUÍDO ADMINISTRATIVAMENTE</strong><span>{rel.motivo_exclusao}</span><small>Por {rel.excluido_por_nome_snapshot} em {new Date(rel.excluido_em).toLocaleString("pt-BR")}</small></section>}<div className="dev-detalhe-topo"><StatusBadge status={excluido?"excluida":res.situacao} className={`dev-situacao dev-situacao-${excluido?"excluida":res.situacao}`}>{excluido?"Excluído administrativamente":situacaoApresentacao(res.situacao)}</StatusBadge><span>{item.modalidade_nome_snapshot}</span><span>{rel.telefone}</span></div>
     <div className="dev-resumo"><div><span>Valor original</span><b>{moeda(res.valor_original)}</b></div><div><span>Valor negociado</span><b>{moeda(res.valor_negociado)}</b></div><div><span>Total pago</span><b>{moeda(res.total_pago)}</b></div><div><span>Saldo atual</span><b>{moeda(res.saldo_restante)}</b></div><div><span>Evolução</span><b>{percentual.toLocaleString("pt-BR")}%</b></div><div><span>Próximo vencimento</span><b>{proxima?formatarDataCivil(proxima.vencimento):"—"}</b></div></div>
     <section className="dev-progresso" aria-label={`Evolução da dívida: ${percentual.toLocaleString("pt-BR")}%`}><header><div><span>Progresso da dívida</span><b>{totalParcelas?`${parcelasQuitadas} de ${totalParcelas} parcelas quitadas`:`${percentual.toLocaleString("pt-BR")}% concluído`}</b></div><strong>{percentual.toLocaleString("pt-BR")}%</strong></header><div className="dev-progresso-trilha" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percentual}><span style={{width:`${percentual}%`}}/></div>{totalParcelas>0&&<div className="dev-progresso-etapas" aria-hidden="true">{detalhe.parcelas.map(p=>{const quitada=Number(p.saldo)<=0||["paga","quitada"].includes(p.situacao);return <span key={p.id} className={quitada?"concluida":""}>{p.numero}</span>})}</div>}</section>
-    {!excluido&&<div className="dev-acoes dev-acoes-operacionais">{permissao.corrigirCadastro&&<button className="btn-secundario" onClick={()=>onAcao("cadastro")}>Corrigir cadastro</button>}{permissao.negociar&&!ativa&&<button className="btn-primario" onClick={()=>onAcao("negociar")}>Nova negociação</button>}{permissao.substituirNegociacao&&ativa&&<button className="btn-secundario" onClick={()=>onAcao("substituir")}>Substituir negociação</button>}{permissao.corrigirAdministrativamente&&ativa&&<button className="btn-secundario" onClick={()=>onAcao("corrigir-negociacao")}>Corrigir negociação</button>}{permissao.pagar&&ativa&&Number(res.saldo_restante)>0&&<button className="btn-primario" onClick={()=>onAcao("pagar")}>Registrar pagamento</button>}{permissao.excluirAdministrativamente&&<button className="btn-danger-outline" onClick={()=>onAcao("excluir")}>Excluir devedor</button>}</div>}
+    {!excluido&&<ActionBar className="dev-acoes dev-acoes-operacionais" align="start">{permissao.corrigirCadastro&&<Button variant="secondary" className="btn-secundario" leadingIcon="edit" onClick={()=>onAcao("cadastro")}>Corrigir cadastro</Button>}{permissao.negociar&&!ativa&&<Button variant="primary" className="btn-primario" leadingIcon="plus" onClick={()=>onAcao("negociar")}>Nova negociação</Button>}{permissao.substituirNegociacao&&ativa&&<Button variant="secondary" className="btn-secundario" onClick={()=>onAcao("substituir")}>Substituir negociação</Button>}{permissao.corrigirAdministrativamente&&ativa&&<Button variant="secondary" className="btn-secundario" leadingIcon="edit" onClick={()=>onAcao("corrigir-negociacao")}>Corrigir negociação</Button>}{permissao.pagar&&ativa&&Number(res.saldo_restante)>0&&<Button variant="primary" className="btn-primario" leadingIcon="money" onClick={()=>onAcao("pagar")}>Registrar pagamento</Button>}{permissao.excluirAdministrativamente&&<Button variant="danger-outline" className="btn-danger-outline" leadingIcon="trash" onClick={()=>onAcao("excluir")}>Excluir devedor</Button>}</ActionBar>}
     {permissao.somenteLeitura&&<Estado tipo="info">Acesso somente leitura. Todos os dados e o histórico estão disponíveis.</Estado>}
     <section className="dev-bloco"><h3>Cadastro e dívida original</h3><dl><div><dt>Endereço</dt><dd>{[rel.endereco,rel.numero,rel.complemento,rel.bairro,rel.cidade,rel.estado].filter(Boolean).join(", ")}</dd></div><div><dt>Registro</dt><dd>{formatarDataCivil(item.data_registro)}</dd></div><div><dt>Observações</dt><dd>{item.observacoes_originais||"Sem observações"}</dd></div></dl></section>
     <section className="dev-bloco"><h3>Negociação</h3>{ativa?<dl><div><dt>Forma</dt><dd>{ativa.forma_pagamento==="vista"?"À vista":"Parcelada"}</dd></div><div><dt>Valor</dt><dd>{moeda(ativa.valor_negociado)}</dd></div><div><dt>Responsável</dt><dd className="dev-responsavel">{perfilResponsavel(ativa.criado_por_perfil_snapshot)}</dd></div></dl>:<p>Nenhuma negociação registrada.</p>}</section>
-    <section className="dev-bloco"><h3>Parcelas</h3><div className="dev-parcelas">{detalhe.parcelas.length?detalhe.parcelas.map(p=>{const original=Number(p.valor_original??p.valor??0),saldo=Number(p.saldo||0),pago=Number(p.valor_pago??Math.max(0,original-saldo)),quitada=saldo<=0||["paga","quitada"].includes(p.situacao);return <article key={p.id} className={`dev-parcela dev-parcela-${p.situacao} ${quitada?"dev-parcela-concluida":""}`}><header><div><b>{p.numero}ª parcela</b>{quitada&&<small>Parcela quitada</small>}</div><span className={`dev-situacao dev-situacao-${p.situacao}`}>{quitada?"Quitada":situacaoApresentacao(p.situacao)}</span></header><dl><div><dt>Vencimento</dt><dd>{formatarDataCivil(p.vencimento)}</dd></div><div><dt>Valor original</dt><dd>{moeda(original)}</dd></div><div><dt>Valor pago</dt><dd>{moeda(pago)}</dd></div><div><dt>Saldo</dt><dd className={saldo>0?"dev-valor-pendente":"dev-valor-quitado"}>{moeda(saldo)}</dd></div></dl></article>}):<p>Sem parcelas.</p>}</div></section>
+    <section className="dev-bloco"><h3>Parcelas</h3><div className="dev-parcelas">{detalhe.parcelas.length?detalhe.parcelas.map(p=>{const original=Number(p.valor_original??p.valor??0),saldo=Number(p.saldo||0),pago=Number(p.valor_pago??Math.max(0,original-saldo)),quitada=saldo<=0||["paga","quitada"].includes(p.situacao);return <article key={p.id} className={`dev-parcela dev-parcela-${p.situacao} ${quitada?"dev-parcela-concluida":""}`}><header><div><b>{p.numero}ª parcela</b>{quitada&&<small>Parcela quitada</small>}</div><StatusBadge status={quitada?"quitada":p.situacao} className={`dev-situacao dev-situacao-${p.situacao}`}>{quitada?"Quitada":situacaoApresentacao(p.situacao)}</StatusBadge></header><dl><div><dt>Vencimento</dt><dd>{formatarDataCivil(p.vencimento)}</dd></div><div><dt>Valor original</dt><dd>{moeda(original)}</dd></div><div><dt>Valor pago</dt><dd>{moeda(pago)}</dd></div><div><dt>Saldo</dt><dd className={saldo>0?"dev-valor-pendente":"dev-valor-quitado"}>{moeda(saldo)}</dd></div></dl></article>}):<p>Sem parcelas.</p>}</div></section>
     <section className="dev-bloco"><h3>Pagamentos</h3><div className="dev-lista-interna">{detalhe.pagamentos.length?detalhe.pagamentos.map(p=><article key={p.id} className={estornados.has(String(p.id))?"dev-item-estornado":""}><div><b>{moeda(p.valor)}</b><span>{formatarDataCivil(p.data_pagamento)} · {p.registrado_por_nome_snapshot}</span></div>{permissao.estornar&&!estornados.has(String(p.id))&&<button className="btn-danger-outline" onClick={()=>onAcao("estornar",p)}>Estornar</button>}</article>):<p>Nenhum pagamento registrado.</p>}</div></section>
     <section className="dev-bloco"><h3>Estornos</h3><div className="dev-lista-interna">{detalhe.estornos.length?detalhe.estornos.map(e=><article key={e.id}><div><b>{e.motivo}</b><span>{e.estornado_por_nome_snapshot} · {new Date(e.estornado_em).toLocaleString("pt-BR")}</span></div></article>):<p>Nenhum estorno registrado.</p>}</div></section>
     <section className="dev-bloco"><h3>Histórico completo</h3><div className="dev-linha-tempo">{detalhe.historico.map(h=><article key={h.id}><span/><div><b>{h.acao.replaceAll("_"," ")}</b><small>{h.usuario_nome_snapshot} · {new Date(h.criado_em).toLocaleString("pt-BR")}</small>{h.motivo&&<p>{h.motivo}</p>}</div></article>)}</div></section>
@@ -181,33 +208,68 @@ export default function DevedoresPage({ perfilAtual }) {
   const filtrosAtivos=Object.entries(filtros).filter(([campo,valor])=>Boolean(valor)&&!(campo==="cadastro"&&valor==="ativos")).length;
   const limparFiltros=()=>{setBusca("");setFiltros(filtrosVazios);setFiltrosRascunho(filtrosVazios);setPagina(1);};
   const removerFiltro=campo=>{const proximos={...filtros,[campo]:""};setFiltros(proximos);setFiltrosRascunho(proximos);setPagina(1);};
+  const statusVisual=registro=>{const excluido=Boolean(registro.relatorio.excluido_em);return { chave:excluido?"excluida":registro.resumo.situacao, rotulo:excluido?"Excluído administrativamente":situacaoApresentacao(registro.resumo.situacao) };};
+  const colunasTabela=[
+    {id:"devedor",header:"Devedor",width:"27%",render:i=><div className="dev-identidade"><b>{i.relatorio.nome_fantasia||i.relatorio.nome}</b><small>{i.relatorio.nome} · {i.relatorio.cidade}/{i.relatorio.estado}</small></div>},
+    {id:"gerente",header:"Gerente",render:i=>i.relatorio.gerente_nome_snapshot},
+    {id:"modalidade",header:"Modalidade",render:i=>i.modalidade_nome_snapshot},
+    {id:"situacao",header:"Situação",render:i=>{const status=statusVisual(i);return <StatusBadge status={status.chave} className={`dev-situacao dev-situacao-${status.chave}`}>{status.rotulo}</StatusBadge>;}},
+    {id:"original",header:"Original",numeric:true,align:"right",render:i=>moeda(i.resumo.valor_original)},
+    {id:"pago",header:"Pago",numeric:true,align:"right",render:i=>moeda(i.resumo.total_pago)},
+    {id:"saldo",header:"Saldo",numeric:true,align:"right",render:i=><b>{moeda(i.resumo.saldo_restante)}</b>},
+    {id:"acoes",header:<span className="so-visually-hidden">Ações</span>,align:"right",width:"104px",render:i=><Button variant="secondary" size="sm" className="btn-secundario" leadingIcon="eye" onClick={()=>abrirDetalhe(i)}>Abrir</Button>},
+  ];
   if(!permissao.acessar)return <Estado tipo="erro">O módulo Devedores exige um perfil real autorizado.</Estado>;
   return <div className="dev-page">
-    <section className="dev-hero">
-      <div className="dev-hero-conteudo"><span className="dev-kicker">Controle de recebimentos</span><h2>Devedores</h2><p>Cadastros, negociações, parcelas e pagamentos em um ambiente separado dos módulos operacionais.</p></div>
-      <div className="dev-hero-acoes">{permissao.somenteLeitura&&<span className="dev-readonly">Somente leitura</span>}{permissao.cadastrar&&<button className="btn-primario" onClick={()=>setAcao("novo")}>Cadastrar devedor</button>}</div>
-    </section>
+    <PageIntro
+      className="dev-hero"
+      eyebrow="Controle de recebimentos"
+      description="Cadastros, negociações, parcelas e pagamentos reunidos em uma carteira operacional auditável."
+      meta={<span>Central de Operações · carteira interna Stock-On</span>}
+      ariaLabel="Visão geral da carteira de devedores"
+      actions={<>{permissao.somenteLeitura&&<StatusBadge tone="neutral" dot={false} className="dev-readonly">Somente leitura</StatusBadge>}{permissao.cadastrar&&<Button variant="primary" className="btn-primario" leadingIcon="plus" onClick={()=>setAcao("novo")}>Cadastrar devedor</Button>}</>}
+    />
     {erro&&<Estado tipo="erro" acao={<button className="btn-secundario" onClick={carregar}>Tentar novamente</button>}>{erro}</Estado>}
-    <section className={`dev-kpis ${resumoExpandido?"dev-kpis-expandido":""}`} aria-label="Resumo de devedores">
-      <div className="dev-kpi-aberto dev-kpi-principal"><span>Em aberto</span><b>{kpis.abertas}</b></div><div className="dev-kpi-saldo dev-kpi-principal"><span>Saldo atual</span><b>{moeda(kpis.saldo)}</b></div><div className="dev-kpi-vencido dev-kpi-principal"><span>Vencidas</span><b>{kpis.vencidas}</b></div><div className="dev-kpi-quitado dev-kpi-principal"><span>Quitadas</span><b>{kpis.quitadas}</b></div><div className="dev-kpi-secundario"><span>Total original</span><b>{moeda(kpis.original)}</b></div><div className="dev-kpi-secundario"><span>Total negociado</span><b>{moeda(kpis.negociado)}</b></div><div className="dev-kpi-pago dev-kpi-secundario"><span>Total pago</span><b>{moeda(kpis.pago)}</b></div>
-      <button type="button" className="dev-kpis-toggle btn-secundario" onClick={()=>setResumoExpandido(v=>!v)}>{resumoExpandido?"Ocultar totais":"Ver outros totais"}</button>
-    </section>
-    <section className="dev-filtros" aria-label="Filtros de devedores">
-      <div className="dev-filtros-cabecalho"><div><h3>Pesquisar e filtrar</h3><p>Refine a relação de devedores pelos critérios abaixo.</p></div>{(busca||filtrosAtivos>0)&&<button className="btn-secundario" onClick={limparFiltros}>Limpar filtros</button>}</div>
-      <div className="dev-filtros-essenciais"><Campo label="Busca"><input inputMode="search" placeholder="Buscar por nome, fantasia, telefone, cidade ou gerente" value={busca} onChange={e=>setBusca(e.target.value)}/></Campo><Campo label="Situação"><select value={filtros.situacao} onChange={e=>{const valor=e.target.value;setFiltros({...filtros,situacao:valor});setFiltrosRascunho({...filtrosRascunho,situacao:valor});}}><option value="">Todas as situações</option>{["aberta","negociada","parcialmente_paga","vencida","quitada"].map(s=><option key={s} value={s}>{situacaoApresentacao(s)}</option>)}</select></Campo><button type="button" className="dev-mais-filtros btn-secundario" onClick={()=>setMaisFiltros(true)}>Mais filtros{filtrosAtivos?` (${filtrosAtivos})`:""}</button></div>
-      <div className={`dev-filtros-painel ${maisFiltros?"dev-filtros-painel-aberto":""}`} role="dialog" aria-modal="true" aria-label="Mais filtros"><div className="dev-filtros-painel-topo"><div><b>Mais filtros</b><span>{filtrosAtivos} ativo(s)</span></div><button type="button" className="dev-fechar" onClick={()=>setMaisFiltros(false)} aria-label="Fechar filtros">×</button></div><div className="dev-filtros-grid">
-        <Campo label="Modalidade"><select value={filtrosRascunho.modalidade} onChange={e=>setFiltrosRascunho({...filtrosRascunho,modalidade:e.target.value})}><option value="">Todas as modalidades</option>{dados.modalidades.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}</select></Campo>
-        <Campo label="Gerente responsável"><select value={filtrosRascunho.gerente} onChange={e=>setFiltrosRascunho({...filtrosRascunho,gerente:e.target.value})}><option value="">Todos os gerentes</option>{gerentes.map(g=><option key={g}>{g}</option>)}</select></Campo>
-        <Campo label="Forma de pagamento"><select value={filtrosRascunho.forma} onChange={e=>setFiltrosRascunho({...filtrosRascunho,forma:e.target.value})}><option value="">À vista ou parcelada</option><option value="vista">À vista</option><option value="parcelada">Parcelada</option></select></Campo>
-        <Campo label="Marcador"><select value={filtrosRascunho.marcador} onChange={e=>setFiltrosRascunho({...filtrosRascunho,marcador:e.target.value})}><option value="">Todos os registros</option><option value="vencidas">Somente vencidas</option><option value="quitadas">Somente quitadas</option></select></Campo>
-        <Campo label="Mês de registro"><input type="month" value={filtrosRascunho.periodo} onChange={e=>setFiltrosRascunho({...filtrosRascunho,periodo:e.target.value})}/></Campo>
-        {permissao.excluirAdministrativamente&&<Campo label="Cadastros"><select value={filtrosRascunho.cadastro} onChange={e=>setFiltrosRascunho({...filtrosRascunho,cadastro:e.target.value})}><option value="ativos">Operacionais</option><option value="excluidos">Excluídos</option><option value="todos">Todos</option></select></Campo>}
-        <Campo label="Ordenar por"><select value={ordenacao} onChange={e=>setOrdenacao(e.target.value)}><option value="atualizado">Mais recentes</option><option value="nome">Nome</option><option value="saldo">Maior saldo</option></select></Campo>
-      </div><footer><button type="button" className="btn-secundario" onClick={limparFiltros}>Limpar</button><button type="button" className="btn-primario" onClick={()=>{setFiltros({...filtrosRascunho,situacao:filtros.situacao});setPagina(1);setMaisFiltros(false);}}>Aplicar filtros</button></footer></div>
-      {filtrosAtivos>0&&<div className="dev-filtros-ativos">{Object.entries(filtros).filter(([campo,valor])=>valor&&!(campo==="cadastro"&&valor==="ativos")).map(([campo,valor])=><button type="button" key={campo} onClick={()=>removerFiltro(campo)}>{campo}: {valor}<span aria-hidden="true">×</span></button>)}</div>}
-    </section>
-    {dados.limiteAtingido&&<Estado tipo="aviso">A consulta atingiu o limite seguro de 1.000 registros. Refine os filtros.</Estado>}{carregando?<Estado tipo="carregando">Carregando devedores...</Estado>:!exibidos.length?<Estado tipo="vazio">Nenhum devedor encontrado para os filtros informados.</Estado>:<><div className="dev-tabela-wrap"><table className="dev-tabela"><thead><tr><th>Devedor</th><th>Gerente</th><th>Modalidade</th><th>Situação</th><th>Original</th><th>Pago</th><th>Saldo</th><th></th></tr></thead><tbody>{exibidos.map(i=>{const excluido=Boolean(i.relatorio.excluido_em);return <tr key={i.id}><td><b>{i.relatorio.nome_fantasia||i.relatorio.nome}</b><small>{i.relatorio.nome} · {i.relatorio.cidade}/{i.relatorio.estado}</small></td><td>{i.relatorio.gerente_nome_snapshot}</td><td>{i.modalidade_nome_snapshot}</td><td><span className={`dev-situacao dev-situacao-${excluido?"excluida":i.resumo.situacao}`}>{excluido?"Excluído administrativamente":situacaoApresentacao(i.resumo.situacao)}</span></td><td>{moeda(i.resumo.valor_original)}</td><td>{moeda(i.resumo.total_pago)}</td><td><b>{moeda(i.resumo.saldo_restante)}</b></td><td><button className="btn-secundario" onClick={()=>abrirDetalhe(i)}>Abrir</button></td></tr>})}</tbody></table></div><div className="dev-cards">{exibidos.map(i=>{const excluido=Boolean(i.relatorio.excluido_em),quitada=i.resumo.situacao==="quitada";return <article key={i.id} className={excluido?"dev-card-excluido":quitada?"dev-card-quitado":"dev-card-pendente"} role="button" tabIndex="0" onClick={()=>abrirDetalhe(i)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();abrirDetalhe(i);}}}><header><div><b>{i.relatorio.nome_fantasia||i.relatorio.nome}</b><span>{i.modalidade_nome_snapshot} · Gerente {i.relatorio.gerente_nome_snapshot}</span></div><span className={`dev-situacao dev-situacao-${excluido?"excluida":i.resumo.situacao}`}>{excluido?"Excluído administrativamente":quitada?"Quitada":"Em dívida"}</span></header><div className="dev-card-saldo"><span>{excluido?"Histórico preservado":quitada?"Dívida quitada":"Saldo pendente"}</span><b>{moeda(i.resumo.saldo_restante)}</b></div><dl><div><dt>Valor original</dt><dd>{moeda(i.resumo.valor_original)}</dd></div><div><dt>Valor pago</dt><dd>{moeda(i.resumo.total_pago)}</dd></div></dl><button className="btn-secundario" onClick={e=>{e.stopPropagation();abrirDetalhe(i);}}>Ver detalhes</button></article>})}</div></>}
-    <nav className="dev-paginacao" aria-label="Paginação de devedores"><span>Página {pagina} de {paginas} · {filtrados.length} registro(s)</span><div><button className="btn-secundario" disabled={pagina===1} onClick={()=>setPagina(p=>p-1)}>Anterior</button><button className="btn-secundario" disabled={pagina>=paginas} onClick={()=>setPagina(p=>p+1)}>Próxima</button></div></nav>
+    <div className={`dev-kpi-shell ${resumoExpandido?"dev-kpis-expandido":""}`}>
+      <KpiGrid className="dev-kpis" ariaLabel="Resumo de devedores">
+        <KpiCard className="dev-kpi-aberto dev-kpi-principal" label="Em aberto" value={kpis.abertas} tone="info"/>
+        <KpiCard className="dev-kpi-saldo dev-kpi-principal" label="Saldo atual" value={moeda(kpis.saldo)} emphasis/>
+        <KpiCard className="dev-kpi-vencido dev-kpi-principal" label="Vencidas" value={kpis.vencidas} tone="danger"/>
+        <KpiCard className="dev-kpi-quitado dev-kpi-principal" label="Quitadas" value={kpis.quitadas} tone="success"/>
+        <KpiCard className="dev-kpi-secundario" label="Total original" value={moeda(kpis.original)}/>
+        <KpiCard className="dev-kpi-secundario" label="Total negociado" value={moeda(kpis.negociado)}/>
+        <KpiCard className="dev-kpi-pago dev-kpi-secundario" label="Total pago" value={moeda(kpis.pago)} tone="success"/>
+      </KpiGrid>
+      <Button variant="secondary" size="sm" className="dev-kpis-toggle btn-secundario" onClick={()=>setResumoExpandido(v=>!v)}>{resumoExpandido?"Ocultar totais":"Ver outros totais"}</Button>
+    </div>
+    <FilterBar
+      className="dev-filtros"
+      description="Refine a carteira sem perder o contexto da operação."
+      activeCount={filtrosAtivos}
+      secondaryLabel="Mais filtros"
+      applyLabel="Aplicar filtros"
+      secondaryOpen={maisFiltros}
+      onSecondaryToggle={setMaisFiltros}
+      onClear={(busca||filtrosAtivos>0)?limparFiltros:undefined}
+      onApply={()=>{setFiltros({...filtrosRascunho,situacao:filtros.situacao});setPagina(1);setMaisFiltros(false);}}
+      primary={<div className="dev-filtros-essenciais"><Field label="Busca" className="dev-filtro-busca"><input inputMode="search" placeholder="Buscar por nome, fantasia, telefone, cidade ou gerente" value={busca} onChange={e=>setBusca(e.target.value)}/></Field><SelectField label="Situação" value={filtros.situacao} onChange={e=>{const valor=e.target.value;setFiltros({...filtros,situacao:valor});setFiltrosRascunho({...filtrosRascunho,situacao:valor});}}><option value="">Todas as situações</option>{["aberta","negociada","parcialmente_paga","vencida","quitada"].map(s=><option key={s} value={s}>{situacaoApresentacao(s)}</option>)}</SelectField></div>}
+      secondary={<div className="dev-filtros-grid">
+        <SelectField label="Modalidade" value={filtrosRascunho.modalidade} onChange={e=>setFiltrosRascunho({...filtrosRascunho,modalidade:e.target.value})}><option value="">Todas as modalidades</option>{dados.modalidades.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}</SelectField>
+        <SelectField label="Gerente responsável" value={filtrosRascunho.gerente} onChange={e=>setFiltrosRascunho({...filtrosRascunho,gerente:e.target.value})}><option value="">Todos os gerentes</option>{gerentes.map(g=><option key={g}>{g}</option>)}</SelectField>
+        <SelectField label="Forma de pagamento" value={filtrosRascunho.forma} onChange={e=>setFiltrosRascunho({...filtrosRascunho,forma:e.target.value})}><option value="">À vista ou parcelada</option><option value="vista">À vista</option><option value="parcelada">Parcelada</option></SelectField>
+        <SelectField label="Marcador" value={filtrosRascunho.marcador} onChange={e=>setFiltrosRascunho({...filtrosRascunho,marcador:e.target.value})}><option value="">Todos os registros</option><option value="vencidas">Somente vencidas</option><option value="quitadas">Somente quitadas</option></SelectField>
+        <Field label="Mês de registro"><input type="month" value={filtrosRascunho.periodo} onChange={e=>setFiltrosRascunho({...filtrosRascunho,periodo:e.target.value})}/></Field>
+        {permissao.excluirAdministrativamente&&<SelectField label="Cadastros" value={filtrosRascunho.cadastro} onChange={e=>setFiltrosRascunho({...filtrosRascunho,cadastro:e.target.value})}><option value="ativos">Operacionais</option><option value="excluidos">Excluídos</option><option value="todos">Todos</option></SelectField>}
+        <SelectField label="Ordenar por" value={ordenacao} onChange={e=>setOrdenacao(e.target.value)}><option value="atualizado">Mais recentes</option><option value="nome">Nome</option><option value="saldo">Maior saldo</option></SelectField>
+      </div>}
+      chips={filtrosAtivos>0?<div className="dev-filtros-ativos">{Object.entries(filtros).filter(([campo,valor])=>valor&&!(campo==="cadastro"&&valor==="ativos")).map(([campo,valor])=><button type="button" key={campo} onClick={()=>removerFiltro(campo)} aria-label={`Remover filtro ${campo}`}>{campo}: {valor}<span aria-hidden="true">×</span></button>)}</div>:null}
+    />
+    {dados.limiteAtingido&&<Estado tipo="aviso">A consulta atingiu o limite seguro de 1.000 registros. Refine os filtros.</Estado>}
+    {carregando?<Estado tipo="carregando">Carregando devedores...</Estado>:!exibidos.length?<EmptyState className="dev-estado dev-estado-vazio" title="Nenhum devedor encontrado para os filtros informados." description="Ajuste os critérios de busca ou limpe os filtros para consultar toda a carteira." action={(busca||filtrosAtivos>0)?<Button variant="secondary" onClick={limparFiltros}>Limpar filtros</Button>:null}/>:<>
+      <DataTable className="dev-tabela-wrap" tableClassName="dev-tabela" columns={colunasTabela} rows={exibidos} getRowKey={i=>i.id} caption="Carteira de devedores"/>
+      <div className="dev-cards">{exibidos.map(i=>{const status=statusVisual(i),excluido=status.chave==="excluida",quitada=i.resumo.situacao==="quitada";return <MobileRecordCard key={i.id} className={excluido?"dev-card-excluido":quitada?"dev-card-quitado":"dev-card-pendente"} tone={excluido?"danger":quitada?"success":"warning"} title={i.relatorio.nome_fantasia||i.relatorio.nome} subtitle={`${i.modalidade_nome_snapshot} · Gerente ${i.relatorio.gerente_nome_snapshot}`} badge={<StatusBadge status={status.chave} className={`dev-situacao dev-situacao-${status.chave}`}>{status.rotulo}</StatusBadge>} highlightLabel={excluido?"Histórico preservado":quitada?"Dívida quitada":"Saldo pendente"} highlightValue={moeda(i.resumo.saldo_restante)} details={[{label:"Valor original",value:moeda(i.resumo.valor_original),numeric:true},{label:"Valor pago",value:moeda(i.resumo.total_pago),numeric:true}]} onOpen={()=>abrirDetalhe(i)} openLabel={`Abrir detalhes de ${i.relatorio.nome_fantasia||i.relatorio.nome}`} actions={<Button variant="secondary" size="sm" className="btn-secundario" leadingIcon="eye" onClick={()=>abrirDetalhe(i)}>Ver detalhes</Button>}/>})}</div>
+    </>}
+    <Pagination className="dev-paginacao" page={pagina} totalPages={paginas} totalItems={filtrados.length} summary={`Página ${pagina} de ${paginas} · ${filtrados.length} registro(s)`} onPageChange={setPagina}/>
     {item&&<Detalhe item={item} detalhe={detalhe} permissao={permissao} carregando={detalheCarregando} erro={detalheErro} onFechar={()=>{controleDetalhe.invalidar();setItem(null);setDetalhe(null);setDetalheErro("");setDetalheCarregando(false);}} onRecarregar={()=>abrirDetalhe(item)} onAcao={(nome,pagamento)=>{setPagamentoEstorno(pagamento||null);setAcao(nome);}}/>}
     {acao==="novo"&&<CadastroForm modalidades={dados.modalidades} onCancelar={()=>setAcao(null)} onConcluir={async()=>{setAcao(null);await carregar();}}/>}{acao==="cadastro"&&<CadastroForm item={item} modalidades={dados.modalidades} admin={perfilAtual.perfil==="administrador"} onCancelar={()=>setAcao(null)} onConcluir={concluirAcao}/>} {acao==="negociar"&&<NegociacaoForm item={item} detalhe={detalhe} modo="criar" onCancelar={()=>setAcao(null)} onConcluir={concluirAcao}/>} {acao==="substituir"&&<NegociacaoForm item={item} detalhe={detalhe} modo="substituir" onCancelar={()=>setAcao(null)} onConcluir={concluirAcao}/>} {acao==="corrigir-negociacao"&&<NegociacaoForm item={item} detalhe={detalhe} modo="corrigir" onCancelar={()=>setAcao(null)} onConcluir={concluirAcao}/>} {acao==="pagar"&&<PagamentoForm item={item} detalhe={detalhe} onCancelar={()=>setAcao(null)} onConcluir={concluirAcao}/>} {acao==="estornar"&&<EstornoForm pagamento={pagamentoEstorno} negociacao={detalhe.negociacoes.find(n=>n.situacao==="ativa")||detalhe.negociacoes[0]} onCancelar={()=>setAcao(null)} onConcluir={concluirAcao}/>} {acao==="excluir"&&<ExclusaoForm item={item} onCancelar={()=>setAcao(null)} onConcluir={concluirAcao}/>}
   </div>;
