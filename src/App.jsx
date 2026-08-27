@@ -3484,6 +3484,14 @@ function Sistema({onLogout}){
   const administrador=perfilAtual.perfil==="administrador";
   const operador=perfilAtual.perfil==="operador";
   const acessoDevedores=permissoesDevedores(perfilAtual.perfil,perfilAtual.perfilReal===true).acessar;
+  useEffect(()=>{
+    const metaTema=document.querySelector('meta[name="theme-color"]');
+    if(!metaTema)return;
+    const cor=aba==="devedores"&&acessoDevedores
+      ?(temaClaro?"#f3f0e7":"#0e1210")
+      :(temaClaro?"#f7f9fd":"#081627");
+    metaTema.setAttribute("content",cor);
+  },[aba,acessoDevedores,temaClaro]);
   const gerentesChat=[...new Set([
     ...GERENTES,
     ...pontos.map(p=>gerenteDaRota(p.gerente)).filter(Boolean),
@@ -4088,7 +4096,7 @@ function Sistema({onLogout}){
   }
 
   return(
-    <div className={`app${temaClaro?" tema-claro":""}`}>
+    <div className={`app${temaClaro?" tema-claro":""}${aba==="devedores"&&acessoDevedores?" operations-shell":""}`}>
       <div className={`sidebar-overlay ${sidebarAberta?"ativo":""}`} onClick={fecharSidebar}/>
 
       <aside className={`sidebar ${sidebarAberta?"aberta":""}`}>
@@ -4626,12 +4634,11 @@ function Sistema({onLogout}){
 
         {aba==="devedores"&&acessoDevedores&&(<>
           <PageHeader
-            className="topbar topbar-devedores"
+            className="topbar topbar-devedores operations-theme"
             compact
             leading={<IconButton icon="menu" label="Abrir menu principal" className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}/>}
-            eyebrow="Central de Operações"
             title="Devedores"
-            subtitle="Cadastro, negociação e recebimentos internos"
+            subtitle="Carteira, acordos e liquidações"
           />
           <DevedoresPage perfilAtual={perfilAtual}/>
         </>)}

@@ -577,6 +577,34 @@ export function KpiCard({
   );
 }
 
+export function Skeleton({
+  variant = "table",
+  lines = 4,
+  label = "Carregando conteúdo",
+  className = "",
+}) {
+  const resolvedVariant = String(variant || "table").trim().toLowerCase() || "table";
+  const resolvedLines = Math.max(1, Math.floor(Number(lines) || 4));
+
+  return (
+    <div
+      className={classes("so-skeleton", `so-skeleton--${resolvedVariant}`, className)}
+      aria-busy="true"
+      role="status"
+    >
+      <span className="so-visually-hidden">{label}</span>
+      <div className="so-skeleton-block" aria-hidden="true">
+        {Array.from({ length: resolvedLines }, (_, index) => (
+          <span
+            className={classes("so-skeleton-line", `so-skeleton-line--${resolvedVariant}`)}
+            key={`${resolvedVariant}-${index}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DataTable({
   columns = [],
   rows = [],
