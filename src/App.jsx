@@ -9,6 +9,7 @@ import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
 import DevedoresPage from "./DevedoresPage.jsx";
+import DashboardPage from "./DashboardPage.jsx";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
@@ -3424,6 +3425,8 @@ function Sistema({onLogout}){
   const [modalSenha,setModalSenha]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
   const [sidebarAberta,setSidebarAberta]=useState(false);
+  const [navegacaoCompacta,setNavegacaoCompacta]=useState(()=>typeof window!=="undefined"&&window.matchMedia?.("(max-width: 1024px)").matches);
+  const [dashboardApresentado,setDashboardApresentado]=useState(false);
   const sidebarRef=useRef(null);
   const focoAntesSidebarRef=useRef(null);
   const [itemDetalhe,setItemDetalhe]=useState(null);
@@ -3477,6 +3480,14 @@ function Sistema({onLogout}){
   },[tentativaCarga]);
 
   function toggleTema(){const n=!temaClaro;setTemaClaro(n);try{localStorage.setItem("sc_tema",n?"claro":"escuro");}catch{}}
+  useEffect(()=>{
+    if(typeof window==="undefined"||!window.matchMedia)return undefined;
+    const consulta=window.matchMedia("(max-width: 1024px)");
+    const atualizar=()=>setNavegacaoCompacta(consulta.matches);
+    atualizar();
+    consulta.addEventListener?.("change",atualizar);
+    return()=>consulta.removeEventListener?.("change",atualizar);
+  },[]);
   function restaurarFocoSidebar(){
     const alvo=focoAntesSidebarRef.current;
     focoAntesSidebarRef.current=null;
@@ -3484,14 +3495,14 @@ function Sistema({onLogout}){
   }
   function fecharSidebar(restaurarFoco=true){
     setSidebarAberta(false);
-    if(restaurarFoco&&aba==="devedores"&&acessoDevedores)restaurarFocoSidebar();
+    if(restaurarFoco&&drawerContextual)restaurarFocoSidebar();
   }
-  function alternarSidebarDevedores(){
+  function alternarSidebarContextual(){
     if(sidebarAberta){fecharSidebar();return;}
     focoAntesSidebarRef.current=document.activeElement;
     setSidebarAberta(true);
   }
-  function navegar(novaAba){setAba(novaAba);fecharSidebar(false);}
+  function navegar(novaAba){const mesmaAba=novaAba===aba;setAba(novaAba);fecharSidebar(mesmaAba);}
 
   const mensagemDoDia=getMensagemMotivacionalDoDia();
   const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
@@ -3499,8 +3510,10 @@ function Sistema({onLogout}){
   const operador=perfilAtual.perfil==="operador";
   const acessoDevedores=permissoesDevedores(perfilAtual.perfil,perfilAtual.perfilReal===true).acessar;
   const drawerDevedores=aba==="devedores"&&acessoDevedores;
+  const drawerDashboard=aba==="dashboard"&&navegacaoCompacta;
+  const drawerContextual=drawerDevedores||drawerDashboard;
   useEffect(()=>{
-    if(!drawerDevedores||!sidebarAberta)return undefined;
+    if(!drawerContextual||!sidebarAberta)return undefined;
     const painel=sidebarRef.current;
     if(!painel)return undefined;
     const seletor='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -3524,13 +3537,18 @@ function Sistema({onLogout}){
     }
     document.addEventListener("keydown",controlarTeclado);
     return()=>document.removeEventListener("keydown",controlarTeclado);
-  },[drawerDevedores,sidebarAberta]);
+  },[drawerContextual,sidebarAberta]);
+  useEffect(()=>{
+    if(aba==="dashboard"&&!navegacaoCompacta&&sidebarAberta)setSidebarAberta(false);
+  },[aba,navegacaoCompacta,sidebarAberta]);
   useEffect(()=>{
     const metaTema=document.querySelector('meta[name="theme-color"]');
     if(!metaTema)return;
-    const cor=aba==="devedores"&&acessoDevedores
-      ?(temaClaro?"#f3f0e7":"#1c1f1e")
-      :(temaClaro?"#f7f9fd":"#081627");
+    const cor=aba==="dashboard"
+      ?(temaClaro?"#f4f3ef":"#101216")
+      :aba==="devedores"&&acessoDevedores
+        ?(temaClaro?"#f3f0e7":"#1c1f1e")
+        :(temaClaro?"#f7f9fd":"#081627");
     metaTema.setAttribute("content",cor);
   },[aba,acessoDevedores,temaClaro]);
   const gerentesChat=[...new Set([
@@ -4137,10 +4155,10 @@ function Sistema({onLogout}){
   }
 
   return(
-    <div className={`app${temaClaro?" tema-claro":""}${aba==="devedores"&&acessoDevedores?" operations-shell":""}`}>
+    <div className={`app${temaClaro?" tema-claro":""}${aba==="devedores"&&acessoDevedores?" operations-shell":""}${aba==="dashboard"?" dashboard-shell":""}`}>
       <div className={`sidebar-overlay ${sidebarAberta?"ativo":""}`} onClick={fecharSidebar}/>
 
-      <aside aria-hidden={drawerDevedores&&!sidebarAberta?true:undefined} aria-label={drawerDevedores?"Navegação principal do Stock-On":undefined} aria-modal={drawerDevedores&&sidebarAberta?"true":undefined} className={`sidebar ${sidebarAberta?"aberta":""}`} id="stock-on-primary-navigation" inert={drawerDevedores&&!sidebarAberta?true:undefined} ref={sidebarRef} role={drawerDevedores?"dialog":undefined} tabIndex={drawerDevedores?-1:undefined}>
+      <aside aria-hidden={drawerContextual&&!sidebarAberta?true:undefined} aria-label={drawerContextual?"Navegação principal do Stock-On":undefined} aria-modal={drawerContextual&&sidebarAberta?"true":undefined} className={`sidebar ${sidebarAberta?"aberta":""}`} id="stock-on-primary-navigation" inert={drawerContextual&&!sidebarAberta?true:undefined} ref={sidebarRef} role={drawerContextual?"dialog":undefined} tabIndex={drawerContextual?-1:undefined}>
         <div className="sidebar-logo">
           <img src={temaClaro?logoLight:logo} alt="Stock-ON" className="logo-sidebar-emblem"/>
         </div>
@@ -4212,107 +4230,38 @@ function Sistema({onLogout}){
             </div>
           </section>
         )}
-        {aba==="dashboard"&&(<>
-          <header className="topbar">
-            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-              <button className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}>☰</button>
-              <div><h1 className="page-title">Dashboard</h1><p className="page-sub">Visão geral do estoque</p></div>
-            </div>
-            <img src={temaClaro?logoLight:logo} alt="Stock-ON" className="logo-topbar"/>
-          </header>
-          <div className="painel-dashboard">
-            <section className="dash-mensagem-compacta">
-              <span>Mensagem do dia</span>
-              <q>{mensagemDoDia}</q>
-            </section>
-
-            <section className="dash-indicadores">
-              <button className="dash-kpi kpi-total" onClick={()=>{navegar("itens");setFiltroEscopoEquip("todos");setFiltroSt("Todos");}}><span>Cadastrados</span><strong>{totalGeral}</strong><small>equipamentos</small></button>
-              <button className="dash-kpi kpi-disponivel" onClick={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"interno");setFiltroSt("Disponível");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>{gerenteAtual?"prontos para envio":"admin/operação"}</small></button>
-              <button className="dash-kpi kpi-rota" onClick={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"pontos");setFiltroSt("Em rota");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>nas rotas</small></button>
-              {!gerenteAtual&&<button className="dash-kpi kpi-gerentes" onClick={()=>{navegar("itens");setFiltroEscopoEquip("gerentes");setFiltroSt("Todos");}}><span>Com gerentes</span><strong>{totalComGerentes}</strong><small>estoque/transferência</small></button>}
-              {!gerenteAtual&&<button className="dash-kpi kpi-conserto" onClick={()=>{navegar("itens");setFiltroEscopoEquip("conserto");setFiltroSt("Todos");}}><span>Conserto</span><strong>{totalConserto}</strong><small>{solicitacoesConsertoPendentes.length} aguardando operador</small></button>}
-            </section>
-
-            <div className="dash-conteudo">
-              <section className="secao dash-categorias">
-                <h2 className="secao-titulo">{gerenteAtual?"Disponibilidade por Categoria":"Estoque interno por Categoria"}</h2>
-                <div className="dash-lista-categorias">
-                  {porCategoria.map(c=>{
-                    const percentual=c.total?Math.round((c.disponivel/c.total)*100):0;
-                    return(
-                      <button key={c.categoria} className="dash-categoria"
-                        onClick={()=>{navegar("itens");setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
-                        <span className="dash-cat-icone">{ICONES[c.categoria]}</span>
-                        <span className="dash-cat-info">
-                          <strong>{c.categoria}</strong>
-                          <span className="dash-barra"><i style={{width:`${percentual}%`}}/></span>
-                        </span>
-                        <span className="dash-cat-numeros"><strong>{c.disponivel}</strong> / {c.total}<small> disponíveis</small></span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <div className="dash-lateral">
-                <section className="secao dash-pontos">
-                  <div className="dash-titulo-acao"><h2 className="secao-titulo">Pontos Ativos</h2><button className="btn-link" onClick={()=>navegar("pontos")}>Ver todos</button></div>
-                  {pontosComEquipamentos.length===0
-                    ?<p className="dash-vazio">Nenhum equipamento está ligado a um ponto.</p>
-                    :pontosComEquipamentos.slice(0,5).map(p=>(
-                      <div key={p.id} className="dash-ponto-linha"><span>📍 {p.nomeFantasia}</span><strong>{p.totalEquipamentos}</strong></div>
-                    ))}
-                </section>
-              </div>
-            </div>
-
-            {historicoOperacional.length>0&&(
-              <section className="secao dash-historico">
-                <div className="tabela-header">
-                  <h2 className="secao-titulo" style={{margin:0}}>Movimentações Recentes</h2>
-                  <button className="btn-link" onClick={()=>navegar("historico")}>Ver todas →</button>
-                </div>
-                <div className="tabela-wrapper">
-                  <table className="tabela">
-                    <thead><tr><th>Movimento</th><th>Equipamento</th><th>Detalhe</th><th>Data</th></tr></thead>
-                    <tbody>
-                      {historicoOperacional.slice(0,5).map(h=>{
-                        const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
-                        return(<tr key={h.id}>
-                          <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
-                          <td className="td-nome">{ICONES[h.categoria]} {h.itemNome}</td>
-                          <td className="td-obs">{h.observacao||"—"}</td>
-                          <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
-                        </tr>);
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="dash-historico-mobile-lista">
-                  {historicoOperacional.slice(0,5).map(h=>{
-                    const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"•",label:h.tipo};
-                    return(
-                      <article className="historico-mobile-card dash-historico-mobile-card" key={`dash-mobile-${h.id}`}>
-                        <div className="historico-mobile-topo">
-                          <span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span>
-                          <small>{h.data}</small>
-                        </div>
-                        <strong>{ICONES[h.categoria]} {h.itemNome}</strong>
-                        <div className="historico-mobile-meta">
-                          <span>{h.categoria}</span>
-                          <span>Antes: {h.qtdAntes}</span>
-                          <span>Depois: {h.qtdDepois}</span>
-                        </div>
-                        <HistoricoDetalhes texto={h.observacao}/>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-          </div>
-        </>)}
+        {aba==="dashboard"&&(
+          <DashboardPage
+            animarEntrada={!dashboardApresentado}
+            gerenteAtual={gerenteAtual}
+            gerenteNomeBase={gerenteNomeBase}
+            historicoConfig={HIST_CFG}
+            historicoOperacional={historicoOperacional}
+            iconesCategorias={ICONES}
+            mensagemDoDia={mensagemDoDia}
+            menuAberto={sidebarAberta}
+            onAbrirEquipamentos={()=>navegar("itens")}
+            onAbrirHistorico={()=>navegar("historico")}
+            onAbrirMenu={alternarSidebarContextual}
+            onAbrirPontos={()=>navegar("pontos")}
+            onEntradaConcluida={setDashboardApresentado}
+            onSelecionarCategoria={categoria=>{navegar("itens");setFiltroCatEquip(categoria);setAbaEquip("lista");}}
+            onSelecionarConserto={()=>{navegar("itens");setFiltroEscopoEquip("conserto");setFiltroSt("Todos");}}
+            onSelecionarDisponiveis={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"interno");setFiltroSt("Disponível");}}
+            onSelecionarGerentes={()=>{navegar("itens");setFiltroEscopoEquip("gerentes");setFiltroSt("Todos");}}
+            onSelecionarPontos={()=>{navegar("itens");setFiltroEscopoEquip(gerenteAtual?"todos":"pontos");setFiltroSt("Em rota");}}
+            onSelecionarTotal={()=>{navegar("itens");setFiltroEscopoEquip("todos");setFiltroSt("Todos");}}
+            perfilAtual={perfilAtual}
+            pontosComEquipamentos={pontosComEquipamentos}
+            porCategoria={porCategoria}
+            solicitacoesConsertoPendentes={solicitacoesConsertoPendentes}
+            totalComGerentes={totalComGerentes}
+            totalConserto={totalConserto}
+            totalDisponivel={totalDisponivel}
+            totalEmRota={totalEmRota}
+            totalGeral={totalGeral}
+          />
+        )}
 
         {aba==="itens"&&(<>
           <header className="topbar">
@@ -4674,7 +4623,7 @@ function Sistema({onLogout}){
         )}
 
         {aba==="devedores"&&acessoDevedores&&(
-          <DevedoresPage perfilAtual={perfilAtual} menuAberto={sidebarAberta} onAbrirMenu={alternarSidebarDevedores}/>
+          <DevedoresPage perfilAtual={perfilAtual} menuAberto={sidebarAberta} onAbrirMenu={alternarSidebarContextual}/>
         )}
 
         {aba==="buscar-gerentes"&&(administrador||operador)&&(<>
