@@ -1,0 +1,37 @@
+.variant-final .a1__desk {
+  grid-template-columns: minmax(0, 67fr) minmax(390px, 33fr);
+  gap: clamp(28px, 2.35vw, 38px);
+}
+
+.variant-final .variant-a3__decision {
+  top: 92px;
+}
+
+.variant-final.is-sent .variant-a3__final output {
+  color: var(--state-success);
+}
+
+@media (max-width: 1240px) {
+  .variant-final .a1__desk {
+    grid-template-columns: 1fr;
+  }
+
+  .variant-final .variant-a3__decision {
+    justify-self: end;
+    position: static;
+    width: min(100%, 520px);
+  }
+}
+
+@media (max-width: 900px) {
+  .variant-final .variant-a3__decision {
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .variant-final :is(.v2-input-shell, button) {
+    transition: none;
+  }
+}

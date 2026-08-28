@@ -1,9 +1,3 @@
-export const VARIATIONS = [
-  { id: "A1", name: "Refined" },
-  { id: "A2", name: "Spacious" },
-  { id: "A3", name: "Executive" },
-];
-
 export const OPERATIONAL_STATES = [
   "Rascunho",
   "Pronto para revisão",

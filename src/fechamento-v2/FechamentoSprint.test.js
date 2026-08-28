@@ -31,19 +31,43 @@ test("fixture V2 mantém o cenário financeiro solicitado", () => {
   assert.equal(totals.grossBalance, 13848);
   assert.equal(totals.registeredExpenses, 2860);
   assert.equal(totals.consolidatedExpenses, 2690);
+  assert.equal(totals.afterExpenses, 11158);
+  assert.equal(totals.managerCommission, 1115.8);
   assert.equal(totals.toTransfer, 10042.2);
+  assert.deepEqual(FIXTURE.adjustments, { playBet: 350, costAid: 180, extraCommission: 0 });
+  assert.deepEqual(
+    FIXTURE.expenses.map(({ name, source, value }) => ({ name, source, value })),
+    [
+      { name: "Manutenção de terminal", source: "Estação Cedro", value: 840 },
+      { name: "Deslocamento operacional", source: "Ponto Horizonte", value: 1120 },
+      { name: "Apoio de rota", source: "Caio Nobre", value: 900 },
+    ],
+  );
 });
 
-test("harness possui entrada própria e três refinamentos independentes do Conference Desk", () => {
+test("harness possui entrada própria e uma única direção final", () => {
   const html = read("fechamento-v2.html");
   const app = read("src/fechamento-v2/FechamentoSprintApp.jsx");
   assert.match(html, /src\/fechamento-v2\/main\.jsx/);
   assert.doesNotMatch(html, /manifest\.webmanifest|serviceWorker/i);
-  for (const variation of ["VariantA1", "VariantA2", "VariantA3"]) assert.match(app, new RegExp(variation));
+  assert.match(app, /import VariantFinal from "\.\/VariantFinal\.jsx"/);
+  assert.doesNotMatch(app, /import VariantA[123]/);
   assert.doesNotMatch(app, /ConceptA|ConceptB|ConceptC/);
-  assert.match(app, /<ActiveVariation workspace=\{workspace\}/);
-  assert.match(app, /searchParams\.set\("variacao"/);
+  assert.match(app, /<VariantFinal workspace=\{workspace\}/);
+  assert.match(app, /searchParams\.set\("variacao", "FINAL"\)/);
   assert.match(app, /searchParams\.set\("tema"/);
+  assert.doesNotMatch(app, /VARIATIONS\.map|v2-concept-switch/);
+});
+
+test("direção final preserva a mesa A1 e transplanta somente o parecer A3", () => {
+  const final = read("src/fechamento-v2/VariantFinal.jsx");
+  for (const a1Part of ["a1__context", "a1__financial-unit", "a1__expenses", "a1__conference"]) {
+    assert.match(final, new RegExp(a1Part));
+  }
+  for (const a3Part of ["variant-a3__decision", "variant-a3__identity", "variant-a3__status-ladder", "variant-a3__composition", "variant-a3__final", "variant-a3__action-block"]) {
+    assert.match(final, new RegExp(a3Part));
+  }
+  assert.doesNotMatch(final, /a1__result|variant-a3__financial-line|variant-a3__review/);
 });
 
 test("harness não importa backend, Supabase ou o Fechamento real", () => {
@@ -55,6 +79,7 @@ test("harness não importa backend, Supabase ou o Fechamento real", () => {
     "src/fechamento-v2/VariantA1.jsx",
     "src/fechamento-v2/VariantA2.jsx",
     "src/fechamento-v2/VariantA3.jsx",
+    "src/fechamento-v2/VariantFinal.jsx",
   ];
   const combined = files.map(read).join("\n");
   assert.doesNotMatch(combined, /supabase|@sentry|FechamentoWorkbench|\/rest\/v1|fetch\s*\(/i);
