@@ -122,11 +122,13 @@ test("Dashboard preserva mesa operacional, drill-downs e escopo visual próprio"
   assert.doesNotMatch(dashboardCss, /\.app\.dashboard-shell\s*>\s*\.sidebar/);
 });
 
-test("Equipamentos mantém command bar, ledger, progressão e dossiê", () => {
+test("Equipamentos mantém comando compacto, posição, ledger, progressão e dossiê", () => {
   assertMarkers(app, [
     'aba==="itens"',
     "equip-cf-head",
-    "equip-cf-command",
+    "equip-cf-control-line",
+    "equip-cf-position-strip",
+    "equip-cf-filterbar",
     "equip-cf-workspace",
     "equip-cf-ledger",
     "equip-cf-row",
@@ -134,7 +136,9 @@ test("Equipamentos mantém command bar, ledger, progressão e dossiê", () => {
     "equip-cf-dossier",
   ], "Equipamentos");
   assertMarkers(commandFlowCss, [
-    ".equip-cf-command",
+    ".equip-cf-control-line",
+    ".equip-cf-position-strip",
+    ".equip-cf-filterbar",
     ".equip-cf-workspace",
     ".equip-cf-ledger",
     ".equip-cf-dossier",
@@ -182,11 +186,12 @@ test("Buscar Gerentes preserva seleção, ledgers de responsabilidade e dossiê"
   ], "Buscar Gerentes CSS");
 });
 
-test("Senhas preserva postura, editores, ledger e distribuição de aplicativos", () => {
+test("Senhas preserva navegação por necessidade, editores, ledger e distribuição de aplicativos", () => {
   assertMarkers(app, [
     'aba==="senhas"',
     "senhas-cf-page",
-    "senhas-cf-posture",
+    "senhas-cf-commandline",
+    'areaAtiva==="credenciais"',
     "senhas-cf-access-editor",
     "senhas-cf-app-editor",
     "senhas-cf-ledger",
@@ -195,17 +200,18 @@ test("Senhas preserva postura, editores, ledger e distribuição de aplicativos"
   ], "Senhas");
   assertMarkers(commandFlowCss, [
     ".senhas-cf-page",
-    ".senhas-cf-posture",
+    ".senhas-cf-commandline",
     ".senhas-cf-workspace",
     ".senhas-cf-access-list",
   ], "Senhas CSS");
 });
 
-test("Histórico preserva filtros, ledger responsivo e dossiê do evento", () => {
+test("Histórico preserva filtros recolhidos, ledger responsivo e dossiê do evento", () => {
   assertMarkers(app, [
     'aba==="historico"',
     "historico-cf-page",
-    "historico-cf-command",
+    "historico-cf-filterbar",
+    "filtrosHistoricoAbertos",
     "historico-cf-workspace",
     "historico-cf-ledger",
     "historico-cf-row",
@@ -213,7 +219,7 @@ test("Histórico preserva filtros, ledger responsivo e dossiê do evento", () =>
   ], "Histórico");
   assertMarkers(commandFlowCss, [
     ".historico-cf-page",
-    ".historico-cf-command",
+    ".historico-cf-filterbar",
     ".historico-cf-workspace",
     ".historico-cf-dossier",
   ], "Histórico CSS");
@@ -223,24 +229,26 @@ test("Central de Acessos e Logins compartilham a arquitetura administrativa", ()
   assertMarkers(management, [
     'import "./AdminCommandFlow.css"',
     "admin-command-flow--access",
-    "admin-cf-hero",
-    "admin-cf-command-bar",
-    "admin-cf-ledger",
-    "admin-cf-ledger-row",
+    "admin-cf-page-bar",
+    "admin-cf-filter-bar",
+    "admin-cf-access-workspace",
+    "admin-cf-directory",
+    "admin-cf-dossier",
   ], "Central de Acessos");
   assertMarkers(loginManager, [
     'import "./AdminCommandFlow.css"',
     "admin-command-flow--logins",
-    "admin-cf-hero",
-    "admin-cf-command-bar",
+    "admin-cf-page-bar",
+    "admin-cf-filter-bar",
     "admin-cf-master-detail",
     "admin-cf-dossier",
   ], "Gerenciar Logins");
   assertMarkers(adminCss, [
     ".admin-command-flow {",
-    ".admin-cf-hero",
-    ".admin-cf-command-bar",
-    ".admin-cf-ledger",
+    ".admin-cf-page-bar",
+    ".admin-cf-filter-bar",
+    ".admin-cf-master-detail",
+    ".admin-cf-dossier",
     ".admin-command-flow .login-manager-grid",
     "@media (max-width: 860px)",
     "@media (prefers-reduced-motion: reduce)",
@@ -267,12 +275,16 @@ test("Devedores aprovado mantém rail, command bar, ledger e dossiê", () => {
   ], "Devedores CSS");
 });
 
-test("Fechamento conserva sua superfície e qualquer CSS dedicado permanece responsivo", () => {
+test("Fechamento conserva suas regras em progressão estrutural responsiva", () => {
   assertMarkers(app, [
     'aba==="fechamento"',
     "<FechamentoPage",
     'className="secao fechamento-page"',
+    "fechamento-progress",
+    "fechamento-step-label",
+    "fechamento-section-label",
   ], "Fechamento");
+  assert.doesNotMatch(app, /<div className="fechamento-hero">/);
   assert.match(appCss, /\.fechamento-page\s*\{/);
   assert.match(appCss, /@media \(max-width: 760px\)[\s\S]*?\.fechamento-page/);
 

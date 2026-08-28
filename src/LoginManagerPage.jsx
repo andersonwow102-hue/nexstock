@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { gerenciarLogins } from "./db.js";
 import { GERENTES } from "./pointsData.js";
-import { OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { FilterBar, OperationIcon } from "./components/operations/OperationsUI.jsx";
 import "./AdminCommandFlow.css";
 
 const perfisDisponiveis = [
@@ -72,6 +72,10 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const [busca, setBusca] = useState("");
+  const [filtroPerfil, setFiltroPerfil] = useState("todos");
+  const [filtroEstado, setFiltroEstado] = useState("todos");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [dossieAberto, setDossieAberto] = useState(false);
   const [usuarioSelecionado, setUsuarioSelecionado] = useState(null);
   const [modalSenha, setModalSenha] = useState(null);
   const [formSenha, setFormSenha] = useState({ email: "", loginNome: "", senha: "", confirmar: "" });
@@ -97,9 +101,33 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
 
   const usuariosFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    if (!q) return usuarios;
-    return usuarios.filter(u => [u.email, u.nome, u.loginNome, u.perfil, u.gerenteNome, u.status].some(campo => (campo || "").toLowerCase().includes(q)));
-  }, [usuarios, busca]);
+    return usuarios
+      .filter(usuario => filtroPerfil === "todos" || usuario.perfil === filtroPerfil)
+      .filter(usuario => {
+        if (filtroEstado === "ativos") return !usuario.bloqueado;
+        if (filtroEstado === "bloqueados") return usuario.bloqueado;
+        if (filtroEstado === "temporarios") return usuario.emailTemporario;
+        return true;
+      })
+      .filter(u => !q || [u.email, u.nome, u.loginNome, u.perfil, u.gerenteNome, u.status].some(campo => (campo || "").toLowerCase().includes(q)));
+  }, [usuarios, busca, filtroEstado, filtroPerfil]);
+
+  useEffect(() => {
+    if (!usuarios.length) {
+      setUsuarioSelecionado(null);
+      return;
+    }
+    setUsuarioSelecionado(atual => usuarios.find(usuario => usuario.userId === atual?.userId) || usuarios[0]);
+  }, [usuarios]);
+
+  useEffect(() => {
+    if (!dossieAberto) return undefined;
+    const fecharComEscape = event => {
+      if (event.key === "Escape") setDossieAberto(false);
+    };
+    window.addEventListener("keydown", fecharComEscape);
+    return () => window.removeEventListener("keydown", fecharComEscape);
+  }, [dossieAberto]);
 
   async function alterarPerfil(usuario, perfil, gerenteNome = usuario.gerenteNome || "") {
     try {
@@ -210,6 +238,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
   const totalAtivos = usuarios.filter(usuario => !usuario.bloqueado).length;
   const totalBloqueados = usuarios.filter(usuario => usuario.bloqueado).length;
   const totalTemporarios = usuarios.filter(usuario => usuario.emailTemporario).length;
+  const filtrosAtivos = Number(filtroPerfil !== "todos") + Number(filtroEstado !== "todos");
 
   if (!administrador) {
     return (
@@ -223,19 +252,19 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
 
   return (
     <div className="login-manager admin-command-flow admin-command-flow--logins">
-      <section className="admin-cf-hero" aria-labelledby="login-command-title">
-        <div className="admin-cf-hero-mark" aria-hidden="true"><OperationIcon name="user" size={22} /></div>
-        <div className="admin-cf-hero-copy">
-          <span className="admin-cf-kicker">Gerenciar logins</span>
-          <h2 id="login-command-title">Diretório de autenticação</h2>
-          <p>Localize uma identidade, confira seu estado e execute somente a ação de acesso necessária.</p>
+      <header className="admin-cf-page-bar" aria-label="Resumo e ações de Gerenciar Logins">
+        <div className="admin-cf-inline-counts" aria-label="Resumo dos logins">
+          <span><strong>{usuarios.length}</strong> identidades</span>
+          <span><strong>{totalAtivos}</strong> ativos</span>
+          <span><strong>{totalBloqueados}</strong> bloqueados</span>
+          <span><strong>{totalTemporarios}</strong> temporários</span>
+          <span className="admin-cf-session-chip"><OperationIcon name="lock" size={13} />Admin</span>
         </div>
-        <div className="admin-cf-session">
-          <span>Área protegida</span>
-          <strong><OperationIcon name="lock" size={14} />Somente admin</strong>
-          <small>Alterações afetam o próximo acesso</small>
+        <div className="admin-cf-head-actions">
+          <button className="btn-secundario" onClick={carregar}><OperationIcon name="refresh" size={16} />Atualizar</button>
+          <button className="btn-primario" onClick={abrirNovoLogin}><OperationIcon name="plus" size={16} />Novo login</button>
         </div>
-      </section>
+      </header>
 
       {(mensagem || erro) && (
         <div className={`admin-cf-feedback ${erro ? "admin-cf-feedback--error" : ""}`} role={erro ? "alert" : "status"}>
@@ -245,25 +274,49 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
         </div>
       )}
 
-      <section className="admin-cf-posture" aria-label="Situação dos logins">
-        <article><span><OperationIcon name="user" size={18} /></span><div><small>Identidades</small><strong>{usuarios.length}</strong></div></article>
-        <article><span><OperationIcon name="check" size={18} /></span><div><small>Ativos</small><strong>{totalAtivos}</strong></div></article>
-        <article><span><OperationIcon name="lock" size={18} /></span><div><small>Bloqueados</small><strong>{totalBloqueados}</strong></div></article>
-        <article><span><OperationIcon name="clock" size={18} /></span><div><small>Temporários</small><strong>{totalTemporarios}</strong></div></article>
-      </section>
-
-      <section className="admin-cf-command-bar login-manager-toolbar" aria-label="Comandos do diretório">
-        <label className="admin-cf-search-field">
-          <span className="admin-cf-visually-hidden">Buscar logins</span>
-          <OperationIcon name="search" size={17} />
-          <input className="input-busca" type="search" placeholder="Buscar por e-mail, nome, perfil ou status" value={busca} onChange={e => setBusca(e.target.value)} />
-        </label>
-        <span className="admin-cf-result-count"><strong>{usuariosFiltrados.length}</strong> de {usuarios.length} logins</span>
-        <div className="login-toolbar-actions admin-cf-head-actions">
-          <button className="btn-secundario" onClick={carregar}><OperationIcon name="refresh" size={16} />Atualizar lista</button>
-          <button className="btn-primario" onClick={abrirNovoLogin}><OperationIcon name="plus" size={16} />Novo login</button>
-        </div>
-      </section>
+      <FilterBar
+        className="admin-cf-filter-bar"
+        ariaLabel="Busca e filtros do diretório de logins"
+        activeCount={filtrosAtivos}
+        secondaryOpen={filtrosAbertos}
+        onSecondaryToggle={setFiltrosAbertos}
+        secondaryLabel="Filtros"
+        onClear={() => { setFiltroPerfil("todos"); setFiltroEstado("todos"); }}
+        onApply={() => setFiltrosAbertos(false)}
+        primary={(
+          <label className="admin-cf-search-field">
+            <span className="admin-cf-visually-hidden">Buscar logins</span>
+            <OperationIcon name="search" size={17} />
+            <input className="input-busca" type="search" placeholder="Buscar e-mail, login, nome ou gerente" value={busca} onChange={e => setBusca(e.target.value)} />
+          </label>
+        )}
+        secondary={(
+          <>
+            <label className="admin-cf-filter-field">
+              <span>Perfil</span>
+              <select value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}>
+                <option value="todos">Todos os perfis</option>
+                {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
+              </select>
+            </label>
+            <label className="admin-cf-filter-field">
+              <span>Estado</span>
+              <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
+                <option value="todos">Todos os estados</option>
+                <option value="ativos">Ativos</option>
+                <option value="bloqueados">Bloqueados</option>
+                <option value="temporarios">E-mail temporário</option>
+              </select>
+            </label>
+          </>
+        )}
+        chips={filtrosAtivos ? (
+          <>
+            {filtroPerfil !== "todos" && <button type="button" className="admin-cf-filter-chip" onClick={() => setFiltroPerfil("todos")}>Perfil: {perfisDisponiveis.find(perfil => perfil.valor === filtroPerfil)?.label} <OperationIcon name="close" size={12} /></button>}
+            {filtroEstado !== "todos" && <button type="button" className="admin-cf-filter-chip" onClick={() => setFiltroEstado("todos")}>Estado: {{ ativos: "Ativos", bloqueados: "Bloqueados", temporarios: "Temporários" }[filtroEstado]} <OperationIcon name="close" size={12} /></button>}
+          </>
+        ) : null}
+      />
 
       <section className="login-manager-grid admin-cf-master-detail">
         <div className="login-users admin-cf-panel admin-cf-directory" aria-labelledby="login-directory-title">
@@ -274,37 +327,29 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
           {carregando ? (
             <div className="admin-cf-loading admin-cf-loading--cards" role="status" aria-label="Carregando logins">{[0, 1, 2, 3].map(item => <span key={item}><i /><i /><i /></span>)}</div>
           ) : usuariosFiltrados.length === 0 ? (
-            <div className="admin-cf-state"><OperationIcon name="search" size={22} /><strong>Nenhum login encontrado</strong><p>Revise o termo de busca para localizar outra identidade.</p></div>
+            <div className="admin-cf-state admin-cf-state--compact"><OperationIcon name="search" size={20} /><strong>Nenhum login encontrado</strong><p>Revise a busca ou os filtros.</p></div>
           ) : (
             <div className="login-users-list">
               {usuariosFiltrados.map(usuario => (
                 <article key={usuario.userId} className={`login-user-card ${usuarioSelecionado?.userId === usuario.userId ? "ativo" : ""} ${usuario.bloqueado ? "bloqueado" : ""}`}>
-                  <button className="login-user-main" type="button" aria-pressed={usuarioSelecionado?.userId === usuario.userId} onClick={() => setUsuarioSelecionado(usuario)}>
+                  <button className="login-user-main" type="button" aria-pressed={usuarioSelecionado?.userId === usuario.userId} onClick={() => { setUsuarioSelecionado(usuario); setDossieAberto(true); }}>
                     <span className="login-avatar">{(usuario.email || "?").slice(0, 1).toUpperCase()}</span>
                     <span className="login-user-copy">
                       <strong>{usuario.email}</strong>
                       <small>Login: {usuario.loginNome || "não definido"}{usuario.perfil === "gerente" && usuario.gerenteNome ? ` · ${usuario.gerenteNome}` : ""}</small>
                     </span>
+                    <span className={`admin-cf-profile admin-cf-profile--${usuario.perfil}`}>{perfisDisponiveis.find(perfil => perfil.valor === usuario.perfil)?.label || usuario.perfil}</span>
                     <span className={`admin-cf-status ${usuario.bloqueado ? "admin-cf-status--blocked" : "admin-cf-status--active"}`}><i />{usuario.bloqueado ? "Bloqueado" : "Ativo"}</span>
+                    <OperationIcon name="arrowRight" size={15} />
                   </button>
-                  <div className="login-user-actions">
-                    <label><span>Perfil · salva ao selecionar</span><select value={usuario.perfil} onChange={e => alterarPerfil(usuario, e.target.value)}>{perfisDisponiveis.map(p => <option key={p.valor} value={p.valor}>{p.label}</option>)}</select></label>
-                    {usuario.perfil === "gerente" && (
-                      <label><span>Gerente · salva ao selecionar</span><select value={usuario.gerenteNome || ""} onChange={e => alterarPerfil(usuario, "gerente", e.target.value)}><option value="">Vincular gerente...</option>{GERENTES.map(g => <option key={g} value={g}>{g}</option>)}</select></label>
-                    )}
-                    <div className="login-user-action-buttons">
-                      <button className="btn-secundario" onClick={() => abrirSenha(usuario)}><OperationIcon name="edit" size={14} />Editar</button>
-                      <button className="btn-secundario" onClick={() => abrirSenha(usuario, true)}><OperationIcon name="refresh" size={14} />Gerar senha</button>
-                      <button className={usuario.bloqueado ? "btn-secundario" : "btn-danger-outline"} onClick={() => alternarBloqueio(usuario)}><OperationIcon name={usuario.bloqueado ? "check" : "lock"} size={14} />{usuario.bloqueado ? "Desbloquear" : "Bloquear"}</button>
-                    </div>
-                  </div>
                 </article>
               ))}
             </div>
           )}
         </div>
 
-        <aside className="login-detail admin-cf-panel admin-cf-dossier" aria-label="Dossiê do login selecionado">
+        <button className={`admin-cf-sheet-backdrop ${dossieAberto ? "is-open" : ""}`} type="button" aria-label="Fechar dossiê" onClick={() => setDossieAberto(false)} />
+        <aside className={`login-detail admin-cf-panel admin-cf-dossier ${dossieAberto ? "is-open" : ""}`} aria-label="Dossiê do login selecionado">
           {!usuarioSelecionado ? (
             <div className="admin-cf-state admin-cf-state--dossier">
               <span><OperationIcon name="lock" size={22} /></span>
@@ -317,6 +362,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                 <span className="login-avatar login-detail-avatar">{(usuarioSelecionado.email || "?").slice(0, 1).toUpperCase()}</span>
                 <div><span className="admin-cf-section-code">Identidade selecionada</span><h2>{usuarioSelecionado.email}</h2><small>{usuarioSelecionado.loginNome || "Login não definido"}</small></div>
                 <span className={`admin-cf-profile admin-cf-profile--${usuarioSelecionado.perfil}`}>{usuarioSelecionado.perfil}</span>
+                <button type="button" className="admin-cf-icon-button admin-cf-sheet-close" onClick={() => setDossieAberto(false)} aria-label="Fechar dossiê"><OperationIcon name="close" size={17} /></button>
               </div>
               <div className="login-stats">
                 <article><small>Status</small><strong className={usuarioSelecionado.bloqueado ? "admin-cf-text-danger" : "admin-cf-text-success"}>{usuarioSelecionado.bloqueado ? "Bloqueado" : "Ativo"}</strong></article>
@@ -325,6 +371,21 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                 <article><small>E-mail temporário</small><strong>{usuarioSelecionado.emailTemporario ? `Sim · ${diasRestantes(usuarioSelecionado.emailTemporarioExpiraEm)}` : "Não"}</strong></article>
                 <article><small>Criado em</small><strong>{formatarData(usuarioSelecionado.criadoEm)}</strong></article>
                 <article><small>Último acesso</small><strong>{formatarData(usuarioSelecionado.ultimoAcesso)}</strong></article>
+              </div>
+              <div className="admin-cf-dossier-section admin-cf-login-permissions">
+                <div className="admin-cf-dossier-section-title"><span>Permissão e vínculo</span><small>Salva ao selecionar</small></div>
+                <label className="admin-cf-filter-field"><span>Perfil</span><select value={usuarioSelecionado.perfil} onChange={e => alterarPerfil(usuarioSelecionado, e.target.value)}>{perfisDisponiveis.map(p => <option key={p.valor} value={p.valor}>{p.label}</option>)}</select></label>
+                {usuarioSelecionado.perfil === "gerente" && (
+                  <label className="admin-cf-filter-field"><span>Gerente</span><select value={usuarioSelecionado.gerenteNome || ""} onChange={e => alterarPerfil(usuarioSelecionado, "gerente", e.target.value)}><option value="">Vincular gerente...</option>{GERENTES.map(g => <option key={g} value={g}>{g}</option>)}</select></label>
+                )}
+              </div>
+              <div className="admin-cf-dossier-section admin-cf-security-actions">
+                <div className="admin-cf-dossier-section-title"><span>Ações de acesso</span><small>Credencial protegida</small></div>
+                <div className="admin-cf-dossier-action-grid">
+                  <button className="btn-secundario" onClick={() => abrirSenha(usuarioSelecionado)}><OperationIcon name="edit" size={14} />Editar acesso</button>
+                  <button className="btn-secundario" onClick={() => abrirSenha(usuarioSelecionado, true)}><OperationIcon name="refresh" size={14} />Gerar senha</button>
+                  <button className={usuarioSelecionado.bloqueado ? "btn-secundario" : "btn-danger-outline"} onClick={() => alternarBloqueio(usuarioSelecionado)}><OperationIcon name={usuarioSelecionado.bloqueado ? "check" : "lock"} size={14} />{usuarioSelecionado.bloqueado ? "Desbloquear" : "Bloquear"}</button>
+                </div>
               </div>
               <div className="login-subtitle"><span className="admin-cf-section-code">Referências</span><h3>Atividade associada</h3><p>Correlação informativa; não substitui uma trilha de auditoria de segurança.</p></div>
               <div className="login-history">

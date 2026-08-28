@@ -3,7 +3,7 @@ import {
   carregarPerfis, salvarPerfil, redefinirAcessoUsuario, excluirAcessoUsuario, gerenciarLogins,
 } from "./db.js";
 import { GERENTES, ROTAS_POR_GERENTE } from "./pointsData.js";
-import { OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { FilterBar, OperationIcon } from "./components/operations/OperationsUI.jsx";
 import "./AdminCommandFlow.css";
 
 const MASTER_ADMIN_EMAILS = ["andersonwow102@gmail.com", "anderson@nexstock.com"];
@@ -73,6 +73,9 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [filtroPerfil, setFiltroPerfil] = useState("todos");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState("");
+  const [dossieAberto, setDossieAberto] = useState(false);
   const administrador = perfilAtual?.perfil === "administrador";
   const adminMaster = ehAdminMaster(perfilAtual);
 
@@ -253,21 +256,51 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       .sort((a, b) => (a.perfil || "").localeCompare(b.perfil || "", "pt-BR") || (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
   }, [busca, filtroPerfil, perfis]);
 
+  const usuarioSelecionado = useMemo(
+    () => perfis.find(perfil => perfil.userId === usuarioSelecionadoId) || perfisFiltrados[0] || null,
+    [perfis, perfisFiltrados, usuarioSelecionadoId],
+  );
+
+  useEffect(() => {
+    if (!perfisFiltrados.length) return;
+    if (!perfisFiltrados.some(perfil => perfil.userId === usuarioSelecionadoId)) {
+      setUsuarioSelecionadoId(perfisFiltrados[0].userId);
+    }
+  }, [perfisFiltrados, usuarioSelecionadoId]);
+
+  useEffect(() => {
+    if (!dossieAberto) return undefined;
+    const fecharComEscape = event => {
+      if (event.key === "Escape") setDossieAberto(false);
+    };
+    window.addEventListener("keydown", fecharComEscape);
+    return () => window.removeEventListener("keydown", fecharComEscape);
+  }, [dossieAberto]);
+
+  const filtrosAtivos = filtroPerfil === "todos" ? 0 : 1;
+  const rotasSelecionadas = usuarioSelecionado?.rotasPermitidas?.length
+    ? usuarioSelecionado.rotasPermitidas
+    : rotasPadrao(usuarioSelecionado?.gerenteNome);
+
   return (
     <div className="gestao-page acessos-page admin-command-flow admin-command-flow--access">
-      <section className="admin-cf-hero" aria-labelledby="access-command-title">
-        <div className="admin-cf-hero-mark" aria-hidden="true"><OperationIcon name="lock" size={22} /></div>
-        <div className="admin-cf-hero-copy">
-          <span className="admin-cf-kicker">Central de acessos</span>
-          <h2 id="access-command-title">Controle de identidade e escopo</h2>
-          <p>Administre cada usuário pela sequência operacional: identidade, perfil, alcance e ações de segurança.</p>
+      <header className="admin-cf-page-bar" aria-label="Resumo e ações da Central de Acessos">
+        <div className="admin-cf-inline-counts" aria-label="Resumo dos acessos">
+          <span><strong>{perfis.length}</strong> usuários</span>
+          <span><strong>{totalAdministradores}</strong> admin</span>
+          <span><strong>{totalGerentes}</strong> gerentes</span>
+          <span><strong>{totalConsulta}</strong> consulta</span>
+          <span className="admin-cf-session-chip"><OperationIcon name="shieldKey" size={13} />{adminMaster ? "Master" : perfilAtual?.perfil || "consulta"}</span>
         </div>
-        <div className="admin-cf-session">
-          <span>Sessão atual</span>
-          <strong><OperationIcon name="user" size={14} />{perfilAtual?.perfil || "consulta"}</strong>
-          <small>{adminMaster ? "Privilégio master ativo" : "Privilégio administrativo"}</small>
+        <div className="admin-cf-head-actions">
+          <button className="btn-secundario" onClick={recarregarPerfis} disabled={!administrador || carregando}>
+            <OperationIcon name="refresh" size={16} />{carregando ? "Atualizando..." : "Atualizar"}
+          </button>
+          <button className="btn-primario" onClick={abrirNovoLogin} disabled={!administrador}>
+            <OperationIcon name="plus" size={16} />Novo login
+          </button>
         </div>
-      </section>
+      </header>
 
       {mensagem && (
         <div className="admin-cf-feedback" role="status">
@@ -277,37 +310,23 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
         </div>
       )}
 
-      <section className="admin-cf-posture" aria-label="Distribuição dos acessos">
-        <article><span><OperationIcon name="user" size={18} /></span><div><small>Usuários</small><strong>{perfis.length}</strong></div></article>
-        <article><span><OperationIcon name="lock" size={18} /></span><div><small>Administradores</small><strong>{totalAdministradores}</strong></div></article>
-        <article><span><OperationIcon name="file" size={18} /></span><div><small>Gerentes</small><strong>{totalGerentes}</strong></div></article>
-        <article><span><OperationIcon name="eye" size={18} /></span><div><small>Consultas</small><strong>{totalConsulta}</strong></div></article>
-      </section>
-
-      <section className="admin-cf-panel" aria-labelledby="access-ledger-title">
-        <header className="admin-cf-panel-head">
-          <div>
-            <span className="admin-cf-section-code">Diretório operacional</span>
-            <h3 id="access-ledger-title">Perfis de acesso</h3>
-            <p>Alterações de perfil, gerente e rota são aplicadas assim que você seleciona uma opção.</p>
-            {adminMaster && <small className="admin-cf-master-note"><OperationIcon name="warning" size={15} />Modo master: exclusões removem perfil e login, exceto o seu próprio acesso.</small>}
-          </div>
-          <div className="admin-cf-head-actions">
-            <button className="btn-secundario" onClick={recarregarPerfis} disabled={!administrador || carregando}>
-              <OperationIcon name="refresh" size={16} />{carregando ? "Atualizando..." : "Atualizar lista"}
-            </button>
-            <button className="btn-primario" onClick={abrirNovoLogin} disabled={!administrador}>
-              <OperationIcon name="plus" size={16} />Novo login
-            </button>
-          </div>
-        </header>
-
-        <div className="admin-cf-command-bar">
+      <FilterBar
+        className="admin-cf-filter-bar"
+        ariaLabel="Busca e filtros do diretório de acessos"
+        activeCount={filtrosAtivos}
+        secondaryOpen={filtrosAbertos}
+        onSecondaryToggle={setFiltrosAbertos}
+        secondaryLabel="Filtros"
+        onClear={() => setFiltroPerfil("todos")}
+        onApply={() => setFiltrosAbertos(false)}
+        primary={(
           <label className="admin-cf-search-field">
             <span className="admin-cf-visually-hidden">Buscar acessos</span>
             <OperationIcon name="search" size={17} />
             <input className="input-busca" type="search" placeholder="Buscar usuário, gerente, perfil ou rota" value={busca} onChange={e => setBusca(e.target.value)} />
           </label>
+        )}
+        secondary={(
           <label className="admin-cf-filter-field">
             <span>Perfil</span>
             <select className="select-filtro" value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}>
@@ -315,80 +334,125 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
               {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
             </select>
           </label>
-          <span className="admin-cf-result-count"><strong>{perfisFiltrados.length}</strong> de {perfis.length} acessos</span>
-        </div>
+        )}
+        chips={filtrosAtivos ? (
+          <button type="button" className="admin-cf-filter-chip" onClick={() => setFiltroPerfil("todos")}>
+            Perfil: {perfilLabel[filtroPerfil]} <OperationIcon name="close" size={12} />
+          </button>
+        ) : null}
+      />
 
-        {!administrador ? (
+      {!administrador ? (
+        <section className="admin-cf-panel">
           <div className="admin-cf-state admin-cf-state--denied"><OperationIcon name="lock" size={22} /><strong>Acesso restrito</strong><p>Somente um administrador pode alterar permissões dos usuários.</p></div>
-        ) : carregando ? (
-          <div className="admin-cf-loading" role="status" aria-label="Carregando acessos">
-            {[0, 1, 2].map(item => <span key={item}><i /><i /><i /><i /></span>)}
-          </div>
-        ) : (
-          <div className="admin-cf-ledger">
-            <div className="admin-cf-ledger-head" aria-hidden="true"><span>Identidade</span><span>Perfil</span><span>Escopo operacional</span><span>Ações</span></div>
-            <div className="acessos-lista admin-cf-ledger-body">
-              {perfisFiltrados.map(p => {
-                const perfilAtualItem = p.perfil || "consulta";
-                const rotasAtivas = p.rotasPermitidas?.length ? p.rotasPermitidas : rotasPadrao(p.gerenteNome);
-                return (
-                  <article className={`acesso-item admin-cf-ledger-row admin-cf-profile-row--${perfilAtualItem}`} key={p.userId}>
-                    <div className="acesso-identidade admin-cf-identity">
+        </section>
+      ) : (
+        <section className="admin-cf-master-detail admin-cf-access-workspace">
+          <div className="admin-cf-panel admin-cf-directory" aria-labelledby="access-ledger-title">
+            <header className="admin-cf-panel-head admin-cf-directory-head">
+              <div><span className="admin-cf-section-code">Diretório</span><h3 id="access-ledger-title">Usuários</h3></div>
+              <span className="admin-cf-compact-count"><strong>{perfisFiltrados.length}</strong> de {perfis.length}</span>
+            </header>
+            {adminMaster && <div className="admin-cf-directory-alert"><OperationIcon name="warning" size={14} />Exclusões removem perfil e login. Seu próprio acesso permanece protegido.</div>}
+            {carregando ? (
+              <div className="admin-cf-loading admin-cf-loading--directory" role="status" aria-label="Carregando acessos">
+                {[0, 1, 2, 3].map(item => <span key={item}><i /><i /><i /></span>)}
+              </div>
+            ) : perfisFiltrados.length === 0 ? (
+              <div className="admin-cf-state admin-cf-state--compact"><OperationIcon name="search" size={20} /><strong>Nenhum acesso encontrado</strong><p>Ajuste a busca ou o filtro de perfil.</p></div>
+            ) : (
+              <div className="admin-cf-access-list">
+                {perfisFiltrados.map(p => {
+                  const perfilAtualItem = p.perfil || "consulta";
+                  const escopo = perfilAtualItem === "gerente"
+                    ? p.gerenteNome || "Gerente não vinculado"
+                    : perfilDescricao[perfilAtualItem] || "Permissão personalizada";
+                  return (
+                    <button
+                      className={`admin-cf-access-row ${usuarioSelecionado?.userId === p.userId ? "is-selected" : ""}`}
+                      key={p.userId}
+                      type="button"
+                      aria-pressed={usuarioSelecionado?.userId === p.userId}
+                      onClick={() => { setUsuarioSelecionadoId(p.userId); setDossieAberto(true); }}
+                    >
                       <span className={`acesso-avatar perfil-${perfilAtualItem}`}>{String(p.nome || "?").slice(0, 1).toUpperCase()}</span>
-                      <div>
+                      <span className="admin-cf-access-row-copy">
                         <strong>{p.nome}</strong>
                         <small>{p.loginNome || p.nome}</small>
-                        <span className={`admin-cf-profile admin-cf-profile--${perfilAtualItem}`}>{p.userId === perfilAtual.userId ? "Sessão atual" : perfilLabel[perfilAtualItem]}</span>
-                      </div>
-                    </div>
-                    <div className="acesso-permissao admin-cf-cell">
-                      <label>Perfil <small>Salva ao selecionar</small></label>
-                      <select value={p.perfil} disabled={p.userId === perfilAtual.userId} title={p.userId === perfilAtual.userId ? "Seu próprio perfil permanece administrador para evitar perda de acesso." : ""} onChange={e => alterarPerfil(p, e.target.value)}>
-                        {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
-                      </select>
-                      <small>{perfilDescricao[perfilAtualItem] || "Permissão personalizada"}</small>
-                    </div>
-                    <div className="acesso-controles admin-cf-cell admin-cf-scope">
-                      {p.perfil === "gerente" ? (
-                        <div className="acesso-rotas-box">
-                          <label>Gerente vinculado <small>Salva ao selecionar</small></label>
-                          <select value={p.gerenteNome || ""} onChange={e => alterarGerente(p, e.target.value)}>
-                            <option value="">Vincular gerente...</option>
-                            {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
-                          </select>
-                          {p.gerenteNome && (
-                            <div className="rota-chips" aria-label={`Rotas de ${p.gerenteNome}`}>
-                              {rotasPadrao(p.gerenteNome).map(rota => (
-                                <button key={rota} type="button" className={rotasAtivas.includes(rota) ? "ativo" : ""} aria-pressed={rotasAtivas.includes(rota)} onClick={() => alterarRotas(p, rota)}>{rota}</button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="acesso-escopo">
-                          <label>Alcance</label>
-                          <strong>{perfilLabel[perfilAtualItem]}</strong>
-                          <small>{perfilDescricao[perfilAtualItem]}</small>
-                        </div>
-                      )}
-                    </div>
-                    <div className="acesso-acoes admin-cf-row-actions">
-                      <button className="btn-secundario btn-acesso" onClick={() => abrirRedefinirAcesso(p)}><OperationIcon name="edit" size={15} />{p.userId === perfilAtual.userId ? "Regularizar e-mail" : "Redefinir acesso"}</button>
-                      {adminMaster && p.userId !== perfilAtual.userId && (
-                        <button className="btn-danger-outline btn-acesso" onClick={() => excluirAcesso(p)}><OperationIcon name="trash" size={15} />Excluir acesso</button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-              {perfisFiltrados.length === 0 && (
-                <div className="admin-cf-state"><OperationIcon name="search" size={22} /><strong>Nenhum acesso encontrado</strong><p>Ajuste a busca ou o filtro de perfil para ampliar o diretório.</p></div>
-              )}
-            </div>
+                      </span>
+                      <span className="admin-cf-access-row-scope"><small>Escopo</small><strong>{escopo}</strong></span>
+                      <span className={`admin-cf-profile admin-cf-profile--${perfilAtualItem}`}>{p.userId === perfilAtual.userId ? "Sessão atual" : perfilLabel[perfilAtualItem]}</span>
+                      <OperationIcon name="arrowRight" size={15} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <footer className="admin-cf-panel-note"><OperationIcon name="info" size={15} /><p>Novos usuários começam como apenas consulta. Alterações do dossiê são salvas ao selecionar.</p></footer>
           </div>
-        )}
-        <footer className="admin-cf-panel-note"><OperationIcon name="info" size={16} /><p>Novos usuários começam como apenas consulta. Seu próprio perfil não pode ser rebaixado nesta tela.</p></footer>
-      </section>
+
+          <button className={`admin-cf-sheet-backdrop ${dossieAberto ? "is-open" : ""}`} type="button" aria-label="Fechar dossiê" onClick={() => setDossieAberto(false)} />
+          <aside className={`admin-cf-panel admin-cf-dossier admin-cf-access-dossier ${dossieAberto ? "is-open" : ""}`} aria-label="Dossiê do acesso selecionado">
+            {!usuarioSelecionado ? (
+              <div className="admin-cf-state admin-cf-state--dossier"><OperationIcon name="user" size={22} /><strong>Selecione uma identidade</strong><p>Perfil, escopo e ações aparecerão aqui.</p></div>
+            ) : (
+              <>
+                <header className="admin-cf-dossier-head">
+                  <span className={`acesso-avatar perfil-${usuarioSelecionado.perfil || "consulta"}`}>{String(usuarioSelecionado.nome || "?").slice(0, 1).toUpperCase()}</span>
+                  <div><span className="admin-cf-section-code">Identidade selecionada</span><h3>{usuarioSelecionado.nome}</h3><small>{usuarioSelecionado.loginNome || usuarioSelecionado.nome}</small></div>
+                  <button type="button" className="admin-cf-icon-button admin-cf-sheet-close" onClick={() => setDossieAberto(false)} aria-label="Fechar dossiê"><OperationIcon name="close" size={17} /></button>
+                </header>
+
+                <div className="admin-cf-dossier-section">
+                  <div className="admin-cf-dossier-section-title"><span>Permissão</span><small>Salva ao selecionar</small></div>
+                  <label className="admin-cf-filter-field">
+                    <span>Perfil</span>
+                    <select value={usuarioSelecionado.perfil} disabled={usuarioSelecionado.userId === perfilAtual.userId} title={usuarioSelecionado.userId === perfilAtual.userId ? "Seu próprio perfil permanece administrador para evitar perda de acesso." : ""} onChange={e => alterarPerfil(usuarioSelecionado, e.target.value)}>
+                      {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
+                    </select>
+                  </label>
+                  <p className="admin-cf-dossier-copy">{perfilDescricao[usuarioSelecionado.perfil || "consulta"] || "Permissão personalizada"}</p>
+                </div>
+
+                <div className="admin-cf-dossier-section">
+                  <div className="admin-cf-dossier-section-title"><span>Escopo operacional</span><small>{usuarioSelecionado.perfil === "gerente" ? `${rotasSelecionadas.length} rota${rotasSelecionadas.length === 1 ? "" : "s"}` : perfilLabel[usuarioSelecionado.perfil || "consulta"]}</small></div>
+                  {usuarioSelecionado.perfil === "gerente" ? (
+                    <>
+                      <label className="admin-cf-filter-field">
+                        <span>Gerente vinculado</span>
+                        <select value={usuarioSelecionado.gerenteNome || ""} onChange={e => alterarGerente(usuarioSelecionado, e.target.value)}>
+                          <option value="">Vincular gerente...</option>
+                          {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </label>
+                      {usuarioSelecionado.gerenteNome && (
+                        <div className="rota-chips" aria-label={`Rotas de ${usuarioSelecionado.gerenteNome}`}>
+                          {rotasPadrao(usuarioSelecionado.gerenteNome).map(rota => (
+                            <button key={rota} type="button" className={rotasSelecionadas.includes(rota) ? "ativo" : ""} aria-pressed={rotasSelecionadas.includes(rota)} onClick={() => alterarRotas(usuarioSelecionado, rota)}>{rota}</button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <dl className="admin-cf-dossier-facts">
+                      <div><dt>Alcance</dt><dd>{perfilLabel[usuarioSelecionado.perfil || "consulta"]}</dd></div>
+                      <div><dt>Regra</dt><dd>{perfilDescricao[usuarioSelecionado.perfil || "consulta"]}</dd></div>
+                    </dl>
+                  )}
+                </div>
+
+                <div className="admin-cf-dossier-section admin-cf-security-actions">
+                  <div className="admin-cf-dossier-section-title"><span>Segurança</span><small>{usuarioSelecionado.userId === perfilAtual.userId ? "Sessão atual" : "Ações administrativas"}</small></div>
+                  <button className="btn-secundario btn-acesso" onClick={() => abrirRedefinirAcesso(usuarioSelecionado)}><OperationIcon name="edit" size={15} />{usuarioSelecionado.userId === perfilAtual.userId ? "Regularizar e-mail" : "Redefinir acesso"}</button>
+                  {adminMaster && usuarioSelecionado.userId !== perfilAtual.userId && (
+                    <button className="btn-danger-outline btn-acesso" onClick={() => excluirAcesso(usuarioSelecionado)}><OperationIcon name="trash" size={15} />Excluir acesso</button>
+                  )}
+                </div>
+              </>
+            )}
+          </aside>
+        </section>
+      )}
 
       {usuarioAcesso && (
         <div className="modal-overlay admin-cf-modal-layer">

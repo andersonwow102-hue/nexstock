@@ -1558,3 +1558,195 @@
     transition: none !important;
   }
 }
+
+/* Structural progression — no explanatory opener */
+.command-flow-shell .fechamento-page.secao {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-progress {
+  min-width: 0;
+  padding: 0 2px 10px;
+  border-bottom: 1px solid var(--fc-line);
+}
+
+.command-flow-shell .fechamento-page .fechamento-progress ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.command-flow-shell .fechamento-page .fechamento-progress li {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--fc-text-muted);
+}
+
+.command-flow-shell .fechamento-page .fechamento-progress li:not(:last-child)::after {
+  content: "";
+  height: 1px;
+  flex: 1 1 auto;
+  margin-inline: 6px;
+  background: var(--fc-line);
+}
+
+.command-flow-shell .fechamento-page .fechamento-progress li > span {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--fc-text-muted);
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 50%;
+  font: 700 9px/1 "JetBrains Mono", monospace;
+}
+
+.command-flow-shell .fechamento-page .fechamento-progress li > strong {
+  overflow: hidden;
+  font-size: 9.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-flow-shell .fechamento-page .fechamento-progress li.is-complete,
+.command-flow-shell .fechamento-page .fechamento-progress li.is-current { color: var(--fc-text); }
+.command-flow-shell .fechamento-page .fechamento-progress li.is-complete > span { color: var(--fc-success); border-color: var(--fc-success-line); }
+.command-flow-shell .fechamento-page .fechamento-progress li.is-complete::after { background: var(--fc-success-line); }
+.command-flow-shell .fechamento-page .fechamento-progress li.is-current > span { color: var(--fc-copper-strong); background: var(--fc-copper-soft); border-color: var(--fc-copper-line); }
+
+.command-flow-shell .fechamento-page .fechamento-step-label,
+.command-flow-shell .fechamento-page .fechamento-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-step-label b,
+.command-flow-shell .fechamento-page .fechamento-section-label > span {
+  color: var(--fc-copper-strong);
+  font: 750 9px/1 "JetBrains Mono", monospace;
+}
+
+.command-flow-shell .fechamento-page .fechamento-filtros > .fechamento-step-label { grid-column: 1 / -1; }
+
+.command-flow-shell .fechamento-page .fechamento-section-label {
+  display: flex;
+  min-height: 36px;
+  padding-top: 10px;
+  border-top: 1px solid var(--fc-line);
+}
+
+.command-flow-shell .fechamento-page .fechamento-section-label strong { color: var(--fc-text); font-size: 10px; }
+.command-flow-shell .fechamento-page .fechamento-section-label small { margin-left: auto; color: var(--fc-text-muted); font-size: 9px; font-weight: 500; text-transform: none; }
+
+.command-flow-shell .fechamento-page .fechamento-filtros,
+.command-flow-shell .fechamento-page .fechamento-lista-seletor,
+.command-flow-shell .fechamento-page .fechamento-detalhe {
+  background: transparent;
+  border: 0;
+  border-block: 1px solid var(--fc-line);
+  border-radius: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-filtros { border-left: 0; padding: 12px 2px; }
+.command-flow-shell .fechamento-page .fechamento-periodo-info { background: transparent; border: 0; border-left: 1px solid var(--fc-copper-line); border-radius: 0; }
+.command-flow-shell .fechamento-page .fechamento-lista-seletor { padding: 13px 2px; }
+.command-flow-shell .fechamento-page .fechamento-rota-lista { border-inline: 0; border-radius: 0; }
+.command-flow-shell .fechamento-page .fechamento-lista-resumo { background: transparent; border: 0; border-left: 1px solid var(--fc-copper-line); border-radius: 0; }
+.command-flow-shell .fechamento-page .fechamento-detalhe { padding: 14px 2px 2px; border-top-color: var(--fc-copper-line); }
+
+.command-flow-shell .fechamento-page .fechamento-kpis {
+  margin: 4px 0 12px;
+  background: transparent;
+  border-inline: 0;
+  border-radius: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis article { padding-block: 10px; background: transparent; }
+.command-flow-shell .fechamento-page .fechamento-kpis .kpi-repassar { background: var(--fc-copper-soft); }
+.command-flow-shell .fechamento-page .fechamento-operacao-box,
+.command-flow-shell .fechamento-page .fechamento-despesas-box {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--fc-line);
+  border-radius: 0;
+  padding: 12px 2px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesas-box { border-left: 1px solid var(--fc-line); padding-left: 13px; }
+.command-flow-shell .fechamento-page .fechamento-salvar-linha { grid-template-columns: minmax(150px, .42fr) minmax(0, 1.58fr); background: transparent; border-inline: 0; border-radius: 0; padding-inline: 2px; }
+.command-flow-shell .fechamento-page .fechamento-salvar-linha > .fechamento-step-label { grid-column: 1 / -1; }
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin,
+.command-flow-shell .fechamento-page .pix-admin-panel {
+  background: transparent;
+  border: 0;
+  border-block: 1px solid var(--fc-line);
+  border-radius: 0;
+  padding: 0;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin > summary,
+.command-flow-shell .fechamento-page .fechamento-pix-secondary > summary {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  color: var(--fc-text);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.command-flow-shell .fechamento-page .fechamento-pix-secondary > summary > span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.command-flow-shell .fechamento-page .fechamento-pix-secondary > summary strong { color: var(--fc-text); font-size: 11.5px; }
+.command-flow-shell .fechamento-page .fechamento-pix-secondary > summary > b { color: var(--fc-text-muted); font: 650 9px/1 var(--font-mono, monospace); }
+.command-flow-shell .fechamento-page .fechamento-pix-secondary[open] > summary { border-bottom: 1px solid var(--fc-line); }
+.command-flow-shell .fechamento-page .fechamento-pix-content { display: grid; gap: 12px; padding: 13px 2px; }
+
+@media (max-width: 920px) {
+  .command-flow-shell .fechamento-page .fechamento-progress { overflow-x: auto; scrollbar-width: none; }
+  .command-flow-shell .fechamento-page .fechamento-progress ol { min-width: 650px; }
+  .command-flow-shell .fechamento-page .fechamento-despesas-box { border-left: 0; padding-left: 2px; }
+}
+
+@media (max-width: 620px) {
+  .command-flow-shell .fechamento-page .fechamento-filtros,
+  .command-flow-shell .fechamento-page .fechamento-lista-seletor,
+  .command-flow-shell .fechamento-page .fechamento-detalhe,
+  .command-flow-shell .fechamento-page .fechamento-operacao-box,
+  .command-flow-shell .fechamento-page .fechamento-despesas-box,
+  .command-flow-shell .fechamento-page .pix-admin-panel { padding-inline: 2px; }
+  .command-flow-shell .fechamento-page .fechamento-progress li > strong { display: block; }
+  .command-flow-shell .fechamento-page .fechamento-section-label { align-items: flex-start; flex-wrap: wrap; }
+  .command-flow-shell .fechamento-page .fechamento-section-label small { width: 100%; margin-left: 0; }
+  .command-flow-shell .fechamento-page .fechamento-salvar-linha { grid-template-columns: 1fr; }
+  .command-flow-shell .fechamento-page .fechamento-rota-card {
+    min-height: 70px;
+    flex: 0 0 auto;
+    align-items: center;
+    grid-template-columns: 30px minmax(0, 1fr) minmax(78px, auto);
+    grid-template-rows: auto auto;
+  }
+  .command-flow-shell .fechamento-page .fechamento-rota-avatar { grid-column: 1; grid-row: 1 / 3; }
+  .command-flow-shell .fechamento-page .fechamento-rota-info { grid-column: 2; grid-row: 1; }
+  .command-flow-shell .fechamento-page .fechamento-rota-metricas { grid-column: 2; grid-row: 2; padding-left: 0; }
+  .command-flow-shell .fechamento-page .fechamento-rota-status { grid-column: 3; grid-row: 1 / 3; align-items: flex-end; padding-left: 0; text-align: right; }
+  .command-flow-shell .fechamento-page .fechamento-rota-status small { max-width: 92px; }
+}

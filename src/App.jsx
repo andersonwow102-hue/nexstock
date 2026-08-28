@@ -14,7 +14,7 @@ import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js"
 import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, expenseBelongsToRoute, isManagerExpense } from "./expenseScope.js";
-import { OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { FilterBar, OperationIcon } from "./components/operations/OperationsUI.jsx";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
@@ -732,6 +732,7 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
   const [enviandoApp, setEnviandoApp] = useState(false);
   const [erro, setErro] = useState("");
   const [ok, setOk] = useState("");
+  const [areaAtiva, setAreaAtiva] = useState("credenciais");
   const acessosVisiveis = administrador ? acessos : acessos.filter(a => normalizarTexto(a.gerente) === normalizarTexto(gerenteAtual));
   const appsPorModalidade = new Map(apps.map(app => [chaveAppModalidade(app.modalidade, app.appTipo), app]));
 
@@ -825,16 +826,19 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
 
   return (
     <section className="senhas-page senhas-cf-page">
-      <div className="senhas-cf-posture">
-        <div><span className="cf-kicker">Cofre operacional</span><h2>{administrador ? "Credenciais e distribuição" : "Acessos liberados"}</h2><p>{administrador ? "Gerencie credenciais por responsável e disponibilize os aplicativos corretos." : "Consulte somente as credenciais e aplicativos vinculados ao seu acesso."}</p></div>
-        <div className="senhas-cf-posture-meta"><Icon name="shieldKey"/><span><small>Escopo</small><strong>{administrador ? "Administração" : gerenteAtual}</strong></span><b>{acessosVisiveis.length}<small> acessos</small></b></div>
+      <div className="senhas-cf-commandline">
+        <nav aria-label="Área do cofre operacional">
+          <button type="button" className={areaAtiva==="credenciais"?"is-active":""} aria-current={areaAtiva==="credenciais"?"page":undefined} onClick={()=>setAreaAtiva("credenciais")}><Icon name="shieldKey"/><span>Credenciais</span><b>{acessosVisiveis.length}</b></button>
+          <button type="button" className={areaAtiva==="aplicativos"?"is-active":""} aria-current={areaAtiva==="aplicativos"?"page":undefined} onClick={()=>setAreaAtiva("aplicativos")}><Icon name="download"/><span>Aplicativos</span><b>{apps.length}</b></button>
+        </nav>
+        <span className="senhas-cf-scope"><small>Escopo atual</small><strong>{administrador ? "Administração" : gerenteAtual}</strong></span>
       </div>
 
       {(erro||ok)&&<div className={`senhas-cf-feedback ${erro?"is-error":"is-success"}`} role="status"><Icon name={erro?"warning":"check"}/><span>{erro||ok}</span></div>}
 
       {administrador&&(
-        <div className="senhas-cf-admin">
-          <form className="senhas-cf-panel senhas-cf-access-editor" onSubmit={salvarAcesso}>
+        <div className={`senhas-cf-admin is-${areaAtiva}`}>
+          {areaAtiva==="credenciais"&&<form className="senhas-cf-panel senhas-cf-access-editor" onSubmit={salvarAcesso}>
             <header><span className="senhas-cf-panel-icon"><Icon name="key"/></span><div><span className="cf-kicker">Identidade → modalidade</span><h3>{form.id?"Editar acesso":"Cadastrar acesso"}</h3><p>O registro é salvo apenas ao confirmar.</p></div></header>
             <div className="senhas-cf-fields">
               <label><span>Gerente</span><select value={form.gerente} onChange={e=>setForm({...form,gerente:e.target.value})}>{GERENTES.map(g=><option key={g}>{g}</option>)}</select></label>
@@ -845,9 +849,9 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
               <label className="is-wide"><span>Observação</span><input value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} placeholder="Instrução rápida para o gerente"/></label>
             </div>
             <footer><span><Icon name="info"/> Login e senha permanecem ocultos no ledger até a revelação explícita.</span><button className="btn-primario" disabled={salvando}><Icon name="check"/>{salvando?"Salvando...":"Salvar acesso"}</button></footer>
-          </form>
+          </form>}
 
-          <form className="senhas-cf-panel senhas-cf-app-editor" onSubmit={enviarApp}>
+          {areaAtiva==="aplicativos"&&<form className="senhas-cf-panel senhas-cf-app-editor" onSubmit={enviarApp}>
             <header><span className="senhas-cf-panel-icon"><Icon name="download"/></span><div><span className="cf-kicker">Distribuição Android</span><h3>Disponibilizar aplicativo</h3><p>Arquivo local ou link público, nunca os dois.</p></div></header>
             <div className="senhas-cf-fields">
               <label className="is-wide"><span>Modalidade</span><select value={appForm.modalidade} onChange={e=>{const modalidade=e.target.value;const tipoAtualValido=APP_TIPOS_90_DA_SORTE.some(tipo=>tipo.id===appForm.appTipo);setAppForm({...appForm,modalidade,appTipo:modalidade==="90 da Sorte"?(tipoAtualValido?appForm.appTipo:"terminal"):"padrao"});}}>{MODALIDADES.map(m=><option key={m}>{m}</option>)}</select></label>
@@ -857,12 +861,12 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
               <label className="is-wide"><span>Link externo do APK</span><input type="url" value={appForm.linkExterno} onChange={e=>setAppForm({...appForm,linkExterno:e.target.value})} placeholder="https://drive.google.com/..."/></label>
             </div>
             <footer><span><Icon name="info"/> Escolha um arquivo ou cole um link público para download.</span><button className="btn-primario" disabled={enviandoApp}><Icon name="upload"/>{enviandoApp?"Salvando...":"Salvar APK ou link"}</button></footer>
-          </form>
+          </form>}
         </div>
       )}
 
-      <div className="senhas-cf-workspace">
-        <section className="senhas-cf-ledger">
+      <div className={`senhas-cf-workspace is-${areaAtiva}`}>
+        {areaAtiva==="credenciais"&&<section className="senhas-cf-ledger">
           <header><div><span className="cf-kicker">Credenciais</span><h3>{administrador?"Acessos cadastrados":"Acessos liberados para você"}</h3></div><b>{acessosVisiveis.length}</b></header>
           {acessosVisiveis.length===0?<div className="cf-empty"><Icon name="key"/><strong>Nenhum acesso cadastrado</strong><span>As credenciais aparecerão aqui quando forem liberadas.</span></div>:<div className="senhas-cf-access-list">
             {acessosVisiveis.map(acesso=>{
@@ -882,9 +886,9 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
               </article>;
             })}
           </div>}
-        </section>
+        </section>}
 
-        <section className="senhas-cf-downloads">
+        {areaAtiva==="aplicativos"&&<section className="senhas-cf-downloads">
           <header><div><span className="cf-kicker">Distribuição</span><h3>Apps das modalidades</h3></div><Icon name="download"/></header>
           <div className="senhas-cf-app-list">
             {MODALIDADES.filter(modalidade=>!MODALIDADES_SEM_APP.has(modalidade)).map(modalidade=>{
@@ -893,7 +897,7 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
               return <article className={app?"is-available":""} key={modalidade}><div className="senhas-cf-app-id"><span className="senhas-cf-record-icon"><Icon name="terminal"/></span><span><strong>{modalidade}</strong><small>{app?`${app.appNome}${app.downloadUrl?" · Link externo":` · ${formatarTamanhoArquivo(app.tamanho)}`}`:"Nenhum APK enviado"}</small></span></div><button className="btn-secundario" type="button" disabled={!app} onClick={()=>baixarApp(app)}><Icon name="download"/>Baixar app</button></article>;
             })}
           </div>
-        </section>
+        </section>}
       </div>
     </section>
   );
@@ -1377,6 +1381,16 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       : fechamentosDetalheStatus.length
         ? "Rascunho salvo · ainda não enviado ao gerente"
         : "Ainda não enviado ao gerente";
+  const etapasFechamento = ["Competência", "Rota", "Lançamentos", "Conferência", "Envio"];
+  const etapaFechamento = fechamentoDetalheFinalizadoEm
+    ? 6
+    : (fechamentoDetalheEnviadoEm || fechamentoDetalheConfirmadoEm)
+      ? 5
+      : fechamentosDetalheStatus.length
+        ? 4
+        : gerenteSelecionado
+          ? 3
+          : 2;
 
   function statusDaRotaFechamento({ gerente, rota }) {
     const registros = fechamentosRotas.filter(f =>
@@ -1782,14 +1796,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
 
   return (
     <section className="secao fechamento-page">
-      <div className="fechamento-hero">
-        <div>
-          <span className="dash-kicker">Fechamento por rota</span>
-          <h2>Controle de fechamento dos gerentes</h2>
-          <p>Área especial para acompanhar rotas, pontos, equipamentos e despesas antes do fechamento.</p>
-        </div>
-        <span className="perfil-selo perfil-administrador">Especial</span>
-      </div>
+      <nav className="fechamento-progress" aria-label="Progressão do fechamento">
+        <ol>{etapasFechamento.map((etapa,indice)=>{const numero=indice+1;return <li key={etapa} className={numero<etapaFechamento?"is-complete":numero===etapaFechamento?"is-current":""} aria-current={numero===etapaFechamento?"step":undefined}><span>{String(numero).padStart(2,"0")}</span><strong>{etapa}</strong></li>;})}</ol>
+      </nav>
       <details className="prorrogacao-despesas-admin fechamento-ferramenta-secundaria">
         <summary>
           <div>
@@ -1841,6 +1850,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         </div>
       </details>
       <div className="fechamento-filtros">
+        <span className="fechamento-step-label"><b>01</b> Competência</span>
         <div className="campo">
           <label>Competência do fechamento</label>
           <input type="month" value={competenciaFechamento} max={hoje().slice(0,7)} onChange={e=>{setCompetenciaFechamento(e.target.value||competenciaFechamentoPadrao());setDiaFechamento("");}}/>
@@ -1859,9 +1869,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       </div>
       <section className="fechamento-lista-seletor">
         <div>
-          <span className="dash-kicker">Seleção do fechamento</span>
+          <span className="fechamento-step-label"><b>02</b> Seleção do fechamento</span>
           <h3>Escolha gerente e rota</h3>
-          <p>Use a lista para abrir somente a rota que será conferida e salva.</p>
         </div>
         <div className="fechamento-rota-picker" role="listbox" aria-label="Gerente e rota do fechamento">
           <span>Gerentes e rotas</span>
@@ -1915,10 +1924,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
         >
           <div className="fechamento-detalhe-head">
             <div>
-              <span className="dash-kicker">Demonstrativo administrativo</span>
+              <span className="fechamento-step-label"><b>03</b> Lançamentos da rota</span>
               <h3>{gerenteSelecionado}{rotaDetalheAtiva?` · ${rotaDetalheAtiva}`:""}</h3>
-              <p>Resumo refinado da rota selecionada para fechamento em {periodoPrestacaoLabel(competenciaFechamento,diaFechamento).toLowerCase()}.</p>
-              <small className="fechamento-envio-hint">Após clicar em Enviar ao gerente, este fechamento fica disponível no login do gerente em Prestação de Conta.</small>
               {!fechamentoDetalheConfirmadoEm&&(
                 <div className={`fechamento-status-envio ${fechamentoDetalheEnviadoEm ? "enviado" : ""}`}>
                   <span>{fechamentoDetalheVisualizadoEm
@@ -1931,7 +1938,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
               )}
               {fechamentoDetalheConfirmadoEm&&(
                 <div className="fechamento-confirmado-destaque">
-                  <span>✓</span>
+                  <span><Icon name="check"/></span>
                   <div>
                     <strong>{fechamentoDetalheFinalizadoEm ? "Prestação finalizada" : "Gerente confirmou este fechamento"}</strong>
                     <small>{fechamentoDetalheFinalizadoEm
@@ -1950,6 +1957,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
               </label>
             )}
           </div>
+          <div className="fechamento-section-label"><span>04</span><strong>Conferência financeira</strong><small>{periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}</small></div>
           <div className="fechamento-kpis">
             <article className="kpi-bruto"><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong><small>Entradas menos comissões e saídas</small></article>
             <article className="kpi-despesas"><span>Despesas</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>Competência selecionada</small></article>
@@ -2044,6 +2052,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
             </div>
             {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
             <div className="fechamento-salvar-linha">
+              <span className="fechamento-step-label"><b>05</b> Fechar e enviar</span>
               <p>Enviar publica este fechamento no acesso do gerente. Ele verá somente a rota dele na Prestação de Conta e poderá baixar o PDF por lá.</p>
               <div className="fechamento-acoes">
                 <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota", true)}>Visualizar rota atual</button>
@@ -2089,15 +2098,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           </div>
         </section>
       )}
-      <div className="pix-admin-panel">
-        <div className="pix-admin-head">
-          <div>
-            <span className="dash-kicker">PIX reservado</span>
-            <h3>Cartões PIX para prestação de contas</h3>
-            <p>Escolha um cartão, selecione o gerente/rota e envie o aviso PIX direto para ele.</p>
-          </div>
-          <span className="perfil-selo perfil-administrador">{PIX_CARTOES_PADRAO.length} cartões</span>
-        </div>
+      <details className="pix-admin-panel fechamento-pix-secondary">
+        <summary><span><span className="dash-kicker">Ferramenta secundária</span><strong>Cartões PIX para prestação de contas</strong></span><b>{PIX_CARTOES_PADRAO.length} cartões</b></summary>
+        <div className="fechamento-pix-content">
         {(pixErro||pixOk)&&<div className={pixErro?"erro-box":"sucesso-box"}>{pixErro||pixOk}</div>}
         <div className="pix-card-grid">
           {PIX_CARTOES_PADRAO.map(chave=>{
@@ -2147,6 +2150,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           </section>
         </div>
       </div>
+      </details>
     </section>
   );
 }
@@ -3177,7 +3181,7 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
             </div>}
           </form>
         </div>
-      </div>
+        </div>
     </div>
   );
 }
@@ -3382,10 +3386,12 @@ function Sistema({onLogout}){
   const [filtroSt,setFiltroSt]     =useState("Todos");
   const [filtroEscopoEquip,setFiltroEscopoEquip]=useState("todos");
   const [busca,setBusca]           =useState("");
+  const [filtrosEquipAbertos,setFiltrosEquipAbertos]=useState(false);
   const [excluindo,setExcluindo]   =useState(null);
   const [histFCat,setHistFCat]     =useState("Todas");
   const [histFTipo,setHistFTipo]   =useState("Todos");
   const [histBusca,setHistBusca]   =useState("");
+  const [filtrosHistoricoAbertos,setFiltrosHistoricoAbertos]=useState(false);
   const [paginaHistorico,setPaginaHistorico]=useState(1);
   const [historicoFocoId,setHistoricoFocoId]=useState(null);
   const [confirmLogout,setConfirmLogout]=useState(false);
@@ -3665,12 +3671,12 @@ function Sistema({onLogout}){
         :"Equipamentos localizados";
   useEffect(()=>{setPaginaGerenteConsulta(1);},[gerenteConsultaAtivo,consultaEquipFiltro]);
 
-  const filtroCatEquipAtivo=gerenteAtual?"Todas":filtroCatEquip;
+  const filtroCatEquipAtivo=filtroCatEquip;
   const itensFiltrados=itensOperacionais.filter(i=>{
     const mC=filtroCatEquipAtivo==="Todas"||i.categoria===filtroCatEquipAtivo;
     const mS=filtroSt==="Todos"||i.status===filtroSt;
-    const mE=gerenteAtual||filtroEscopoEquip==="todos"||
-      (filtroEscopoEquip==="interno"&&i.status==="Disponível"&&!i.localizacao&&!i.gerenteResponsavel)||
+    const mE=filtroEscopoEquip==="todos"||
+      (filtroEscopoEquip==="interno"&&i.status==="Disponível"&&!i.localizacao&&(!i.gerenteResponsavel||Boolean(gerenteAtual)))||
       (filtroEscopoEquip==="pontos"&&i.status==="Em rota"&&Boolean(i.localizacao))||
       (filtroEscopoEquip==="gerentes"&&Boolean(i.gerenteResponsavel)&&!i.localizacao)||
       (filtroEscopoEquip==="conserto"&&(i.status==="Em conserto"||solicitacaoConsertoPendente(i)));
@@ -3696,6 +3702,9 @@ function Sistema({onLogout}){
   const totalPaginasHistorico=Math.max(1,Math.ceil(histFiltrado.length/eventosPorPaginaHistorico));
   const historicoPagina=histFiltrado.slice((paginaHistorico-1)*eventosPorPaginaHistorico,paginaHistorico*eventosPorPaginaHistorico);
   const historicoFoco=historicoPagina.find(evento=>evento.id===historicoFocoId)||historicoPagina[0]||null;
+  const filtrosEquipAtivos=(filtroSt!=="Todos"?1:0)+(filtroCatEquip!=="Todas"?1:0)+(filtroEscopoEquip!=="todos"?1:0);
+  const filtrosHistoricoAtivos=(histFCat!=="Todas"?1:0)+(histFTipo!=="Todos"?1:0);
+  const rotuloEscopoEquip={interno:"Estoque interno",pontos:"Em pontos",gerentes:"Com gerentes",conserto:"Conserto"}[filtroEscopoEquip]||"Todos";
 
   useEffect(()=>{setPaginaItens(1);},[busca,filtroSt,filtroCatEquip,filtroEscopoEquip]);
   useEffect(()=>{setPaginaHistorico(1);},[histBusca,histFCat,histFTipo]);
@@ -4267,43 +4276,25 @@ function Sistema({onLogout}){
               {podeCadastrarEquipamento&&<button className="btn-primario" onClick={abrirNovo}><Icon name="plus" /> Novo equipamento</button>}
             </div>
           </header>
-          <div className="equip-navegacao equip-cf-navigation">
-            <span className="equip-filtro-label">Visualizar</span>
-            <div className="points-abas equip-abas">
-            {ABAS_EQUIP.map(a=>(
-              <button key={a.id} className={`points-aba-btn ${abaEquip===a.id?"points-aba-ativa":""}`} onClick={()=>setAbaEquip(a.id)}><Icon name={a.icone} /> {a.label}</button>
-            ))}
-            </div>
-            {!gerenteAtual&&(<>
-              <span className="equip-filtro-label">Escopo</span>
-              <div className="equip-categorias equip-escopos">
-                {[
-                  ["todos","Todos"],
-                  ["interno","Estoque interno"],
-                  ["pontos","Em pontos"],
-                  ["gerentes","Com gerentes"],
-                  ["conserto","Conserto"],
-                ].map(([id,label])=>(
-                  <button key={id} className={`points-aba-btn ${id==="conserto"?"equip-escopo-conserto":""} ${filtroEscopoEquip===id?"points-aba-ativa":""}`} onClick={()=>{setFiltroEscopoEquip(id);setAbaEquip("lista");}}>
-                    {label}{id==="conserto"&&<strong>{totalConserto}</strong>}
-                    {id==="conserto"&&solicitacoesConsertoPendentes.length>0&&<small>{solicitacoesConsertoPendentes.length} pendente{solicitacoesConsertoPendentes.length!==1?"s":""}</small>}
-                  </button>
-                ))}
-              </div>
-              <span className="equip-filtro-label">Categoria</span>
-              <div className="equip-categorias">
-                {["Todas",...CATEGORIAS].map(cat=>(
-                  <button key={cat} className={`points-aba-btn ${filtroCatEquip===cat?"points-aba-ativa":""}`}
-                    onClick={()=>{setFiltroCatEquip(cat);setAbaEquip("lista");}}>
-                    {cat==="Todas"?<><Icon name="package" /> Todas</>:<><Icon name={ICONES[cat]} /> {cat}</>}
-                  </button>
-                ))}
-              </div>
-            </>)}
+          <div className="equip-cf-control-line">
+            <nav className="equip-cf-view-switch" aria-label="Visualização de equipamentos">
+              {ABAS_EQUIP.map(a=>(
+                <button key={a.id} type="button" aria-current={abaEquip===a.id?"page":undefined} className={abaEquip===a.id?"is-active":""} onClick={()=>setAbaEquip(a.id)}><Icon name={a.icone}/><span>{a.label}</span></button>
+              ))}
+            </nav>
+            <span className="equip-cf-control-context"><strong>{totalGeral}</strong> registros na base</span>
           </div>
 
+          <nav className="equip-cf-position-strip" aria-label="Posição atual dos equipamentos">
+            <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="todos"} className={abaEquip==="lista"&&filtroEscopoEquip==="todos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("todos");setAbaEquip("lista");}}><span>Base</span><strong>{totalGeral}</strong><small>todos os registros</small></button>
+            <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="interno"} className={abaEquip==="lista"&&filtroEscopoEquip==="interno"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("interno");setAbaEquip("lista");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>prontos para alocação</small></button>
+            <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="pontos"} className={abaEquip==="lista"&&filtroEscopoEquip==="pontos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("pontos");setAbaEquip("lista");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>em operação</small></button>
+            {!gerenteAtual&&<button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="gerentes"} className={abaEquip==="lista"&&filtroEscopoEquip==="gerentes"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("gerentes");setAbaEquip("lista");}}><span>Com gerentes</span><strong>{totalComGerentes}</strong><small>sob responsabilidade</small></button>}
+            <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="conserto"} className={`is-attention ${abaEquip==="lista"&&filtroEscopoEquip==="conserto"?"is-active":""}`} onClick={()=>{setFiltroEscopoEquip("conserto");setAbaEquip("lista");}}><span>Conserto</span><strong>{totalConserto}</strong><small>{solicitacoesConsertoPendentes.length?`${solicitacoesConsertoPendentes.length} aguardando análise`:"fila operacional"}</small></button>
+          </nav>
+
           {abaEquip==="lista"&&(
-            <section className="secao equip-lista">
+            <section className="equip-lista equip-cf-list">
               {recebimentosPendentes.length>0&&(
                 <div className="recebimentos-pendentes">
                   <div>
@@ -4391,22 +4382,28 @@ function Sistema({onLogout}){
                   </div>
                 </section>
               )}
-              <div className="tabela-header cf-command-bar equip-cf-command">
-                <div className="equip-titulo">
-                  <h2>Equipamentos cadastrados</h2>
-                  <p>{itensFiltrados.length} resultado{itensFiltrados.length!==1?"s":""} encontrado{itensFiltrados.length!==1?"s":""}</p>
-                </div>
-                <div className="filtros equip-filtros">
-                  <input className="input-busca" type="text" placeholder="Buscar nome, ponto ou gerente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
-                  <select className="select-filtro" value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}>
-                    <option value="Todos">Todos os status</option>
-                    {statusListaVisivel.map(s=><option key={s}>{s}</option>)}
-                  </select>
-                  {(filtroCatEquip!=="Todas"||filtroSt!=="Todos"||filtroEscopoEquip!=="todos"||busca)&&(
-                    <button className="btn-limpar" onClick={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setFiltroEscopoEquip("todos");setBusca("");}}><Icon name="close" /> Limpar</button>
-                  )}
-                </div>
-              </div>
+              <FilterBar
+                className="equip-cf-filterbar"
+                ariaLabel="Consulta de equipamentos"
+                activeCount={filtrosEquipAtivos}
+                secondaryOpen={filtrosEquipAbertos}
+                onSecondaryToggle={setFiltrosEquipAbertos}
+                onClear={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setFiltroEscopoEquip("todos");}}
+                primary={<>
+                  <label className="equip-cf-search"><Icon name="search"/><input type="search" placeholder="Buscar equipamento, ponto ou gerente" value={busca} onChange={e=>setBusca(e.target.value)}/>{busca&&<button type="button" aria-label="Limpar busca" onClick={()=>setBusca("")}><Icon name="close"/></button>}</label>
+                  <span className="equip-cf-result-count" aria-live="polite"><strong>{itensFiltrados.length}</strong> resultado{itensFiltrados.length!==1?"s":""}</span>
+                </>}
+                secondary={<>
+                  <label><span>Escopo operacional</span><select value={filtroEscopoEquip} onChange={e=>setFiltroEscopoEquip(e.target.value)}><option value="todos">Todos</option><option value="interno">{gerenteAtual?"Disponíveis":"Estoque interno"}</option><option value="pontos">Em pontos</option>{!gerenteAtual&&<option value="gerentes">Com gerentes</option>}<option value="conserto">Conserto</option></select></label>
+                  <label><span>Categoria</span><select value={filtroCatEquip} onChange={e=>setFiltroCatEquip(e.target.value)}><option value="Todas">Todas as categorias</option>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></label>
+                  <label><span>Estado</span><select value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}><option value="Todos">Todos os status</option>{statusListaVisivel.map(s=><option key={s}>{s}</option>)}</select></label>
+                </>}
+                chips={filtrosEquipAtivos>0?<>
+                  {filtroEscopoEquip!=="todos"&&<button type="button" onClick={()=>setFiltroEscopoEquip("todos")}>{rotuloEscopoEquip}<Icon name="close"/></button>}
+                  {filtroCatEquip!=="Todas"&&<button type="button" onClick={()=>setFiltroCatEquip("Todas")}>{filtroCatEquip}<Icon name="close"/></button>}
+                  {filtroSt!=="Todos"&&<button type="button" onClick={()=>setFiltroSt("Todos")}>{filtroSt}<Icon name="close"/></button>}
+                </>:null}
+              />
               <div className="equip-cf-workspace">
                 <div className="cf-ledger equip-cf-ledger" aria-label="Ledger de equipamentos">
                   <div className="cf-ledger__head equip-cf-grid" aria-hidden="true">
@@ -4495,97 +4492,44 @@ function Sistema({onLogout}){
           )}
 
           {abaEquip==="resumo"&&(
-            <div style={{display:"flex",flexDirection:"column",gap:"20px"}}>
-              <section className="secao">
-                <h2 className="secao-titulo">Resumo Geral</h2>
-                <div className="resumo-grid">
-                  <div className="resumo-card resumo-total"><div className="resumo-num">{totalGeral}</div><div className="resumo-label">Equipamentos</div></div>
-                  <div className="resumo-card resumo-disponivel"><div className="resumo-num">{totalDisponivel}</div><div className="resumo-label">Disponíveis</div></div>
-                  <div className="resumo-card resumo-uso"><div className="resumo-num">{totalEmRota}</div><div className="resumo-label">Em Rota</div></div>
-                  {!gerenteAtual&&<div className="resumo-card resumo-conserto"><div className="resumo-num">{totalConserto}</div><div className="resumo-label">Em Conserto</div></div>}
-                </div>
-              </section>
-              <section className="secao">
-                <h2 className="secao-titulo">Por Categoria</h2>
-                <div className="cat-detalhe-grid">
-                  {porCategoria.map(c=>(
-                    <div key={c.categoria} className="cat-detalhe-card"
-                      onClick={()=>{setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
-                      <div className="cat-detalhe-header">
-                        <span className="cat-detalhe-icone"><Icon name={ICONES[c.categoria]} /></span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div className="cat-detalhe-nome">{c.categoria}</div>
-                          <div className="cat-detalhe-registros">{c.qtdItens} registro{c.qtdItens!==1?"s":""}</div>
-                        </div>
-                        <div className="cat-detalhe-total">
-                          <span className="cat-total-num">{c.total}</span>
-                          <span className="cat-total-label">equipamentos</span>
-                        </div>
-                      </div>
-                      <div className="cat-detalhe-status">
-                        {c.disponivel>0&&<div className="cat-st-linha cat-st-disp"><span><Icon name="check" /> Disponível</span><strong>{c.disponivel}</strong></div>}
-                        {c.emRota>0&&   <div className="cat-st-linha cat-st-uso"> <span><Icon name="mapPin" /> Em rota</span>   <strong>{c.emRota}</strong></div>}
-                        {!gerenteAtual&&c.conserto>0&& <div className="cat-st-linha cat-st-con"> <span><Icon name="wrench" /> Conserto</span>  <strong>{c.conserto}</strong></div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
+            <section className="equip-cf-summary" aria-labelledby="equip-summary-title">
+              <header className="equip-cf-section-head"><div><span className="cf-kicker">Composição da base</span><h2 id="equip-summary-title">Posição por categoria</h2></div><span>Selecione uma linha para abrir o recorte correspondente.</span></header>
+              <div className="cf-ledger equip-cf-category-ledger">
+                <div className="cf-ledger__head equip-cf-category-grid" aria-hidden="true"><span>Categoria</span><span>Registros</span><span>Disponíveis</span><span>Em rota</span>{!gerenteAtual&&<span>Conserto</span>}<span>Abrir</span></div>
+                {porCategoria.map(c=>(
+                  <button key={c.categoria} type="button" className="cf-ledger__row equip-cf-category-grid" onClick={()=>{setFiltroCatEquip(c.categoria);setAbaEquip("lista");}}>
+                    <span className="equip-cf-category-name"><span className="equip-cf-category-icon"><Icon name={ICONES[c.categoria]}/></span><strong>{c.categoria}</strong></span>
+                    <span><strong>{c.total}</strong><small>{c.qtdItens===1?"registro":"registros"}</small></span>
+                    <span><strong>{c.disponivel}</strong><small>prontos</small></span>
+                    <span><strong>{c.emRota}</strong><small>em operação</small></span>
+                    {!gerenteAtual&&<span className={c.conserto?"is-attention":""}><strong>{c.conserto}</strong><small>na fila</small></span>}
+                    <Icon name="arrowRight"/>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           {abaEquip==="historico"&&(
-            <section className="secao">
-              <div className="tabela-header">
-                <h2 className="secao-titulo" style={{margin:0}}>Histórico de Equipamentos</h2>
-                <div style={{display:"flex",gap:"8px"}}>
+            <section className="equip-cf-history" aria-labelledby="equip-history-title">
+              <header className="equip-cf-section-head">
+                <div><span className="cf-kicker">Rastro operacional</span><h2 id="equip-history-title">Movimentações dos equipamentos</h2><small>{historicoOperacional.length} evento{historicoOperacional.length!==1?"s":""}</small></div>
+                <div className="equip-cf-section-actions">
                   <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historicoOperacional)}><Icon name="spreadsheet" /> Excel</button>
                   <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historicoOperacional)}><Icon name="pdf" /> PDF</button>
                 </div>
-              </div>
+              </header>
               {historicoOperacional.length===0
-                ?<div className="hist-vazio"><div className="hist-vazio-icone"><Icon name="history" /></div><div>Nenhuma movimentação registrada.</div></div>
-                :<>
-                  <div className="historico-mobile-lista historico-equip-mobile-lista">
-                    {historicoOperacional.map(h=>{
-                      const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"file",label:h.tipo};
-                      return(
-                        <article className="historico-mobile-card" key={`equip-hist-mobile-${h.id}`}>
-                          <div className="historico-mobile-topo">
-                            <span className={`badge-hist ${cfg.cor}`}><Icon name={cfg.icone} /> {cfg.label}</span>
-                            <small>{h.data}</small>
-                          </div>
-                          <strong><Icon name={ICONES[h.categoria]} /> {h.itemNome}</strong>
-                          <div className="historico-mobile-meta">
-                            <span>{h.categoria}</span>
-                            <span>Antes: {h.qtdAntes}</span>
-                            <span>Depois: {h.qtdDepois}</span>
-                          </div>
-                          <HistoricoDetalhes texto={h.observacao}/>
-                        </article>
-                      );
-                    })}
-                  </div>
-                  <div className="tabela-wrapper historico-equip-desktop-tabela">
-                    <table className="tabela">
-                      <thead><tr><th>Tipo</th><th>Equipamento</th><th>Categoria</th><th>Antes</th><th>Depois</th><th>Observação</th><th>Data</th></tr></thead>
-                      <tbody>
-                        {historicoOperacional.map(h=>{
-                          const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"file",label:h.tipo};
-                          return(<tr key={h.id}>
-                            <td><span className={`badge-hist ${cfg.cor}`}><Icon name={cfg.icone} /> {cfg.label}</span></td>
-                            <td className="td-nome"><Icon name={ICONES[h.categoria]} /> {h.itemNome}</td>
-                            <td><span className="badge-cat">{h.categoria}</span></td>
-                            <td className="td-minimo">{h.qtdAntes}</td>
-                            <td className="td-minimo">{h.qtdDepois}</td>
-                            <td className="td-obs" style={{maxWidth:"200px"}}>{h.observacao}</td>
-                            <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
-                          </tr>);
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
+                ?<div className="cf-empty equip-cf-history-empty"><Icon name="history"/><span>Nenhuma movimentação registrada.</span></div>
+                :<div className="cf-ledger equip-cf-history-ledger">
+                  <div className="cf-ledger__head equip-cf-history-grid" aria-hidden="true"><span>Evento</span><span>Equipamento</span><span>Variação</span><span>Registro</span></div>
+                  {historicoOperacional.map(h=>{const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"file",label:h.tipo};return <article className="cf-ledger__row equip-cf-history-grid" key={h.id}>
+                    <span className={`badge-hist ${cfg.cor}`}><Icon name={cfg.icone}/>{cfg.label}</span>
+                    <span className="equip-cf-history-subject"><span className="equip-cf-category-icon"><Icon name={ICONES[h.categoria]}/></span><span><strong>{h.itemNome}</strong><small>{h.categoria}</small></span></span>
+                    <span className="equip-cf-history-delta"><b>{h.qtdAntes}</b><Icon name="arrowRight"/><b>{h.qtdDepois}</b></span>
+                    <div className="equip-cf-history-record"><HistoricoDetalhes texto={h.observacao}/><time>{h.data}</time></div>
+                  </article>;})}
+                </div>
               }
             </section>
           )}
@@ -4656,7 +4600,7 @@ function Sistema({onLogout}){
             </div>
 
             <aside className="cf-dossier consulta-cf-dossier">
-              <div className="cf-dossier__head"><span className="cf-kicker">Dossiê de responsabilidade</span><h2>{gerenteConsultaAtivo||"Sem gerente"}</h2><p>Leitura consolidada, sem ações de alteração.</p></div>
+              <div className="cf-dossier__head"><span className="cf-kicker">Dossiê de responsabilidade</span><h2>{gerenteConsultaAtivo||"Sem gerente"}</h2></div>
               <div className="cf-dossier__body">
                 <div className="consulta-cf-dossier-state"><Icon name={equipamentosConsultaConserto.length?"warning":"check"}/><span><small>Prioridade atual</small><strong>{equipamentosConsultaConserto.length?`${equipamentosConsultaConserto.length} em conserto`:equipamentosConsultaSemPonto.length?`${equipamentosConsultaSemPonto.length} sem ponto`:"Posição acompanhada"}</strong></span></div>
                 <dl><div><dt>Pontos</dt><dd>{pontosDoGerenteConsulta.length}</dd></div><div><dt>Equipamentos</dt><dd>{equipamentosDoGerenteConsulta.length}</dd></div><div><dt>Nos pontos</dt><dd>{equipamentosConsultaEmPontos.length}</dd></div><div><dt>Com gerente</dt><dd>{equipamentosConsultaSemPonto.length}</dd></div><div><dt>Conserto</dt><dd>{equipamentosConsultaConserto.length}</dd></div></dl>
@@ -4711,7 +4655,7 @@ function Sistema({onLogout}){
         </>)}
 
         {aba==="historico"&&(<>
-          <ModuleHeader eyebrow="Rastro operacional" title="Histórico" subtitle={`${historicoOperacional.length} movimentação${historicoOperacional.length!==1?"ões":""} registrada${historicoOperacional.length!==1?"s":""}.`} onMenu={alternarSidebarContextual} actions={<>
+          <ModuleHeader eyebrow="Rastro operacional" title="Histórico" subtitle={`${historicoOperacional.length} ${historicoOperacional.length===1?"movimentação registrada":"movimentações registradas"}.`} onMenu={alternarSidebarContextual} actions={<>
               {historicoOperacional.length>0&&<>
                 <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historicoOperacional)}><Icon name="spreadsheet"/> Excel</button>
                 <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historicoOperacional)}><Icon name="pdf"/> PDF</button>
@@ -4719,23 +4663,26 @@ function Sistema({onLogout}){
               {administrador&&historico.length>0&&<button className="btn-danger-outline" onClick={limparHistorico}><Icon name="trash"/> Limpar</button>}
             </>}/>
           <section className="historico-cf-page">
-            <div className="cf-command-bar historico-cf-command">
-              <div className="historico-cf-command-title"><span className="cf-kicker">Consulta do rastro</span><strong>{histFiltrado.length} evento{histFiltrado.length!==1?"s":""} no recorte</strong></div>
-              <div className="filtros">
-                <label className="cf-command-bar__search"><Icon name="search"/><input className="input-busca" type="search" placeholder="Buscar equipamento ou responsável" value={histBusca} onChange={e=>setHistBusca(e.target.value)}/></label>
-                <select className="select-filtro" value={histFCat} onChange={e=>setHistFCat(e.target.value)}>
-                  <option value="Todas">Todas as categorias</option>
-                  {CATEGORIAS.map(c=><option key={c}>{c}</option>)}
-                </select>
-                <select className="select-filtro" value={histFTipo} onChange={e=>setHistFTipo(e.target.value)}>
-                  <option value="Todos">Todos os tipos</option>
-                  {Object.entries(HIST_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-                </select>
-                {(histFCat!=="Todas"||histFTipo!=="Todos"||histBusca)&&(
-                  <button className="btn-limpar" onClick={()=>{setHistFCat("Todas");setHistFTipo("Todos");setHistBusca("");}}><Icon name="close"/> Limpar</button>
-                )}
-              </div>
-            </div>
+            <FilterBar
+              className="historico-cf-filterbar"
+              ariaLabel="Consulta do histórico"
+              activeCount={filtrosHistoricoAtivos}
+              secondaryOpen={filtrosHistoricoAbertos}
+              onSecondaryToggle={setFiltrosHistoricoAbertos}
+              onClear={()=>{setHistFCat("Todas");setHistFTipo("Todos");}}
+              primary={<>
+                <label className="historico-cf-search"><Icon name="search"/><input type="search" placeholder="Buscar equipamento ou responsável" value={histBusca} onChange={e=>setHistBusca(e.target.value)}/>{histBusca&&<button type="button" aria-label="Limpar busca" onClick={()=>setHistBusca("")}><Icon name="close"/></button>}</label>
+                <span className="historico-cf-result-count" aria-live="polite"><strong>{histFiltrado.length}</strong> evento{histFiltrado.length!==1?"s":""}</span>
+              </>}
+              secondary={<>
+                <label><span>Categoria</span><select value={histFCat} onChange={e=>setHistFCat(e.target.value)}><option value="Todas">Todas as categorias</option>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></label>
+                <label><span>Tipo de evento</span><select value={histFTipo} onChange={e=>setHistFTipo(e.target.value)}><option value="Todos">Todos os tipos</option>{Object.entries(HIST_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></label>
+              </>}
+              chips={filtrosHistoricoAtivos>0?<>
+                {histFCat!=="Todas"&&<button type="button" onClick={()=>setHistFCat("Todas")}>{histFCat}<Icon name="close"/></button>}
+                {histFTipo!=="Todos"&&<button type="button" onClick={()=>setHistFTipo("Todos")}>{HIST_CFG[histFTipo]?.label||histFTipo}<Icon name="close"/></button>}
+              </>:null}
+            />
 
             <div className="historico-cf-workspace">
               <div className="cf-ledger historico-cf-ledger">

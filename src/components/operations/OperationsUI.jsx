@@ -782,7 +782,7 @@ export function MobileRecordCard({
 }
 
 export function FilterBar({
-  title = "Pesquisar e filtrar",
+  title,
   description,
   primary,
   secondary,
@@ -792,7 +792,7 @@ export function FilterBar({
   activeCount = 0,
   secondaryOpen = false,
   onSecondaryToggle,
-  secondaryLabel = "Mais filtros",
+  secondaryLabel = "Filtros",
   onClear,
   clearLabel = "Limpar filtros",
   onApply,
@@ -818,8 +818,13 @@ export function FilterBar({
       preferredTarget?.focus({ preventScroll: true });
     });
 
+    const mobileSheet = window.matchMedia?.("(max-width: 760px)").matches;
+    const previousOverflow = document.documentElement.style.overflow;
+    if (mobileSheet) document.documentElement.style.overflow = "hidden";
+
     return () => {
       window.cancelAnimationFrame(animationFrame);
+      if (mobileSheet) document.documentElement.style.overflow = previousOverflow;
       const previousFocus = previousSecondaryFocusRef.current;
       if (previousFocus?.isConnected) {
         window.requestAnimationFrame(() => previousFocus.focus({ preventScroll: true }));
@@ -862,13 +867,14 @@ export function FilterBar({
 
   return (
     <section className={classes("so-filter-bar", className)} aria-label={ariaLabel}>
-      <header className="so-filter-bar__header">
-        <div>
-          <h2>{title}</h2>
-          {description ? <p>{description}</p> : null}
-        </div>
-        {onClear ? <Button variant="ghost" size="sm" onClick={onClear}>{clearLabel}</Button> : null}
-      </header>
+      {title || description ? (
+        <header className="so-filter-bar__header">
+          <div>
+            {title ? <h2>{title}</h2> : null}
+            {description ? <p>{description}</p> : null}
+          </div>
+        </header>
+      ) : null}
       <div className="so-filter-bar__primary">
         {primary || children}
         {secondary && onSecondaryToggle ? (
@@ -878,9 +884,10 @@ export function FilterBar({
             leadingIcon="filter"
             aria-expanded={secondaryOpen}
             aria-controls={secondaryId}
+            aria-label={`${secondaryLabel}${activeCount ? `, ${activeCount} ativo${activeCount === 1 ? "" : "s"}` : ""}`}
             onClick={() => onSecondaryToggle(!secondaryOpen)}
           >
-            {secondaryLabel}{activeCount ? ` (${activeCount})` : ""}
+            {secondaryLabel}{activeCount ? ` · ${activeCount}` : ""}
           </Button>
         ) : null}
       </div>
@@ -898,7 +905,7 @@ export function FilterBar({
           <div className="so-filter-bar__secondary-header">
             <div>
               <strong id={secondaryTitleId}>{secondaryLabel}</strong>
-              <span>{activeCount} ativo(s)</span>
+              <span>{activeCount} ativo{activeCount === 1 ? "" : "s"}</span>
             </div>
             {onSecondaryToggle ? <IconButton icon="close" label="Fechar filtros" onClick={() => onSecondaryToggle(false)} /> : null}
           </div>

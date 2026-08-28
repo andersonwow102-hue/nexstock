@@ -952,14 +952,15 @@ textarea.so-field__control {
 .so-filter-bar {
   position: relative;
   display: grid;
-  gap: var(--space-3, 12px);
+  gap: var(--space-2, 8px);
   min-width: 0;
-  padding: var(--space-4, 16px);
-  border: 1px solid var(--surface-border, var(--border, #d8d8d0));
-  border-radius: var(--radius-md, 8px);
-  background: var(--surface-panel, var(--bg-card, #fff));
+  padding: 0 0 var(--space-3, 12px);
+  border: 0;
+  border-bottom: 1px solid var(--surface-border, var(--border, #d8d8d0));
+  border-radius: 0;
+  background: transparent;
   color: var(--text-default, var(--txt-secondary, #3f4842));
-  box-shadow: var(--shadow-xs, 0 1px 3px rgba(4, 10, 7, 0.14));
+  box-shadow: none;
 }
 
 .so-filter-bar:has(.so-filter-bar__secondary.is-open) {
@@ -971,8 +972,8 @@ textarea.so-field__control {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4, 16px);
-  padding-bottom: var(--space-3, 12px);
-  border-bottom: 1px solid var(--surface-border, var(--border, #d8d8d0));
+  padding: 0;
+  border: 0;
 }
 
 .so-filter-bar__header > div {
@@ -993,7 +994,18 @@ textarea.so-field__control {
   line-height: 1.4;
 }
 
-.so-filter-bar__primary,
+.so-filter-bar__primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  min-width: 0;
+}
+
+.so-filter-bar__primary > :first-child {
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
 .so-filter-bar__secondary-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1004,7 +1016,7 @@ textarea.so-field__control {
 
 .so-filter-bar__toggle {
   display: inline-flex;
-  justify-self: end;
+  flex: 0 0 auto;
 }
 
 .so-filter-bar__secondary {
@@ -1077,6 +1089,7 @@ textarea.so-field__control {
   flex-wrap: wrap;
   gap: var(--space-2, 8px);
   min-width: 0;
+  padding-top: 2px;
 }
 
 .so-filter-bar__chips > button {
@@ -1480,6 +1493,7 @@ textarea.so-field__control {
   }
 
   .so-filter-bar__primary {
+    display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
@@ -1544,7 +1558,7 @@ textarea.so-field__control {
   .so-filter-bar__footer {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-    padding: var(--space-3, 12px) var(--space-4, 16px) calc(var(--space-3, 12px) + env(safe-area-inset-bottom));
+    padding: var(--space-3, 12px) var(--space-4, 16px) calc(var(--space-3, 12px) + 72px + env(safe-area-inset-bottom));
     background: var(--surface-panel, var(--bg-card, #fff));
   }
 
@@ -1630,14 +1644,6 @@ textarea.so-field__control {
   .so-filter-bar__header {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .so-filter-bar__primary {
-    grid-template-columns: 1fr;
-  }
-
-  .so-filter-bar__toggle {
-    width: 100%;
   }
 
   .so-feedback-banner {

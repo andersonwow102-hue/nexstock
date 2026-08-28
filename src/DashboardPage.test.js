@@ -52,14 +52,13 @@ test("drill-downs preservam os contratos funcionais do Dashboard", () => {
   }
 });
 
-test("mesa operacional organiza posição, atenção, ledgers e mudanças sem grade genérica de cards", () => {
+test("superfície de comando encadeia posição, sinal, ledgers e atividade sem hero introdutório", () => {
   for (const termo of [
-    "Dashboard operacional",
+    "NEPTERA / central de posição",
     "Posição agora",
-    "Inventário em curso",
-    "Atenção e próxima ação",
+    "Decisão do turno",
     "Estoque interno por categoria",
-    "Pontos com equipamentos",
+    "Pontos em operação",
     "Mudanças recentes",
   ]) {
     assert.ok(pagina.includes(termo), `ausente: ${termo}`);
@@ -67,6 +66,7 @@ test("mesa operacional organiza posição, atenção, ledgers e mudanças sem gr
   for (const classe of [
     "dash-cf-position-manifest",
     "dash-cf-attention",
+    "dash-cf-ledger-zone",
     "dash-cf-category-ledger",
     "dash-cf-points-ledger",
     "dash-cf-changes",
@@ -75,6 +75,8 @@ test("mesa operacional organiza posição, atenção, ledgers e mudanças sem gr
   }
   assert.match(pagina, /import \{ OperationIcon \} from "\.\/components\/operations\/OperationsUI\.jsx"/);
   assert.doesNotMatch(pagina, /KpiCard|dash-cf-card/);
+  assert.doesNotMatch(pagina, /Dashboard operacional|Inventário em curso|Atenção e próxima ação|selecione uma posição para abrir o detalhe/);
+  assert.doesNotMatch(pagina, /<h1>Dashboard<\/h1>\s*<p>/);
   assert.doesNotMatch(css, /linear-gradient|radial-gradient/);
 });
 
@@ -99,8 +101,8 @@ test("interface mantém variação operacional por gerente e operador", () => {
   assert.match(pagina, /const operador = perfilAtual\.perfil === "operador"/);
   assert.match(pagina, /label="Com gerentes"/);
   assert.match(pagina, /label="Em conserto"/);
-  assert.match(pagina, /gerente \? "Disponibilidade da carteira" : "Estoque interno por categoria"/);
-  assert.match(pagina, /Carteira de \$\{gerenteNomeBase \|\| gerenteAtual\}/);
+  assert.match(pagina, /gerente \? "Categorias da carteira" : "Estoque interno por categoria"/);
+  assert.match(pagina, /Carteira · \$\{gerenteNomeBase \|\| gerenteAtual\}/);
   assert.match(pagina, /title: operador \? "Validar solicitações de conserto" : "Acompanhar solicitações de conserto"/);
   assert.match(pagina, /onClick: onSelecionarPontos/);
   assert.match(pagina, /\{gerente \? \([\s\S]*?<dt>Disponíveis<\/dt>[\s\S]*?<dt>Em rota<\/dt>/);
@@ -135,6 +137,19 @@ test("temas consomem as fundações mineral e cobre sem possuir a sidebar", () =
   assert.match(css, /\.stock-dashboard/);
   assert.doesNotMatch(css, /\.app\.dashboard-shell\s*>\s*\.sidebar/);
   assert.doesNotMatch(css, /\.secao\s*[,{]|\.tabela\s*[,{]|\.topbar\s*[,{]/);
+});
+
+test("posição, decisão e ledgers são uma superfície contínua, não uma pilha de cards", () => {
+  assert.match(css, /\.dash-cf-canvas\s*\{[\s\S]*?padding:\s*0 22px/);
+  assert.match(css, /\.dash-cf-position-strip\s*\{\s*border-bottom:/);
+  assert.match(css, /\.dash-cf-attention\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-template-columns:/);
+  assert.match(css, /\.dash-cf-ledger-zone\s*\{[\s\S]*?grid-template-columns:/);
+
+  for (const seletor of ["dash-cf-position-strip", "dash-cf-attention", "dash-cf-ledger-zone", "dash-cf-category-ledger", "dash-cf-points-ledger"]) {
+    const bloco = css.match(new RegExp(`\\.${seletor}\\s*\\{([^}]*)\\}`));
+    assert.ok(bloco, `bloco estrutural ausente: ${seletor}`);
+    assert.doesNotMatch(bloco[1], /border-radius|background:/, `${seletor} voltou a parecer card`);
+  }
 });
 
 test("responsividade mantém densidade desktop e reinterpreta tablet e mobile", () => {

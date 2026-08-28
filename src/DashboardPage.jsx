@@ -232,9 +232,8 @@ export default function DashboardPage({
             </button>
           ) : null}
           <div>
-            <span className="dash-cf-eyebrow">NEPTERA / operação de estoque</span>
-            <h1>Dashboard operacional</h1>
-            <p>{gerente ? `Carteira de ${gerenteNomeBase || gerenteAtual}` : "Posição, atenção e mudanças da base ativa"}</p>
+            <span className="dash-cf-eyebrow">NEPTERA / central de posição</span>
+            <h1>Dashboard</h1>
           </div>
         </div>
 
@@ -254,10 +253,10 @@ export default function DashboardPage({
         <section aria-labelledby="dash-cf-position-title" className="dash-cf-position-strip">
           <header className="dash-cf-section-heading dash-cf-position-heading">
             <div>
-              <span className="dash-cf-eyebrow">Posição agora</span>
-              <h2 id="dash-cf-position-title">Inventário em curso</h2>
+              <span className="dash-cf-eyebrow">Leitura imediata</span>
+              <h2 id="dash-cf-position-title">Posição agora</h2>
             </div>
-            <p>{gerente ? "Recorte da carteira ativa" : "Base operacional completa"} · selecione uma posição para abrir o detalhe.</p>
+            <span className="dash-cf-position-scope">{gerente ? `Carteira · ${gerenteNomeBase || gerenteAtual}` : "Base operacional completa"}</span>
           </header>
 
           <div className={`dash-cf-position-manifest${gerente ? " is-manager" : ""}`}>
@@ -285,16 +284,10 @@ export default function DashboardPage({
 
         <div className="dash-cf-workbench">
           <section aria-labelledby="dash-cf-attention-title" className={`dash-cf-attention is-${prioridade.tone}`}>
-            <header>
-              <span className="dash-cf-attention-icon"><OperationIcon name={iconePrioridade} size={18}/></span>
-              <div>
-                <span className="dash-cf-eyebrow">Decisão do turno</span>
-                <h2 id="dash-cf-attention-title">Atenção e próxima ação</h2>
-              </div>
-            </header>
+            <span className="dash-cf-attention-icon"><OperationIcon name={iconePrioridade} size={18}/></span>
             <div className="dash-cf-attention-body">
-              <span>{prioridade.eyebrow}</span>
-              <strong>{prioridade.title}</strong>
+              <span>Decisão do turno · {prioridade.eyebrow}</span>
+              <h2 id="dash-cf-attention-title">{prioridade.title}</h2>
               <p>{prioridade.text}</p>
             </div>
             <div className="dash-cf-attention-count" aria-label={`${prioridade.value} ${prioridade.measure}`}>
@@ -317,60 +310,62 @@ export default function DashboardPage({
             </dl>
           </section>
 
-          <section aria-labelledby="dash-cf-category-title" className="dash-cf-ledger dash-cf-category-ledger">
-            <header className="dash-cf-section-heading dash-cf-section-heading-compact">
-              <div>
-                <span className="dash-cf-eyebrow">Leitura por categoria</span>
-                <h2 id="dash-cf-category-title">{gerente ? "Disponibilidade da carteira" : "Estoque interno por categoria"}</h2>
+          <div className="dash-cf-ledger-zone">
+            <section aria-labelledby="dash-cf-category-title" className="dash-cf-ledger dash-cf-category-ledger">
+              <header className="dash-cf-section-heading dash-cf-section-heading-compact">
+                <div>
+                  <span className="dash-cf-eyebrow">Disponibilidade</span>
+                  <h2 id="dash-cf-category-title">{gerente ? "Categorias da carteira" : "Estoque interno por categoria"}</h2>
+                </div>
+                <span className="dash-cf-count">{porCategoria.length} categorias</span>
+              </header>
+              <div className="dash-cf-category-list">
+                {porCategoria.length ? porCategoria.map(item => {
+                  const total = Number(item.total) || 0;
+                  const disponivel = Number(item.disponivel) || 0;
+                  const percentual = total ? Math.min(100, Math.round((disponivel / total) * 100)) : 0;
+                  return (
+                    <button
+                      aria-label={`${item.categoria}: ${disponivel} disponíveis de ${total}. Abrir categoria.`}
+                      className="dash-cf-category-row"
+                      key={item.categoria}
+                      onClick={() => onSelecionarCategoria?.(item.categoria)}
+                      type="button"
+                    >
+                      <span className="dash-cf-category-name"><i aria-hidden="true"><OperationIcon name={iconeCategoria(item.categoria)} size={15}/></i><strong>{item.categoria}</strong></span>
+                      <span className="dash-cf-category-values"><strong>{disponivel}</strong><span>/ {total}</span><OperationIcon name="chevronRight" size={14}/></span>
+                      <span className="dash-cf-category-meter" aria-hidden="true"><i style={{ width: `${percentual}%` }}/></span>
+                    </button>
+                  );
+                }) : (
+                  <div className="dash-cf-empty dash-cf-empty-compact"><OperationIcon name="file" size={21}/><p>Nenhuma categoria disponível neste recorte.</p></div>
+                )}
               </div>
-              <span className="dash-cf-count">{porCategoria.length} categorias</span>
-            </header>
-            <div className="dash-cf-category-list">
-              {porCategoria.length ? porCategoria.map(item => {
-                const total = Number(item.total) || 0;
-                const disponivel = Number(item.disponivel) || 0;
-                const percentual = total ? Math.min(100, Math.round((disponivel / total) * 100)) : 0;
-                return (
-                  <button
-                    aria-label={`${item.categoria}: ${disponivel} disponíveis de ${total}. Abrir categoria.`}
-                    className="dash-cf-category-row"
-                    key={item.categoria}
-                    onClick={() => onSelecionarCategoria?.(item.categoria)}
-                    type="button"
-                  >
-                    <span className="dash-cf-category-name"><i aria-hidden="true"><OperationIcon name={iconeCategoria(item.categoria)} size={15}/></i><strong>{item.categoria}</strong></span>
-                    <span className="dash-cf-category-values"><strong>{disponivel}</strong><span>/ {total}</span><OperationIcon name="chevronRight" size={14}/></span>
-                    <span className="dash-cf-category-meter" aria-hidden="true"><i style={{ width: `${percentual}%` }}/></span>
-                  </button>
-                );
-              }) : (
-                <div className="dash-cf-empty dash-cf-empty-compact"><OperationIcon name="file" size={21}/><p>Nenhuma categoria disponível neste recorte.</p></div>
-              )}
-            </div>
-          </section>
+            </section>
 
-          <section aria-labelledby="dash-cf-points-title" className="dash-cf-ledger dash-cf-points-ledger">
-            <header className="dash-cf-section-heading dash-cf-section-heading-compact">
-              <div>
-                <span className="dash-cf-eyebrow">Rede ativa</span>
-                <h2 id="dash-cf-points-title">Pontos com equipamentos</h2>
-              </div>
-              <button onClick={onAbrirPontos} type="button">Ver todos <OperationIcon name="chevronRight" size={14}/></button>
-            </header>
-            {pontosComEquipamentos.length === 0 ? (
-              <div className="dash-cf-empty dash-cf-empty-compact"><OperationIcon name="info" size={21}/><p>Nenhum equipamento está ligado a um ponto.</p></div>
-            ) : (
-              <ol className="dash-cf-point-list">
-                {pontosComEquipamentos.slice(0, 5).map((ponto, indice) => (
-                  <li key={ponto.id || `${ponto.nomeFantasia}-${indice}`}>
-                    <span>{String(indice + 1).padStart(2, "0")}</span>
-                    <div><strong>{ponto.nomeFantasia}</strong><small>{ponto.totalEquipamentos === 1 ? "1 equipamento" : `${ponto.totalEquipamentos} equipamentos`}</small></div>
-                    <b>{ponto.totalEquipamentos}</b>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
+            <section aria-labelledby="dash-cf-points-title" className="dash-cf-ledger dash-cf-points-ledger">
+              <header className="dash-cf-section-heading dash-cf-section-heading-compact">
+                <div>
+                  <span className="dash-cf-eyebrow">Rede ativa</span>
+                  <h2 id="dash-cf-points-title">Pontos em operação</h2>
+                </div>
+                <button onClick={onAbrirPontos} type="button">Abrir rede <OperationIcon name="chevronRight" size={14}/></button>
+              </header>
+              {pontosComEquipamentos.length === 0 ? (
+                <div className="dash-cf-empty dash-cf-empty-compact"><OperationIcon name="info" size={21}/><p>Nenhum equipamento está ligado a um ponto.</p></div>
+              ) : (
+                <ol className="dash-cf-point-list">
+                  {pontosComEquipamentos.slice(0, 5).map((ponto, indice) => (
+                    <li key={ponto.id || `${ponto.nomeFantasia}-${indice}`}>
+                      <span>{String(indice + 1).padStart(2, "0")}</span>
+                      <div><strong>{ponto.nomeFantasia}</strong><small>{ponto.totalEquipamentos === 1 ? "1 equipamento" : `${ponto.totalEquipamentos} equipamentos`}</small></div>
+                      <b>{ponto.totalEquipamentos}</b>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          </div>
         </div>
 
         <section aria-labelledby="dash-cf-changes-title" className="dash-cf-ledger dash-cf-changes">
