@@ -9,7 +9,6 @@ import PointsPage, { PointFormModal } from "./PointsPage.jsx";
 import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
 import DevedoresPage from "./DevedoresPage.jsx";
-import { IconButton, PageHeader } from "./components/operations/OperationsUI.jsx";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
@@ -3425,6 +3424,8 @@ function Sistema({onLogout}){
   const [modalSenha,setModalSenha]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
   const [sidebarAberta,setSidebarAberta]=useState(false);
+  const sidebarRef=useRef(null);
+  const focoAntesSidebarRef=useRef(null);
   const [itemDetalhe,setItemDetalhe]=useState(null);
   const [itemDetalheSomenteLeitura,setItemDetalheSomenteLeitura]=useState(false);
   const [buscaGlobal,setBuscaGlobal]=useState("");
@@ -3476,14 +3477,54 @@ function Sistema({onLogout}){
   },[tentativaCarga]);
 
   function toggleTema(){const n=!temaClaro;setTemaClaro(n);try{localStorage.setItem("sc_tema",n?"claro":"escuro");}catch{}}
-  function fecharSidebar(){setSidebarAberta(false);}
-  function navegar(novaAba){setAba(novaAba);fecharSidebar();}
+  function restaurarFocoSidebar(){
+    const alvo=focoAntesSidebarRef.current;
+    focoAntesSidebarRef.current=null;
+    if(alvo instanceof HTMLElement)window.requestAnimationFrame(()=>alvo.focus());
+  }
+  function fecharSidebar(restaurarFoco=true){
+    setSidebarAberta(false);
+    if(restaurarFoco&&aba==="devedores"&&acessoDevedores)restaurarFocoSidebar();
+  }
+  function alternarSidebarDevedores(){
+    if(sidebarAberta){fecharSidebar();return;}
+    focoAntesSidebarRef.current=document.activeElement;
+    setSidebarAberta(true);
+  }
+  function navegar(novaAba){setAba(novaAba);fecharSidebar(false);}
 
   const mensagemDoDia=getMensagemMotivacionalDoDia();
   const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
   const administrador=perfilAtual.perfil==="administrador";
   const operador=perfilAtual.perfil==="operador";
   const acessoDevedores=permissoesDevedores(perfilAtual.perfil,perfilAtual.perfilReal===true).acessar;
+  const drawerDevedores=aba==="devedores"&&acessoDevedores;
+  useEffect(()=>{
+    if(!drawerDevedores||!sidebarAberta)return undefined;
+    const painel=sidebarRef.current;
+    if(!painel)return undefined;
+    const seletor='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focaveis=()=>Array.from(painel.querySelectorAll(seletor)).filter(elemento=>elemento.getClientRects().length>0);
+    const primeiro=painel.querySelector('.nav-item.active')||focaveis()[0];
+    window.requestAnimationFrame(()=>primeiro?.focus());
+    function controlarTeclado(evento){
+      if(evento.key==="Escape"){
+        evento.preventDefault();
+        setSidebarAberta(false);
+        restaurarFocoSidebar();
+        return;
+      }
+      if(evento.key!=="Tab")return;
+      const itens=focaveis();
+      if(!itens.length){evento.preventDefault();painel.focus();return;}
+      const primeiroItem=itens[0];
+      const ultimoItem=itens[itens.length-1];
+      if(evento.shiftKey&&document.activeElement===primeiroItem){evento.preventDefault();ultimoItem.focus();}
+      else if(!evento.shiftKey&&document.activeElement===ultimoItem){evento.preventDefault();primeiroItem.focus();}
+    }
+    document.addEventListener("keydown",controlarTeclado);
+    return()=>document.removeEventListener("keydown",controlarTeclado);
+  },[drawerDevedores,sidebarAberta]);
   useEffect(()=>{
     const metaTema=document.querySelector('meta[name="theme-color"]');
     if(!metaTema)return;
@@ -4099,7 +4140,7 @@ function Sistema({onLogout}){
     <div className={`app${temaClaro?" tema-claro":""}${aba==="devedores"&&acessoDevedores?" operations-shell":""}`}>
       <div className={`sidebar-overlay ${sidebarAberta?"ativo":""}`} onClick={fecharSidebar}/>
 
-      <aside className={`sidebar ${sidebarAberta?"aberta":""}`}>
+      <aside aria-hidden={drawerDevedores&&!sidebarAberta?true:undefined} aria-label={drawerDevedores?"Navegação principal do Stock-On":undefined} aria-modal={drawerDevedores&&sidebarAberta?"true":undefined} className={`sidebar ${sidebarAberta?"aberta":""}`} id="stock-on-primary-navigation" inert={drawerDevedores&&!sidebarAberta?true:undefined} ref={sidebarRef} role={drawerDevedores?"dialog":undefined} tabIndex={drawerDevedores?-1:undefined}>
         <div className="sidebar-logo">
           <img src={temaClaro?logoLight:logo} alt="Stock-ON" className="logo-sidebar-emblem"/>
         </div>
@@ -4632,21 +4673,9 @@ function Sistema({onLogout}){
           </>
         )}
 
-        {aba==="devedores"&&acessoDevedores&&(<>
-          <PageHeader
-            className="topbar topbar-devedores operations-theme"
-            compact
-            leading={<IconButton icon="menu" label="Abrir menu principal" className="btn-hamburguer" onClick={()=>setSidebarAberta(!sidebarAberta)}/>}
-            title="Devedores"
-            subtitle="Carteira, acordos e liquidações"
-          >
-            <span className="dev-header-context">
-              <span className="dev-header-context-mark" aria-hidden="true"/>
-              Carteira operacional
-            </span>
-          </PageHeader>
-          <DevedoresPage perfilAtual={perfilAtual}/>
-        </>)}
+        {aba==="devedores"&&acessoDevedores&&(
+          <DevedoresPage perfilAtual={perfilAtual} menuAberto={sidebarAberta} onAbrirMenu={alternarSidebarDevedores}/>
+        )}
 
         {aba==="buscar-gerentes"&&(administrador||operador)&&(<>
           <header className="topbar">

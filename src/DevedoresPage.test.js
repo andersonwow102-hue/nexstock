@@ -49,21 +49,24 @@ test("lista possui busca, filtros, estados e paginação segura", () => {
   assert.match(pagina, /Nenhum devedor encontrado/);
 });
 
-test("responsividade troca tabela por cards sem rolagem horizontal obrigatória", () => {
-  assert.match(css, /@media\(max-width:760px\)/);
-  assert.match(css, /\.dev-tabela-wrap\{display:none\}/);
-  assert.match(css, /\.dev-cards\{display:grid/);
-  assert.match(css, /\.dev-modal-fundo\{padding:0/);
+test("responsividade reorganiza a lista densa e abre o dossie como sheet", () => {
+  assert.match(css, /@media\s*\(max-width:\s*760px\)/);
+  assert.match(pagina, /className="dev-cf-ledger"/);
+  assert.match(css, /grid-template-areas:\s*\n\s*"account balance"\s*\n\s*"need need"\s*\n\s*"track track"/);
+  assert.match(css, /\.dev-command-flow \.dev-modal-fundo\.so-modal-overlay\s*\{\s*padding:\s*0/);
+  assert.match(css, /\.dev-command-flow \.dev-modal\.so-modal:has\(\.dev-cf-mobile-dossier\)[\s\S]*?width:\s*100%/);
+  assert.match(pagina, /className="dev-cf-mobile-register"/);
+  assert.match(css, /\.dev-cf-mobile-register[\s\S]*?min-height:\s*44px/);
 });
 
 test("operador possui fluxo mobile com filtros, parcelas e pagamento seguro", () => {
-  for (const termo of ["Mais filtros", "Aplicar filtros", "Saldo pendente", "Registrar pagamento", "Saldo projetado", "Registrando pagamento...", "Resumo do pagamento"]) {
+  for (const termo of ["Filtros da carteira", "Limpar filtros", "Saldo disponível", "Registrar pagamento", "Saldo projetado", "Registrando pagamento...", "Resumo do pagamento"]) {
     assert.ok(pagina.includes(termo), `ausente: ${termo}`);
   }
   assert.match(pagina, /acimaDoSaldo/);
   assert.match(pagina, /dev-parcelas/);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
-  assert.match(css, /width: 100vw/);
+  assert.match(css, /\.dev-cf-filter-panel[\s\S]*?max-height:\s*86dvh/);
 });
 
 test("detalhe diferencia parcelas quitadas e apresenta progresso da divida", () => {
@@ -73,7 +76,8 @@ test("detalhe diferencia parcelas quitadas e apresenta progresso da divida", () 
   assert.match(pagina, /dev-parcela-concluida/);
   assert.match(pagina, /Parcela quitada/);
   assert.match(pagina, /perfilResponsavel\(ativa\.criado_por_perfil_snapshot\)/);
-  assert.match(css, /\.dev-tabela td:last-child button \{ min-width: 76px; white-space: nowrap; \}/);
+  assert.match(css, /\.dev-cf-progress \.dev-progresso-trilha/);
+  assert.match(pagina, /Progressão real da dívida/);
 });
 
 test("datas civis e prévia de parcelas usam utilitários dedicados", () => {
@@ -87,5 +91,6 @@ test("exclusão administrativa exige motivo e preserva histórico", () => {
     assert.match(pagina, new RegExp(termo, "i"));
   }
   assert.match(pagina, /permissao\.excluirAdministrativamente/);
-  assert.match(pagina, /filter\(i=>!i\.relatorio\.excluido_em\)/);
+  assert.match(pagina, /filter\(i=>!registroExcluido\(i\)\)/);
+  assert.match(pagina, /registro\?\.relatorio\?\.excluido_em\|\|registro\?\.resumo\?\.excluido_em/);
 });
