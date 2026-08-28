@@ -12,8 +12,10 @@ import {
   carregarSolicitacoesStatusPonto, solicitarDesativacaoPonto, decidirDesativacaoPonto, reativarPonto,
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
+import { EmptyState, OperationIcon, Pagination, StatusBadge } from "./components/operations/OperationsUI.jsx";
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, isManagerExpense } from "./expenseScope.js";
+import "./PointsCommandFlow.css";
 
 const partesDataLocal=()=>{
   const d = new Date();
@@ -124,7 +126,7 @@ export function BadgeGerente({ gerente }) {
   const rota = rotaCanonica(gerente);
   const c = GERENTE_CORES[rota] || { bg:"rgba(107,122,153,0.15)", color:"#6b7a99", border:"rgba(107,122,153,0.3)" };
   return (
-    <span style={{ display:"inline-block", background:c.bg, color:c.color, border:`1px solid ${c.border}`,
+    <span className="pcf-route-badge" style={{ display:"inline-block", background:c.bg, color:c.color, border:`1px solid ${c.border}`,
       fontSize:"11px", fontWeight:700, padding:"3px 10px", borderRadius:"20px", whiteSpace:"nowrap" }}>
       {rota || gerente}
     </span>
@@ -343,10 +345,10 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
       <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <h3>{ponto?"Editar Ponto":"Novo Ponto"}</h3>
-          <button className="modal-fechar" onClick={onFechar}>✕</button>
+          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar formulário"><OperationIcon name="close"/></button>
         </div>
         <div className="modal-body">
-          {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+          {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
           <div className="campos-duplos">
             <div className="campo"><label>Nome Fantasia *</label>
               <input type="text" placeholder="Ex: BAR DO ZÉ" value={form.nomeFantasia} onChange={e=>setForm({...form,nomeFantasia:e.target.value.toLocaleUpperCase("pt-BR")})}/></div>
@@ -493,7 +495,7 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
             <h3>Acessos do ponto</h3>
             <p>{ponto.nomeFantasia}</p>
           </div>
-          <button className="modal-fechar" onClick={onFechar}>✕</button>
+          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar acessos"><OperationIcon name="close"/></button>
         </div>
         <div className="modal-body">
           {acessos.length===0
@@ -592,7 +594,7 @@ function PointExpensesModal({ pontos, despesas = [], competenciaInicial = compet
   return (
     <div className="modal-overlay" onClick={onFechar}>
       <div className="modal modal-largo modal-despesas-pontos" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header"><h3>💰 Despesas dos Pontos</h3><button className="modal-fechar" onClick={onFechar}>✕</button></div>
+        <div className="modal-header"><h3><OperationIcon name="money"/>Despesas dos pontos</h3><button className="modal-fechar" onClick={onFechar} aria-label="Fechar despesas"><OperationIcon name="close"/></button></div>
         <div className="modal-body">
           {permitirSelecionarCompetencia&&(
             <label className="despesas-competencia-filtro">
@@ -609,9 +611,9 @@ function PointExpensesModal({ pontos, despesas = [], competenciaInicial = compet
           )}
           {pontoSelecionado ? (
             <section className="despesas-ponto-detalhe">
-              <button type="button" className="btn-secundario despesas-voltar" onClick={()=>setPontoSelecionado(null)}>← Voltar aos pontos</button>
+              <button type="button" className="btn-secundario despesas-voltar" onClick={()=>setPontoSelecionado(null)}><OperationIcon name="chevronLeft"/> Voltar aos pontos</button>
               <div className="despesas-ponto-detalhe-head">
-                <div><span>🏪 Ponto selecionado</span><h4>{pontoSelecionado.nomeFantasia} <PlayBetBadge ponto={pontoSelecionado}/></h4><small>{pontoSelecionado.nomeDono} · {pontoSelecionado.telefone}</small></div>
+                <div><span>Ponto selecionado</span><h4>{pontoSelecionado.nomeFantasia} <PlayBetBadge ponto={pontoSelecionado}/></h4><small>{pontoSelecionado.nomeDono} · {pontoSelecionado.telefone}</small></div>
                 <BadgeGerente gerente={pontoSelecionado.gerente}/>
               </div>
               <div className="despesas-lancamentos">
@@ -640,13 +642,13 @@ function PointExpensesModal({ pontos, despesas = [], competenciaInicial = compet
                       <span><i>{indice+1}º</i>{item.rota}</span>
                       <strong>{formatarReais(item.total)}</strong>
                       <small><em>{item.comDespesa} com despesa</em><em className="sem-despesa">{item.semDespesa} sem despesa</em></small>
-                      {item.totalGerente>0&&<small className="despesas-gerente-sinal">👤 Gerente: {formatarReais(item.totalGerente)}</small>}
+                      {item.totalGerente>0&&<small className="despesas-gerente-sinal"><OperationIcon name="user" size={13}/>Gerente: {formatarReais(item.totalGerente)}</small>}
                     </button>
                   ))}
                 </div>
                 {despesasPessoaisDaRota.length>0&&(
                   <div className="despesas-gerentes-resumo">
-                    <h4>👤 Despesas pessoais dos gerentes</h4>
+                    <h4><OperationIcon name="user"/>Despesas pessoais dos gerentes</h4>
                     {despesasPessoaisDaRota.map(d=>(
                       <article key={d.id}>
                         <div><strong>{d.gerente||"Gerente"}</strong><small>{d.rota||"Sem rota"} · {d.descricao||"Despesa sem descrição"}</small></div>
@@ -666,7 +668,7 @@ function PointExpensesModal({ pontos, despesas = [], competenciaInicial = compet
                 ?<p className="tabela-vazia">Nenhum ponto encontrado neste filtro.</p>
                 :pontosFiltrados.map(p=>(
                   <button type="button" className="despesas-ponto-linha" key={p.id} onClick={()=>setPontoSelecionado(p)}>
-                    <div><strong>🏪 {p.nomeFantasia} <PlayBetBadge ponto={p}/></strong><small>{p.nomeDono}</small></div>
+                    <div><strong>{p.nomeFantasia} <PlayBetBadge ponto={p}/></strong><small>{p.nomeDono}</small></div>
                     <BadgeGerente gerente={p.gerente}/>
                     <b className={pontoTemDespesa(p)?"":"sem-despesa"}>{pontoTemDespesa(p)?formatarReais(p.valorDespesa):"Sem despesa"}</b>
                     <span aria-hidden="true">›</span>
@@ -687,6 +689,8 @@ function AbaVisaoGeral({ pontos, despesas = [], competencia = competenciaAtual()
   const totalPontos   = pontos.length;
   const comDespesa    = pontos.filter(p=>p.possuiDespesa==="sim").length;
   const semDespesa    = pontos.filter(p=>p.possuiDespesa==="nao").length;
+  const ativos        = pontos.filter(p=>p.situacaoOperacional!=="desativado").length;
+  const desativados   = totalPontos-ativos;
   const totalPontosDespesas = pontos.reduce((s,p)=>s+(p.valorDespesa||0),0);
   const totalGerentesDespesas = despesas
     .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competencia)
@@ -694,30 +698,63 @@ function AbaVisaoGeral({ pontos, despesas = [], competencia = competenciaAtual()
   const totalDespesas = totalPontosDespesas+totalGerentesDespesas;
 
   return (
-    <>
-      <section className="secao">
-        <h2 className="secao-titulo">Resumo Geral</h2>
-        <div className="ponto-resumo-grid">
-          <button className="resumo-card resumo-total clickable" onClick={()=>onAbrirPontos("todos")}><div className="resumo-num">{totalPontos}</div><div className="resumo-label">Total de Pontos</div><small>Ver todos</small></button>
-          {mostrarDespesas&&<>
-            <button className="resumo-card resumo-disponivel clickable" onClick={()=>onAbrirPontos("nao")}><div className="resumo-num">{semDespesa}</div><div className="resumo-label">Sem Despesa</div><small>Mostrar lista</small></button>
-            <button className="resumo-card resumo-defeito clickable" onClick={()=>onAbrirPontos("sim")}><div className="resumo-num">{comDespesa}</div><div className="resumo-label">Com Despesa</div><small>Mostrar lista</small></button>
-            <button className="resumo-card resumo-conserto ponto-despesa-card clickable" onClick={onVerDespesas}>
-              <div className="resumo-num" style={{fontSize:"18px"}}>{formatarReais(totalDespesas)}</div>
-              <div className="resumo-label">💰 Total Despesas</div>
-              <small>Pontos {formatarReais(totalPontosDespesas)} · Gerentes {formatarReais(totalGerentesDespesas)}</small>
-            </button>
-          </>}
+    <section className="pcf-overview" aria-labelledby="pcf-overview-title">
+      <header className="pcf-section-heading">
+        <div>
+          <span className="pcf-eyebrow">Leitura da rede</span>
+          <h2 id="pcf-overview-title">Situação operacional</h2>
+          <p>Abra a lista a partir da necessidade que deseja conferir.</p>
         </div>
-      </section>
-      {pontos.length===0&&(
-        <div className="hist-vazio">
-          <div className="hist-vazio-icone">📍</div>
-          <div>Nenhum ponto cadastrado ainda.</div>
-          {podeEditar&&<button className="btn-primario" style={{marginTop:"8px"}} onClick={onNovoClick}>+ Cadastrar primeiro ponto</button>}
+        <span className="pcf-period"><OperationIcon name="clock" size={14}/>Competência {mesLabel(`${competencia}-01`)}</span>
+      </header>
+
+      {pontos.length===0 ? (
+        <EmptyState
+          className="pcf-empty"
+          icon="search"
+          title="Nenhum ponto cadastrado"
+          description="Cadastre o primeiro estabelecimento para iniciar a operação territorial."
+          action={podeEditar?<button className="pcf-button pcf-button--primary" onClick={onNovoClick}><OperationIcon name="plus"/>Cadastrar ponto</button>:null}
+        />
+      ) : (
+        <div className="pcf-overview-grid">
+          <div className="pcf-situation-ledger" aria-label="Indicadores da rede">
+            <button type="button" onClick={()=>onAbrirPontos("todos")}>
+              <span className="pcf-ledger-marker is-copper"><OperationIcon name="file" size={17}/></span>
+              <span><small>Rede cadastrada</small><strong>{totalPontos} ponto{totalPontos!==1?"s":""}</strong></span>
+              <span className="pcf-ledger-split"><b>{ativos}</b> ativos <b>{desativados}</b> desativados</span>
+              <OperationIcon name="chevronRight"/>
+            </button>
+            {mostrarDespesas&&<>
+              <button type="button" onClick={()=>onAbrirPontos("nao")}>
+                <span className="pcf-ledger-marker"><OperationIcon name="clock" size={17}/></span>
+                <span><small>Sem lançamento no mês</small><strong>{semDespesa} ponto{semDespesa!==1?"s":""}</strong></span>
+                <span className="pcf-ledger-copy">Consultar estabelecimentos sem despesa registrada</span>
+                <OperationIcon name="chevronRight"/>
+              </button>
+              <button type="button" onClick={()=>onAbrirPontos("sim")}>
+                <span className="pcf-ledger-marker"><OperationIcon name="receipt" size={17}/></span>
+                <span><small>Com lançamento no mês</small><strong>{comDespesa} ponto{comDespesa!==1?"s":""}</strong></span>
+                <span className="pcf-ledger-copy">Revisar os registros já lançados</span>
+                <OperationIcon name="chevronRight"/>
+              </button>
+            </>}
+          </div>
+
+          <aside className="pcf-finance-summary" aria-label="Resumo financeiro da competência">
+            <span className="pcf-eyebrow">Conferência mensal</span>
+            <strong>{mostrarDespesas?formatarReais(totalDespesas):"Acesso restrito"}</strong>
+            {mostrarDespesas?<>
+              <dl>
+                <div><dt>Pontos</dt><dd>{formatarReais(totalPontosDespesas)}</dd></div>
+                <div><dt>Gerentes</dt><dd>{formatarReais(totalGerentesDespesas)}</dd></div>
+              </dl>
+              <button type="button" className="pcf-button pcf-button--secondary" onClick={onVerDespesas}><OperationIcon name="receipt"/>Abrir conferência</button>
+            </>:<p>Despesas não são exibidas para este perfil.</p>}
+          </aside>
         </div>
       )}
-    </>
+    </section>
   );
 }
 
@@ -725,6 +762,7 @@ function AbaVisaoGeral({ pontos, despesas = [], competencia = competenciaAtual()
 function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], solicitacoesStatus=[], busca, onLimparBusca, filtroDespesa, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onExportExcel, onExportPDF, podeEditar, podeExcluir=false, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [pagina, setPagina] = useState(1);
+  const [pontoSelecionadoId, setPontoSelecionadoId] = useState(null);
   const POR_PAGINA=25;
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
@@ -739,129 +777,136 @@ function AbaPontos({ pontos, equipamentos, acessos=[], solicitacoes=[], solicita
   const visiveis=ordenados.slice((paginaAtual-1)*POR_PAGINA,paginaAtual*POR_PAGINA);
   useEffect(()=>setPagina(1),[busca,filtroGerente,filtroDespesa]);
   const tituloFiltro=!mostrarDespesas?"Todos":filtroDespesa==="sim"?"Com despesa":filtroDespesa==="nao"?"Sem despesa":"Todos";
+  const dadosOperacionais = ponto => {
+    const vinculados=equipamentos.filter(i=>i.localizacao===ponto.nomeFantasia);
+    const bloqueadas=modalidadesBloqueadasDoPonto(ponto, solicitacoes);
+    const totalAcessos=acessosDoPonto(acessos, ponto.id).length;
+    const desativado=ponto.situacaoOperacional==="desativado";
+    const desativacaoPendente=solicitacoesStatus.some(s=>Number(s.pontoId)===Number(ponto.id)&&s.status==="pendente");
+    return { vinculados, bloqueadas, totalAcessos, desativado, desativacaoPendente };
+  };
+  const pontoSelecionado=visiveis.find(p=>Number(p.id)===Number(pontoSelecionadoId))||visiveis[0]||null;
+  const selecionado=pontoSelecionado?dadosOperacionais(pontoSelecionado):null;
+  const limparFiltros=()=>{
+    onLimparBusca();
+    setFiltroGerente("Todos");
+    onLimparFiltro();
+  };
 
   return (
-    <section className="secao pontos-lista">
-      <div className="tabela-header">
-        <h2 className="secao-titulo" style={{margin:0}}>Pontos: {tituloFiltro} <span className="badge-count">{filtrados.length}</span></h2>
-        <div className="filtros">
-          <select className="select-filtro" value={filtroGerente} onChange={e=>setFiltroGerente(e.target.value)}>
-            <option value="Todos">Todas as rotas</option>
-            {ROTAS.map(r=><option key={r} value={r}>{r}</option>)}
-          </select>
-          {(busca||filtroGerente!=="Todos"||(mostrarDespesas&&filtroDespesa!=="todos"))&&<button className="btn-limpar" onClick={()=>{onLimparBusca();setFiltroGerente("Todos");onLimparFiltro();}}>✕ Limpar</button>}
-          <button className="btn-secundario" onClick={onExportExcel}>📊 Excel</button>
-          <button className="btn-secundario" onClick={onExportPDF}>📄 PDF</button>
+    <section className="pcf-workbench" aria-labelledby="pcf-ledger-title">
+      <header className="pcf-ledger-toolbar">
+        <div>
+          <span className="pcf-eyebrow">Ledger territorial</span>
+          <h2 id="pcf-ledger-title">{tituloFiltro}<span>{filtrados.length}</span></h2>
         </div>
-      </div>
-      <div className="tabela-wrapper pontos-tabela">
-        <table className="tabela">
-          <thead><tr><th>Nome Fantasia</th><th>Equipamentos</th><th>Dono</th><th>Telefone</th><th>Rota</th><th>Modalidades</th>{mostrarDespesas&&<th>Valor da despesa</th>}<th>⚙️</th></tr></thead>
-          <tbody>
-            {filtrados.length===0
-              ?<tr><td colSpan={mostrarDespesas?8:7} className="tabela-vazia">Nenhum ponto encontrado.</td></tr>
-              :visiveis.map(p=>{
-                const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
-                const bloqueadas = modalidadesBloqueadasDoPonto(p, solicitacoes);
-                const totalAcessos = acessosDoPonto(acessos, p.id).length;
-                const desativado = p.situacaoOperacional === "desativado";
-                const desativacaoPendente = solicitacoesStatus.some(s=>Number(s.pontoId)===Number(p.id)&&s.status==="pendente");
-                return <tr key={p.id} className={`${bloqueadas.length?"ponto-bloqueado-row":""} ${desativado?"ponto-desativado-row":""}`}>
-                  <td className="td-nome">
-                    🏪 {p.nomeFantasia}
-                    <PlayBetBadge ponto={p}/>
-                    {desativado&&<span className="ponto-status-desativado">DESATIVADO</span>}
-                    {bloqueadas.length>0&&<small className="ponto-bloqueado-alerta">🚫 Bloqueado: {bloqueadas.join(", ")}</small>}
-                  </td>
-                  <td>
-                    {vinculados.length===0
-                      ?<span className="td-obs">Nenhum</span>
-                      :<div className="equipamentos-ponto">{vinculados.map(i=><span key={i.id} className="badge-cat">{i.nome}</span>)}</div>}
-                  </td>
-                  <td className="td-obs">{p.nomeDono}</td>
-                  <td className="td-obs">{p.telefone}</td>
-                  <td><BadgeGerente gerente={p.gerente}/></td>
-                  <td><div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m} bloqueada={bloqueadas.includes(m)}/>)}</div></td>
-                  {mostrarDespesas&&<td className={p.possuiDespesa==="sim"?"qtd-baixa":"td-minimo"}>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):""}</td>}
-                  <td className="td-acoes">
-                    {totalAcessos>0&&<button className="btn-editar btn-acessos-ponto" onClick={()=>onVerAcessos?.(p)} title="Login e senha das modalidades">🔐</button>}
-                    {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)} title="Solicitar bloqueio ou desbloqueio">🚨</button>}
-                    {podeSolicitarDesativacao&&!desativado&&!desativacaoPendente&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onSolicitarDesativacao(p)} title="Solicitar desativação">Solicitar desativação</button>}
-                    {desativacaoPendente&&<span className="ponto-status-pendente">Desativação pendente</span>}
-                    {podeReativar&&desativado&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onReativar(p)}>Reativar</button>}
-                    {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)} title="Despesas mensais">💰</button>}
-                    {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)} title="Editar">✏️</button>}
-                    {podeExcluir&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)} title="Excluir">🗑️</button>}
-                  </td>
-                </tr>;
+        <div className="pcf-ledger-tools">
+          <label className="pcf-select-control">
+            <span>Rota</span>
+            <select value={filtroGerente} onChange={e=>setFiltroGerente(e.target.value)}>
+              <option value="Todos">Todas as rotas</option>
+              {ROTAS.map(r=><option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+          {(busca||filtroGerente!=="Todos"||(mostrarDespesas&&filtroDespesa!=="todos"))&&<button type="button" className="pcf-button pcf-button--ghost" onClick={limparFiltros}><OperationIcon name="close"/>Limpar</button>}
+          <button type="button" className="pcf-icon-action" onClick={onExportExcel} aria-label="Exportar pontos em CSV" title="Exportar CSV"><OperationIcon name="file"/></button>
+          <button type="button" className="pcf-icon-action" onClick={onExportPDF} aria-label="Exportar pontos em PDF" title="Exportar PDF"><OperationIcon name="receipt"/></button>
+        </div>
+      </header>
+
+      {filtrados.length===0 ? (
+        <EmptyState
+          className="pcf-empty"
+          icon="search"
+          title="Nenhum ponto encontrado"
+          description="Ajuste a busca ou limpe os filtros para voltar à rede completa."
+          action={(busca||filtroGerente!=="Todos"||filtroDespesa!=="todos")?<button type="button" className="pcf-button pcf-button--secondary" onClick={limparFiltros}>Limpar filtros</button>:null}
+        />
+      ) : (
+        <div className="pcf-master-detail">
+          <div className="pcf-master-pane">
+            <div className={`pcf-ledger-columns ${mostrarDespesas?"has-expense":""}`} aria-hidden="true">
+              <span>Ponto / responsável</span><span>Rota</span><span>Serviços</span><span>Equip.</span>{mostrarDespesas&&<span>Despesa</span>}<span>Situação</span>
+            </div>
+            <div className="pcf-records" aria-label="Pontos encontrados">
+              {visiveis.map(p=>{
+                const dados=dadosOperacionais(p);
+                const selecionadoAtual=Number(pontoSelecionado?.id)===Number(p.id);
+                const modalidadesAtivas=(p.modalidades||[]).filter(m=>!dados.bloqueadas.includes(m));
+                return <button
+                  type="button"
+                  key={p.id}
+                  className={`pcf-record ${mostrarDespesas?"has-expense":""} ${selecionadoAtual?"is-selected":""} ${dados.desativado?"is-disabled":""}`}
+                  aria-pressed={selecionadoAtual}
+                  onClick={()=>setPontoSelecionadoId(p.id)}
+                >
+                  <span className="pcf-record-identity"><strong>{p.nomeFantasia}<PlayBetBadge ponto={p}/></strong><small>{p.nomeDono} · {p.telefone}</small></span>
+                  <span><BadgeGerente gerente={p.gerente}/></span>
+                  <span className="pcf-record-count"><b>{modalidadesAtivas.length}</b><small>{dados.bloqueadas.length?`${dados.bloqueadas.length} bloqueado${dados.bloqueadas.length!==1?"s":""}`:"operando"}</small></span>
+                  <span className="pcf-record-count"><b>{dados.vinculados.length}</b><small>vinculados</small></span>
+                  {mostrarDespesas&&<span className="pcf-record-money">{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—"}</span>}
+                  <span className="pcf-record-state">
+                    <StatusBadge className={dados.desativado?"ponto-status-desativado":""} tone={dados.desativado?"neutral":dados.desativacaoPendente?"warning":"success"} label={dados.desativado?"Desativado":dados.desativacaoPendente?"Pendente":"Ativo"}/>
+                    <OperationIcon name="chevronRight" size={15}/>
+                  </span>
+                </button>;
               })}
-          </tbody>
-        </table>
-      </div>
-      <div className="ponto-cards">
-        {filtrados.length===0?<div className="tabela-vazia">Nenhum ponto encontrado.</div>
-        :visiveis.map(p=>{
-          const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
-          const bloqueadas = modalidadesBloqueadasDoPonto(p, solicitacoes);
-          const modalidadesAtivas=(p.modalidades||[]).filter(m=>!bloqueadas.includes(m));
-          const totalAcessos = acessosDoPonto(acessos, p.id).length;
-          const desativado = p.situacaoOperacional === "desativado";
-          const desativacaoPendente = solicitacoesStatus.some(s=>Number(s.pontoId)===Number(p.id)&&s.status==="pendente");
-          return(
-            <article className={`ponto-card ${bloqueadas.length?"ponto-card-bloqueado-wrap":""} ${desativado?"ponto-card-desativado":""}`} key={p.id}>
-              <div className="ponto-card-topo">
-                <div><h3>🏪 {p.nomeFantasia} <PlayBetBadge ponto={p}/>{desativado&&<span className="ponto-status-desativado">DESATIVADO</span>}</h3><p>{p.nomeDono} · {p.telefone}</p></div>
-                {mostrarDespesas&&p.possuiDespesa==="sim"&&<span className="badge-status status-defeito">Despesa lançada</span>}
+            </div>
+            {filtrados.length>POR_PAGINA&&<Pagination page={paginaAtual} totalPages={totalPaginas} totalItems={filtrados.length} itemLabel="pontos" onPageChange={setPagina} className="pcf-pagination"/>}
+          </div>
+
+          {pontoSelecionado&&selecionado&&<aside className="pcf-dossier" aria-label={`Dossiê de ${pontoSelecionado.nomeFantasia}`}>
+            <header className="pcf-dossier-header">
+              <div className="pcf-dossier-monogram" aria-hidden="true">{String(pontoSelecionado.nomeFantasia||"P").trim().slice(0,2)}</div>
+              <div>
+                <span className="pcf-eyebrow">Dossiê do ponto</span>
+                <h3>{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3>
+                <BadgeGerente gerente={pontoSelecionado.gerente}/>
               </div>
-              <div className="ponto-card-linha"><span>Rota</span><BadgeGerente gerente={p.gerente}/></div>
-              <div className="ponto-card-grupo">
-                <div className="ponto-card-linha ponto-card-linha-resumo">
-                  <span>Serviços</span>
-                  <div className="ponto-card-contagens">
-                    <strong>{modalidadesAtivas.length} funcionando</strong>
-                    {bloqueadas.length>0&&<strong className="ponto-card-contagem-bloqueada">{bloqueadas.length} bloqueado{bloqueadas.length!==1?"s":""}</strong>}
-                  </div>
-                </div>
-                {(p.modalidades||[]).length>0&&(
-                  <details className="ponto-card-detalhes">
-                    <summary>Ver quais serviços</summary>
-                    <div className="modalidades-badges">{p.modalidades.map(m=><BadgeModalidade key={m} m={m} bloqueada={bloqueadas.includes(m)}/>)}</div>
-                  </details>
-                )}
-              </div>
-              {bloqueadas.length>0&&<div className="ponto-card-bloqueado">🚫 Bloqueado: {bloqueadas.join(", ")}</div>}
-              <div className="ponto-card-grupo">
-                <div className="ponto-card-linha ponto-card-linha-resumo">
-                  <span>Equipamentos</span>
-                  <strong>{vinculados.length===0?"Nenhum":`${vinculados.length} no ponto`}</strong>
-                </div>
-                {vinculados.length>0&&(
-                  <details className="ponto-card-detalhes">
-                    <summary>Ver equipamentos</summary>
-                    <div className="equipamentos-ponto">{vinculados.map(i=><span key={i.id} className="badge-cat">{i.nome}</span>)}</div>
-                  </details>
-                )}
-              </div>
-              {mostrarDespesas&&p.possuiDespesa==="sim"&&<div className="ponto-card-valor">{formatarReais(p.valorDespesa)}</div>}
-              <div className="ponto-card-acoes">
-                {totalAcessos>0&&<button className="btn-editar btn-acessos-ponto" onClick={()=>onVerAcessos?.(p)}>🔐 Acessos</button>}
-                {podeSolicitarModalidade&&<button className="btn-editar btn-solicitar-modalidade" onClick={()=>onSolicitarModalidade(p)}>🚨 Bloquear / liberar</button>}
-                {podeSolicitarDesativacao&&!desativado&&!desativacaoPendente&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onSolicitarDesativacao(p)}>Solicitar desativação</button>}
-                {desativacaoPendente&&<span className="ponto-status-pendente">Desativação pendente</span>}
-                {podeReativar&&desativado&&<button className="btn-secundario btn-ciclo-ponto" onClick={()=>onReativar(p)}>Reativar ponto</button>}
-                {podeEditarDespesas&&<button className="btn-editar" onClick={()=>onDespesas(p)}>💰 Despesas</button>}
-                {podeEditar&&<button className="btn-editar" onClick={()=>onEditar(p)}>✏️ Editar</button>}
-                {podeExcluir&&<button className="btn-excluir" onClick={()=>onExcluir(p.id)}>🗑️ Excluir</button>}
-              </div>
-            </article>
-          );
-        })}
-      </div>
-      {filtrados.length>POR_PAGINA&&(
-        <div className="paginacao">
-          <button className="btn-secundario" disabled={paginaAtual===1} onClick={()=>setPagina(p=>p-1)}>Anterior</button>
-          <span>Página <strong>{paginaAtual}</strong> de <strong>{totalPaginas}</strong> · {filtrados.length} pontos</span>
-          <button className="btn-secundario" disabled={paginaAtual===totalPaginas} onClick={()=>setPagina(p=>p+1)}>Próxima</button>
+            </header>
+
+            <div className="pcf-dossier-status">
+              <StatusBadge tone={selecionado.desativado?"neutral":"success"} label={selecionado.desativado?"Operação desativada":"Operação ativa"}/>
+              {selecionado.desativacaoPendente&&<StatusBadge tone="warning" label="Desativação pendente"/>}
+              {selecionado.bloqueadas.length>0&&<StatusBadge tone="danger" label={`${selecionado.bloqueadas.length} serviço${selecionado.bloqueadas.length!==1?"s":""} bloqueado${selecionado.bloqueadas.length!==1?"s":""}`}/>}
+            </div>
+
+            <dl className="pcf-contact-strip">
+              <div><dt>Responsável</dt><dd>{pontoSelecionado.nomeDono}</dd></div>
+              <div><dt>Telefone</dt><dd>{pontoSelecionado.telefone}</dd></div>
+            </dl>
+
+            <div className="pcf-operational-spine">
+              <section>
+                <span className="pcf-spine-node"><OperationIcon name="check" size={15}/></span>
+                <div><small>Situação</small><strong>{selecionado.desativado?"Fora dos seletores ativos":"Disponível na operação"}</strong></div>
+              </section>
+              <section>
+                <span className="pcf-spine-node"><OperationIcon name="file" size={15}/></span>
+                <div><small>Serviços</small><strong>{(pontoSelecionado.modalidades||[]).length} cadastrados</strong><div className="modalidades-badges">{(pontoSelecionado.modalidades||[]).map(m=><BadgeModalidade key={m} m={m} bloqueada={selecionado.bloqueadas.includes(m)}/>)}</div></div>
+              </section>
+              <section>
+                <span className="pcf-spine-node"><OperationIcon name="refresh" size={15}/></span>
+                <div><small>Equipamentos</small><strong>{selecionado.vinculados.length?`${selecionado.vinculados.length} no ponto`:"Nenhum vinculado"}</strong>{selecionado.vinculados.length>0&&<ul>{selecionado.vinculados.map(i=><li key={i.id}>{i.nome}</li>)}</ul>}</div>
+              </section>
+              {mostrarDespesas&&<section>
+                <span className="pcf-spine-node"><OperationIcon name="money" size={15}/></span>
+                <div><small>Despesa da competência</small><strong>{pontoSelecionado.possuiDespesa==="sim"?formatarReais(pontoSelecionado.valorDespesa):"Sem lançamento"}</strong></div>
+              </section>}
+            </div>
+
+            {pontoSelecionado.observacao&&<div className="pcf-dossier-note"><span>Observação</span><p>{pontoSelecionado.observacao}</p></div>}
+
+            <div className="pcf-dossier-actions" aria-label="Ações do ponto">
+              {selecionado.totalAcessos>0&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onVerAcessos?.(pontoSelecionado)}><OperationIcon name="lock"/>Acessos ({selecionado.totalAcessos})</button>}
+              {podeSolicitarModalidade&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onSolicitarModalidade(pontoSelecionado)}><OperationIcon name="warning"/>Bloquear / liberar</button>}
+              {podeEditarDespesas&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onDespesas(pontoSelecionado)}><OperationIcon name="money"/>Despesas</button>}
+              {podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onEditar(pontoSelecionado)}><OperationIcon name="edit"/>Editar</button>}
+              {podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>onSolicitarDesativacao(pontoSelecionado)}><OperationIcon name="clock"/>Solicitar desativação</button>}
+              {podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>onReativar(pontoSelecionado)}><OperationIcon name="refresh"/>Reativar ponto</button>}
+              {podeExcluir&&<button type="button" className="pcf-button pcf-button--danger" onClick={()=>onExcluir(pontoSelecionado.id)}><OperationIcon name="trash"/>Excluir ponto</button>}
+            </div>
+          </aside>}
         </div>
       )}
     </section>
@@ -958,10 +1003,10 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
       <div className="modal modal-extra-largo" onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <h3>{despesaDoGerente ? `Minhas despesas · ${gerenteDespesa}` : `Despesas mensais · ${ponto.nomeFantasia}`}</h3>
-          <button className="modal-fechar" onClick={onFechar}>✕</button>
+          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar despesas mensais"><OperationIcon name="close"/></button>
         </div>
         <div className="modal-body">
-          {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+          {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
           {prorrogacaoAtiva&&<div className="info-box despesa-excecao-aviso">Prazo disponível para esta competência: lançamentos permitidos até {formatarPrazoProrrogacao(prorrogacaoAtiva.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.</div>}
           {despesaDoGerente&&rotasGerente.length>1&&(
             <div className="campo despesa-rota-campo">
@@ -976,7 +1021,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
             {gerente?(
               <div className="despesa-gerente-periodo">
                 <div className={`despesa-periodo-atual ${consultandoMesAnterior?"consulta":""} ${!consultandoMesAnterior&&!podeEditarAgora?"fechado":""}`}>
-                  <span className="despesa-periodo-icone">📅</span>
+                  <span className="despesa-periodo-icone"><OperationIcon name="clock"/></span>
                   <div>
                     <small>{prorrogacaoAtiva?"Prazo disponível para lançamento":consultandoMesAnterior?"Consultando mês anterior":podeEditarAgora?"Lançamento do mês atual":"Mês atual · lançamento abre dia 10"}</small>
                     <strong>{competenciaTexto}</strong>
@@ -994,13 +1039,14 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
               </div>
             ):(
               <div className="campo despesa-mes-campo">
-                <label>📅 Mês de referência</label>
+                <label>Mês de referência</label>
                 <input type="month" value={competencia} onChange={e=>setCompetencia(e.target.value)}/>
                 <small>Clique no campo para escolher o mês.</small>
               </div>
             )}
             <div className="despesas-total-banner">Total do mês: <strong>{formatarReais(totalMes)}</strong></div>
-          </div>`r`n          <div className="tabela-wrapper despesa-planilha">
+          </div>
+          <div className="tabela-wrapper despesa-planilha">
             <table className="tabela">
               <thead><tr><th>Descrição</th><th>Valor</th><th>Observação</th><th></th></tr></thead>
               <tbody>
@@ -1009,7 +1055,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
                     <td><input value={linha.descricao} disabled={!podeEditarAgora} placeholder="Ex: Internet" onChange={e=>alterarLinha(index,"descricao",e.target.value)}/></td>
                     <td><input value={linha.valor} disabled={!podeEditarAgora} placeholder="R$ 0,00" onChange={e=>alterarLinha(index,"valor",mascaraMoeda(e.target.value))}/></td>
                     <td><input value={linha.observacao} disabled={!podeEditarAgora} placeholder="Opcional" onChange={e=>alterarLinha(index,"observacao",e.target.value)}/></td>
-                    <td>{podeEditarAgora&&<button className="btn-remover-linha" title="Remover linha" onClick={()=>removerLinha(index)}>×</button>}</td>
+                    <td>{podeEditarAgora&&<button className="btn-remover-linha" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1020,7 +1066,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
               <article className="despesa-mobile-card" key={`mobile-${linha.id||"nova"}-${index}`}>
                 <div className="despesa-mobile-card-head">
                   <span>Despesa {index + 1}</span>
-                  {podeEditarAgora&&<button className="btn-remover-linha" title="Remover linha" onClick={()=>removerLinha(index)}>×</button>}
+                  {podeEditarAgora&&<button className="btn-remover-linha" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}
                 </div>
                 <div className="campo">
                   <label>Descrição</label>
@@ -1080,11 +1126,11 @@ function SolicitacaoModalidadeModal({ ponto, perfilAtual, onSalvar, onFechar }) 
     <div className="modal-overlay" onClick={onFechar}>
       <div className="modal modal-pequeno solicitacao-modalidade-modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
-          <h3>🚨 Bloquear ou liberar serviço</h3>
-          <button className="modal-fechar" onClick={onFechar}>✕</button>
+          <h3><OperationIcon name="warning"/>Bloquear ou liberar serviço</h3>
+          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar solicitação"><OperationIcon name="close"/></button>
         </div>
         <div className="modal-body">
-          {erro&&<div className="erro-msg">⚠️ {erro}</div>}
+          {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
           <div className="solicitacao-ponto-resumo">
             <small>Ponto</small>
             <strong>{ponto.nomeFantasia}</strong>
@@ -1138,7 +1184,7 @@ function MotivoCicloPontoModal({ ponto, titulo, acaoLabel, onConfirmar, onFechar
   }
   return <div className="modal-overlay" onClick={onFechar}>
     <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
-      <div className="modal-header"><h3>{titulo}</h3><button className="modal-fechar" onClick={onFechar}>×</button></div>
+      <div className="modal-header"><h3>{titulo}</h3><button className="modal-fechar" onClick={onFechar} aria-label="Fechar operação"><OperationIcon name="close"/></button></div>
       <div className="modal-body">
         <div className="solicitacao-ponto-resumo"><small>Ponto</small><strong>{ponto.nomeFantasia}</strong><span>{rotaCanonica(ponto.gerente)}</span></div>
         {titulo==="Solicitar desativação"&&<p className="campo-hint">Esta solicitação encerra a operação do ponto após aprovação administrativa. Ela não bloqueia nem desbloqueia modalidades.</p>}
@@ -1183,16 +1229,16 @@ function mensagemErroCicloPonto(erro) {
 function PainelSolicitacoesStatusPonto({ solicitacoes, equipamentos, onDecidir }) {
   const pendentes = solicitacoes.filter(s=>s.status==="pendente");
   if (!pendentes.length) return null;
-  return <section className="solicitacoes-modalidade-panel solicitacoes-status-ponto-panel">
-    <div className="solicitacoes-panel-head"><div><span>Central administrativa</span><h3>Desativação de pontos</h3><p>Resolva os equipamentos vinculados antes de aprovar.</p></div><strong>{pendentes.length} pendente{pendentes.length!==1?"s":""}</strong></div>
+  return <section className="pcf-admin-queue solicitacoes-modalidade-panel solicitacoes-status-ponto-panel" aria-labelledby="pcf-status-queue-title">
+    <div className="solicitacoes-panel-head"><div className="pcf-queue-title"><OperationIcon name="warning"/><div><span>Fila administrativa · ciclo do ponto</span><h3 id="pcf-status-queue-title">Pedidos de desativação</h3><p>A aprovação permanece bloqueada enquanto houver equipamentos vinculados.</p></div></div><strong>{pendentes.length} pendente{pendentes.length!==1?"s":""}</strong></div>
     <div className="solicitacoes-grid">{pendentes.map(s=>{
       const vinculados=equipamentos.filter(e=>String(e.localizacao||"").trim().toLowerCase()===String(s.pontoNome||"").trim().toLowerCase());
       return <article key={s.id} className="solicitacao-card solicitacao-desativar">
         <div className="solicitacao-card-top"><span>DESATIVAR PONTO</span><small>{formatarDataSolicitacao(s.solicitadoEm)}</small></div>
         <h4>{s.pontoNome}</h4><p>Gerente: <strong>{s.gerente}</strong></p><blockquote>{s.motivo}</blockquote>
-        <div className="ponto-status-pendente">Situação: pendente</div>
+        <StatusBadge tone="warning" label="Decisão pendente"/>
         {vinculados.length>0&&<div className="solicitacao-equipamentos"><strong>Equipamentos vinculados</strong><ul>{vinculados.map(e=><li key={e.id}>{e.nome}</li>)}</ul><small>Use o fluxo existente de Equipamentos para movimentar ou disponibilizar cada item.</small></div>}
-        <div className="solicitacao-decisoes"><button className="btn-secundario" disabled={vinculados.length>0} onClick={()=>onDecidir(s,true)}>Aprovar</button><button className="btn-danger" onClick={()=>onDecidir(s,false)}>Rejeitar</button></div>
+        <div className="solicitacao-decisoes"><button className="pcf-button pcf-button--primary" disabled={vinculados.length>0} onClick={()=>onDecidir(s,true)}><OperationIcon name="check"/>Aprovar</button><button className="pcf-button pcf-button--danger" onClick={()=>onDecidir(s,false)}><OperationIcon name="close"/>Rejeitar</button></div>
       </article>;
     })}</div>
   </section>;
@@ -1202,12 +1248,15 @@ function PainelSolicitacoesModalidade({ solicitacoes, onConcluir }) {
   const pendentes = solicitacoes.filter(s=>s.status==="pendente");
   if (!pendentes.length) return null;
   return (
-    <section className="solicitacoes-modalidade-panel">
+    <section className="pcf-admin-queue solicitacoes-modalidade-panel" aria-labelledby="pcf-service-queue-title">
       <div className="solicitacoes-panel-head">
-        <div>
-          <span>Central de avisos</span>
-          <h3>Solicitações de bloqueio/desbloqueio</h3>
-          <p>O gerente abriu um pedido para o admin agir na plataforma da modalidade.</p>
+        <div className="pcf-queue-title">
+          <OperationIcon name="lock"/>
+          <div>
+            <span>Fila administrativa · serviços</span>
+            <h3 id="pcf-service-queue-title">Bloqueios e liberações</h3>
+            <p>Pedidos aguardando ação do administrador na plataforma da modalidade.</p>
+          </div>
         </div>
         <strong>{pendentes.length} pendente{pendentes.length!==1?"s":""}</strong>
       </div>
@@ -1222,7 +1271,7 @@ function PainelSolicitacoesModalidade({ solicitacoes, onConcluir }) {
             <p><strong>{s.pontoNome}</strong> · {rotaCanonica(s.rota)}</p>
             <p>Gerente: <strong>{s.gerente}</strong></p>
             <blockquote>{s.detalhe}</blockquote>
-            <button className="btn-secundario" onClick={()=>onConcluir(s.id)}>{s.acao==="bloquear"?"Aprovar bloqueio":"Aprovar desbloqueio"}</button>
+            <button className="pcf-button pcf-button--primary" onClick={()=>onConcluir(s.id)}><OperationIcon name="check"/>{s.acao==="bloquear"?"Concluir bloqueio":"Concluir liberação"}</button>
           </article>
         ))}
       </div>
@@ -1277,16 +1326,16 @@ function AbaHistoricoDespesas({ pontos, despesas, administrador=false }) {
             <h2 className="secao-titulo" style={{margin:0}}>Histórico de Despesas</h2>
             <p className="td-obs">Filtre por mês, ponto, gerente, descrição ou valor.</p>
           </div>
-          <button className="btn-primario" onClick={baixarPDF}>📄 Gerar PDF</button>
+          <button className="pcf-button pcf-button--primary" onClick={baixarPDF}><OperationIcon name="receipt"/>Gerar PDF</button>
         </div>
         <div className="filtros historico-despesas-filtros">
-          <input className="input-busca" type="text" placeholder="🔍 Buscar ponto, gerente, descrição..." value={busca} onChange={e=>setBusca(e.target.value)}/>
+          <input className="input-busca" type="search" placeholder="Buscar ponto, gerente ou descrição" aria-label="Buscar no histórico de despesas" value={busca} onChange={e=>setBusca(e.target.value)}/>
           <input className="select-filtro" type="month" value={competencia} onChange={e=>setCompetencia(e.target.value)} list="meses-despesas"/>
           <datalist id="meses-despesas">
             {meses.map(m=><option key={m} value={m}>{mesLabel(`${m}-01`)}</option>)}
           </datalist>
           {administrador&&<button className="btn-secundario" onClick={()=>setCompetencia("")}>Todos os meses</button>}
-          {(busca||competencia)&&<button className="btn-limpar" onClick={()=>{setBusca("");setCompetencia(administrador?"":competenciaAtual());}}>✕ Limpar</button>}
+          {(busca||competencia)&&<button className="pcf-button pcf-button--ghost" onClick={()=>{setBusca("");setCompetencia(administrador?"":competenciaAtual());}}><OperationIcon name="close"/>Limpar</button>}
         </div>
       </section>
       <section className="secao historico-despesas-resumo">
@@ -1306,7 +1355,7 @@ function AbaHistoricoDespesas({ pontos, despesas, administrador=false }) {
                 ?<tr><td colSpan={7} className="tabela-vazia">Nenhuma despesa encontrada para os filtros atuais.</td></tr>
                 :linhas.map(d=>(
                   <tr key={d.id}>
-                    <td className="td-nome">🏪 {d.pontoNome}</td>
+                    <td className="td-nome">{d.pontoNome}</td>
                     <td><BadgeGerente gerente={d.gerente}/></td>
                     <td>{d.descricao || "—"}</td>
                     <td className="qtd-baixa">{formatarReais(d.valor)}</td>
@@ -1359,30 +1408,30 @@ function AbaHistoricoDespesas({ pontos, despesas, administrador=false }) {
 // ─── ABA: Histórico ───────────────────────────────────────────────────────────
 function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
   const HIST_CFG_P = {
-    "cadastro":{ cor:"hist-cadastro", icone:"🆕", label:"Cadastro" },
-    "edicao":  { cor:"hist-edicao",   icone:"✏️", label:"Edição"   },
-    "exclusao":{ cor:"hist-exclusao", icone:"🗑️", label:"Exclusão" },
+    "cadastro":{ cor:"hist-cadastro", icone:"plus", label:"Cadastro" },
+    "edicao":  { cor:"hist-edicao",   icone:"edit", label:"Edição"   },
+    "exclusao":{ cor:"hist-exclusao", icone:"trash", label:"Exclusão" },
   };
   return(
     <section className="secao">
       <div className="tabela-header">
-        <h2 className="secao-titulo" style={{margin:0}}>📋 Histórico de Pontos</h2>
+        <h2 className="secao-titulo" style={{margin:0}}>Histórico de pontos</h2>
         <div style={{display:"flex",gap:"8px"}}>
-          <button className="btn-secundario" onClick={onExportExcel}>📊 Excel</button>
-          <button className="btn-secundario" onClick={onExportPDF}>📄 PDF</button>
+          <button className="pcf-button pcf-button--secondary" onClick={onExportExcel}><OperationIcon name="file"/>CSV</button>
+          <button className="pcf-button pcf-button--secondary" onClick={onExportPDF}><OperationIcon name="receipt"/>PDF</button>
         </div>
       </div>
       {historico.length===0
-        ?<div className="hist-vazio"><div className="hist-vazio-icone">📋</div><div>Nenhuma movimentação registrada.</div></div>
+        ?<EmptyState icon="file" title="Nenhuma movimentação registrada"/>
         :<div className="tabela-wrapper">
           <table className="tabela">
             <thead><tr><th>Tipo</th><th>Nome Fantasia</th><th>Gerente</th><th>Observação</th><th>Data</th></tr></thead>
             <tbody>
               {historico.map(h=>{
-                const cfg=HIST_CFG_P[h.tipo]||{cor:"",icone:"•",label:h.tipo};
+                const cfg=HIST_CFG_P[h.tipo]||{cor:"",icone:"file",label:h.tipo};
                 return(<tr key={h.id}>
-                  <td><span className={`badge-hist ${cfg.cor}`}>{cfg.icone} {cfg.label}</span></td>
-                  <td className="td-nome">🏪 {h.nome}</td>
+                  <td><span className={`badge-hist ${cfg.cor}`}><OperationIcon name={cfg.icone} size={13}/>{cfg.label}</span></td>
+                  <td className="td-nome">{h.nome}</td>
                   <td><BadgeGerente gerente={h.gerente}/></td>
                   <td className="td-obs">{h.observacao}</td>
                   <td className="td-minimo" style={{whiteSpace:"nowrap"}}>{h.data}</td>
@@ -1397,7 +1446,7 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange, onDespesasChange, onEditarEquipamento, onExcluirEquipamento }) {
+export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange, onDespesasChange, onEditarEquipamento, onExcluirEquipamento, onAbrirMenu }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [despesas,   setDespesas]  = useState([]);
@@ -1711,9 +1760,9 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   }
 
   const ABAS = [
-    {id:"geral",    label:"📊 Visão Geral"},
-    {id:"pontos",   label:`🏪 Pontos (${pontosVisiveis.length})`},
-    ...(mostrarDespesas ? [{id:"analise",  label:"💰 Histórico de Despesas"}] : []),
+    {id:"geral",    label:"Visão operacional", icon:"file"},
+    {id:"pontos",   label:`Pontos (${pontosVisiveis.length})`, icon:"search"},
+    ...(mostrarDespesas ? [{id:"analise",  label:"Histórico de despesas", icon:"receipt"}] : []),
   ];
   function abrirPontosFiltrados(filtro){
     setFiltroDespesa(filtro);
@@ -1722,31 +1771,47 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const pontoExcluindo=pontos.find(p=>p.id===excluindo);
   const equipamentosNoPonto=pontoExcluindo?equipamentos.filter(i=>i.localizacao===pontoExcluindo.nomeFantasia):[];
   const pontosParaExportar = pontosVisiveis;
+  const pendenciasServicos = solicitacoesAtuais.filter(s=>s.status==="pendente").length;
+  const pendenciasCiclo = solicitacoesStatus.filter(s=>s.status==="pendente").length;
 
   return(
-    <div className="points-page">
-      <div className="points-toolbar">
-        <input
-          className="input-busca points-busca-topo"
-          type="text"
-          placeholder="🔍 Digite qualquer coisa: ponto, dono, telefone, gerente ou equipamento..."
-          value={buscaPontos}
-          onChange={e=>{setBuscaPontos(e.target.value);if(e.target.value.trim())setAbaInterna("pontos");}}
-        />
-        <p>{mostrarDespesas ? "Consulte estabelecimentos, despesas e equipamentos vinculados." : "Consulte estabelecimentos, rotas e equipamentos vinculados."}</p>
-        {gerenteAtual&&<button className="btn-secundario" onClick={()=>setDespesasGerenteAbertas(true)}>💼 Minhas despesas</button>}
-        {podeCriarPonto&&<button className="btn-primario" onClick={()=>{setPontoEdit(null);setModalForm(true);}}>+ Novo Ponto</button>}
-      </div>
+    <div className="points-page points-command-flow operations-theme">
+      <header className="pcf-command-header">
+        <div className="pcf-command-title">
+          {onAbrirMenu&&<button className="pcf-menu-button" type="button" aria-label="Abrir navegação" onClick={onAbrirMenu}><OperationIcon name="menu"/></button>}
+          <div>
+            <span className="pcf-eyebrow">Rede territorial · Command Flow</span>
+            <h1>Pontos</h1>
+            <p>{mostrarDespesas ? "Posição, serviços, equipamentos e despesas em uma única leitura." : "Posição, serviços e equipamentos em uma única leitura."}</p>
+          </div>
+        </div>
+        <div className="pcf-command-actions">
+          {administrador&&(pendenciasServicos+pendenciasCiclo)>0&&<span className="pcf-pending-summary"><OperationIcon name="warning" size={15}/>{pendenciasServicos+pendenciasCiclo} na fila administrativa</span>}
+          {gerenteAtual&&<button className="pcf-button pcf-button--secondary" onClick={()=>setDespesasGerenteAbertas(true)}><OperationIcon name="money"/>Minhas despesas</button>}
+          {podeCriarPonto&&<button className="pcf-button pcf-button--primary" onClick={()=>{setPontoEdit(null);setModalForm(true);}}><OperationIcon name="plus"/>Novo ponto</button>}
+        </div>
+        <label className="pcf-command-search">
+          <span className="pcf-visually-hidden">Buscar pontos</span>
+          <OperationIcon name="search" size={19}/>
+          <input
+            type="search"
+            placeholder="Buscar ponto, responsável, telefone, rota ou equipamento"
+            value={buscaPontos}
+            onChange={e=>{setBuscaPontos(e.target.value);if(e.target.value.trim())setAbaInterna("pontos");}}
+          />
+          {buscaPontos&&<button type="button" onClick={()=>setBuscaPontos("")} aria-label="Limpar busca"><OperationIcon name="close" size={16}/></button>}
+        </label>
+      </header>
 
       {prorrogacoesAtivasGerente.map(prorrogacao=>(
-        <div className="info-box despesa-excecao-aviso" key={prorrogacao.id}>
-          Prazo para lançamento de {mesLabel(prorrogacao.competencia)}: disponível até {formatarPrazoProrrogacao(prorrogacao.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.
+        <div className="pcf-deadline-banner despesa-excecao-aviso" key={prorrogacao.id} role="status">
+          <OperationIcon name="clock"/><span>Prazo para lançamento de <strong>{mesLabel(prorrogacao.competencia)}</strong>: disponível até {formatarPrazoProrrogacao(prorrogacao.expiraEm)}.</span>
         </div>
       ))}
 
       {gerenteAtual&&competenciasAnterioresPermitidas.length>0&&(
         <div className="despesas-competencia-operacional">
-          <label htmlFor="competencia-despesas-gerente">Mês dos lançamentos</label>
+          <label htmlFor="competencia-despesas-gerente"><OperationIcon name="clock" size={14}/>Mês dos lançamentos</label>
           <select
             id="competencia-despesas-gerente"
             value={competenciaDespesas}
@@ -1762,8 +1827,9 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       <div className="points-abas">
         {ABAS.map(a=>(
           <button key={a.id} className={`points-aba-btn ${abaInterna===a.id?"points-aba-ativa":""}`}
+            aria-current={abaInterna===a.id?"page":undefined}
             onClick={()=>{setAbaInterna(a.id);if(a.id==="pontos")setFiltroDespesa("todos");}}>
-            {a.label}
+            <OperationIcon name={a.icon} size={15}/>{a.label}
           </button>
         ))}
       </div>
@@ -1772,7 +1838,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       {administrador&&<PainelSolicitacoesStatusPonto solicitacoes={solicitacoesStatus} equipamentos={equipamentos} onDecidir={decidirSolicitacaoDesativacao}/>}
 
       {loading&&(
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"60px",gap:"12px",color:"var(--txt-secondary)"}}>
+        <div className="pcf-loading" role="status">
           <div className="loading-dots"><span/><span/><span/></div>
           <span>Carregando pontos...</span>
         </div>
@@ -1797,11 +1863,11 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       {excluindo&&(
         <div className="modal-overlay" onClick={()=>setExcluindo(null)}>
           <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><h3>Confirmar Exclusão</h3><button className="modal-fechar" onClick={()=>setExcluindo(null)}>✕</button></div>
+            <div className="modal-header"><h3>Confirmar exclusão</h3><button className="modal-fechar" onClick={()=>setExcluindo(null)} aria-label="Fechar confirmação"><OperationIcon name="close"/></button></div>
             <div className="modal-body">
               {equipamentosNoPonto.length>0
-                ?<div className="erro-msg">⚠️ Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</div>
-                :<p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja excluir este ponto?</p>}
+                ?<div className="erro-msg" role="alert"><OperationIcon name="warning" size={18}/><span>Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</span></div>
+                :<p className="pcf-confirm-copy">Tem certeza que deseja excluir este ponto?</p>}
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={()=>setExcluindo(null)}>Cancelar</button>

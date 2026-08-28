@@ -1,26 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { OperationIcon } from "./components/operations/OperationsUI.jsx";
 import "./DashboardPage.css";
-
-const DASHBOARD_ICON_PATHS = {
-  menu: <><path d="M4 7h16M4 12h16M4 17h16"/></>,
-  package: <><path d="m20 8-8-4-8 4 8 4 8-4Z"/><path d="M4 8v8l8 4 8-4V8M12 12v8"/></>,
-  map: <><path d="M12 21s6-4.7 6-10a6 6 0 1 0-12 0c0 5.3 6 10 6 10Z"/><circle cx="12" cy="11" r="2"/></>,
-  history: <><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.7"/><path d="M4 4v4.7h4.7M12 8v4l2.8 1.8"/></>,
-  arrow: <><path d="M5 12h14M14 7l5 5-5 5"/></>,
-  stock: <><path d="M5 19V9M12 19V5M19 19v-7"/><path d="M3 19h18"/></>,
-  route: <><circle cx="5" cy="17" r="2"/><circle cx="19" cy="7" r="2"/><path d="M7 17h3a3 3 0 0 0 3-3v-4a3 3 0 0 1 3-3h1"/></>,
-  manager: <><circle cx="12" cy="8" r="3"/><path d="M6 20a6 6 0 0 1 12 0"/><path d="M18 4v4M16 6h4"/></>,
-  repair: <><path d="M14.5 6.5a4 4 0 0 0 4.8 4.8L11 19.6a2.1 2.1 0 0 1-3-3l8.3-8.3a4 4 0 0 1-1.8-1.8Z"/><path d="m6.5 18.5-2 2"/></>,
-  check: <><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16.5 9"/></>,
-};
-
-function DashboardIcon({ name, size = 18 }) {
-  return (
-    <svg aria-hidden="true" className="dash-cf-icon" fill="none" height={size} viewBox="0 0 24 24" width={size}>
-      {DASHBOARD_ICON_PATHS[name] || DASHBOARD_ICON_PATHS.stock}
-    </svg>
-  );
-}
 
 function useReducedMotion() {
   const [reduzir, setReduzir] = useState(() => (
@@ -98,21 +78,36 @@ function tomHistorico(tipo) {
   return "neutral";
 }
 
-function PositionNode({ activeTone = "", detail, icon, label, onClick, value, animate }) {
+function iconeCategoria(categoria) {
+  const nome = String(categoria || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+
+  if (nome.includes("televis")) return "eye";
+  if (nome.includes("noteiro")) return "money";
+  if (nome.includes("carregador")) return "refresh";
+  if (nome.includes("totem")) return "info";
+  if (nome.includes("brinde")) return "plus";
+  if (nome.includes("terminal") || nome.includes("tablet") || nome.includes("pdv")) return "receipt";
+  return "file";
+}
+
+function PositionMetric({ animate, detail, icon, label, onClick, tone = "", value }) {
   return (
     <button
       aria-label={`${label}: ${value}. ${detail}`}
-      className={`dash-cf-position-node${activeTone ? ` is-${activeTone}` : ""}`}
+      className={`dash-cf-position-cell${tone ? ` is-${tone}` : ""}`}
       onClick={onClick}
       type="button"
     >
-      <span className="dash-cf-node-marker"><DashboardIcon name={icon}/></span>
-      <span className="dash-cf-node-copy">
+      <span className="dash-cf-position-icon"><OperationIcon name={icon} size={18}/></span>
+      <span className="dash-cf-position-copy">
         <small>{label}</small>
         <strong><AnimatedNumber animate={animate} value={value}/></strong>
         <span>{detail}</span>
       </span>
-      <DashboardIcon name="arrow" size={15}/>
+      <OperationIcon className="dash-cf-position-arrow" name="chevronRight" size={15}/>
     </button>
   );
 }
@@ -122,8 +117,6 @@ export default function DashboardPage({
   gerenteNomeBase = "",
   historicoConfig = {},
   historicoOperacional = [],
-  iconesCategorias = {},
-  mensagemDoDia = "",
   menuAberto = false,
   onAbrirEquipamentos,
   onAbrirHistorico,
@@ -150,16 +143,18 @@ export default function DashboardPage({
   const gerente = Boolean(gerenteAtual);
   const operador = perfilAtual.perfil === "operador";
   const movimentos = historicoOperacional.slice(0, 5);
-  const maiorCategoria = Math.max(1, ...porCategoria.map(item => Number(item.total) || 0));
+  const nomePerfil = String(perfilAtual.nome || gerenteNomeBase || perfilAtual.perfil || "U").trim();
 
   const prioridade = useMemo(() => {
     if (!gerente && solicitacoesConsertoPendentes.length > 0) {
+      const quantidade = solicitacoesConsertoPendentes.length;
       return {
         tone: "risk",
-        eyebrow: operador ? "Ação requerida" : "Atenção operacional",
+        eyebrow: operador ? "Ação requerida" : "Atenção requerida",
         title: operador ? "Validar solicitações de conserto" : "Acompanhar solicitações de conserto",
-        text: `${solicitacoesConsertoPendentes.length} ${solicitacoesConsertoPendentes.length === 1 ? "solicitação aguarda" : "solicitações aguardam"} validação do perfil operador.`,
-        value: solicitacoesConsertoPendentes.length,
+        text: `${quantidade} ${quantidade === 1 ? "solicitação aguarda" : "solicitações aguardam"} validação do perfil operador.`,
+        value: quantidade,
+        measure: quantidade === 1 ? "solicitação" : "solicitações",
         action: operador ? "Revisar fila" : "Ver posição",
         onClick: onSelecionarConserto,
       };
@@ -171,6 +166,7 @@ export default function DashboardPage({
         title: "Monitorar ativos em conserto",
         text: `${totalConserto} ${totalConserto === 1 ? "equipamento exige" : "equipamentos exigem"} acompanhamento operacional.`,
         value: totalConserto,
+        measure: totalConserto === 1 ? "ativo" : "ativos",
         action: "Abrir posição",
         onClick: onSelecionarConserto,
       };
@@ -178,10 +174,11 @@ export default function DashboardPage({
     if (gerente && totalGeral > 0 && totalDisponivel === 0) {
       return {
         tone: "attention",
-        eyebrow: "Próxima leitura",
+        eyebrow: "Disponibilidade",
         title: "Revisar disponibilidade da carteira",
         text: "Não há equipamento disponível no recorte atual.",
         value: 0,
+        measure: "disponíveis",
         action: "Ver equipamentos",
         onClick: onSelecionarDisponiveis,
       };
@@ -189,10 +186,11 @@ export default function DashboardPage({
     if (gerente && totalEmRota > 0) {
       return {
         tone: "neutral",
-        eyebrow: "Próxima leitura",
-        title: "Acompanhar operação em rota",
+        eyebrow: "Operação em curso",
+        title: "Acompanhar equipamentos em rota",
         text: `${totalEmRota} ${totalEmRota === 1 ? "equipamento está" : "equipamentos estão"} em circulação na sua carteira.`,
         value: totalEmRota,
+        measure: "em rota",
         action: "Abrir recorte",
         onClick: onSelecionarPontos,
       };
@@ -202,7 +200,8 @@ export default function DashboardPage({
       eyebrow: "Posição estável",
       title: totalGeral ? "Nenhuma fila crítica agora" : "Base sem equipamentos neste recorte",
       text: totalGeral ? "A leitura atual não apresenta solicitação urgente de conserto." : "Cadastros futuros aparecerão automaticamente nesta central.",
-      value: totalGeral,
+      value: 0,
+      measure: "filas críticas",
       action: "Abrir equipamentos",
       onClick: onAbrirEquipamentos,
     };
@@ -213,6 +212,8 @@ export default function DashboardPage({
     const espera = window.setTimeout(() => onEntradaConcluida(true), 900);
     return () => window.clearTimeout(espera);
   }, [animarEntrada, onEntradaConcluida]);
+
+  const iconePrioridade = prioridade.tone === "success" ? "check" : prioridade.tone === "neutral" ? "refresh" : "warning";
 
   return (
     <div className={`stock-dashboard${animarEntrada ? " dash-cf-entering" : ""}`}>
@@ -227,159 +228,167 @@ export default function DashboardPage({
               onClick={onAbrirMenu}
               type="button"
             >
-              <DashboardIcon name="menu" size={20}/>
+              <OperationIcon name="menu" size={20}/>
             </button>
           ) : null}
           <div>
-            <span className="dash-cf-eyebrow">NEPTERA / controle operacional</span>
-            <h1>Central de posição</h1>
-            <p>{gerente ? `Carteira de ${gerenteNomeBase || gerenteAtual}` : "Leitura unificada do estoque e das movimentações"}</p>
+            <span className="dash-cf-eyebrow">NEPTERA / operação de estoque</span>
+            <h1>Dashboard operacional</h1>
+            <p>{gerente ? `Carteira de ${gerenteNomeBase || gerenteAtual}` : "Posição, atenção e mudanças da base ativa"}</p>
           </div>
         </div>
 
         <nav aria-label="Atalhos do Dashboard" className="dash-cf-shortcuts">
-          <button aria-label="Abrir equipamentos" onClick={onAbrirEquipamentos} title="Equipamentos" type="button"><DashboardIcon name="package"/><span>Equipamentos</span></button>
-          <button aria-label="Abrir pontos" onClick={onAbrirPontos} title="Pontos" type="button"><DashboardIcon name="map"/><span>Pontos</span></button>
-          <button aria-label="Abrir histórico" onClick={onAbrirHistorico} title="Histórico" type="button"><DashboardIcon name="history"/><span>Histórico</span></button>
+          <button aria-label="Abrir equipamentos" onClick={onAbrirEquipamentos} title="Equipamentos" type="button"><OperationIcon name="file"/><span>Equipamentos</span></button>
+          <button aria-label="Abrir pontos" onClick={onAbrirPontos} title="Pontos" type="button"><OperationIcon name="info"/><span>Pontos</span></button>
+          <button aria-label="Abrir histórico" onClick={onAbrirHistorico} title="Histórico" type="button"><OperationIcon name="clock"/><span>Histórico</span></button>
         </nav>
 
         <div className="dash-cf-profile" aria-label={`Perfil atual: ${rotuloPerfil(perfilAtual.perfil)}`}>
-          <span>{String(perfilAtual.nome || gerenteNomeBase || perfilAtual.perfil || "U").trim().charAt(0).toUpperCase()}</span>
+          <span>{nomePerfil.charAt(0).toUpperCase()}</span>
           <div><small>Acesso atual</small><strong>{rotuloPerfil(perfilAtual.perfil)}</strong></div>
         </div>
       </header>
 
       <div className="dash-cf-canvas">
-        <section aria-label="Contexto do turno" className="dash-cf-briefing">
-          <span className="dash-cf-briefing-label">Diretriz do dia</span>
-          <q>{mensagemDoDia}</q>
-          <span className="dash-cf-briefing-context">{gerente ? "Recorte da carteira" : "Base operacional completa"}</span>
-        </section>
-
-        <section aria-labelledby="dash-cf-position-title" className="dash-cf-position-board">
-          <div className="dash-cf-section-heading">
+        <section aria-labelledby="dash-cf-position-title" className="dash-cf-position-strip">
+          <header className="dash-cf-section-heading dash-cf-position-heading">
             <div>
-              <span className="dash-cf-eyebrow">Mapa de posição</span>
-              <h2 id="dash-cf-position-title">Onde o estoque está agora</h2>
+              <span className="dash-cf-eyebrow">Posição agora</span>
+              <h2 id="dash-cf-position-title">Inventário em curso</h2>
             </div>
-            <p>Selecione uma posição para abrir o recorte correspondente.</p>
-          </div>
+            <p>{gerente ? "Recorte da carteira ativa" : "Base operacional completa"} · selecione uma posição para abrir o detalhe.</p>
+          </header>
 
-          <div className="dash-cf-position-layout">
+          <div className={`dash-cf-position-manifest${gerente ? " is-manager" : ""}`}>
             <button
               aria-label={`Abrir todos os equipamentos: ${totalGeral} cadastrados`}
-              className="dash-cf-total"
+              className="dash-cf-position-total"
               onClick={onSelecionarTotal}
               type="button"
             >
-              <span className="dash-cf-total-icon"><DashboardIcon name="stock" size={21}/></span>
-              <small>Base cadastrada</small>
-              <strong><AnimatedNumber animate={animarEntrada} value={totalGeral}/></strong>
-              <span>equipamentos no recorte</span>
-              <i><span>Abrir base</span><DashboardIcon name="arrow" size={15}/></i>
+              <span className="dash-cf-position-icon"><OperationIcon name="receipt" size={19}/></span>
+              <span className="dash-cf-position-copy">
+                <small>Base total</small>
+                <strong><AnimatedNumber animate={animarEntrada} value={totalGeral}/></strong>
+                <span>equipamentos no recorte</span>
+              </span>
+              <OperationIcon className="dash-cf-position-arrow" name="chevronRight" size={15}/>
             </button>
 
-            <div className="dash-cf-position-track">
-              <PositionNode activeTone="available" animate={animarEntrada} detail={gerente ? "prontos para envio" : "no estoque interno"} icon="package" label={gerente ? "Disponíveis" : "Estoque interno"} onClick={onSelecionarDisponiveis} value={totalDisponivel}/>
-              <PositionNode animate={animarEntrada} detail="em operação nas rotas" icon="route" label="Em pontos" onClick={onSelecionarPontos} value={totalEmRota}/>
-              {!gerente ? <PositionNode animate={animarEntrada} detail="estoque ou transferência" icon="manager" label="Com gerentes" onClick={onSelecionarGerentes} value={totalComGerentes}/> : null}
-              {!gerente ? <PositionNode activeTone={totalConserto ? "attention" : ""} animate={animarEntrada} detail={`${solicitacoesConsertoPendentes.length} aguardando operador`} icon="repair" label="Conserto" onClick={onSelecionarConserto} value={totalConserto}/> : null}
-            </div>
+            <PositionMetric animate={animarEntrada} detail={gerente ? "prontos para envio" : "no estoque interno"} icon="check" label={gerente ? "Disponíveis" : "Estoque interno"} onClick={onSelecionarDisponiveis} tone="available" value={totalDisponivel}/>
+            <PositionMetric animate={animarEntrada} detail="em operação nas rotas" icon="refresh" label="Em pontos" onClick={onSelecionarPontos} value={totalEmRota}/>
+            {!gerente ? <PositionMetric animate={animarEntrada} detail="sob responsabilidade externa" icon="user" label="Com gerentes" onClick={onSelecionarGerentes} value={totalComGerentes}/> : null}
+            {!gerente ? <PositionMetric animate={animarEntrada} detail={`${solicitacoesConsertoPendentes.length} aguardando validação`} icon="warning" label="Em conserto" onClick={onSelecionarConserto} tone={totalConserto ? "attention" : ""} value={totalConserto}/> : null}
           </div>
         </section>
 
-        <div className="dash-cf-workspace">
-          <section aria-labelledby="dash-cf-category-title" className="dash-cf-ledger dash-cf-category-panel">
-            <div className="dash-cf-section-heading dash-cf-section-heading-compact">
+        <div className="dash-cf-workbench">
+          <section aria-labelledby="dash-cf-attention-title" className={`dash-cf-attention is-${prioridade.tone}`}>
+            <header>
+              <span className="dash-cf-attention-icon"><OperationIcon name={iconePrioridade} size={18}/></span>
               <div>
-                <span className="dash-cf-eyebrow">Saúde por categoria</span>
-                <h2 id="dash-cf-category-title">{gerente ? "Disponibilidade da carteira" : "Composição do estoque interno"}</h2>
+                <span className="dash-cf-eyebrow">Decisão do turno</span>
+                <h2 id="dash-cf-attention-title">Atenção e próxima ação</h2>
+              </div>
+            </header>
+            <div className="dash-cf-attention-body">
+              <span>{prioridade.eyebrow}</span>
+              <strong>{prioridade.title}</strong>
+              <p>{prioridade.text}</p>
+            </div>
+            <div className="dash-cf-attention-count" aria-label={`${prioridade.value} ${prioridade.measure}`}>
+              <strong><AnimatedNumber animate={animarEntrada} value={prioridade.value}/></strong>
+              <span>{prioridade.measure}</span>
+            </div>
+            <button onClick={prioridade.onClick} type="button"><span>{prioridade.action}</span><OperationIcon name="chevronRight" size={15}/></button>
+            <dl className="dash-cf-attention-facts">
+              {gerente ? (
+                <>
+                  <div><dt>Disponíveis</dt><dd>{totalDisponivel}</dd></div>
+                  <div><dt>Em rota</dt><dd>{totalEmRota}</dd></div>
+                </>
+              ) : (
+                <>
+                  <div><dt>Solicitações</dt><dd>{solicitacoesConsertoPendentes.length}</dd></div>
+                  <div><dt>Em conserto</dt><dd>{totalConserto}</dd></div>
+                </>
+              )}
+            </dl>
+          </section>
+
+          <section aria-labelledby="dash-cf-category-title" className="dash-cf-ledger dash-cf-category-ledger">
+            <header className="dash-cf-section-heading dash-cf-section-heading-compact">
+              <div>
+                <span className="dash-cf-eyebrow">Leitura por categoria</span>
+                <h2 id="dash-cf-category-title">{gerente ? "Disponibilidade da carteira" : "Estoque interno por categoria"}</h2>
               </div>
               <span className="dash-cf-count">{porCategoria.length} categorias</span>
-            </div>
-            <div className="dash-cf-category-header" aria-hidden="true">
-              <span>Categoria</span><span>Posição</span><span>Disponível / total</span>
-            </div>
+            </header>
             <div className="dash-cf-category-list">
-              {porCategoria.map(item => {
-                const percentual = item.total ? Math.round((item.disponivel / item.total) * 100) : 0;
-                const largura = gerente ? percentual : Math.round((item.total / maiorCategoria) * 100);
+              {porCategoria.length ? porCategoria.map(item => {
+                const total = Number(item.total) || 0;
+                const disponivel = Number(item.disponivel) || 0;
+                const percentual = total ? Math.min(100, Math.round((disponivel / total) * 100)) : 0;
                 return (
                   <button
-                    aria-label={`${item.categoria}: ${item.disponivel} disponíveis de ${item.total}. Abrir categoria.`}
+                    aria-label={`${item.categoria}: ${disponivel} disponíveis de ${total}. Abrir categoria.`}
                     className="dash-cf-category-row"
                     key={item.categoria}
                     onClick={() => onSelecionarCategoria?.(item.categoria)}
                     type="button"
                   >
-                    <span className="dash-cf-category-name"><i aria-hidden="true">{iconesCategorias[item.categoria] || "•"}</i><strong>{item.categoria}</strong></span>
-                    <span className="dash-cf-category-rail"><i style={{ width: `${largura}%` }}/></span>
-                    <span className="dash-cf-category-values"><strong>{item.disponivel}</strong><span>/ {item.total}</span><DashboardIcon name="arrow" size={14}/></span>
+                    <span className="dash-cf-category-name"><i aria-hidden="true"><OperationIcon name={iconeCategoria(item.categoria)} size={15}/></i><strong>{item.categoria}</strong></span>
+                    <span className="dash-cf-category-values"><strong>{disponivel}</strong><span>/ {total}</span><OperationIcon name="chevronRight" size={14}/></span>
+                    <span className="dash-cf-category-meter" aria-hidden="true"><i style={{ width: `${percentual}%` }}/></span>
                   </button>
                 );
-              })}
+              }) : (
+                <div className="dash-cf-empty dash-cf-empty-compact"><OperationIcon name="file" size={21}/><p>Nenhuma categoria disponível neste recorte.</p></div>
+              )}
             </div>
           </section>
 
-          <aside className="dash-cf-side" aria-label="Prioridade e pontos em operação">
-            <section className={`dash-cf-priority is-${prioridade.tone}`}>
-              <div className="dash-cf-priority-top">
-                <span><DashboardIcon name={prioridade.tone === "success" ? "check" : prioridade.tone === "risk" ? "repair" : "route"}/></span>
-                <strong>{prioridade.eyebrow}</strong>
-                <b><AnimatedNumber animate={animarEntrada} value={prioridade.value}/></b>
+          <section aria-labelledby="dash-cf-points-title" className="dash-cf-ledger dash-cf-points-ledger">
+            <header className="dash-cf-section-heading dash-cf-section-heading-compact">
+              <div>
+                <span className="dash-cf-eyebrow">Rede ativa</span>
+                <h2 id="dash-cf-points-title">Pontos com equipamentos</h2>
               </div>
-              <h2>{prioridade.title}</h2>
-              <p>{prioridade.text}</p>
-              <button onClick={prioridade.onClick} type="button"><span>{prioridade.action}</span><DashboardIcon name="arrow" size={15}/></button>
-            </section>
-
-            <section aria-labelledby="dash-cf-points-title" className="dash-cf-points">
-              <div className="dash-cf-section-heading dash-cf-section-heading-compact">
-                <div>
-                  <span className="dash-cf-eyebrow">Rede em operação</span>
-                  <h2 id="dash-cf-points-title">Pontos com equipamentos</h2>
-                </div>
-                <button onClick={onAbrirPontos} type="button">Ver todos <DashboardIcon name="arrow" size={14}/></button>
-              </div>
-              {pontosComEquipamentos.length === 0 ? (
-                <div className="dash-cf-empty dash-cf-empty-compact">
-                  <DashboardIcon name="map" size={21}/>
-                  <p>Nenhum equipamento está ligado a um ponto.</p>
-                </div>
-              ) : (
-                <ol className="dash-cf-point-list">
-                  {pontosComEquipamentos.slice(0, 5).map((ponto, indice) => (
-                    <li key={ponto.id}>
-                      <span>{String(indice + 1).padStart(2, "0")}</span>
-                      <div><strong>{ponto.nomeFantasia}</strong><small>{ponto.totalEquipamentos === 1 ? "1 equipamento" : `${ponto.totalEquipamentos} equipamentos`}</small></div>
-                      <b>{ponto.totalEquipamentos}</b>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-          </aside>
+              <button onClick={onAbrirPontos} type="button">Ver todos <OperationIcon name="chevronRight" size={14}/></button>
+            </header>
+            {pontosComEquipamentos.length === 0 ? (
+              <div className="dash-cf-empty dash-cf-empty-compact"><OperationIcon name="info" size={21}/><p>Nenhum equipamento está ligado a um ponto.</p></div>
+            ) : (
+              <ol className="dash-cf-point-list">
+                {pontosComEquipamentos.slice(0, 5).map((ponto, indice) => (
+                  <li key={ponto.id || `${ponto.nomeFantasia}-${indice}`}>
+                    <span>{String(indice + 1).padStart(2, "0")}</span>
+                    <div><strong>{ponto.nomeFantasia}</strong><small>{ponto.totalEquipamentos === 1 ? "1 equipamento" : `${ponto.totalEquipamentos} equipamentos`}</small></div>
+                    <b>{ponto.totalEquipamentos}</b>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
         </div>
 
-        <section aria-labelledby="dash-cf-history-title" className="dash-cf-ledger dash-cf-history">
-          <div className="dash-cf-section-heading dash-cf-section-heading-compact">
+        <section aria-labelledby="dash-cf-changes-title" className="dash-cf-ledger dash-cf-changes">
+          <header className="dash-cf-section-heading dash-cf-section-heading-compact">
             <div>
               <span className="dash-cf-eyebrow">Rastro operacional</span>
-              <h2 id="dash-cf-history-title">Movimentações recentes</h2>
+              <h2 id="dash-cf-changes-title">Mudanças recentes</h2>
             </div>
-            <button onClick={onAbrirHistorico} type="button">Abrir histórico <DashboardIcon name="arrow" size={14}/></button>
-          </div>
+            <button onClick={onAbrirHistorico} type="button">Abrir histórico <OperationIcon name="chevronRight" size={14}/></button>
+          </header>
 
           {movimentos.length === 0 ? (
-            <div className="dash-cf-empty">
-              <DashboardIcon name="history" size={23}/>
-              <div><strong>Nenhuma movimentação registrada</strong><p>As próximas alterações de equipamentos aparecerão neste rastro.</p></div>
-            </div>
+            <div className="dash-cf-empty"><OperationIcon name="clock" size={22}/><div><strong>Nenhuma movimentação registrada</strong><p>As próximas alterações de equipamentos aparecerão neste rastro.</p></div></div>
           ) : (
             <>
-              <div className="dash-cf-history-table">
+              <div className="dash-cf-changes-table">
                 <table>
-                  <caption className="dash-cf-sr-only">Cinco movimentações operacionais mais recentes</caption>
+                  <caption className="dash-cf-sr-only">Cinco mudanças operacionais mais recentes</caption>
                   <thead><tr><th>Movimento</th><th>Equipamento</th><th>Detalhe</th><th>Data</th></tr></thead>
                   <tbody>
                     {movimentos.map((item, indice) => {
@@ -387,7 +396,7 @@ export default function DashboardPage({
                       return (
                         <tr key={item.id || `${item.itemNome}-${indice}`}>
                           <td><span className={`dash-cf-event is-${tomHistorico(item.tipo)}`}>{config.label}</span></td>
-                          <td><strong>{iconesCategorias[item.categoria] || "•"} {item.itemNome}</strong><small>{item.categoria}</small></td>
+                          <td><span className="dash-cf-equipment"><OperationIcon name={iconeCategoria(item.categoria)} size={15}/><span><strong>{item.itemNome}</strong><small>{item.categoria || "Sem categoria"}</small></span></span></td>
                           <td title={resumoHistorico(item.observacao)}>{resumoHistorico(item.observacao)}</td>
                           <td><time dateTime={dataHoraHistorico(item.data)}>{item.data}</time></td>
                         </tr>
@@ -396,15 +405,15 @@ export default function DashboardPage({
                   </tbody>
                 </table>
               </div>
-              <div className="dash-cf-history-cards">
+              <div className="dash-cf-change-records">
                 {movimentos.map((item, indice) => {
                   const config = historicoConfig[item.tipo] || { label: item.tipo || "Movimento" };
                   return (
                     <article key={`mobile-${item.id || `${item.itemNome}-${indice}`}`}>
                       <div><span className={`dash-cf-event is-${tomHistorico(item.tipo)}`}>{config.label}</span><time dateTime={dataHoraHistorico(item.data)}>{item.data}</time></div>
-                      <strong>{iconesCategorias[item.categoria] || "•"} {item.itemNome}</strong>
+                      <strong><OperationIcon name={iconeCategoria(item.categoria)} size={15}/>{item.itemNome}</strong>
                       <div className="dash-cf-history-meta">
-                        <span>{item.categoria}</span>
+                        <span>{item.categoria || "Sem categoria"}</span>
                         {item.qtdAntes !== undefined ? <span>Antes: {item.qtdAntes}</span> : null}
                         {item.qtdDepois !== undefined ? <span>Depois: {item.qtdDepois}</span> : null}
                       </div>

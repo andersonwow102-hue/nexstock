@@ -3,6 +3,8 @@ import {
   carregarPerfis, salvarPerfil, redefinirAcessoUsuario, excluirAcessoUsuario, gerenciarLogins,
 } from "./db.js";
 import { GERENTES, ROTAS_POR_GERENTE } from "./pointsData.js";
+import { OperationIcon } from "./components/operations/OperationsUI.jsx";
+import "./AdminCommandFlow.css";
 
 const MASTER_ADMIN_EMAILS = ["andersonwow102@gmail.com", "anderson@nexstock.com"];
 const perfisDisponiveis = [
@@ -18,16 +20,6 @@ const perfilDescricao = {
   gerente: "Carteira e rotas vinculadas",
   consulta: "Visualização e exportações",
 };
-
-function AccessIcon({ type }) {
-  const paths = {
-    users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></>,
-    shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></>,
-    route: <><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M9 18h3a6 6 0 0 0 6-6V9"/></>,
-    eye: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></>,
-  };
-  return <svg className="acesso-svg" viewBox="0 0 24 24" aria-hidden="true">{paths[type] || paths.users}</svg>;
-}
 
 function ehAdminMaster(perfilAtual) {
   if (perfilAtual?.perfil !== "administrador") return false;
@@ -262,125 +254,150 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
   }, [busca, filtroPerfil, perfis]);
 
   return (
-    <div className="gestao-page acessos-page">
-      <section className="gestao-intro acessos-intro">
-        <div>
-          <span className="gestao-kicker">Central de acessos</span>
-          <h2>Controle de usuários e permissões</h2>
-          <p>Defina quem administra, opera, consulta ou acessa somente a carteira de gerente.</p>
+    <div className="gestao-page acessos-page admin-command-flow admin-command-flow--access">
+      <section className="admin-cf-hero" aria-labelledby="access-command-title">
+        <div className="admin-cf-hero-mark" aria-hidden="true"><OperationIcon name="lock" size={22} /></div>
+        <div className="admin-cf-hero-copy">
+          <span className="admin-cf-kicker">Central de acessos</span>
+          <h2 id="access-command-title">Controle de identidade e escopo</h2>
+          <p>Administre cada usuário pela sequência operacional: identidade, perfil, alcance e ações de segurança.</p>
         </div>
-        <span className={`perfil-selo perfil-${perfilAtual?.perfil || "consulta"}`}>{perfilAtual?.perfil || "consulta"}</span>
+        <div className="admin-cf-session">
+          <span>Sessão atual</span>
+          <strong><OperationIcon name="user" size={14} />{perfilAtual?.perfil || "consulta"}</strong>
+          <small>{adminMaster ? "Privilégio master ativo" : "Privilégio administrativo"}</small>
+        </div>
       </section>
 
-      {mensagem && <div className="gestao-mensagem">{mensagem}<button onClick={() => setMensagem("")}>✕</button></div>}
+      {mensagem && (
+        <div className="admin-cf-feedback" role="status">
+          <OperationIcon name="info" size={18} />
+          <span>{mensagem}</span>
+          <button type="button" onClick={() => setMensagem("")} aria-label="Fechar mensagem"><OperationIcon name="close" size={16} /></button>
+        </div>
+      )}
 
-      <section className="acessos-resumo">
-        <article><span><AccessIcon type="users" /></span><small>Usuários</small><strong>{perfis.length}</strong></article>
-        <article><span><AccessIcon type="shield" /></span><small>Administradores</small><strong>{totalAdministradores}</strong></article>
-        <article><span><AccessIcon type="route" /></span><small>Gerentes</small><strong>{totalGerentes}</strong></article>
-        <article><span><AccessIcon type="eye" /></span><small>Consultas</small><strong>{totalConsulta}</strong></article>
+      <section className="admin-cf-posture" aria-label="Distribuição dos acessos">
+        <article><span><OperationIcon name="user" size={18} /></span><div><small>Usuários</small><strong>{perfis.length}</strong></div></article>
+        <article><span><OperationIcon name="lock" size={18} /></span><div><small>Administradores</small><strong>{totalAdministradores}</strong></div></article>
+        <article><span><OperationIcon name="file" size={18} /></span><div><small>Gerentes</small><strong>{totalGerentes}</strong></div></article>
+        <article><span><OperationIcon name="eye" size={18} /></span><div><small>Consultas</small><strong>{totalConsulta}</strong></div></article>
       </section>
 
-      <section className="secao acessos-painel">
-        <div className="acessos-topo">
+      <section className="admin-cf-panel" aria-labelledby="access-ledger-title">
+        <header className="admin-cf-panel-head">
           <div>
-            <h2 className="secao-titulo">Perfis de acesso</h2>
-            <p>Administrador configura tudo. Operador cadastra e movimenta. Gerente vê apenas sua carteira. Consulta apenas visualiza e exporta.</p>
-            {adminMaster && <small className="acessos-master-aviso">Modo master ativo: você pode excluir acessos que não sejam o seu próprio login.</small>}
+            <span className="admin-cf-section-code">Diretório operacional</span>
+            <h3 id="access-ledger-title">Perfis de acesso</h3>
+            <p>Alterações de perfil, gerente e rota são aplicadas assim que você seleciona uma opção.</p>
+            {adminMaster && <small className="admin-cf-master-note"><OperationIcon name="warning" size={15} />Modo master: exclusões removem perfil e login, exceto o seu próprio acesso.</small>}
           </div>
-          <div className="acessos-acoes-topo">
+          <div className="admin-cf-head-actions">
             <button className="btn-secundario" onClick={recarregarPerfis} disabled={!administrador || carregando}>
-              {carregando ? "Atualizando..." : "Atualizar lista"}
+              <OperationIcon name="refresh" size={16} />{carregando ? "Atualizando..." : "Atualizar lista"}
             </button>
-            <button className="btn-primario" onClick={abrirNovoLogin} disabled={!administrador}>+ Novo login</button>
+            <button className="btn-primario" onClick={abrirNovoLogin} disabled={!administrador}>
+              <OperationIcon name="plus" size={16} />Novo login
+            </button>
           </div>
-        </div>
-        <div className="acessos-filtros">
-          <input className="input-busca" type="search" placeholder="Buscar usuário, gerente, perfil ou rota..." value={busca} onChange={e => setBusca(e.target.value)} />
-          <select className="select-filtro" value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}>
-            <option value="todos">Todos os perfis</option>
-            {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
-          </select>
-          <span>{perfisFiltrados.length} de {perfis.length} acessos</span>
+        </header>
+
+        <div className="admin-cf-command-bar">
+          <label className="admin-cf-search-field">
+            <span className="admin-cf-visually-hidden">Buscar acessos</span>
+            <OperationIcon name="search" size={17} />
+            <input className="input-busca" type="search" placeholder="Buscar usuário, gerente, perfil ou rota" value={busca} onChange={e => setBusca(e.target.value)} />
+          </label>
+          <label className="admin-cf-filter-field">
+            <span>Perfil</span>
+            <select className="select-filtro" value={filtroPerfil} onChange={e => setFiltroPerfil(e.target.value)}>
+              <option value="todos">Todos os perfis</option>
+              {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
+            </select>
+          </label>
+          <span className="admin-cf-result-count"><strong>{perfisFiltrados.length}</strong> de {perfis.length} acessos</span>
         </div>
 
         {!administrador ? (
-          <p className="permissao-aviso">Somente um administrador pode alterar permissões dos usuários.</p>
+          <div className="admin-cf-state admin-cf-state--denied"><OperationIcon name="lock" size={22} /><strong>Acesso restrito</strong><p>Somente um administrador pode alterar permissões dos usuários.</p></div>
         ) : carregando ? (
-          <p className="tabela-vazia">Carregando acessos...</p>
+          <div className="admin-cf-loading" role="status" aria-label="Carregando acessos">
+            {[0, 1, 2].map(item => <span key={item}><i /><i /><i /><i /></span>)}
+          </div>
         ) : (
-          <div className="acessos-lista">
-            {perfisFiltrados.map(p => {
-              const perfilAtualItem = p.perfil || "consulta";
-              const rotasAtivas = p.rotasPermitidas?.length ? p.rotasPermitidas : rotasPadrao(p.gerenteNome);
-              return (
-              <div className="acesso-item" key={p.userId}>
-                <div className="acesso-identidade">
-                  <span className={`acesso-avatar perfil-${perfilAtualItem}`}>{String(p.nome || "?").slice(0, 1).toUpperCase()}</span>
-                  <div>
-                    <strong>{p.nome}</strong>
-                    <small>{p.loginNome || p.nome}</small>
-                    <span className={`acesso-status perfil-${perfilAtualItem}`}>{p.userId === perfilAtual.userId ? "Você" : perfilLabel[perfilAtualItem]}</span>
-                  </div>
-                </div>
-                <div className="acesso-permissao">
-                  <label>Perfil</label>
-                  <select value={p.perfil} disabled={p.userId === perfilAtual.userId} title={p.userId === perfilAtual.userId ? "Seu próprio perfil permanece administrador para evitar perda de acesso." : ""} onChange={e => alterarPerfil(p, e.target.value)}>
-                    {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
-                  </select>
-                  <small>{perfilDescricao[perfilAtualItem] || "Permissão personalizada"}</small>
-                </div>
-                <div className="acesso-controles">
-                  {p.perfil === "gerente" && (
-                    <div className="acesso-rotas-box">
-                      <label>Gerente vinculado</label>
-                      <select value={p.gerenteNome || ""} onChange={e => alterarGerente(p, e.target.value)}>
-                        <option value="">Vincular gerente...</option>
-                        {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
+          <div className="admin-cf-ledger">
+            <div className="admin-cf-ledger-head" aria-hidden="true"><span>Identidade</span><span>Perfil</span><span>Escopo operacional</span><span>Ações</span></div>
+            <div className="acessos-lista admin-cf-ledger-body">
+              {perfisFiltrados.map(p => {
+                const perfilAtualItem = p.perfil || "consulta";
+                const rotasAtivas = p.rotasPermitidas?.length ? p.rotasPermitidas : rotasPadrao(p.gerenteNome);
+                return (
+                  <article className={`acesso-item admin-cf-ledger-row admin-cf-profile-row--${perfilAtualItem}`} key={p.userId}>
+                    <div className="acesso-identidade admin-cf-identity">
+                      <span className={`acesso-avatar perfil-${perfilAtualItem}`}>{String(p.nome || "?").slice(0, 1).toUpperCase()}</span>
+                      <div>
+                        <strong>{p.nome}</strong>
+                        <small>{p.loginNome || p.nome}</small>
+                        <span className={`admin-cf-profile admin-cf-profile--${perfilAtualItem}`}>{p.userId === perfilAtual.userId ? "Sessão atual" : perfilLabel[perfilAtualItem]}</span>
+                      </div>
+                    </div>
+                    <div className="acesso-permissao admin-cf-cell">
+                      <label>Perfil <small>Salva ao selecionar</small></label>
+                      <select value={p.perfil} disabled={p.userId === perfilAtual.userId} title={p.userId === perfilAtual.userId ? "Seu próprio perfil permanece administrador para evitar perda de acesso." : ""} onChange={e => alterarPerfil(p, e.target.value)}>
+                        {perfisDisponiveis.map(perfil => <option key={perfil.valor} value={perfil.valor}>{perfil.label}</option>)}
                       </select>
-                      {p.gerenteNome && (
-                        <div className="rota-chips">
-                          {rotasPadrao(p.gerenteNome).map(rota => {
-                            return (
-                              <button key={rota} type="button" className={rotasAtivas.includes(rota) ? "ativo" : ""} onClick={() => alterarRotas(p, rota)}>
-                                {rota}
-                              </button>
-                            );
-                          })}
+                      <small>{perfilDescricao[perfilAtualItem] || "Permissão personalizada"}</small>
+                    </div>
+                    <div className="acesso-controles admin-cf-cell admin-cf-scope">
+                      {p.perfil === "gerente" ? (
+                        <div className="acesso-rotas-box">
+                          <label>Gerente vinculado <small>Salva ao selecionar</small></label>
+                          <select value={p.gerenteNome || ""} onChange={e => alterarGerente(p, e.target.value)}>
+                            <option value="">Vincular gerente...</option>
+                            {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                          {p.gerenteNome && (
+                            <div className="rota-chips" aria-label={`Rotas de ${p.gerenteNome}`}>
+                              {rotasPadrao(p.gerenteNome).map(rota => (
+                                <button key={rota} type="button" className={rotasAtivas.includes(rota) ? "ativo" : ""} aria-pressed={rotasAtivas.includes(rota)} onClick={() => alterarRotas(p, rota)}>{rota}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="acesso-escopo">
+                          <label>Alcance</label>
+                          <strong>{perfilLabel[perfilAtualItem]}</strong>
+                          <small>{perfilDescricao[perfilAtualItem]}</small>
                         </div>
                       )}
                     </div>
-                  )}
-                  {p.perfil !== "gerente" && (
-                    <div className="acesso-escopo">
-                      <label>Escopo</label>
-                      <strong>{perfilLabel[perfilAtualItem]}</strong>
-                      <small>{perfilDescricao[perfilAtualItem]}</small>
+                    <div className="acesso-acoes admin-cf-row-actions">
+                      <button className="btn-secundario btn-acesso" onClick={() => abrirRedefinirAcesso(p)}><OperationIcon name="edit" size={15} />{p.userId === perfilAtual.userId ? "Regularizar e-mail" : "Redefinir acesso"}</button>
+                      {adminMaster && p.userId !== perfilAtual.userId && (
+                        <button className="btn-danger-outline btn-acesso" onClick={() => excluirAcesso(p)}><OperationIcon name="trash" size={15} />Excluir acesso</button>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="acesso-acoes">
-                  <button className="btn-secundario btn-acesso" onClick={() => abrirRedefinirAcesso(p)}>{p.userId === perfilAtual.userId ? "Regularizar meu e-mail" : "Redefinir acesso"}</button>
-                  {adminMaster && p.userId !== perfilAtual.userId && (
-                    <button className="btn-danger-outline btn-acesso" onClick={() => excluirAcesso(p)}>Excluir acesso</button>
-                  )}
-                </div>
-              </div>
-            );})}
-            {perfisFiltrados.length === 0 && <p className="tabela-vazia">Nenhum usuário encontrado com os filtros atuais.</p>}
+                  </article>
+                );
+              })}
+              {perfisFiltrados.length === 0 && (
+                <div className="admin-cf-state"><OperationIcon name="search" size={22} /><strong>Nenhum acesso encontrado</strong><p>Ajuste a busca ou o filtro de perfil para ampliar o diretório.</p></div>
+              )}
+            </div>
           </div>
         )}
-        <p className="acessos-nota">Novos usuários começam como apenas consulta. Você pode usar login interno do sistema ou e-mail real quando quiser recuperação por caixa de entrada. Seu próprio perfil não pode ser rebaixado nesta tela.</p>
+        <footer className="admin-cf-panel-note"><OperationIcon name="info" size={16} /><p>Novos usuários começam como apenas consulta. Seu próprio perfil não pode ser rebaixado nesta tela.</p></footer>
       </section>
 
       {usuarioAcesso && (
-        <div className="modal-overlay">
-          <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3>Redefinir Acesso</h3><button className="modal-fechar" onClick={() => setUsuarioAcesso(null)}>✕</button></div>
+        <div className="modal-overlay admin-cf-modal-layer">
+          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="access-reset-title" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><div><span className="admin-cf-section-code">Credencial protegida</span><h3 id="access-reset-title">Redefinir acesso</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setUsuarioAcesso(null)} aria-label="Fechar redefinição de acesso"><OperationIcon name="close" size={18} /></button></div>
             <form onSubmit={confirmarRedefinicaoAcesso}>
               <div className="modal-body">
                 <p className="senha-texto">Usuário atual: <strong>{usuarioAcesso.nome}</strong>. Informe o e-mail de login e uma senha provisória. Pode ser um e-mail interno do sistema ou um e-mail real.</p>
-                {erro && <div className="erro-msg">⚠️ {erro}</div>}
+                {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
                 <div className="campo"><label>Novo e-mail de login *</label><input type="email" placeholder="joao@stockon.com" value={formAcesso.novoEmail} onChange={e => setFormAcesso({ ...formAcesso, novoEmail: e.target.value })} autoFocus /></div>
                 <div className="campo"><label>Senha provisória *</label><input type="password" placeholder="Mínimo de 10 caracteres" value={formAcesso.novaSenha} onChange={e => setFormAcesso({ ...formAcesso, novaSenha: e.target.value })} /></div>
                 <div className="campo"><label>Confirmar senha *</label><input type="password" value={formAcesso.confirmacao} onChange={e => setFormAcesso({ ...formAcesso, confirmacao: e.target.value })} /></div>
@@ -392,13 +409,13 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       )}
 
       {modalNovo && (
-        <div className="modal-overlay">
-          <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
+        <div className="modal-overlay admin-cf-modal-layer">
+          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="access-new-title" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><div><span className="admin-cf-section-code">Nova identidade</span><h3 id="access-new-title">Novo login</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setModalNovo(false)} aria-label="Fechar criação de login"><OperationIcon name="close" size={18} /></button></div>
             <form onSubmit={criarLogin}>
               <div className="modal-body">
                 <p className="senha-texto">Crie o login interno do usuário, defina a senha provisória e marque rotas quando for um gerente. O domínio fica travado em <strong>@stockon.com</strong>.</p>
-                {erro && <div className="erro-msg">⚠️ {erro}</div>}
+                {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
                 <div className="campo">
                   <label>Nome do login *</label>
                   <div className="login-interno-input">
@@ -427,7 +444,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
                         <label>Rotas liberadas *</label>
                         <div className="rota-chips rota-chips-modal">
                           {rotasPadrao(formNovo.gerenteNome).map(rota => (
-                            <button key={rota} type="button" className={formNovo.rotasPermitidas.includes(rota) ? "ativo" : ""} onClick={() => setFormNovo(prev => {
+                            <button key={rota} type="button" className={formNovo.rotasPermitidas.includes(rota) ? "ativo" : ""} aria-pressed={formNovo.rotasPermitidas.includes(rota)} onClick={() => setFormNovo(prev => {
                               const lista = prev.rotasPermitidas.includes(rota) ? prev.rotasPermitidas.filter(r => r !== rota) : [...prev.rotasPermitidas, rota];
                               return { ...prev, rotasPermitidas: lista };
                             })}>{rota}</button>
@@ -442,7 +459,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
                 <button type="button" className="btn-secundario" onClick={() => {
                   const senha = senhaAleatoria();
                   setFormNovo(prev => ({ ...prev, senha, confirmar: senha }));
-                }}>Gerar outra senha provisória</button>
+                }}><OperationIcon name="refresh" size={15} />Gerar outra senha provisória</button>
               </div>
               <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalNovo(false)}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Criando..." : "Criar login"}</button></div>
             </form>

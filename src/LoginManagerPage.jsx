@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { gerenciarLogins } from "./db.js";
 import { GERENTES } from "./pointsData.js";
+import { OperationIcon } from "./components/operations/OperationsUI.jsx";
+import "./AdminCommandFlow.css";
 
 const perfisDisponiveis = [
   { valor: "administrador", label: "Administrador" },
@@ -205,73 +207,96 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
     }
   }
 
+  const totalAtivos = usuarios.filter(usuario => !usuario.bloqueado).length;
+  const totalBloqueados = usuarios.filter(usuario => usuario.bloqueado).length;
+  const totalTemporarios = usuarios.filter(usuario => usuario.emailTemporario).length;
+
   if (!administrador) {
     return (
-      <section className="secao login-manager">
-        <h2 className="secao-titulo">Gerenciador de Logins</h2>
-        <p className="permissao-aviso">Esta área aparece somente para administrador.</p>
+      <section className="login-manager admin-command-flow admin-cf-state admin-cf-state--denied">
+        <OperationIcon name="lock" size={24} />
+        <h2>Gerenciador de logins</h2>
+        <p>Esta área aparece somente para administrador.</p>
       </section>
     );
   }
 
   return (
-    <div className="login-manager">
-      <section className="gestao-intro login-manager-hero">
-        <div>
-          <span className="gestao-kicker">Segurança administrativa</span>
-          <h2>Gerenciador de logins</h2>
-          <p>Veja usuários criados, altere senha, gere senha provisória, bloqueie acesso e acompanhe sinais de uso.</p>
+    <div className="login-manager admin-command-flow admin-command-flow--logins">
+      <section className="admin-cf-hero" aria-labelledby="login-command-title">
+        <div className="admin-cf-hero-mark" aria-hidden="true"><OperationIcon name="user" size={22} /></div>
+        <div className="admin-cf-hero-copy">
+          <span className="admin-cf-kicker">Gerenciar logins</span>
+          <h2 id="login-command-title">Diretório de autenticação</h2>
+          <p>Localize uma identidade, confira seu estado e execute somente a ação de acesso necessária.</p>
         </div>
-        <span className="perfil-selo perfil-administrador">Somente admin</span>
+        <div className="admin-cf-session">
+          <span>Área protegida</span>
+          <strong><OperationIcon name="lock" size={14} />Somente admin</strong>
+          <small>Alterações afetam o próximo acesso</small>
+        </div>
       </section>
 
       {(mensagem || erro) && (
-        <div className={erro ? "erro-msg" : "gestao-mensagem"}>
-          {erro || mensagem}
-          <button onClick={() => { setMensagem(""); setErro(""); }}>✕</button>
+        <div className={`admin-cf-feedback ${erro ? "admin-cf-feedback--error" : ""}`} role={erro ? "alert" : "status"}>
+          <OperationIcon name={erro ? "warning" : "check"} size={18} />
+          <span>{erro || mensagem}</span>
+          <button type="button" onClick={() => { setMensagem(""); setErro(""); }} aria-label="Fechar mensagem"><OperationIcon name="close" size={16} /></button>
         </div>
       )}
 
-      <section className="secao login-manager-toolbar">
-        <input className="input-busca" placeholder="Buscar por e-mail, nome, perfil ou status..." value={busca} onChange={e => setBusca(e.target.value)} />
-        <div className="login-toolbar-actions">
-          <button className="btn-secundario" onClick={carregar}>Atualizar lista</button>
-          <button className="btn-primario" onClick={abrirNovoLogin}>+ Novo login</button>
+      <section className="admin-cf-posture" aria-label="Situação dos logins">
+        <article><span><OperationIcon name="user" size={18} /></span><div><small>Identidades</small><strong>{usuarios.length}</strong></div></article>
+        <article><span><OperationIcon name="check" size={18} /></span><div><small>Ativos</small><strong>{totalAtivos}</strong></div></article>
+        <article><span><OperationIcon name="lock" size={18} /></span><div><small>Bloqueados</small><strong>{totalBloqueados}</strong></div></article>
+        <article><span><OperationIcon name="clock" size={18} /></span><div><small>Temporários</small><strong>{totalTemporarios}</strong></div></article>
+      </section>
+
+      <section className="admin-cf-command-bar login-manager-toolbar" aria-label="Comandos do diretório">
+        <label className="admin-cf-search-field">
+          <span className="admin-cf-visually-hidden">Buscar logins</span>
+          <OperationIcon name="search" size={17} />
+          <input className="input-busca" type="search" placeholder="Buscar por e-mail, nome, perfil ou status" value={busca} onChange={e => setBusca(e.target.value)} />
+        </label>
+        <span className="admin-cf-result-count"><strong>{usuariosFiltrados.length}</strong> de {usuarios.length} logins</span>
+        <div className="login-toolbar-actions admin-cf-head-actions">
+          <button className="btn-secundario" onClick={carregar}><OperationIcon name="refresh" size={16} />Atualizar lista</button>
+          <button className="btn-primario" onClick={abrirNovoLogin}><OperationIcon name="plus" size={16} />Novo login</button>
         </div>
       </section>
 
-      <section className="login-manager-grid">
-        <div className="secao login-users">
-          <div className="tabela-header">
-            <h2 className="secao-titulo" style={{ margin: 0 }}>Logins cadastrados</h2>
-            <span className="badge-cat">{usuariosFiltrados.length} usuário{usuariosFiltrados.length !== 1 ? "s" : ""}</span>
-          </div>
-          {carregando ? <p className="tabela-vazia">Carregando logins...</p> : usuariosFiltrados.length === 0 ? <p className="tabela-vazia">Nenhum login encontrado.</p> : (
+      <section className="login-manager-grid admin-cf-master-detail">
+        <div className="login-users admin-cf-panel admin-cf-directory" aria-labelledby="login-directory-title">
+          <header className="admin-cf-panel-head admin-cf-directory-head">
+            <div><span className="admin-cf-section-code">Identidades</span><h3 id="login-directory-title">Logins cadastrados</h3></div>
+            <span className="admin-cf-compact-count">{usuariosFiltrados.length} registro{usuariosFiltrados.length !== 1 ? "s" : ""}</span>
+          </header>
+          {carregando ? (
+            <div className="admin-cf-loading admin-cf-loading--cards" role="status" aria-label="Carregando logins">{[0, 1, 2, 3].map(item => <span key={item}><i /><i /><i /></span>)}</div>
+          ) : usuariosFiltrados.length === 0 ? (
+            <div className="admin-cf-state"><OperationIcon name="search" size={22} /><strong>Nenhum login encontrado</strong><p>Revise o termo de busca para localizar outra identidade.</p></div>
+          ) : (
             <div className="login-users-list">
               {usuariosFiltrados.map(usuario => (
                 <article key={usuario.userId} className={`login-user-card ${usuarioSelecionado?.userId === usuario.userId ? "ativo" : ""} ${usuario.bloqueado ? "bloqueado" : ""}`}>
-                  <button className="login-user-main" onClick={() => setUsuarioSelecionado(usuario)}>
+                  <button className="login-user-main" type="button" aria-pressed={usuarioSelecionado?.userId === usuario.userId} onClick={() => setUsuarioSelecionado(usuario)}>
                     <span className="login-avatar">{(usuario.email || "?").slice(0, 1).toUpperCase()}</span>
-                    <span>
+                    <span className="login-user-copy">
                       <strong>{usuario.email}</strong>
-                      <small>{usuario.bloqueado ? "Bloqueado" : "Ativo"} · Login: {usuario.loginNome || "não definido"} · {usuario.emailTemporario ? `E-mail temporário: ${diasRestantes(usuario.emailTemporarioExpiraEm)} · ` : ""}{usuario.perfil === "gerente" && usuario.gerenteNome ? `Gerente: ${usuario.gerenteNome} · ` : ""}Último acesso: {formatarData(usuario.ultimoAcesso)}</small>
+                      <small>Login: {usuario.loginNome || "não definido"}{usuario.perfil === "gerente" && usuario.gerenteNome ? ` · ${usuario.gerenteNome}` : ""}</small>
                     </span>
+                    <span className={`admin-cf-status ${usuario.bloqueado ? "admin-cf-status--blocked" : "admin-cf-status--active"}`}><i />{usuario.bloqueado ? "Bloqueado" : "Ativo"}</span>
                   </button>
                   <div className="login-user-actions">
-                    <select value={usuario.perfil} onChange={e => alterarPerfil(usuario, e.target.value)}>
-                      {perfisDisponiveis.map(p => <option key={p.valor} value={p.valor}>{p.label}</option>)}
-                    </select>
+                    <label><span>Perfil · salva ao selecionar</span><select value={usuario.perfil} onChange={e => alterarPerfil(usuario, e.target.value)}>{perfisDisponiveis.map(p => <option key={p.valor} value={p.valor}>{p.label}</option>)}</select></label>
                     {usuario.perfil === "gerente" && (
-                      <select value={usuario.gerenteNome || ""} onChange={e => alterarPerfil(usuario, "gerente", e.target.value)}>
-                        <option value="">Vincular gerente...</option>
-                        {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
-                      </select>
+                      <label><span>Gerente · salva ao selecionar</span><select value={usuario.gerenteNome || ""} onChange={e => alterarPerfil(usuario, "gerente", e.target.value)}><option value="">Vincular gerente...</option>{GERENTES.map(g => <option key={g} value={g}>{g}</option>)}</select></label>
                     )}
-                    <button className="btn-secundario" onClick={() => abrirSenha(usuario)}>Editar acesso</button>
-                    <button className="btn-secundario" onClick={() => abrirSenha(usuario, true)}>Gerar senha</button>
-                    <button className={usuario.bloqueado ? "btn-secundario" : "btn-danger-outline"} onClick={() => alternarBloqueio(usuario)}>
-                      {usuario.bloqueado ? "Desbloquear" : "Bloquear"}
-                    </button>
+                    <div className="login-user-action-buttons">
+                      <button className="btn-secundario" onClick={() => abrirSenha(usuario)}><OperationIcon name="edit" size={14} />Editar</button>
+                      <button className="btn-secundario" onClick={() => abrirSenha(usuario, true)}><OperationIcon name="refresh" size={14} />Gerar senha</button>
+                      <button className={usuario.bloqueado ? "btn-secundario" : "btn-danger-outline"} onClick={() => alternarBloqueio(usuario)}><OperationIcon name={usuario.bloqueado ? "check" : "lock"} size={14} />{usuario.bloqueado ? "Desbloquear" : "Bloquear"}</button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -279,46 +304,57 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
           )}
         </div>
 
-        <aside className="secao login-detail">
+        <aside className="login-detail admin-cf-panel admin-cf-dossier" aria-label="Dossiê do login selecionado">
           {!usuarioSelecionado ? (
-            <div className="hist-vazio">
-              <div className="hist-vazio-icone">🔐</div>
-              <div>Selecione um login para ver detalhes.</div>
+            <div className="admin-cf-state admin-cf-state--dossier">
+              <span><OperationIcon name="lock" size={22} /></span>
+              <strong>Selecione uma identidade</strong>
+              <p>O dossiê lateral mostrará estado, vínculo e referências de atividade.</p>
             </div>
           ) : (
             <>
               <div className="login-detail-header">
-                <h2>{usuarioSelecionado.email}</h2>
-                <span className={`perfil-selo perfil-${usuarioSelecionado.perfil}`}>{usuarioSelecionado.perfil}</span>
+                <span className="login-avatar login-detail-avatar">{(usuarioSelecionado.email || "?").slice(0, 1).toUpperCase()}</span>
+                <div><span className="admin-cf-section-code">Identidade selecionada</span><h2>{usuarioSelecionado.email}</h2><small>{usuarioSelecionado.loginNome || "Login não definido"}</small></div>
+                <span className={`admin-cf-profile admin-cf-profile--${usuarioSelecionado.perfil}`}>{usuarioSelecionado.perfil}</span>
               </div>
               <div className="login-stats">
-                <article><small>Status</small><strong>{usuarioSelecionado.bloqueado ? "Bloqueado" : "Ativo"}</strong></article>
+                <article><small>Status</small><strong className={usuarioSelecionado.bloqueado ? "admin-cf-text-danger" : "admin-cf-text-success"}>{usuarioSelecionado.bloqueado ? "Bloqueado" : "Ativo"}</strong></article>
                 <article><small>Login de entrada</small><strong>{usuarioSelecionado.loginNome || "Não definido"}</strong></article>
                 <article><small>Gerente vinculado</small><strong>{usuarioSelecionado.perfil === "gerente" ? usuarioSelecionado.gerenteNome || "Não vinculado" : "Não se aplica"}</strong></article>
                 <article><small>E-mail temporário</small><strong>{usuarioSelecionado.emailTemporario ? `Sim · ${diasRestantes(usuarioSelecionado.emailTemporarioExpiraEm)}` : "Não"}</strong></article>
                 <article><small>Criado em</small><strong>{formatarData(usuarioSelecionado.criadoEm)}</strong></article>
                 <article><small>Último acesso</small><strong>{formatarData(usuarioSelecionado.ultimoAcesso)}</strong></article>
               </div>
-              <h3 className="login-subtitle">Histórico do login</h3>
+              <div className="login-subtitle"><span className="admin-cf-section-code">Referências</span><h3>Atividade associada</h3><p>Correlação informativa; não substitui uma trilha de auditoria de segurança.</p></div>
               <div className="login-history">
                 <div className="login-history-item">
+                  <span aria-hidden="true"><OperationIcon name="plus" size={13} /></span>
+                  <div>
                   <strong>Login cadastrado</strong>
-                  <span>{formatarData(usuarioSelecionado.criadoEm)}</span>
+                  <small>{formatarData(usuarioSelecionado.criadoEm)}</small>
+                  </div>
                 </div>
                 {usuarioSelecionado.ultimoAcesso && (
                   <div className="login-history-item">
+                    <span aria-hidden="true"><OperationIcon name="clock" size={13} /></span>
+                    <div>
                     <strong>Último acesso registrado pelo Supabase</strong>
-                    <span>{formatarData(usuarioSelecionado.ultimoAcesso)}</span>
+                    <small>{formatarData(usuarioSelecionado.ultimoAcesso)}</small>
+                    </div>
                   </div>
                 )}
                 {historicoDoUsuario(usuarioSelecionado, historico, historicoPontos).map(evento => (
                   <div key={evento.id} className="login-history-item">
+                    <span aria-hidden="true"><OperationIcon name="file" size={13} /></span>
+                    <div>
                     <strong>{evento.tipo} · {evento.acao}</strong>
                     <span>{evento.detalhe}</span>
                     <small>{evento.data}</small>
+                    </div>
                   </div>
                 ))}
-                <p className="acessos-nota">As ações aparecem aqui quando ficam registradas no histórico operacional do sistema. O Supabase também informa criação, bloqueio e último acesso.</p>
+                <p className="acessos-nota"><OperationIcon name="info" size={15} />As ações aparecem quando nomes ou e-mails correspondem ao histórico operacional. Criação e último acesso vêm do Supabase.</p>
               </div>
             </>
           )}
@@ -326,13 +362,13 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
       </section>
 
       {modalSenha && (
-        <div className="modal-overlay">
-          <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3>Editar acesso</h3><button className="modal-fechar" onClick={() => setModalSenha(null)}>✕</button></div>
+        <div className="modal-overlay admin-cf-modal-layer">
+          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="login-edit-title" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><div><span className="admin-cf-section-code">Credencial protegida</span><h3 id="login-edit-title">Editar acesso</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setModalSenha(null)} aria-label="Fechar edição de acesso"><OperationIcon name="close" size={18} /></button></div>
             <form onSubmit={salvarSenha}>
               <div className="modal-body">
                 <p className="senha-texto">Usuário: <strong>{modalSenha.email}</strong>. Como administrador, você pode trocar o e-mail e definir uma nova senha.</p>
-                {erro && <div className="erro-msg">⚠️ {erro}</div>}
+                {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
                 <div className="campo"><label>Login de entrada *</label><input type="text" value={formSenha.loginNome} onChange={e => setFormSenha({ ...formSenha, loginNome: e.target.value.toLowerCase() })} /></div>
                 <div className="campo"><label>E-mail de login *</label><input type="email" value={formSenha.email} onChange={e => setFormSenha({ ...formSenha, email: e.target.value })} /></div>
                 <div className="campo"><label>Nova senha *</label><input type="text" value={formSenha.senha} onChange={e => setFormSenha({ ...formSenha, senha: e.target.value })} /></div>
@@ -340,7 +376,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                 <button type="button" className="btn-secundario" onClick={() => {
                   const senha = senhaAleatoria();
                   setFormSenha(prev => ({ ...prev, senha, confirmar: senha }));
-                }}>Gerar outra senha provisória</button>
+                }}><OperationIcon name="refresh" size={15} />Gerar outra senha provisória</button>
               </div>
               <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalSenha(null)}>Cancelar</button><button type="submit" className="btn-primario">Salvar acesso</button></div>
             </form>
@@ -349,13 +385,13 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
       )}
 
       {modalNovo && (
-        <div className="modal-overlay">
-          <div className="modal modal-pequeno" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3>Novo login</h3><button className="modal-fechar" onClick={() => setModalNovo(false)}>✕</button></div>
+        <div className="modal-overlay admin-cf-modal-layer">
+          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="login-new-title" onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><div><span className="admin-cf-section-code">Nova identidade</span><h3 id="login-new-title">Novo login</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setModalNovo(false)} aria-label="Fechar criação de login"><OperationIcon name="close" size={18} /></button></div>
             <form onSubmit={criarLogin}>
               <div className="modal-body">
                 <p className="senha-texto">Crie um acesso novo para sócio ou funcionário. Você pode usar um e-mail interno do app quando não precisar de recuperação por caixa de entrada.</p>
-                {erro && <div className="erro-msg">⚠️ {erro}</div>}
+                {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
                 <div className="campo">
                   <label>E-mail de login *</label>
                   <input type="email" placeholder="socio@gmail.com" value={formNovo.email} readOnly={formNovo.emailTemporario} onChange={e => setFormNovo(prev => ({ ...prev, email: e.target.value, emailTemporario: false, loginNome: prev.loginNome || gerarLoginSugerido(prev.perfil, prev.gerenteNome, e.target.value) }))} autoFocus />
@@ -385,7 +421,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                 <button type="button" className="btn-secundario" onClick={() => {
                   const senha = senhaAleatoria();
                   setFormNovo(prev => ({ ...prev, senha, confirmar: senha }));
-                }}>Gerar outra senha provisória</button>
+                }}><OperationIcon name="refresh" size={15} />Gerar outra senha provisória</button>
               </div>
               <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalNovo(false)}>Cancelar</button><button type="submit" className="btn-primario">Criar login</button></div>
             </form>

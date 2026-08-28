@@ -1,0 +1,1560 @@
+/*
+ * Command Flow — Fechamento administrativo
+ * Camada visual isolada: período → rota → lançamentos → reconciliação → ações.
+ */
+
+.command-flow-shell .fechamento-page {
+  --fc-canvas: #111411;
+  --fc-panel: #181c19;
+  --fc-raised: #202520;
+  --fc-raised-strong: #282e28;
+  --fc-field: #141815;
+  --fc-line: #343a34;
+  --fc-line-strong: #4b544b;
+  --fc-text: #f0ebe3;
+  --fc-text-soft: #c4beb5;
+  --fc-text-muted: #918c84;
+  --fc-copper: #c67b49;
+  --fc-copper-strong: #dc9260;
+  --fc-copper-soft: rgba(198, 123, 73, 0.14);
+  --fc-copper-line: rgba(198, 123, 73, 0.52);
+  --fc-success: #91aa91;
+  --fc-success-soft: rgba(111, 143, 113, 0.14);
+  --fc-success-line: rgba(145, 170, 145, 0.44);
+  --fc-warning: #d5a85f;
+  --fc-warning-soft: rgba(213, 168, 95, 0.13);
+  --fc-warning-line: rgba(213, 168, 95, 0.42);
+  --fc-danger: #d58b81;
+  --fc-danger-soft: rgba(213, 139, 129, 0.12);
+  --fc-danger-line: rgba(213, 139, 129, 0.4);
+  --fc-info: #9daaa2;
+  --fc-info-soft: rgba(157, 170, 162, 0.12);
+  --fc-radius: 8px;
+  color: var(--fc-text);
+  color-scheme: dark;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  width: 100%;
+}
+
+.app.tema-claro.command-flow-shell .fechamento-page {
+  --fc-canvas: #f2eee7;
+  --fc-panel: #fffdf8;
+  --fc-raised: #f5f0e8;
+  --fc-raised-strong: #e9e2d8;
+  --fc-field: #fffdfa;
+  --fc-line: #d5cdc1;
+  --fc-line-strong: #b9ad9e;
+  --fc-text: #2d2924;
+  --fc-text-soft: #5f5850;
+  --fc-text-muted: #82796f;
+  --fc-copper: #a85f35;
+  --fc-copper-strong: #8f4d2a;
+  --fc-copper-soft: rgba(168, 95, 53, 0.1);
+  --fc-copper-line: rgba(168, 95, 53, 0.42);
+  --fc-success: #547457;
+  --fc-success-soft: rgba(84, 116, 87, 0.1);
+  --fc-success-line: rgba(84, 116, 87, 0.38);
+  --fc-warning: #916a2f;
+  --fc-warning-soft: rgba(145, 106, 47, 0.1);
+  --fc-warning-line: rgba(145, 106, 47, 0.34);
+  --fc-danger: #a6534d;
+  --fc-danger-soft: rgba(166, 83, 77, 0.09);
+  --fc-danger-line: rgba(166, 83, 77, 0.34);
+  --fc-info: #5f6d65;
+  --fc-info-soft: rgba(95, 109, 101, 0.09);
+  color-scheme: light;
+}
+
+.command-flow-shell .fechamento-page,
+.command-flow-shell .fechamento-page *,
+.command-flow-shell .fechamento-page *::before,
+.command-flow-shell .fechamento-page *::after {
+  box-sizing: border-box;
+}
+
+.command-flow-shell .fechamento-page .dash-kicker {
+  color: var(--fc-copper);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-hero,
+.command-flow-shell .fechamento-page .fechamento-filtros,
+.command-flow-shell .fechamento-page .fechamento-lista-seletor,
+.command-flow-shell .fechamento-page .fechamento-detalhe,
+.command-flow-shell .fechamento-page .fechamento-operacao-box,
+.command-flow-shell .fechamento-page .fechamento-despesas-box,
+.command-flow-shell .fechamento-page .pix-admin-panel,
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin {
+  background: var(--fc-panel);
+  background-image: none;
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius);
+  box-shadow: none;
+  color: var(--fc-text);
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-hero {
+  align-items: center;
+  border-left: 3px solid var(--fc-copper);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 16px 18px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-hero h2 {
+  color: var(--fc-text);
+  font-size: clamp(19px, 2vw, 24px);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0 0 5px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-hero p {
+  color: var(--fc-text-soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 720px;
+}
+
+.command-flow-shell .fechamento-page .perfil-selo {
+  background: var(--fc-copper-soft);
+  border: 1px solid var(--fc-copper-line);
+  border-radius: 999px;
+  color: var(--fc-copper-strong);
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
+/* Ferramenta administrativa secundária, mantida antes do recorte principal. */
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin {
+  overflow: clip;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin > summary {
+  align-items: center;
+  background: var(--fc-raised);
+  border: 0;
+  color: var(--fc-text);
+  cursor: pointer;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  list-style-position: inside;
+  min-height: 54px;
+  padding: 11px 14px;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin > summary strong {
+  color: var(--fc-text);
+  font-size: 13px;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin > summary > span {
+  color: var(--fc-copper);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-admin[open] > summary {
+  border-bottom: 1px solid var(--fc-line);
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-conteudo {
+  background: var(--fc-panel);
+  padding: 16px;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-head h3 {
+  color: var(--fc-text);
+  font-size: 16px;
+  letter-spacing: -0.015em;
+  margin: 0 0 4px;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-head p {
+  color: var(--fc-text-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) auto;
+  margin-top: 14px;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-lista {
+  border-top: 1px solid var(--fc-line);
+  display: grid;
+  gap: 0;
+  margin-top: 14px;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-lista article {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--fc-line);
+  border-radius: 0;
+  color: var(--fc-text);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1fr) auto auto;
+  padding: 10px 2px;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-lista article:last-child {
+  border-bottom: 0;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-despesas-lista article span,
+.command-flow-shell .fechamento-page .prorrogacao-despesas-lista article small {
+  color: var(--fc-text-muted);
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-status {
+  border: 1px solid var(--fc-line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-status.vigente {
+  background: var(--fc-success-soft);
+  border-color: var(--fc-success-line);
+  color: var(--fc-success);
+}
+
+.command-flow-shell .fechamento-page .prorrogacao-status.encerrada {
+  background: var(--fc-raised);
+  color: var(--fc-text-muted);
+}
+
+/* 1. Recorte do período */
+.command-flow-shell .fechamento-page .fechamento-filtros {
+  align-items: end;
+  border-left: 3px solid var(--fc-line-strong);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(190px, 1fr) minmax(190px, 1fr) auto minmax(210px, 1.15fr);
+  padding: 14px;
+}
+
+.command-flow-shell .fechamento-page .campo {
+  gap: 5px;
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .campo label,
+.command-flow-shell .fechamento-page .fechamento-campos-grid > label,
+.command-flow-shell .fechamento-page .pix-send-panel > label {
+  color: var(--fc-text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .campo input,
+.command-flow-shell .fechamento-page .campo select,
+.command-flow-shell .fechamento-page .campo textarea,
+.command-flow-shell .fechamento-page .fechamento-campos-grid input,
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo input,
+.command-flow-shell .fechamento-page .fechamento-rota-select select,
+.command-flow-shell .fechamento-page .pix-send-panel select,
+.command-flow-shell .fechamento-page .pix-send-panel textarea {
+  background: var(--fc-field);
+  background-image: none;
+  border: 1px solid var(--fc-line);
+  border-radius: 5px;
+  box-shadow: none;
+  color: var(--fc-text);
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  min-height: 38px;
+  outline: 0;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.command-flow-shell .fechamento-page .fechamento-campos-grid input,
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo input {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-flow-shell .fechamento-page .campo input::placeholder,
+.command-flow-shell .fechamento-page .campo textarea::placeholder,
+.command-flow-shell .fechamento-page .fechamento-campos-grid input::placeholder,
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo input::placeholder,
+.command-flow-shell .fechamento-page .pix-send-panel textarea::placeholder {
+  color: var(--fc-text-muted);
+  opacity: 0.78;
+}
+
+.command-flow-shell .fechamento-page .campo input:focus,
+.command-flow-shell .fechamento-page .campo select:focus,
+.command-flow-shell .fechamento-page .campo textarea:focus,
+.command-flow-shell .fechamento-page .fechamento-campos-grid input:focus,
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo input:focus,
+.command-flow-shell .fechamento-page .fechamento-rota-select select:focus,
+.command-flow-shell .fechamento-page .pix-send-panel select:focus,
+.command-flow-shell .fechamento-page .pix-send-panel textarea:focus {
+  border-color: var(--fc-copper);
+  box-shadow: none;
+  outline: 1px solid var(--fc-copper);
+  outline-offset: 1px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-campos-grid input:disabled {
+  background: var(--fc-raised);
+  color: var(--fc-text-muted);
+  cursor: not-allowed;
+  opacity: 0.82;
+}
+
+.command-flow-shell .fechamento-page .fechamento-periodo-info {
+  align-items: flex-start;
+  align-self: stretch;
+  background: var(--fc-copper-soft);
+  background-image: none;
+  border: 1px solid var(--fc-copper-line);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px 11px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-periodo-info span {
+  color: var(--fc-copper);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-periodo-info strong {
+  color: var(--fc-text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* 2. Rota e estado do fechamento */
+.command-flow-shell .fechamento-page .fechamento-lista-seletor {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(190px, 0.62fr) minmax(0, 2.1fr) minmax(180px, 0.58fr);
+  padding: 14px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-lista-seletor h3 {
+  color: var(--fc-text);
+  font-size: 16px;
+  letter-spacing: -0.015em;
+  margin: 0 0 5px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-lista-seletor p {
+  color: var(--fc-text-soft);
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-picker {
+  background: transparent;
+  border: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-picker > span {
+  color: var(--fc-text-muted);
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  margin-bottom: 7px;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-lista {
+  background: var(--fc-canvas);
+  border: 1px solid var(--fc-line);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 360px;
+  overflow: auto;
+  scrollbar-color: var(--fc-copper) var(--fc-canvas);
+  scrollbar-width: thin;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-card {
+  align-items: center;
+  background: transparent;
+  background-image: none;
+  border: 0;
+  border-bottom: 1px solid var(--fc-line);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--fc-text);
+  cursor: pointer;
+  display: grid;
+  font-family: Inter, sans-serif;
+  gap: 10px;
+  grid-template-columns: 30px minmax(110px, 0.75fr) minmax(130px, 0.72fr) minmax(150px, 1fr);
+  min-height: 58px;
+  padding: 8px 10px;
+  text-align: left;
+  transform: none;
+  width: 100%;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-card:last-child {
+  border-bottom: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-card:hover {
+  background: var(--fc-raised);
+  border-color: var(--fc-line-strong);
+  box-shadow: none;
+  transform: none;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-card.ativo,
+.command-flow-shell .fechamento-page .fechamento-rota-card[aria-selected="true"] {
+  background: var(--fc-copper-soft);
+  border-left: 3px solid var(--fc-copper);
+  box-shadow: none;
+  padding-left: 7px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-avatar {
+  align-items: center;
+  background: var(--fc-raised-strong);
+  background-image: none;
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 4px;
+  color: var(--fc-copper-strong);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 900;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-info,
+.command-flow-shell .fechamento-page .fechamento-rota-metricas,
+.command-flow-shell .fechamento-page .fechamento-rota-status {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-info strong,
+.command-flow-shell .fechamento-page .fechamento-rota-metricas b,
+.command-flow-shell .fechamento-page .fechamento-rota-status b {
+  color: var(--fc-text);
+  font-size: 11.5px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-metricas b {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-info small,
+.command-flow-shell .fechamento-page .fechamento-rota-metricas small,
+.command-flow-shell .fechamento-page .fechamento-rota-status small {
+  color: var(--fc-text-muted);
+  font-size: 9.5px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-card.rascunho .fechamento-rota-status b,
+.command-flow-shell .fechamento-page .fechamento-rota-card.pendente .fechamento-rota-status b {
+  color: var(--fc-warning);
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-card.enviado .fechamento-rota-status b,
+.command-flow-shell .fechamento-page .fechamento-rota-card.visualizado .fechamento-rota-status b {
+  color: var(--fc-info);
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-card.confirmado .fechamento-rota-status b,
+.command-flow-shell .fechamento-page .fechamento-rota-card.finalizado .fechamento-rota-status b {
+  color: var(--fc-success);
+}
+
+.command-flow-shell .fechamento-page .fechamento-lista-resumo {
+  align-self: stretch;
+  background: var(--fc-raised);
+  background-image: none;
+  border: 1px solid var(--fc-line);
+  border-left: 2px solid var(--fc-copper);
+  border-radius: 5px;
+  color: var(--fc-text);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 10px 11px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-lista-resumo strong {
+  color: var(--fc-text);
+  font-size: 13px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-lista-resumo span {
+  color: var(--fc-copper);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.command-flow-shell .fechamento-page .fechamento-lista-resumo small {
+  color: var(--fc-text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+/* 3–5. Lançamentos, reconciliação e ações */
+.command-flow-shell .fechamento-page .fechamento-detalhe {
+  border-top: 2px solid var(--fc-copper);
+  padding: 16px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-detalhe-head {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--fc-line);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding-bottom: 14px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-detalhe-head h3 {
+  color: var(--fc-text);
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-detalhe-head p,
+.command-flow-shell .fechamento-page .fechamento-envio-hint {
+  color: var(--fc-text-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-envio-hint {
+  display: block;
+  margin-top: 5px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-rota-select {
+  color: var(--fc-text-muted);
+  display: flex;
+  flex: 0 0 min(230px, 34%);
+  flex-direction: column;
+  font-size: 9px;
+  font-weight: 800;
+  gap: 5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-status-envio {
+  align-items: center;
+  background: var(--fc-warning-soft);
+  background-image: none;
+  border: 1px solid var(--fc-warning-line);
+  border-radius: 5px;
+  color: var(--fc-warning);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 10px;
+  max-width: 660px;
+  padding: 8px 10px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-status-envio.enviado {
+  background: var(--fc-info-soft);
+  border-color: var(--fc-line-strong);
+  color: var(--fc-info);
+}
+
+.command-flow-shell .fechamento-page .fechamento-status-envio span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-status-envio strong {
+  color: currentColor;
+  font-size: 11px;
+  text-align: right;
+}
+
+.command-flow-shell .fechamento-page .fechamento-confirmado-destaque {
+  align-items: center;
+  background: var(--fc-success-soft);
+  background-image: none;
+  border: 1px solid var(--fc-success-line);
+  border-radius: 5px;
+  color: var(--fc-success);
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  max-width: 660px;
+  padding: 9px 10px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-confirmado-destaque > span {
+  align-items: center;
+  border: 1px solid var(--fc-success-line);
+  border-radius: 50%;
+  display: inline-flex;
+  flex: 0 0 26px;
+  height: 26px;
+  justify-content: center;
+}
+
+.command-flow-shell .fechamento-page .fechamento-confirmado-destaque div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-confirmado-destaque strong {
+  color: var(--fc-success);
+  font-size: 11.5px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-confirmado-destaque small {
+  color: var(--fc-text-soft);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis {
+  background: var(--fc-canvas);
+  border: 1px solid var(--fc-line);
+  border-radius: 5px;
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 14px 0;
+  overflow: clip;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis article {
+  background: var(--fc-panel);
+  background-image: none;
+  border: 0;
+  border-right: 1px solid var(--fc-line);
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  transform: none;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis article:last-child {
+  border-right: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis article::before,
+.command-flow-shell .fechamento-page .fechamento-kpis article::after {
+  background: transparent;
+  box-shadow: none;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis article > span {
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis article > strong {
+  color: var(--fc-text);
+  font-family: "JetBrains Mono", monospace;
+  font-size: clamp(15px, 1.7vw, 21px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis article > small {
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis .kpi-despesas > strong {
+  color: var(--fc-warning);
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis .kpi-repassar {
+  background: var(--fc-copper-soft);
+  border-top: 2px solid var(--fc-copper);
+  padding-top: 10px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-kpis .kpi-repassar > strong {
+  color: var(--fc-copper-strong);
+}
+
+.command-flow-shell .fechamento-page .fechamento-conteudo-grid {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.68fr) minmax(290px, 0.72fr);
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-operacao-box,
+.command-flow-shell .fechamento-page .fechamento-despesas-box {
+  padding: 13px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-operacao-head,
+.command-flow-shell .fechamento-page .fechamento-despesas-head,
+.command-flow-shell .fechamento-page .pix-admin-head {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--fc-line);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-operacao-head h4,
+.command-flow-shell .fechamento-page .fechamento-despesas-head strong,
+.command-flow-shell .fechamento-page .pix-admin-head h3 {
+  color: var(--fc-text);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-operacao-head > small,
+.command-flow-shell .fechamento-page .fechamento-despesas-head > span,
+.command-flow-shell .fechamento-page .pix-admin-head p {
+  color: var(--fc-text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 390px;
+  text-align: right;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidades-grid {
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 4px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-card {
+  align-items: center;
+  background: transparent;
+  background-image: none;
+  border: 0;
+  border-bottom: 1px solid var(--fc-line);
+  border-radius: 0;
+  box-shadow: none;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(150px, 0.5fr) minmax(0, 2fr);
+  min-width: 0;
+  padding: 10px 2px;
+  transform: none;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-card:last-child {
+  border-bottom: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-topo {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-marca {
+  align-items: center;
+  background: var(--fc-raised-strong);
+  background-image: none;
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 4px;
+  color: var(--fc-copper-strong);
+  display: inline-flex;
+  flex: 0 0 31px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 900;
+  height: 31px;
+  justify-content: center;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-topo strong {
+  color: var(--fc-text);
+  display: block;
+  font-size: 11.5px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-topo span {
+  color: var(--fc-text-muted);
+  display: block;
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.command-flow-shell .fechamento-page .fechamento-campos-grid {
+  align-items: end;
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-campos-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-comissao-config {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-comissao-config > span {
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-comissao-opcoes {
+  background: var(--fc-canvas);
+  border: 1px solid var(--fc-line);
+  border-radius: 5px;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: 1fr 1fr;
+  min-height: 38px;
+  padding: 2px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-comissao-opcoes button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--fc-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: Inter, sans-serif;
+  font-size: 10px;
+  gap: 5px;
+  justify-content: center;
+  padding: 5px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-comissao-opcoes button.ativo {
+  background: var(--fc-copper-soft);
+  border-color: var(--fc-copper-line);
+  color: var(--fc-copper-strong);
+}
+
+.command-flow-shell .fechamento-page .fechamento-comissao-opcoes button i {
+  background: currentColor;
+  border-radius: 50%;
+  height: 5px;
+  width: 5px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-saldo {
+  align-self: stretch;
+  background: var(--fc-raised);
+  border: 1px solid var(--fc-line);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 38px;
+  padding: 5px 8px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-saldo span {
+  color: var(--fc-text-muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page .fechamento-modalidade-saldo b {
+  color: var(--fc-text);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.command-flow-shell .fechamento-page .fechamento-ajuste-playbet {
+  background: var(--fc-canvas);
+  background-image: none;
+  border: 1px solid var(--fc-line);
+  border-left: 2px solid var(--fc-copper);
+  border-radius: 5px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 12px;
+  padding: 10px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo,
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo label > span {
+  color: var(--fc-text-soft);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.command-flow-shell .fechamento-page .fechamento-ajuste-campo small {
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.command-flow-shell .fechamento-page .erro-box,
+.command-flow-shell .fechamento-page .sucesso-box {
+  border-radius: 5px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin-top: 10px;
+  padding: 9px 10px;
+}
+
+.command-flow-shell .fechamento-page .erro-box {
+  background: var(--fc-danger-soft);
+  border: 1px solid var(--fc-danger-line);
+  color: var(--fc-danger);
+}
+
+.command-flow-shell .fechamento-page .sucesso-box {
+  background: var(--fc-success-soft);
+  border: 1px solid var(--fc-success-line);
+  color: var(--fc-success);
+}
+
+.command-flow-shell .fechamento-page .fechamento-salvar-linha {
+  align-items: end;
+  background: var(--fc-raised);
+  background-image: none;
+  border: 1px solid var(--fc-line);
+  border-radius: 5px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(0, 1.45fr);
+  margin-top: 12px;
+  padding: 11px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-salvar-linha > p {
+  color: var(--fc-text-soft);
+  font-size: 10px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-acoes {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .btn-primario,
+.command-flow-shell .fechamento-page .btn-secundario,
+.command-flow-shell .fechamento-page .btn-primary,
+.command-flow-shell .fechamento-page .btn-ghost,
+.command-flow-shell .fechamento-page .fechamento-save-btn {
+  align-items: center;
+  background: var(--fc-raised);
+  background-image: none;
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 5px;
+  box-shadow: none;
+  color: var(--fc-text-soft);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: Inter, sans-serif;
+  font-size: 11px;
+  font-weight: 750;
+  justify-content: center;
+  line-height: 1.25;
+  min-height: 38px;
+  padding: 8px 10px;
+  text-align: center;
+  transform: none;
+  white-space: normal;
+}
+
+.command-flow-shell .fechamento-page .btn-primario,
+.command-flow-shell .fechamento-page .btn-primary,
+.command-flow-shell .fechamento-page .fechamento-save-btn {
+  background: var(--fc-copper);
+  border-color: var(--fc-copper);
+  color: #17120f;
+}
+
+.command-flow-shell .fechamento-page .btn-primario:hover,
+.command-flow-shell .fechamento-page .btn-primary:hover,
+.command-flow-shell .fechamento-page .fechamento-save-btn:hover {
+  background: var(--fc-copper-strong);
+  border-color: var(--fc-copper-strong);
+  box-shadow: none;
+  color: #17120f;
+  transform: none;
+}
+
+.command-flow-shell .fechamento-page .btn-secundario:hover,
+.command-flow-shell .fechamento-page .btn-ghost:hover {
+  background: var(--fc-raised-strong);
+  border-color: var(--fc-copper-line);
+  box-shadow: none;
+  color: var(--fc-text);
+  transform: none;
+}
+
+.command-flow-shell .fechamento-page .fechamento-finalizar-btn {
+  border-color: var(--fc-success-line);
+  color: var(--fc-success);
+}
+
+.command-flow-shell .fechamento-page .fechamento-rascunho-btn {
+  border-color: var(--fc-copper-line);
+  color: var(--fc-copper-strong);
+}
+
+.command-flow-shell .fechamento-page button:disabled,
+.command-flow-shell .fechamento-page input:disabled,
+.command-flow-shell .fechamento-page select:disabled,
+.command-flow-shell .fechamento-page textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.command-flow-shell .fechamento-page button:focus-visible,
+.command-flow-shell .fechamento-page input:focus-visible,
+.command-flow-shell .fechamento-page select:focus-visible,
+.command-flow-shell .fechamento-page textarea:focus-visible,
+.command-flow-shell .fechamento-page summary:focus-visible {
+  outline: 2px solid var(--fc-copper);
+  outline-offset: 2px;
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesas-box {
+  background: var(--fc-canvas);
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesas-head {
+  align-items: center;
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesas-head > span {
+  text-align: right;
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesa-card {
+  background: transparent;
+  background-image: none;
+  border: 0;
+  border-bottom: 1px solid var(--fc-line);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--fc-text);
+  padding: 10px 2px;
+  transform: none;
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesa-card:last-child {
+  border-bottom: 0;
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesa-conteudo > strong,
+.command-flow-shell .fechamento-page .fechamento-despesa-card > b {
+  color: var(--fc-text);
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesa-card > b {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-flow-shell .fechamento-page .fechamento-despesa-itens,
+.command-flow-shell .fechamento-page .fechamento-despesa-card > small,
+.command-flow-shell .fechamento-page .fechamento-despesa-modalidades {
+  color: var(--fc-text-muted);
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.command-flow-shell .fechamento-page .dash-vazio {
+  color: var(--fc-text-muted);
+  font-size: 11px;
+  padding: 14px 2px;
+}
+
+/* PIX segue o mesmo ledger, sem substituir nenhuma ação existente. */
+.command-flow-shell .fechamento-page .pix-admin-panel {
+  border-left: 3px solid var(--fc-line-strong);
+  padding: 14px;
+}
+
+.command-flow-shell .fechamento-page .pix-admin-head h3 {
+  margin-bottom: 4px;
+}
+
+.command-flow-shell .fechamento-page .pix-admin-head p {
+  max-width: 640px;
+  text-align: left;
+}
+
+.command-flow-shell .fechamento-page .pix-card-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-top: 12px;
+}
+
+.command-flow-shell .fechamento-page .pix-credit-card,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-digio,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-neon,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-nu,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-bradesco,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-itau,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-santander,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-caixa,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-bb,
+.command-flow-shell .fechamento-page .pix-credit-card.pix-banco-outro {
+  background: var(--fc-raised);
+  background-image: none;
+  border: 1px solid var(--fc-line);
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--fc-text);
+  min-height: 148px;
+  padding: 12px;
+  transform: none;
+}
+
+.command-flow-shell .fechamento-page .pix-credit-card::before,
+.command-flow-shell .fechamento-page .pix-credit-card::after {
+  background: transparent;
+  box-shadow: none;
+}
+
+.command-flow-shell .fechamento-page .pix-card-top strong,
+.command-flow-shell .fechamento-page .pix-card-info strong {
+  color: var(--fc-text);
+}
+
+.command-flow-shell .fechamento-page .pix-chip {
+  background: var(--fc-copper-soft);
+  background-image: none;
+  border: 1px solid var(--fc-copper-line);
+  box-shadow: none;
+}
+
+.command-flow-shell .fechamento-page .pix-contactless,
+.command-flow-shell .fechamento-page .pix-card-brand {
+  color: var(--fc-text-muted);
+}
+
+.command-flow-shell .fechamento-page .pix-card-info span,
+.command-flow-shell .fechamento-page .pix-card-info small {
+  color: var(--fc-text-soft);
+}
+
+.command-flow-shell .fechamento-page .pix-card-info small {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-flow-shell .fechamento-page .pix-send-link {
+  background: transparent;
+  border: 0;
+  color: var(--fc-copper-strong);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 0;
+  text-decoration: underline;
+  text-decoration-color: var(--fc-copper-line);
+  text-underline-offset: 3px;
+}
+
+.command-flow-shell .fechamento-page .pix-send-panel {
+  background: var(--fc-canvas);
+  background-image: none;
+  border: 1px solid var(--fc-copper-line);
+  border-radius: 6px;
+  box-shadow: none;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(190px, 0.8fr) minmax(135px, 0.55fr) minmax(135px, 0.55fr) minmax(210px, 1fr) auto;
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.command-flow-shell .fechamento-page .pix-send-panel h4 {
+  color: var(--fc-text);
+  font-size: 13px;
+  margin: 0 0 3px;
+}
+
+.command-flow-shell .fechamento-page .pix-send-panel p {
+  color: var(--fc-text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  margin: 0;
+}
+
+.command-flow-shell .fechamento-page .pix-send-panel > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page .pix-send-panel textarea {
+  min-height: 38px;
+  resize: vertical;
+}
+
+.command-flow-shell .fechamento-page .pix-send-actions {
+  align-self: end;
+  display: flex;
+  gap: 6px;
+}
+
+.command-flow-shell .fechamento-page .pix-listas-grid {
+  border-top: 1px solid var(--fc-line);
+  display: grid;
+  gap: 10px;
+  margin-top: 13px;
+  padding-top: 12px;
+}
+
+.command-flow-shell .fechamento-page .pix-listas-grid h4 {
+  color: var(--fc-text);
+  font-size: 12px;
+  margin: 0 0 7px;
+}
+
+.command-flow-shell .fechamento-page .pix-chave-card {
+  align-items: center;
+  background: transparent;
+  background-image: none;
+  border: 0;
+  border-bottom: 1px solid var(--fc-line);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--fc-text);
+  display: flex;
+  gap: 9px;
+  padding: 8px 1px;
+}
+
+.command-flow-shell .fechamento-page .pix-banco-logo,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-digio,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-neon,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-nu,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-bradesco,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-itau,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-santander,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-caixa,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-bb,
+.command-flow-shell .fechamento-page .pix-banco-logo.pix-banco-outro {
+  align-items: center;
+  background: var(--fc-raised-strong);
+  background-image: none;
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 4px;
+  color: var(--fc-copper-strong);
+  display: inline-flex;
+  flex: 0 0 30px;
+  height: 30px;
+  justify-content: center;
+}
+
+.command-flow-shell .fechamento-page .pix-chave-card strong {
+  color: var(--fc-text);
+  display: block;
+  font-size: 11px;
+}
+
+.command-flow-shell .fechamento-page .pix-chave-card span,
+.command-flow-shell .fechamento-page .pix-chave-card small {
+  color: var(--fc-text-muted);
+  display: block;
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+@media (max-width: 1280px) {
+  .command-flow-shell .fechamento-page .fechamento-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-lista-seletor {
+    grid-template-columns: minmax(190px, 0.62fr) minmax(0, 2fr);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-lista-resumo {
+    grid-column: 1 / -1;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-conteudo-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .command-flow-shell .fechamento-page .pix-send-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-flow-shell .fechamento-page .pix-send-panel > div:first-child,
+  .command-flow-shell .fechamento-page .pix-send-panel > label:nth-of-type(3),
+  .command-flow-shell .fechamento-page .pix-send-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .command-flow-shell .fechamento-page .fechamento-hero,
+  .command-flow-shell .fechamento-page .fechamento-detalhe-head,
+  .command-flow-shell .fechamento-page .fechamento-operacao-head,
+  .command-flow-shell .fechamento-page .pix-admin-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .command-flow-shell .fechamento-page .prorrogacao-despesas-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-flow-shell .fechamento-page .prorrogacao-despesas-lista article {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-lista-seletor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-lista-resumo {
+    grid-column: auto;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-rota-card {
+    grid-template-columns: 30px minmax(100px, 0.72fr) minmax(120px, 0.65fr) minmax(140px, 1fr);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-rota-select {
+    flex-basis: auto;
+    width: min(100%, 280px);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-kpis article {
+    border-bottom: 1px solid var(--fc-line);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-kpis article:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-kpis article:last-child {
+    border-bottom: 0;
+    grid-column: 1 / -1;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-modalidade-card {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-salvar-linha {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-acoes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .command-flow-shell .fechamento-page {
+    gap: 10px;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-hero,
+  .command-flow-shell .fechamento-page .fechamento-filtros,
+  .command-flow-shell .fechamento-page .fechamento-lista-seletor,
+  .command-flow-shell .fechamento-page .fechamento-detalhe,
+  .command-flow-shell .fechamento-page .fechamento-operacao-box,
+  .command-flow-shell .fechamento-page .fechamento-despesas-box,
+  .command-flow-shell .fechamento-page .pix-admin-panel,
+  .command-flow-shell .fechamento-page .prorrogacao-despesas-conteudo {
+    padding: 12px;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-filtros,
+  .command-flow-shell .fechamento-page .prorrogacao-despesas-form,
+  .command-flow-shell .fechamento-page .prorrogacao-despesas-lista article,
+  .command-flow-shell .fechamento-page .pix-send-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .command-flow-shell .fechamento-page .pix-send-panel > div:first-child,
+  .command-flow-shell .fechamento-page .pix-send-panel > label:nth-of-type(3),
+  .command-flow-shell .fechamento-page .pix-send-actions {
+    grid-column: auto;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-rota-card {
+    gap: 8px;
+    grid-template-columns: 30px minmax(0, 1fr);
+    padding: 9px;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-rota-card.ativo,
+  .command-flow-shell .fechamento-page .fechamento-rota-card[aria-selected="true"] {
+    padding-left: 6px;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-rota-metricas,
+  .command-flow-shell .fechamento-page .fechamento-rota-status {
+    grid-column: 2;
+    padding-left: 1px;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-rota-metricas small,
+  .command-flow-shell .fechamento-page .fechamento-rota-status small {
+    white-space: normal;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-status-envio {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-status-envio strong {
+    text-align: left;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-kpis,
+  .command-flow-shell .fechamento-page .fechamento-campos-grid,
+  .command-flow-shell .fechamento-page .fechamento-ajuste-playbet,
+  .command-flow-shell .fechamento-page .fechamento-acoes,
+  .command-flow-shell .fechamento-page .pix-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-kpis article,
+  .command-flow-shell .fechamento-page .fechamento-kpis article:nth-child(2n) {
+    border-bottom: 1px solid var(--fc-line);
+    border-right: 0;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-kpis article:last-child {
+    grid-column: auto;
+  }
+
+  .command-flow-shell .fechamento-page .fechamento-operacao-head > small,
+  .command-flow-shell .fechamento-page .pix-admin-head p {
+    text-align: left;
+  }
+
+  .command-flow-shell .fechamento-page .pix-send-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .command-flow-shell .fechamento-page *,
+  .command-flow-shell .fechamento-page *::before,
+  .command-flow-shell .fechamento-page *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

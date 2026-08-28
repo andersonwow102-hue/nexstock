@@ -1,8 +1,8 @@
-.app.operations-shell {
-  background: #101216;
+.app.module-devedores.operations-shell {
+  background: var(--surface-canvas);
 }
 
-.app.operations-shell > .main {
+.app.module-devedores.operations-shell > .main {
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -12,205 +12,139 @@
   padding: 0;
 }
 
-.app.operations-shell > .main > .gerente-welcome {
+.app.module-devedores.operations-shell > .main > .gerente-welcome {
   display: none;
 }
 
-.app.operations-shell > .sidebar {
-  background: #0c0e11;
-  border-right-color: rgba(255, 255, 255, 0.09);
+.app.module-devedores.operations-shell > .sidebar {
+  background: var(--surface-navigation);
+  border-right-color: var(--border-subtle);
   bottom: 0;
-  box-shadow: 22px 0 70px rgba(0, 0, 0, 0.42);
+  box-shadow: var(--shadow-lg);
   left: 0;
   max-width: 348px;
   min-width: 0;
   position: fixed;
   top: 0;
   transform: translateX(-100%);
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 220ms;
+  transition: transform var(--motion-emphasized) var(--ease-emphasized), visibility 0s linear var(--motion-emphasized);
   visibility: hidden;
   width: min(86vw, 348px);
   z-index: 10000;
 }
 
-.app.operations-shell > .sidebar.aberta {
+.app.module-devedores.operations-shell > .sidebar.aberta {
   transition-delay: 0s;
   transform: translateX(0);
   visibility: visible;
 }
 
-.app.operations-shell > .sidebar-overlay.ativo {
+.app.module-devedores.operations-shell > .sidebar-overlay.ativo {
   display: block;
   z-index: 9999;
 }
 
-.app.operations-shell > .sidebar::before {
+.app.module-devedores.operations-shell > .sidebar::before {
   opacity: 0.14;
   filter: grayscale(1);
 }
 
-.app.operations-shell > .sidebar .nav-item {
+.app.module-devedores.operations-shell > .sidebar .nav-item {
   border-color: transparent;
-  color: #8d949d;
+  color: var(--text-muted);
 }
 
-.app.operations-shell > .sidebar .nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: #f1f2f3;
+.app.module-devedores.operations-shell > .sidebar .nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
 }
 
-.app.operations-shell > .sidebar .nav-item.active {
-  background: rgba(255, 255, 255, 0.055);
-  border-color: rgba(255, 255, 255, 0.09);
-  color: #f1f2f3;
+.app.module-devedores.operations-shell > .sidebar .nav-item.active {
+  background: color-mix(in srgb, var(--brand-action) 11%, transparent);
+  border-color: color-mix(in srgb, var(--brand-action) 35%, var(--border-subtle));
+  color: var(--text-strong);
 }
 
-.app.operations-shell > .sidebar .nav-item.active::before {
-  background: #cb8672;
+.app.module-devedores.operations-shell > .sidebar .nav-item.active::before {
+  background: var(--brand-action);
   box-shadow: none;
 }
 
-.app.operations-shell > .sidebar .nav-item.active .nav-icon {
-  color: #cb8672;
+.app.module-devedores.operations-shell > .sidebar .nav-item.active .nav-icon {
+  color: var(--text-accent);
   filter: none;
 }
 
-.app.operations-shell > .sidebar :is(.sidebar-logo, .sidebar-perfil) {
+.app.module-devedores.operations-shell > .sidebar :is(.sidebar-logo, .sidebar-perfil) {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.09);
+  border-color: var(--border-subtle);
 }
 
-.app.tema-claro.operations-shell > .sidebar {
-  background: #f7f8f9;
-  border-right-color: rgba(32, 35, 40, 0.14);
-  color: #202328;
+.app.tema-claro.module-devedores.operations-shell > .sidebar {
+  background: var(--surface-navigation);
+  border-right-color: var(--border-subtle);
+  color: var(--text-strong);
 }
 
-.app.tema-claro.operations-shell > .sidebar .nav-item {
-  color: #59616a;
+.app.tema-claro.module-devedores.operations-shell > .sidebar .nav-item {
+  color: var(--text-muted);
 }
 
-.app.tema-claro.operations-shell > .sidebar .nav-item:hover,
-.app.tema-claro.operations-shell > .sidebar .nav-item.active {
-  background: rgba(141, 78, 69, 0.08);
-  border-color: rgba(141, 78, 69, 0.18);
-  color: #202328;
+.app.tema-claro.module-devedores.operations-shell > .sidebar .nav-item:hover,
+.app.tema-claro.module-devedores.operations-shell > .sidebar .nav-item.active {
+  background: color-mix(in srgb, var(--brand-action) 10%, transparent);
+  border-color: color-mix(in srgb, var(--brand-action) 30%, var(--border-subtle));
+  color: var(--text-strong);
 }
 
-.app.tema-claro.operations-shell > .sidebar :is(.sidebar-logo, .sidebar-perfil) {
-  border-color: rgba(32, 35, 40, 0.11);
+.app.tema-claro.module-devedores.operations-shell > .sidebar :is(.sidebar-logo, .sidebar-perfil) {
+  border-color: var(--border-subtle);
 }
 
 .dev-command-flow {
-  --dev-cf-bg: #101216;
-  --dev-cf-rail: #0c0e11;
-  --dev-cf-surface: #171a1e;
-  --dev-cf-raised: #20242a;
-  --dev-cf-selected: #272c33;
-  --dev-cf-deep: #14171b;
-  --dev-cf-overlay: #24282e;
-  --dev-cf-text: #f2f3f5;
-  --dev-cf-text-soft: #d5d8dc;
-  --dev-cf-muted: #9ba2aa;
-  --dev-cf-faint: #858d96;
-  --dev-cf-line: rgba(242, 243, 244, 0.085);
-  --dev-cf-line-strong: rgba(242, 243, 244, 0.16);
-  --dev-cf-copper: #a65f52;
-  --dev-cf-copper-high: #d48c78;
-  --dev-cf-copper-wash: rgba(166, 95, 82, 0.1);
-  --dev-cf-risk: #da615d;
-  --dev-cf-risk-wash: rgba(218, 97, 93, 0.1);
-  --dev-cf-success: #72967c;
-  --dev-cf-success-wash: rgba(114, 150, 124, 0.11);
-  --dev-cf-shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.17);
-  --dev-cf-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
-  --dev-cf-display: "Bahnschrift SemiCondensed", "Bahnschrift", "Aptos Display", "Segoe UI", sans-serif;
-  --dev-cf-body: "Segoe UI Variable", "Aptos", "Segoe UI", sans-serif;
-  --dev-cf-utility: "Cascadia Mono", "Consolas", monospace;
-  --dev-cf-instant: 100ms;
-  --dev-cf-fast: 160ms;
-  --dev-cf-standard: 220ms;
-  --dev-cf-spatial: 280ms;
-  --dev-cf-enter: cubic-bezier(0.2, 0.72, 0.24, 1);
+  --dev-cf-bg: var(--surface-canvas);
+  --dev-cf-rail: var(--surface-navigation);
+  --dev-cf-surface: var(--surface-panel);
+  --dev-cf-raised: var(--surface-raised);
+  --dev-cf-selected: var(--surface-interactive, var(--surface-hover));
+  --dev-cf-deep: var(--surface-input);
+  --dev-cf-overlay: var(--surface-raised);
+  --dev-cf-text: var(--text-strong);
+  --dev-cf-text-soft: var(--text-default);
+  --dev-cf-muted: var(--text-muted);
+  --dev-cf-faint: var(--text-disabled);
+  --dev-cf-line: var(--border-subtle);
+  --dev-cf-line-strong: var(--border-strong);
+  --dev-cf-copper: var(--brand-action);
+  --dev-cf-copper-high: var(--brand-action-vivid, var(--brand-action-hover));
+  --dev-cf-copper-wash: color-mix(in srgb, var(--brand-action) 11%, transparent);
+  --dev-cf-risk: var(--state-danger);
+  --dev-cf-risk-wash: var(--state-danger-surface);
+  --dev-cf-success: var(--state-success);
+  --dev-cf-success-wash: var(--state-success-surface);
+  --dev-cf-shadow-sm: var(--shadow-sm);
+  --dev-cf-shadow: var(--shadow-md);
+  --dev-cf-display: var(--font-ui);
+  --dev-cf-body: var(--font-ui);
+  --dev-cf-utility: var(--font-data);
+  --dev-cf-instant: var(--motion-fast);
+  --dev-cf-fast: var(--motion-fast);
+  --dev-cf-standard: var(--motion-emphasized);
+  --dev-cf-spatial: var(--motion-emphasized);
+  --dev-cf-enter: var(--ease-emphasized);
   --dev-cf-exit: cubic-bezier(0.4, 0, 0.8, 0.2);
-  --dev-cf-move: cubic-bezier(0.22, 0.72, 0.2, 1);
-
-  --surface-canvas: var(--dev-cf-bg);
-  --surface-panel: var(--dev-cf-surface);
-  --surface-raised: var(--dev-cf-raised);
-  --surface-input: var(--dev-cf-deep);
-  --surface-hover: var(--dev-cf-selected);
-  --surface-interactive: var(--dev-cf-selected);
-  --surface-overlay: rgba(5, 7, 9, 0.68);
-  --surface-highlight: rgba(255, 255, 255, 0.035);
-  --text-strong: var(--dev-cf-text);
-  --text-default: var(--dev-cf-text-soft);
-  --text-muted: var(--dev-cf-muted);
-  --text-disabled: var(--dev-cf-faint);
-  --text-inverse: #fff8f4;
-  --brand-action: var(--dev-cf-copper);
-  --brand-action-hover: var(--dev-cf-copper-high);
-  --brand-action-vivid: var(--dev-cf-copper-high);
-  --brand-signature: var(--dev-cf-copper-high);
-  --border-subtle: var(--dev-cf-line);
-  --border-strong: var(--dev-cf-line-strong);
-  --border-control: var(--dev-cf-line-strong);
-  --state-danger: var(--dev-cf-risk);
-  --state-danger-border: color-mix(in srgb, var(--dev-cf-risk) 52%, transparent);
-  --state-danger-surface: var(--dev-cf-risk-wash);
-  --state-success: var(--dev-cf-success);
-  --state-success-border: color-mix(in srgb, var(--dev-cf-success) 52%, transparent);
-  --state-success-surface: var(--dev-cf-success-wash);
-  --state-warning: var(--dev-cf-copper-high);
-  --state-warning-border: color-mix(in srgb, var(--dev-cf-copper) 52%, transparent);
-  --state-warning-surface: var(--dev-cf-copper-wash);
-  --state-info: var(--dev-cf-copper-high);
-  --state-info-border: color-mix(in srgb, var(--dev-cf-copper) 52%, transparent);
-  --state-info-surface: var(--dev-cf-copper-wash);
-  --font-sans: var(--dev-cf-body);
-  --font-mono: var(--dev-cf-utility);
-  --shadow-xs: var(--dev-cf-shadow-sm);
-  --shadow-sm: var(--dev-cf-shadow-sm);
-  --shadow-md: var(--dev-cf-shadow);
-  --shadow-lg: var(--dev-cf-shadow);
+  --dev-cf-move: var(--ease-emphasized);
 
   background: var(--dev-cf-bg);
   color: var(--dev-cf-text);
   display: grid;
   flex: 1 1 auto;
-  font-family: var(--dev-cf-body);
+  font-family: var(--font-ui);
   grid-template-columns: 212px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-}
-
-.app.tema-claro .dev-command-flow {
-  --dev-cf-bg: #f4f6f7;
-  --dev-cf-surface: #ffffff;
-  --dev-cf-raised: #eef1f3;
-  --dev-cf-selected: #e5e9ec;
-  --dev-cf-deep: #f8f9fa;
-  --dev-cf-overlay: #ffffff;
-  --dev-cf-text: #202328;
-  --dev-cf-text-soft: #3f464e;
-  --dev-cf-muted: #69717a;
-  --dev-cf-faint: #69717a;
-  --dev-cf-line: rgba(32, 35, 40, 0.095);
-  --dev-cf-line-strong: rgba(32, 35, 40, 0.17);
-  --dev-cf-copper: #8d4e45;
-  --dev-cf-copper-high: #8d4e45;
-  --dev-cf-copper-wash: rgba(150, 86, 76, 0.08);
-  --dev-cf-risk: #b43f45;
-  --dev-cf-risk-wash: rgba(201, 80, 82, 0.075);
-  --dev-cf-success: #4e7058;
-  --dev-cf-success-wash: rgba(93, 128, 104, 0.085);
-  --dev-cf-shadow-sm: 0 9px 25px rgba(38, 43, 49, 0.09);
-  --dev-cf-shadow: 0 26px 70px rgba(38, 43, 49, 0.17);
-  --surface-overlay: rgba(24, 27, 31, 0.48);
-  --surface-highlight: rgba(255, 255, 255, 0.72);
-  --text-inverse: #ffffff;
 }
 
 .dev-command-flow,
@@ -238,7 +172,7 @@
 }
 
 .dev-command-flow :is(button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--dev-cf-copper-high);
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -258,8 +192,8 @@
 
 .dev-cf-rail {
   background: var(--dev-cf-rail);
-  border-right: 1px solid rgba(255, 255, 255, 0.09);
-  color: #f1f2f3;
+  border-right: 1px solid var(--dev-cf-line);
+  color: var(--dev-cf-text);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -298,7 +232,7 @@
 }
 
 .dev-cf-rail-brand small {
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   font-family: var(--dev-cf-body);
   font-size: 8px;
   letter-spacing: 0.025em;
@@ -309,8 +243,8 @@
 .dev-cf-rail-brand > button {
   align-items: center;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #9ba2aa;
+  border: 1px solid var(--dev-cf-line-strong);
+  color: var(--dev-cf-muted);
   display: flex;
   height: 34px;
   justify-content: center;
@@ -326,8 +260,8 @@
 }
 
 .dev-cf-exposure {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: var(--dev-cf-surface);
+  border: 1px solid var(--dev-cf-line);
   margin-top: 20px;
   padding: 14px 13px;
 }
@@ -341,7 +275,7 @@
 
 .dev-cf-exposure > div:first-child span {
   align-items: center;
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   display: flex;
   font-family: var(--dev-cf-utility);
   font-size: 9px;
@@ -360,7 +294,7 @@
 }
 
 .dev-cf-exposure > div:first-child small {
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   font-size: 10px;
 }
 
@@ -377,20 +311,20 @@
 }
 
 .dev-cf-exposure > p {
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   font-size: 11px;
   margin: 15px 0 0;
 }
 
 .dev-cf-exposure > p b {
-  color: #f1f2f3;
+  color: var(--dev-cf-text);
   font-family: var(--dev-cf-utility);
   font-size: 11px;
   font-weight: 560;
 }
 
 .dev-cf-meter {
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--dev-cf-line-strong);
   height: 3px;
   margin-top: 7px;
   overflow: hidden;
@@ -414,14 +348,14 @@
 
 .dev-cf-exposure dl > div {
   align-items: center;
-  border-left: 1px solid rgba(255, 255, 255, 0.09);
+  border-left: 1px solid var(--dev-cf-line);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   padding-left: 6px;
 }
 
 .dev-cf-exposure dt {
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   font-size: 10px;
 }
 
@@ -434,7 +368,7 @@
 }
 
 .dev-cf-queues {
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-top: 1px solid var(--dev-cf-line);
   display: grid;
   gap: 5px;
   margin-top: 21px;
@@ -457,7 +391,7 @@
 }
 
 .dev-cf-queues > p {
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   font-family: var(--dev-cf-utility);
   font-size: 9.5px;
   letter-spacing: 0.045em;
@@ -469,7 +403,7 @@
   align-items: center;
   background: transparent;
   border: 1px solid transparent;
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   display: grid;
   gap: 8px;
   grid-template-columns: 30px minmax(0, 1fr) auto;
@@ -490,15 +424,15 @@
 
 .dev-cf-queues > button:hover,
 .dev-cf-queues > button.is-active {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.09);
-  color: #f1f2f3;
+  background: var(--dev-cf-selected);
+  border-color: var(--dev-cf-line);
+  color: var(--dev-cf-text);
 }
 
 .dev-cf-queues > button > span:first-child {
   align-items: center;
   background: var(--dev-cf-rail);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid var(--dev-cf-line);
   display: flex;
   height: 29px;
   justify-content: center;
@@ -525,7 +459,7 @@
 }
 
 .dev-cf-queues small {
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -543,7 +477,7 @@
 }
 
 .dev-cf-rail-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-top: 1px solid var(--dev-cf-line);
   display: grid;
   gap: 5px;
   margin-top: auto;
@@ -554,7 +488,7 @@
   align-items: center;
   background: var(--dev-cf-copper);
   border: 1px solid var(--dev-cf-copper);
-  color: #fff8f4 !important;
+  color: var(--text-inverse) !important;
   display: flex;
   font-size: 11px !important;
   font-weight: 680 !important;
@@ -576,7 +510,7 @@
 }
 
 .dev-cf-rail-footer > small {
-  color: #8d949d;
+  color: var(--dev-cf-muted);
   font-size: 9.5px;
   line-height: 1.35;
 }
@@ -604,7 +538,7 @@
 }
 
 .app.tema-claro .dev-cf-command-bar {
-  background: rgba(244, 246, 247, 0.97);
+  background: var(--dev-cf-bg);
 }
 
 .dev-cf-menu {
@@ -667,7 +601,7 @@
 .dev-cf-command.is-open .dev-cf-search {
   background: var(--dev-cf-overlay);
   border-color: var(--dev-cf-copper);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.19);
+  box-shadow: var(--dev-cf-shadow-sm);
 }
 
 .dev-cf-search > .dev-cf-icon {
@@ -852,7 +786,7 @@
 .dev-cf-filter-launch > b {
   align-items: center;
   background: var(--dev-cf-copper);
-  color: #fff8f4;
+  color: var(--text-inverse);
   display: flex;
   font-family: var(--dev-cf-utility);
   font-size: 9px;
@@ -991,7 +925,7 @@
 }
 
 .dev-cf-filter-scrim {
-  background: rgba(5, 7, 9, 0.05);
+  background: color-mix(in srgb, var(--surface-overlay) 12%, transparent);
   border: 0;
   inset: 78px 0 0;
   opacity: 0;
@@ -1303,7 +1237,7 @@
 }
 
 .app.tema-claro .dev-cf-ledger-head {
-  background: #f4f6f7;
+  background: var(--dev-cf-bg);
 }
 
 .dev-cf-ledger {
@@ -1581,7 +1515,7 @@
 
 .dev-cf-ledger-skeleton i,
 .dev-detail-skeleton .so-skeleton-line {
-  animation: dev-cf-skeleton 740ms ease-in-out infinite alternate;
+  animation: dev-cf-skeleton 740ms ease-in-out 2 alternate both;
   background: var(--dev-cf-line-strong);
   display: block;
   height: 15px;
@@ -1644,7 +1578,7 @@
 .dev-cf-dossier {
   background: var(--dev-cf-raised);
   border-left: 1px solid var(--dev-cf-line-strong);
-  box-shadow: -12px 0 34px rgba(0, 0, 0, 0.07);
+  box-shadow: -12px 0 34px color-mix(in srgb, var(--surface-overlay) 12%, transparent);
   min-height: 0;
   overflow: hidden;
   position: relative;
@@ -2392,7 +2326,7 @@
 .dev-command-flow .btn-primario {
   background: var(--dev-cf-copper);
   border-color: var(--dev-cf-copper);
-  color: #fff8f4;
+  color: var(--text-inverse);
 }
 
 .dev-command-flow .btn-primario:hover:not(:disabled) {
@@ -2419,8 +2353,7 @@
 }
 
 .dev-command-flow .dev-modal-fundo.so-modal-overlay {
-  background: rgba(5, 7, 9, 0.68);
-  backdrop-filter: blur(6px) saturate(0.8);
+  background: var(--surface-overlay);
   padding: 18px;
   z-index: 9000;
 }
@@ -2825,7 +2758,7 @@
   align-items: center;
   background: var(--dev-cf-success);
   border-radius: 50%;
-  color: #fff;
+  color: var(--text-inverse);
   display: flex;
   height: 22px;
   justify-content: center;
@@ -3075,7 +3008,7 @@
     border: 1px solid var(--dev-cf-copper-high);
     bottom: calc(70px + env(safe-area-inset-bottom));
     box-shadow: var(--dev-cf-shadow);
-    color: #fff8f4;
+    color: var(--text-inverse);
     display: flex;
     font-size: 10.5px;
     font-weight: 650;
@@ -3171,7 +3104,7 @@
   }
 
   .dev-cf-filter-scrim {
-    background: rgba(5, 7, 9, 0.62);
+    background: var(--surface-overlay);
     inset: 0;
     position: fixed;
     z-index: 9200;
