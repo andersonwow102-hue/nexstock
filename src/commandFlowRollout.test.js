@@ -45,6 +45,8 @@ const loginManager = read("LoginManagerPage.jsx");
 const adminCss = read("AdminCommandFlow.css");
 const devedores = read("DevedoresPage.jsx");
 const devedoresCss = read("DevedoresPage.css");
+const fechamentoWorkbench = read("FechamentoWorkbench.jsx");
+const fechamentoWorkbenchCss = read("FechamentoWorkbench.css");
 
 test("fundações e shell Command Flow são globais e mantêm o drawer acessível", () => {
   assertMarkers(app, [
@@ -278,15 +280,30 @@ test("Devedores aprovado mantém rail, command bar, ledger e dossiê", () => {
 test("Fechamento conserva suas regras em progressão estrutural responsiva", () => {
   assertMarkers(app, [
     'aba==="fechamento"',
+    "<FechamentoModule",
     "<FechamentoPage",
+    "<FechamentoWorkbench",
+  ], "Integração do Fechamento");
+  assertMarkers(fechamentoWorkbench, [
     'className="secao fechamento-page"',
+    'data-layout="workbench"',
     "fechamento-progress",
     "fechamento-step-label",
     "fechamento-section-label",
-  ], "Fechamento");
+    "fechamento-summary",
+    "fechamento-matriz",
+    "fechamento-publicacao",
+    "aria-current",
+    "aria-live",
+    "inert={!revisaoAberta",
+  ], "Mesa de conferência do Fechamento");
   assert.doesNotMatch(app, /<div className="fechamento-hero">/);
+  assert.doesNotMatch(fechamentoWorkbench, /fechamento-hero/);
   assert.match(appCss, /\.fechamento-page\s*\{/);
   assert.match(appCss, /@media \(max-width: 760px\)[\s\S]*?\.fechamento-page/);
+  assert.match(fechamentoWorkbenchCss, /\.fechamento-page\[data-layout="workbench"\]/);
+  assert.match(fechamentoWorkbenchCss, /@media \(max-width: 900px\)/);
+  assert.match(fechamentoWorkbenchCss, /@media \(prefers-reduced-motion: reduce\)/);
 
   const dedicatedCssFiles = fs.readdirSync(srcDir)
     .filter(file => /(?:fechamento|closing).*\.css$/i.test(file));

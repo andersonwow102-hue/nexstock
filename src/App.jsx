@@ -8,6 +8,7 @@ import ManagementPage from "./ManagementPage.jsx";
 import LoginManagerPage from "./LoginManagerPage.jsx";
 import DevedoresPage from "./DevedoresPage.jsx";
 import DashboardPage from "./DashboardPage.jsx";
+import FechamentoWorkbench from "./FechamentoWorkbench.jsx";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
@@ -31,6 +32,7 @@ import {
 import "./styles/foundations.css";
 import "./styles/command-flow.css";
 import "./FechamentoCommandFlow.css";
+import "./FechamentoWorkbench.css";
 
 const NEPTERA = Object.freeze({
   nome: "NEPTERA",
@@ -1226,7 +1228,21 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
   );
 }
 
-function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = [], onPixEnviosChange }) {
+function FechamentoModule({ onMenu, ...pageProps }) {
+  const [prazosAbertos, setPrazosAbertos] = useState(false);
+  return <>
+    <ModuleHeader
+      eyebrow="Reconciliação operacional"
+      title="Fechamento"
+      subtitle="Conferência, prova do resultado e publicação por rota."
+      onMenu={onMenu}
+      actions={<button className="btn-secundario" type="button" aria-expanded={prazosAbertos} onClick={()=>setPrazosAbertos(atual=>!atual)}><Icon name="calendar"/> Prazos de despesas</button>}
+    />
+    <FechamentoPage {...pageProps} prazosAbertos={prazosAbertos} onFecharPrazos={()=>setPrazosAbertos(false)}/>
+  </>;
+}
+
+function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = [], onPixEnviosChange, prazosAbertos = false, onFecharPrazos }) {
   const [cartaoPix,setCartaoPix]=useState(null);
   const [pixEnvio,setPixEnvio]=useState({gerente:GERENTES[0]||"",rota:"",mensagem:""});
   const [pixErro,setPixErro]=useState("");
@@ -1358,6 +1374,9 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const saldoFinalFechamento = saldoBrutoFechamento - totalDetalhe;
   const comissaoGerenteFechamento = Math.max(0, saldoFinalFechamento) * 0.10;
   const saldoRepassarFechamento = saldoFinalFechamento - comissaoGerenteFechamento;
+  const totalEntradasFechamento = calculosModalidades.reduce((s,m)=>s+m.entrada,0);
+  const totalComissoesFechamento = calculosModalidades.reduce((s,m)=>s+m.comissaoCalculada,0);
+  const totalSaidasFechamento = calculosModalidades.reduce((s,m)=>s+m.saida,0);
   const competenciaStatusFechamento = competenciaFechamento || hoje().slice(0,7);
   const diaStatusFechamento = diaFechamento || "";
   const fechamentosDetalheStatus = fechamentosRotas.filter(f =>
@@ -1794,313 +1813,57 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
     }
   }
 
-  return (
-    <section className="secao fechamento-page">
-      <nav className="fechamento-progress" aria-label="Progressão do fechamento">
-        <ol>{etapasFechamento.map((etapa,indice)=>{const numero=indice+1;return <li key={etapa} className={numero<etapaFechamento?"is-complete":numero===etapaFechamento?"is-current":""} aria-current={numero===etapaFechamento?"step":undefined}><span>{String(numero).padStart(2,"0")}</span><strong>{etapa}</strong></li>;})}</ol>
-      </nav>
-      <details className="prorrogacao-despesas-admin fechamento-ferramenta-secundaria">
-        <summary>
-          <div>
-            <span className="dash-kicker">Ferramenta administrativa</span>
-            <strong>Controle de prazos para despesas</strong>
-          </div>
-          <span>Configurar</span>
-        </summary>
-        <div className="prorrogacao-despesas-conteudo">
-        <div className="prorrogacao-despesas-head">
-          <div>
-            <span className="dash-kicker">Controle de prazos</span>
-            <h3>Prorrogação para lançamento de despesas</h3>
-            <p>Libere uma competência fechada para um gerente por prazo determinado.</p>
-          </div>
-        </div>
-        <div className="prorrogacao-despesas-form">
-          <div className="campo">
-            <label>Gerente</label>
-            <select value={prorrogacaoForm.gerente} onChange={e=>setProrrogacaoForm(prev=>({...prev,gerente:e.target.value}))}>
-              {GERENTES.map(gerente=><option key={gerente} value={gerente}>{gerente}</option>)}
-            </select>
-          </div>
-          <div className="campo">
-            <label>Competência</label>
-            <input type="month" value={prorrogacaoForm.competencia} onChange={e=>setProrrogacaoForm(prev=>({...prev,competencia:e.target.value}))}/>
-          </div>
-          <div className="campo">
-            <label>Prazo final</label>
-            <input type="datetime-local" value={prorrogacaoForm.expiraEm} onChange={e=>setProrrogacaoForm(prev=>({...prev,expiraEm:e.target.value}))}/>
-          </div>
-          <button className="btn-primario" type="button" onClick={salvarProrrogacao} disabled={prorrogacaoSalvando}>{prorrogacaoSalvando?"Salvando...":"Liberar prazo"}</button>
-        </div>
-        {prorrogacaoErro&&<div className="erro-box">{prorrogacaoErro}</div>}
-        {prorrogacaoOk&&<div className="sucesso-box">{prorrogacaoOk}</div>}
-        {prorrogacoesDespesas.length>0&&(
-          <div className="prorrogacao-despesas-lista">
-            {prorrogacoesDespesas.map(item=>{
-              const vigente=item.ativo&&Date.parse(item.expiraEm)>Date.now();
-              return <article key={item.id}>
-                <div><strong>{item.gerente}</strong><span>{formatarMesPrestacao(item.competencia)}</span></div>
-                <div><small>Prazo final</small><strong>{new Date(item.expiraEm).toLocaleString("pt-BR")}</strong></div>
-                <span className={`prorrogacao-status ${vigente?"vigente":"encerrada"}`}>{vigente?"Vigente":"Encerrada"}</span>
-                {vigente&&<button className="btn-secundario" type="button" onClick={()=>encerrarProrrogacao(item)}>Encerrar</button>}
-              </article>;
-            })}
-          </div>
-        )}
-        </div>
-      </details>
-      <div className="fechamento-filtros">
-        <span className="fechamento-step-label"><b>01</b> Competência</span>
-        <div className="campo">
-          <label>Competência do fechamento</label>
-          <input type="month" value={competenciaFechamento} max={hoje().slice(0,7)} onChange={e=>{setCompetenciaFechamento(e.target.value||competenciaFechamentoPadrao());setDiaFechamento("");}}/>
-        </div>
-        <div className="campo">
-          <label>Dia de lançamento</label>
-          <input type="date" value={diaFechamento} onChange={e=>{setDiaFechamento(e.target.value);if(e.target.value)setCompetenciaFechamento(e.target.value.slice(0,7));}}/>
-        </div>
-        <button className="btn-secundario" type="button" onClick={()=>{setCompetenciaFechamento(competenciaFechamentoPadrao());setDiaFechamento("");}}>
-          Voltar ao mês anterior
-        </button>
-        <div className="fechamento-periodo-info">
-          <span>Recorte atual</span>
-          <strong>{periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}</strong>
+  const statusSelecionadoWorkbench = {
+    ...statusDaRotaFechamento({ gerente: gerenteSelecionado, rota: rotaDetalheAtiva }),
+    texto: fechamentoDetalheStatusTexto,
+  };
+  const prazoConteudo = (
+    <div className="prorrogacao-despesas-conteudo">
+      <div className="prorrogacao-despesas-head">
+        <div>
+          <span className="dash-kicker">Controle de prazos</span>
+          <h3>Prorrogação para lançamento de despesas</h3>
+          <p>Libere uma competência fechada para um gerente por prazo determinado.</p>
         </div>
       </div>
-      <section className="fechamento-lista-seletor">
-        <div>
-          <span className="fechamento-step-label"><b>02</b> Seleção do fechamento</span>
-          <h3>Escolha gerente e rota</h3>
+      <div className="prorrogacao-despesas-form">
+        <div className="campo">
+          <label>Gerente</label>
+          <select value={prorrogacaoForm.gerente} onChange={e=>setProrrogacaoForm(prev=>({...prev,gerente:e.target.value}))}>
+            {GERENTES.map(gerente=><option key={gerente} value={gerente}>{gerente}</option>)}
+          </select>
         </div>
-        <div className="fechamento-rota-picker" role="listbox" aria-label="Gerente e rota do fechamento">
-          <span>Gerentes e rotas</span>
-          <div className="fechamento-rota-lista">
-            {dadosRotas.map(g=>{
-              const ativo = gerenteSelecionado === g.gerente && rotaSelecionada === g.rota;
-              const status = statusDaRotaFechamento(g);
-              return (
-                <button
-                  key={`${g.gerente}-${g.rota}`}
-                  className={`fechamento-rota-card ${ativo ? "ativo" : ""} ${status.classe}`}
-                  type="button"
-                  onClick={()=>selecionarRotaFechamento(g)}
-                  style={{"--gerente-cor":g.cor?.color,"--gerente-bg":g.cor?.bg,"--gerente-border":g.cor?.border}}
-                  aria-selected={ativo}
-                >
-                  <span className="fechamento-rota-avatar">{g.gerente.slice(0,1).toUpperCase()}</span>
-                  <span className="fechamento-rota-info">
-                    <strong>{g.gerente}</strong>
-                    <small>{g.rota}</small>
-                  </span>
-                  <span className="fechamento-rota-metricas">
-                    <b>{formatarMoedaPDF(g.totalDespesas)}</b>
-                    <small>{g.pontos} ponto{g.pontos!==1?"s":""} · {g.equipamentos} equip.</small>
-                  </span>
-                  <span className="fechamento-rota-status">
-                    <b>{status.titulo}</b>
-                    <small>{status.descricao}</small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="campo">
+          <label>Competência</label>
+          <input type="month" value={prorrogacaoForm.competencia} onChange={e=>setProrrogacaoForm(prev=>({...prev,competencia:e.target.value}))}/>
         </div>
-        {gerenteSelecionado&&(
-          <div className="fechamento-lista-resumo" style={{"--gerente-cor":gerenteDetalhe?.cor?.color,"--gerente-bg":gerenteDetalhe?.cor?.bg,"--gerente-border":gerenteDetalhe?.cor?.border}}>
-            <strong>{gerenteSelecionado}</strong>
-            <span>{rotaDetalheAtiva}</span>
-            <small>{pontosDetalhe.length} ponto{pontosDetalhe.length!==1?"s":""} · {equipamentosDetalhe.length} equipamento{equipamentosDetalhe.length!==1?"s":""}</small>
-          </div>
-        )}
-      </section>
-      {gerenteSelecionado&&(
-        <section
-          className="fechamento-detalhe"
-          style={{
-            "--gerente-cor":gerenteDetalhe?.cor?.color,
-            "--gerente-bg":gerenteDetalhe?.cor?.bg,
-            "--gerente-border":gerenteDetalhe?.cor?.border,
-          }}
-        >
-          <div className="fechamento-detalhe-head">
-            <div>
-              <span className="fechamento-step-label"><b>03</b> Lançamentos da rota</span>
-              <h3>{gerenteSelecionado}{rotaDetalheAtiva?` · ${rotaDetalheAtiva}`:""}</h3>
-              {!fechamentoDetalheConfirmadoEm&&(
-                <div className={`fechamento-status-envio ${fechamentoDetalheEnviadoEm ? "enviado" : ""}`}>
-                  <span>{fechamentoDetalheVisualizadoEm
-                    ?"PDF visualizado"
-                    :fechamentoDetalheEnviadoEm
-                      ?"Aguardando gerente"
-                      :fechamentosDetalheStatus.length?"Rascunho salvo":"Aguardando envio"}</span>
-                  <strong>{fechamentoDetalheStatusTexto}</strong>
-                </div>
-              )}
-              {fechamentoDetalheConfirmadoEm&&(
-                <div className="fechamento-confirmado-destaque">
-                  <span><Icon name="check"/></span>
-                  <div>
-                    <strong>{fechamentoDetalheFinalizadoEm ? "Prestação finalizada" : "Gerente confirmou este fechamento"}</strong>
-                    <small>{fechamentoDetalheFinalizadoEm
-                      ? `Finalizada em ${new Date(fechamentoDetalheFinalizadoEm).toLocaleString("pt-BR")} após confirmação do gerente.`
-                      : `Confirmação registrada em ${new Date(fechamentoDetalheConfirmadoEm).toLocaleString("pt-BR")}. A prestação já pode ser finalizada.`}</small>
-                  </div>
-                </div>
-              )}
-            </div>
-            {rotasDetalhe.length>1&&(
-              <label className="fechamento-rota-select">
-                <span>Trocar rota</span>
-                <select value={rotaDetalheAtiva} onChange={e=>setRotaSelecionada(e.target.value)}>
-                  {rotasDetalhe.map(rota=><option key={rota} value={rota}>{rota}</option>)}
-                </select>
-              </label>
-            )}
-          </div>
-          <div className="fechamento-section-label"><span>04</span><strong>Conferência financeira</strong><small>{periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}</small></div>
-          <div className="fechamento-kpis">
-            <article className="kpi-bruto"><span>Saldo bruto</span><strong>{formatarMoedaPDF(saldoBrutoFechamento)}</strong><small>Entradas menos comissões e saídas</small></article>
-            <article className="kpi-despesas"><span>Despesas</span><strong>{formatarMoedaPDF(totalDetalhe)}</strong><small>Competência selecionada</small></article>
-            <article className="kpi-final"><span>Saldo após despesas</span><strong>{formatarMoedaPDF(saldoFinalFechamento)}</strong><small>Saldo bruto menos despesas</small></article>
-            <article className="kpi-comissao"><span>Comissão do gerente</span><strong>{formatarMoedaPDF(comissaoGerenteFechamento)}</strong><small>10% sobre o saldo após despesas</small></article>
-            <article className="kpi-repassar"><span>Valor a repassar</span><strong>{formatarMoedaPDF(saldoRepassarFechamento)}</strong><small>Resultado final do fechamento</small></article>
-          </div>
-          <div className="fechamento-conteudo-grid">
-          <div className="fechamento-operacao-box">
-            <div className="fechamento-operacao-head">
-              <div>
-                <span className="dash-kicker">Lançamento do fechamento</span>
-                <h4>Entradas, comissões e saídas por modalidade</h4>
-              </div>
-              <small>{pontosDetalhe.length} ponto{pontosDetalhe.length!==1?"s":""} · {equipamentosDetalhe.length} equipamento{equipamentosDetalhe.length!==1?"s":""} · média de despesas {formatarMoedaPDF(mediaPorPonto)}</small>
-            </div>
-            <div className="fechamento-modalidades-grid">
-              {calculosModalidades.map(m=>(
-                <article className="fechamento-modalidade-card" key={m.id}>
-                  <div className="fechamento-modalidade-topo">
-                    <div className="fechamento-modalidade-marca">{m.nome.slice(0,2).toUpperCase()}</div>
-                    <div>
-                      <strong>{m.nome}</strong>
-                      <span>{m.descricao}</span>
-                    </div>
-                  </div>
-                  <div className="fechamento-campos-grid">
-                    {m.comissao!==null&&(
-                      <>
-                      <div className="fechamento-comissao-config">
-                        <span>{"Comiss\u00e3o autom\u00e1tica"}</span>
-                        <div className="fechamento-comissao-opcoes" role="group" aria-label={"Configurar comiss\u00e3o autom\u00e1tica"}>
-                          <button type="button" className={fechamentoValores[m.id]?.comissaoAutomatica!==false?"ativo":""} aria-pressed={fechamentoValores[m.id]?.comissaoAutomatica!==false} onClick={()=>alterarFechamentoModalidade(m.id,"comissaoAutomatica",true)}><i aria-hidden="true"/>Sim</button>
-                          <button type="button" className={fechamentoValores[m.id]?.comissaoAutomatica===false?"ativo":""} aria-pressed={fechamentoValores[m.id]?.comissaoAutomatica===false} onClick={()=>alterarFechamentoModalidade(m.id,"comissaoAutomatica",false)}><i aria-hidden="true"/>{"N\u00e3o"}</button>
-                        </div>
-                      </div>
-                      </>
-                    )}
-                    <label>Entrada<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.entrada||""} onChange={e=>alterarFechamentoModalidade(m.id,"entrada",e.target.value)} placeholder="R$ 0,00"/></label>
-                    <label>{"Comiss\u00e3o"}<input type="text" inputMode="decimal" value={m.comissao===null||fechamentoValores[m.id]?.comissaoAutomatica===false?(fechamentoValores[m.id]?.comissao||""):formatarMoedaPDF(m.comissaoCalculada)} onChange={e=>alterarFechamentoModalidade(m.id,"comissao",e.target.value)} onBlur={()=>{if(m.comissao===null||fechamentoValores[m.id]?.comissaoAutomatica===false)alterarFechamentoModalidade(m.id,"comissao",textoMoedaFechamento(fechamentoValores[m.id]?.comissao));}} disabled={m.comissao!==null&&fechamentoValores[m.id]?.comissaoAutomatica!==false} placeholder="R$ 0,00"/></label>
-                    <label>Saída<input type="text" inputMode="decimal" value={fechamentoValores[m.id]?.saida||""} onChange={e=>alterarFechamentoModalidade(m.id,"saida",e.target.value)} placeholder="R$ 0,00"/></label>
-                    <div className="fechamento-modalidade-saldo"><span>Saldo</span><b>{formatarMoedaPDF(m.saldoBruto)}</b></div>
-                  </div>
-                </article>
-              ))}
-            </div>
-            <div className="fechamento-ajuste-playbet">
-              <div className="fechamento-ajuste-campo">
-                <label>
-                  <span>Subtrair despesas da Play Bet</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={subtrairDespesasPlayBet}
-                    onChange={e=>setSubtrairDespesasPlayBet(e.target.value)}
-                    onBlur={()=>setSubtrairDespesasPlayBet(textoMoedaFechamento(subtrairDespesasPlayBet))}
-                    placeholder="R$ 0,00"
-                  />
-                </label>
-                <small>Valor manual descontado do total de despesas desta rota.</small>
-              </div>
-              <div className="fechamento-ajuste-campo">
-                <label>
-                  <span>Ajuda de Custo</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={ajudaCusto}
-                    onChange={e=>setAjudaCusto(e.target.value)}
-                    onBlur={()=>setAjudaCusto(textoMoedaFechamento(ajudaCusto))}
-                    placeholder="R$ 0,00"
-                  />
-                </label>
-                <small>Valor manual somado às despesas desta rota.</small>
-              </div>
-              {comissaoExtraPermitida&&(
-                <div className="fechamento-ajuste-campo">
-                  <label>
-                    <span>ComissÃ£o Extra</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={comissaoExtra}
-                      onChange={e=>setComissaoExtra(e.target.value)}
-                      onBlur={()=>setComissaoExtra(textoMoedaFechamento(comissaoExtra))}
-                      placeholder="R$ 0,00"
-                    />
-                  </label>
-                  <small>{"Valor manual somado \u00e0s despesas de Yago nesta rota."}</small>
-                </div>
-              )}
-            </div>
-            {(fechamentoErro||fechamentoOk)&&<div className={fechamentoErro?"erro-box":"sucesso-box"}>{fechamentoErro||fechamentoOk}</div>}
-            <div className="fechamento-salvar-linha">
-              <span className="fechamento-step-label"><b>05</b> Fechar e enviar</span>
-              <p>Enviar publica este fechamento no acesso do gerente. Ele verá somente a rota dele na Prestação de Conta e poderá baixar o PDF por lá.</p>
-              <div className="fechamento-acoes">
-                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota", true)}>Visualizar rota atual</button>
-                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("rota")}>Baixar rota atual</button>
-                <button className="btn-secundario fechamento-pdf-btn" type="button" onClick={()=>baixarFechamentoPDF("gerente")}>Baixar todas as rotas</button>
-                <button className="btn-secundario fechamento-finalizar-btn" type="button" onClick={marcarPrestacaoFinalizada} disabled={!fechamentoDetalheConfirmadoEm || Boolean(fechamentoDetalheFinalizadoEm) || fechamentoSalvando}>
-                  {fechamentoDetalheFinalizadoEm
-                    ?"Prestação finalizada"
-                    :fechamentoDetalheConfirmadoEm
-                      ?"Marcar prestação finalizada"
-                      :"Aguardando confirmação do gerente"}
-                </button>
-                <button className="btn-secundario fechamento-rascunho-btn" type="button" onClick={()=>salvarFechamentoSelecionado(false)} disabled={fechamentoSalvando}>{fechamentoSalvando?"Salvando...":"Salvar fechamento"}</button>
-                <button className="fechamento-save-btn" type="button" onClick={()=>salvarFechamentoSelecionado(true)} disabled={fechamentoSalvando}>{fechamentoSalvando?"Processando...":"Enviar ao gerente"}</button>
-              </div>
-            </div>
-          </div>
-          <div className="fechamento-despesas-box">
-            <div className="fechamento-despesas-head">
-              <strong>Despesas da conferência</strong>
-              <span>{despesasDetalheAgrupadas.length} grupo{despesasDetalheAgrupadas.length!==1?"s":""} · {despesasDetalhe.length} lançamento{despesasDetalhe.length!==1?"s":""}</span>
-            </div>
-            {despesasDetalhe.length===0?(
-              <p className="dash-vazio">Nenhuma despesa encontrada para este recorte.</p>
-            ):despesasDetalheAgrupadas.map(grupo=>(
-              <article className="fechamento-despesa-card" key={grupo.chave}>
-                <div className="fechamento-despesa-conteudo">
-                  <strong>{grupo.nome}</strong>
-                  <div className="fechamento-despesa-itens">
-                    {grupo.lancamentos.map(d=>(
-                      <span key={d.id}>
-                        <span>{d.descricao || "Despesa sem descrição"}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <small>{[...grupo.meses].join(", ")}</small>
-                {grupo.modalidades.size>0&&<span className="fechamento-despesa-modalidades">Modalidades: {[...grupo.modalidades].join(", ")}</span>}
-                <b>{formatarMoedaPDF(grupo.total)}</b>
-              </article>
-            ))}
-          </div>
-          </div>
-        </section>
+        <div className="campo">
+          <label>Prazo final</label>
+          <input type="datetime-local" value={prorrogacaoForm.expiraEm} onChange={e=>setProrrogacaoForm(prev=>({...prev,expiraEm:e.target.value}))}/>
+        </div>
+        <button className="btn-primario" type="button" onClick={salvarProrrogacao} disabled={prorrogacaoSalvando}>{prorrogacaoSalvando?"Salvando...":"Liberar prazo"}</button>
+      </div>
+      {prorrogacaoErro&&<div className="erro-box">{prorrogacaoErro}</div>}
+      {prorrogacaoOk&&<div className="sucesso-box">{prorrogacaoOk}</div>}
+      {prorrogacoesDespesas.length>0&&(
+        <div className="prorrogacao-despesas-lista">
+          {prorrogacoesDespesas.map(item=>{
+            const vigente=item.ativo&&Date.parse(item.expiraEm)>Date.now();
+            return <article key={item.id}>
+              <div><strong>{item.gerente}</strong><span>{formatarMesPrestacao(item.competencia)}</span></div>
+              <div><small>Prazo final</small><strong>{new Date(item.expiraEm).toLocaleString("pt-BR")}</strong></div>
+              <span className={`prorrogacao-status ${vigente?"vigente":"encerrada"}`}>{vigente?"Vigente":"Encerrada"}</span>
+              {vigente&&<button className="btn-secundario" type="button" onClick={()=>encerrarProrrogacao(item)}>Encerrar</button>}
+            </article>;
+          })}
+        </div>
       )}
-      <details className="pix-admin-panel fechamento-pix-secondary">
-        <summary><span><span className="dash-kicker">Ferramenta secundária</span><strong>Cartões PIX para prestação de contas</strong></span><b>{PIX_CARTOES_PADRAO.length} cartões</b></summary>
-        <div className="fechamento-pix-content">
+    </div>
+  );
+  const pixConteudo = (
+    <details className="pix-admin-panel fechamento-pix-secondary">
+      <summary><span><span className="dash-kicker">Ferramenta secundária</span><strong>Cartões PIX para prestação de contas</strong></span><b>{PIX_CARTOES_PADRAO.length} cartões</b></summary>
+      <div className="fechamento-pix-content">
         {(pixErro||pixOk)&&<div className={pixErro?"erro-box":"sucesso-box"}>{pixErro||pixOk}</div>}
         <div className="pix-card-grid">
           {PIX_CARTOES_PADRAO.map(chave=>{
@@ -2150,8 +1913,90 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           </section>
         </div>
       </div>
-      </details>
-    </section>
+    </details>
+  );
+
+  return (
+    <FechamentoWorkbench
+      etapas={etapasFechamento}
+      etapaAtual={Math.min(etapaFechamento,5)}
+      etapaConcluida={etapaFechamento>5}
+      periodo={{
+        competencia: competenciaFechamento,
+        dia: diaFechamento,
+        maxCompetencia: hoje().slice(0,7),
+        label: periodoPrestacaoLabel(competenciaFechamento,diaFechamento),
+        onCompetenciaChange: valor=>{setCompetenciaFechamento(valor||competenciaFechamentoPadrao());setDiaFechamento("");},
+        onDiaChange: valor=>{setDiaFechamento(valor);if(valor)setCompetenciaFechamento(valor.slice(0,7));},
+        onMesAnterior: ()=>{setCompetenciaFechamento(competenciaFechamentoPadrao());setDiaFechamento("");},
+      }}
+      rotas={dadosRotas.map(item=>({...item,status:statusDaRotaFechamento(item)}))}
+      selecao={{
+        gerente: gerenteSelecionado,
+        rota: rotaDetalheAtiva,
+        pontos: pontosDetalhe.length,
+        equipamentos: equipamentosDetalhe.length,
+        rotasDisponiveis: rotasDetalhe,
+        status: statusSelecionadoWorkbench,
+        onSelecionar: selecionarRotaFechamento,
+        onTrocarRota: setRotaSelecionada,
+      }}
+      financeiro={{
+        modalidades: calculosModalidades,
+        valores: fechamentoValores,
+        totais: {
+          entradas: totalEntradasFechamento,
+          comissoes: totalComissoesFechamento,
+          saidas: totalSaidasFechamento,
+          saldoBruto: saldoBrutoFechamento,
+          despesasSistema: totalDetalheSistema,
+          despesasFinais: totalDetalhe,
+          saldoFinal: saldoFinalFechamento,
+          comissaoGerente: comissaoGerenteFechamento,
+          saldoRepassar: saldoRepassarFechamento,
+        },
+        formatarMoeda: formatarMoedaPDF,
+        onAlterarModalidade: alterarFechamentoModalidade,
+        onFormatarComissao: modalidadeId=>alterarFechamentoModalidade(modalidadeId,"comissao",textoMoedaFechamento(fechamentoValores[modalidadeId]?.comissao)),
+      }}
+      ajustes={{
+        playBet: {
+          valor: subtrairDespesasPlayBet,
+          numero: subtracaoPlayBetFechamento,
+          onChange: setSubtrairDespesasPlayBet,
+          onBlur: ()=>setSubtrairDespesasPlayBet(textoMoedaFechamento(subtrairDespesasPlayBet)),
+        },
+        ajudaCusto: {
+          valor: ajudaCusto,
+          numero: ajudaCustoFechamento,
+          onChange: setAjudaCusto,
+          onBlur: ()=>setAjudaCusto(textoMoedaFechamento(ajudaCusto)),
+        },
+        comissaoExtra: {
+          permitida: comissaoExtraPermitida,
+          valor: comissaoExtra,
+          numero: comissaoExtraFechamento,
+          onChange: setComissaoExtra,
+          onBlur: ()=>setComissaoExtra(textoMoedaFechamento(comissaoExtra)),
+        },
+      }}
+      despesas={{grupos:despesasDetalheAgrupadas,quantidadeLancamentos:despesasDetalhe.length}}
+      feedback={{erro:fechamentoErro,sucesso:fechamentoOk}}
+      acoes={{
+        salvando: fechamentoSalvando,
+        isEnviado: Boolean(fechamentoDetalheEnviadoEm),
+        isConfirmado: Boolean(fechamentoDetalheConfirmadoEm),
+        isFinalizado: Boolean(fechamentoDetalheFinalizadoEm),
+        onSalvar: ()=>salvarFechamentoSelecionado(false),
+        onEnviar: ()=>salvarFechamentoSelecionado(true),
+        onFinalizar: marcarPrestacaoFinalizada,
+        onVisualizar: ()=>baixarFechamentoPDF("rota",true),
+        onBaixarRota: ()=>baixarFechamentoPDF("rota"),
+        onBaixarGerente: ()=>baixarFechamentoPDF("gerente"),
+      }}
+      prazos={{aberto:prazosAbertos,onFechar:onFecharPrazos,conteudo:prazoConteudo}}
+      secondaryTools={pixConteudo}
+    />
   );
 }
 
@@ -4633,16 +4478,16 @@ function Sistema({onLogout}){
           />
         </>)}
 
-        {aba==="fechamento"&&administrador&&(<>
-          <ModuleHeader eyebrow="Reconciliação operacional" title="Fechamento" subtitle="Rotas, gerentes e conferência com regras preservadas." onMenu={alternarSidebarContextual}/>
-          <FechamentoPage
+        {aba==="fechamento"&&administrador&&(
+          <FechamentoModule
+            onMenu={alternarSidebarContextual}
             pontos={pontos}
             itens={itens}
             despesas={despesasBackup}
             pixEnvios={pixEnvios}
             onPixEnviosChange={setPixEnvios}
           />
-        </>)}
+        )}
 
         {aba==="gestao"&&administrador&&(<>
           <ModuleHeader eyebrow="Identidade e escopo" title="Central de Acessos" subtitle="Usuários, permissões e redefinição de login." onMenu={alternarSidebarContextual}/>
