@@ -1,9 +1,9 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable/es";
-import logo from "./assets/stock-on-light.png";
 
-const AZUL = [15, 35, 72];
-const DOURADO = [222, 147, 0];
+const LOGO_NEPTERA = "/brand/neptera/neptera-symbol.png";
+const AZUL = [5, 18, 38];
+const ELETRICO = [21, 125, 255];
 const CINZA = [100, 116, 139];
 
 function agora() {
@@ -47,20 +47,20 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
 
     doc.setFillColor(...AZUL);
     doc.rect(0, 0, largura, 33, "F");
-    doc.setFillColor(...DOURADO);
+    doc.setFillColor(...ELETRICO);
     doc.rect(0, 32, largura, 1, "F");
 
-    let inicioTitulo = 54;
+    let inicioTitulo = 44;
     try {
-      const imagem = await carregarImagem(logo);
-      doc.addImage(imagem, "PNG", 12, 4, 35, 23, undefined, "FAST");
+      const imagem = await carregarImagem(LOGO_NEPTERA);
+      doc.addImage(imagem, "PNG", 12, 5, 23, 23, undefined, "FAST");
     } catch (erroLogo) {
       console.warn("Logo nao incorporada ao PDF; usando assinatura textual.", erroLogo);
       inicioTitulo = 46;
-      doc.setTextColor(...DOURADO);
+      doc.setTextColor(...ELETRICO);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(17);
-      doc.text("Stock-ON", 12, 19);
+      doc.text("NEPTERA", 12, 19);
     }
 
     doc.setTextColor(255, 255, 255);
@@ -135,7 +135,7 @@ export async function gerarRelatorioPDF({ titulo, descricao, nomeArquivo, coluna
           doc.line(12, altura - 12, largura - 12, altura - 12);
           doc.setTextColor(...CINZA);
           doc.setFontSize(8);
-          doc.text("Stock-ON | Seu estoque sempre ON.", 12, altura - 7);
+          doc.text("NEPTERA | Plataforma Operacional Integrada", 12, altura - 7);
           doc.text(`Pagina ${doc.internal.getNumberOfPages()}`, largura - 12, altura - 7, { align: "right" });
         },
       });

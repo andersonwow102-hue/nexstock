@@ -1,5 +1,3 @@
-import logo from "./assets/stock-on-dark.png";
-import logoLight from "./assets/stock-on-light.png";
 import logo90DaSorte from "./assets/modalidade-90-da-sorte.png";
 import logoViapix from "./assets/modalidade-viapix.png";
 import logoLotobanca from "./assets/modalidade-lotobanca.png";
@@ -30,6 +28,17 @@ import {
   carregarModalidadeApps, enviarModalidadeApp, obterLinkDownloadModalidadeApp,
 } from "./db.js";
 import "./styles/foundations.css";
+
+const NEPTERA = Object.freeze({
+  nome: "NEPTERA",
+  descritor: "Plataforma Operacional Integrada",
+  autoria: "Anderion Labs",
+  simbolo: "/brand/neptera/neptera-symbol.png",
+  icone: "/brand/neptera/neptera-app-icon.png",
+  iconeNotificacao: "/brand/neptera/icons/neptera-app-icon-192.png",
+  logoHorizontalEscuro: "/brand/neptera/neptera-logo-horizontal-dark.png",
+  logoHorizontalClaro: "/brand/neptera/neptera-logo-horizontal-light.png",
+});
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Máquina de Brindes","Totens","Noteiro","PDV Touchscreen"];
 const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
@@ -243,7 +252,7 @@ async function exportarEquipamentosPDF(itens){
   await gerarPDF({
     titulo:"Relatório de Equipamentos",
     descricao:"Inventário operacional e localização atual dos equipamentos",
-    nomeArquivo:`stock-on_equipamentos_${hoje()}.pdf`,
+    nomeArquivo:`neptera_equipamentos_${hoje()}.pdf`,
     total:itens.length,
     resumo:[
       {label:"Cadastrados",valor:itens.length},
@@ -269,7 +278,7 @@ async function exportarHistoricoPDF(historico){
   await gerarPDF({
     titulo:"Histórico de Equipamentos",
     descricao:"Rastreabilidade de cadastros e movimentações operacionais",
-    nomeArquivo:`stock-on_historico_equipamentos_${hoje()}.pdf`,
+    nomeArquivo:`neptera_historico_equipamentos_${hoje()}.pdf`,
     total:historico.length,
     resumo:[
       {label:"Movimentações",valor:historico.length},
@@ -316,7 +325,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
     await gerarPDF({
       titulo:"Relatório Geral",
       descricao:"Visão completa da operação, equipamentos e pontos cadastrados",
-      nomeArquivo:`stock-on_relatorio_geral_${hoje()}.pdf`,
+      nomeArquivo:`neptera_relatorio_geral_${hoje()}.pdf`,
       total:itens.length+pontos.length,
       resumo:[
         {label:"Equipamentos",valor:itens.length},
@@ -345,7 +354,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
     await gerarPDF({
       titulo:"Relatório de Pontos",
       descricao:"Pontos cadastrados, gerentes, equipamentos vinculados e despesas",
-      nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
+      nomeArquivo:`neptera_pontos_${hoje()}.pdf`,
       total:pontos.length,
       resumo:[
         {label:"Pontos",valor:pontos.length},
@@ -362,7 +371,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
     await gerarPDF({
       titulo:"Equipamentos Disponíveis",
       descricao:"Equipamentos prontos para serem enviados a um ponto",
-      nomeArquivo:`stock-on_disponiveis_${hoje()}.pdf`,
+      nomeArquivo:`neptera_disponiveis_${hoje()}.pdf`,
       total:disponiveis.length,
       resumo:[
         {label:"Disponíveis",valor:disponiveis.length,destaque:[5,150,82]},
@@ -380,7 +389,7 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
     await gerarPDF({
       titulo:`Relatório do Gerente - ${gerente}`,
       descricao:"Pontos sob responsabilidade e equipamentos atualmente vinculados",
-      nomeArquivo:`stock-on_gerente_${gerente.toLowerCase().replace(/\s+/g,"-")}_${hoje()}.pdf`,
+      nomeArquivo:`neptera_gerente_${gerente.toLowerCase().replace(/\s+/g,"-")}_${hoje()}.pdf`,
       total:pontosGerente.length+equipamentosGerente.length,
       resumo:[
         {label:"Gerente",valor:gerente},
@@ -1075,7 +1084,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
     const pdfGerado = await gerarPDF({
       titulo: `Prestação de Conta - ${gerenteNome}`,
       descricao: `${rotaAtiva ? `Rota ${rotaAtiva}` : "Todas as rotas"} | ${periodoPrestacaoLabel(competencia,dia)}`,
-      nomeArquivo: `stock-on_prestacao-gerente_${slugArquivoBackup(gerenteNome)}_${slugArquivoBackup(rotaAtiva||"todas")}_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+      nomeArquivo: `neptera_prestacao-gerente_${slugArquivoBackup(gerenteNome)}_${slugArquivoBackup(rotaAtiva||"todas")}_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
       total: despesasRota.length,
       visualizar,
       janelaVisualizacao,
@@ -1773,7 +1782,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       await gerarPDF({
         titulo: `Fechamento - ${gerenteSelecionado} · ${rota}`,
         descricao: `Prestação de contas individual da rota | ${periodoPrestacaoLabel(competenciaFechamento,diaFechamento)}`,
-        nomeArquivo: `stock-on_fechamento_${slugArquivoBackup(gerenteSelecionado)}_${slugArquivoBackup(rota)}_${competenciaFechamento || "todos"}${diaFechamento?`_${diaFechamento}`:""}.pdf`,
+        nomeArquivo: `neptera_fechamento_${slugArquivoBackup(gerenteSelecionado)}_${slugArquivoBackup(rota)}_${competenciaFechamento || "todos"}${diaFechamento?`_${diaFechamento}`:""}.pdf`,
         visualizar: visualizarRota,
         janelaVisualizacao: visualizarRota ? janelaVisualizacao : null,
         total: 1,
@@ -2384,7 +2393,7 @@ function PrestacaoContasPage({ pontos = [], despesas = [] }) {
       await gerarPDF({
         titulo:`Prestação de Contas - ${gerenteSelecionadoPDF}`,
         descricao:`Conferência individual do gerente | ${periodoPrestacaoLabel(competencia,dia)}`,
-        nomeArquivo:`stock-on_prestacao_${slugArquivoBackup(gerenteSelecionadoPDF)}_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+        nomeArquivo:`neptera_prestacao_${slugArquivoBackup(gerenteSelecionadoPDF)}_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
         total:lista.length,
         resumo:resumoPrestacaoPDF(lista, gerenteSelecionadoPDF),
         colunas,
@@ -2404,7 +2413,7 @@ function PrestacaoContasPage({ pontos = [], despesas = [] }) {
       await gerarPDF({
         titulo:"Prestação de Contas por Gerente",
         descricao:`PDF separado por seções de gerente | ${periodoPrestacaoLabel(competencia,dia)}`,
-        nomeArquivo:`stock-on_prestacao_por-gerente_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+        nomeArquivo:`neptera_prestacao_por-gerente_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
         total:despesasFiltradas.length,
         resumo:resumoPrestacaoPDF(despesasFiltradas, "Todos os gerentes"),
         secoes,
@@ -2414,7 +2423,7 @@ function PrestacaoContasPage({ pontos = [], despesas = [] }) {
     await gerarPDF({
       titulo:"Prestação de Contas Geral",
       descricao:`Conferência geral das despesas lançadas | ${periodoPrestacaoLabel(competencia,dia)}`,
-      nomeArquivo:`stock-on_prestacao_geral_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
+      nomeArquivo:`neptera_prestacao_geral_${competencia||"todos"}${dia?`_${dia}`:""}.pdf`,
       total:despesasFiltradas.length,
       resumo:resumoPrestacaoPDF(despesasFiltradas, gerenteFiltro==="Todos"?"Geral":gerenteFiltro),
       ...(porGerente.length ? { secoes: porGerente.map(g=>{
@@ -2964,9 +2973,9 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
       ? (ultima.gerenteNome || "Gerente")
       : (pareceEmail(ultima.remetenteNome) ? "Administração" : (ultima.remetenteNome || "Administração"));
     try {
-      new Notification(`Stock-ON • ${autor}`, {
+      new Notification(`NEPTERA • ${autor}`, {
         body: ultima.mensagem,
-        icon: "/icons/stock-on-192.png",
+        icon: NEPTERA.iconeNotificacao,
         tag: `stock-on-chat-${gerenteConversa || "geral"}`,
       });
     } catch {}
@@ -3134,6 +3143,25 @@ function ChatInterno({ perfilAtual, gerentes = [] }) {
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
+function MarcaLogin(){
+  return(
+    <section className="login-brand-stage" aria-label="NEPTERA, Plataforma Operacional Integrada, by Anderion Labs">
+      <div className="login-brand-plate">
+        <picture>
+          <source media="(prefers-color-scheme: light)" srcSet={NEPTERA.logoHorizontalEscuro}/>
+          <img src={NEPTERA.logoHorizontalClaro} alt="NEPTERA — Plataforma Operacional Integrada, by Anderion Labs"/>
+        </picture>
+      </div>
+      <div className="login-brand-copy">
+        <span>Comando operacional integrado</span>
+        <strong>Integra. Gerencia. Evolui.</strong>
+        <p>Uma visão contínua da operação, do estoque aos recebíveis.</p>
+      </div>
+      <small>Identidade e produto por {NEPTERA.autoria}</small>
+    </section>
+  );
+}
+
 function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
   const [identificador,setIdentificador]=useState("");
   const [senha,setSenha]=useState("");
@@ -3189,33 +3217,36 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
 
   return(
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-logo"><img src={logo} alt="Stock-ON" className="login-logo-img"/></div>
-        <div className="login-titulo">Acesso Restrito</div>
-        <div className="login-subtitulo">Entre com suas credenciais para continuar</div>
-        <form className="login-form" onSubmit={tentar}>
-          {erro&&<div className="login-erro">🔒 {erro}</div>}
-          {mensagem&&<div className="login-sucesso">✅ {mensagem}</div>}
-          <div className="campo"><label>Login ou e-mail</label><input type="text" placeholder="ex: beu ou seu@email.com" value={identificador} onChange={e=>setIdentificador(e.target.value)} autoFocus/></div>
-          <div className="campo"><label>Senha</label>
-            <div className="input-senha-wrapper">
-              <input type={visivel?"text":"password"} placeholder="Digite sua senha" value={senha} onChange={e=>setSenha(e.target.value)}/>
-              <button type="button" className="btn-ver-senha" onClick={()=>setVisivel(!visivel)}>{visivel?"🙈":"👁️"}</button>
+      <div className="login-shell">
+        <MarcaLogin/>
+        <div className="login-card">
+          <div className="login-access-label">Ambiente protegido</div>
+          <div className="login-titulo">Acesso à plataforma</div>
+          <div className="login-subtitulo">Entre com suas credenciais para continuar.</div>
+          <form className="login-form" onSubmit={tentar}>
+            {erro&&<div className="login-erro">🔒 {erro}</div>}
+            {mensagem&&<div className="login-sucesso">✅ {mensagem}</div>}
+            <div className="campo"><label>Login ou e-mail</label><input type="text" placeholder="ex: beu ou seu@email.com" value={identificador} onChange={e=>setIdentificador(e.target.value)} autoFocus/></div>
+            <div className="campo"><label>Senha</label>
+              <div className="input-senha-wrapper">
+                <input type={visivel?"text":"password"} placeholder="Digite sua senha" value={senha} onChange={e=>setSenha(e.target.value)}/>
+                <button type="button" className="btn-ver-senha" aria-label={visivel?"Ocultar senha":"Mostrar senha"} onClick={()=>setVisivel(!visivel)}>{visivel?"🙈":"👁️"}</button>
+              </div>
             </div>
-          </div>
-          <button type="submit" className="btn-login" disabled={carregando||!identificador||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
-          <button type="button" className="btn-esqueci" disabled={carregando} onClick={()=>{setRecuperacaoAberta(!recuperacaoAberta);setErro("");setMensagem("");}}>Esqueci minha senha</button>
-          {recuperacaoAberta&&<div className="recuperacao-box">
-            <strong>Recuperação somente por e-mail real</strong>
-            <p>O e-mail usado no login precisa possuir caixa de entrada. Se ele foi criado apenas dentro do app, peça ao administrador para trocar seu acesso por um e-mail verdadeiro.</p>
-            <label className="recuperacao-check">
-              <input type="checkbox" checked={emailConfirmado} onChange={e=>setEmailConfirmado(e.target.checked)}/>
-              Confirmo que tenho acesso à caixa de entrada deste e-mail.
-            </label>
-            <button type="button" className="btn-secundario btn-recuperar" disabled={carregando||!emailConfirmado} onClick={recuperarSenha}>{carregando?"Enviando...":"Enviar link de recuperação"}</button>
-          </div>}
-        </form>
-        <div className="login-rodape">Stock-ON · Controle Inteligente de Equipamentos</div>
+            <button type="submit" className="btn-login" disabled={carregando||!identificador||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
+            <button type="button" className="btn-esqueci" disabled={carregando} onClick={()=>{setRecuperacaoAberta(!recuperacaoAberta);setErro("");setMensagem("");}}>Esqueci minha senha</button>
+            {recuperacaoAberta&&<div className="recuperacao-box">
+              <strong>Recuperação somente por e-mail real</strong>
+              <p>O e-mail usado no login precisa possuir caixa de entrada. Se ele foi criado apenas dentro do app, peça ao administrador para trocar seu acesso por um e-mail verdadeiro.</p>
+              <label className="recuperacao-check">
+                <input type="checkbox" checked={emailConfirmado} onChange={e=>setEmailConfirmado(e.target.checked)}/>
+                Confirmo que tenho acesso à caixa de entrada deste e-mail.
+              </label>
+              <button type="button" className="btn-secundario btn-recuperar" disabled={carregando||!emailConfirmado} onClick={recuperarSenha}>{carregando?"Enviando...":"Enviar link de recuperação"}</button>
+            </div>}
+          </form>
+          <div className="login-rodape">{NEPTERA.nome} · by {NEPTERA.autoria}</div>
+        </div>
       </div>
     </div>
   );
@@ -3242,16 +3273,20 @@ function TelaNovaSenha({onConcluir}) {
 
   return(
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-logo"><img src={logo} alt="Stock-ON" className="login-logo-img"/></div>
-        <div className="login-titulo">Cadastrar Nova Senha</div>
-        <div className="login-subtitulo">Crie uma senha nova para continuar</div>
-        <form className="login-form" onSubmit={salvar}>
-          {erro&&<div className="login-erro">🔒 {erro}</div>}
-          <div className="campo"><label>Nova senha</label><input type="password" placeholder="Mínimo de 10 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} autoFocus/></div>
-          <div className="campo"><label>Confirmar nova senha</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
-          <button type="submit" className="btn-login" disabled={carregando||!novaSenha||!confirmacao}>{carregando?"Salvando...":"Salvar nova senha"}</button>
-        </form>
+      <div className="login-shell">
+        <MarcaLogin/>
+        <div className="login-card">
+          <div className="login-access-label">Segurança da conta</div>
+          <div className="login-titulo">Cadastrar nova senha</div>
+          <div className="login-subtitulo">Crie uma senha nova para continuar.</div>
+          <form className="login-form" onSubmit={salvar}>
+            {erro&&<div className="login-erro">🔒 {erro}</div>}
+            <div className="campo"><label>Nova senha</label><input type="password" placeholder="Mínimo de 10 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} autoFocus/></div>
+            <div className="campo"><label>Confirmar nova senha</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
+            <button type="submit" className="btn-login" disabled={carregando||!novaSenha||!confirmacao}>{carregando?"Salvando...":"Salvar nova senha"}</button>
+          </form>
+          <div className="login-rodape">{NEPTERA.nome} · by {NEPTERA.autoria}</div>
+        </div>
       </div>
     </div>
   );
@@ -3381,8 +3416,9 @@ export default function App(){
 
   if(verificando)return(
     <div className="login-page sessao-verificando">
+      <img src={NEPTERA.simbolo} alt="NEPTERA"/>
       <div className="loading-dots"><span/><span/><span/></div>
-      <p>Preparando acesso...</p>
+      <p>Preparando acesso à plataforma...</p>
     </div>
   );
   if(recuperandoSenha)return<TelaNovaSenha onConcluir={()=>{limparRecuperacao();setRecuperandoSenha(false);setLogado(false);setMensagemLogin("Senha alterada com sucesso. Entre com sua nova senha.");}}/>;
@@ -4010,7 +4046,7 @@ function Sistema({onLogout}){
     const escopo=perfilAtual.perfil==="gerente"?`gerente-${gerenteAtual||perfilAtual.nome}`:"completo";
     const titulo=perfilAtual.perfil==="gerente"
       ?`Backup do Gerente - ${gerenteAtual||perfilAtual.nome}`
-      :"Backup Completo Stock-ON";
+      :"Backup Completo NEPTERA";
     const podeVerDespesasBackup=!operador;
     const resumoBackup=[
       {label:"Equipamentos",valor:itensOperacionais.length,destaque:[37,99,235]},
@@ -4025,7 +4061,7 @@ function Sistema({onLogout}){
         titulo:"Resumo do backup",
         colunas:["Campo","Informação"],
         linhas:[
-          ["Sistema","Stock-ON"],
+          ["Sistema","NEPTERA"],
           ["Gerado em",new Date(geradoEm).toLocaleString("pt-BR")],
           ["Perfil",perfilAtual.perfil||"-"],
           ["Usuário",perfilAtual.nome||perfilAtual.loginNome||"-"],
@@ -4098,7 +4134,7 @@ function Sistema({onLogout}){
     await gerarPDF({
       titulo,
       descricao:`Arquivo opcional de segurança emitido para ${perfilAtual.nome||perfilAtual.loginNome||perfilAtual.perfil}. Guarde fora do sistema quando desejar.`,
-      nomeArquivo:`stock-on_backup_${slugArquivoBackup(escopo)}_${hoje()}.pdf`,
+      nomeArquivo:`neptera_backup_${slugArquivoBackup(escopo)}_${hoje()}.pdf`,
       total:itensOperacionais.length+pontosOperacionais.length+despesasOperacionais.length+historicoOperacional.length+historicoPontosOperacional.length,
       resumo:resumoBackup,
       secoes:secoesBackup,
@@ -4121,15 +4157,16 @@ function Sistema({onLogout}){
 
   if(carregando){
     return(
-      <div className={`app${temaClaro?" tema-claro":""}`} style={{display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg-base)",minHeight:"100vh"}}>
-        <div style={{textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:"24px",animation:"slideIn 0.4s ease"}}>
-          <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <div style={{position:"absolute",width:"120px",height:"120px",border:"2px solid var(--border)",borderTop:"2px solid var(--accent)",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
-            <img src={temaClaro?logoLight:logo} alt="Stock-ON" style={{height:"70px",width:"auto",objectFit:"contain",filter:"drop-shadow(0 0 20px rgba(255,179,0,0.35))",animation:"pulse-logo 2s ease-in-out infinite"}}/>
+      <div className={`app neptera-loading-page${temaClaro?" tema-claro":""}`}>
+        <div className="neptera-loading-card">
+          <div className="neptera-loading-mark">
+            <span aria-hidden="true"/>
+            <img src={NEPTERA.simbolo} alt="NEPTERA"/>
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:"8px",alignItems:"center"}}>
-            <div style={{fontSize:"18px",fontWeight:"700",color:"var(--txt-primary)",letterSpacing:"-0.3px"}}>Stock-ON</div>
-            <div style={{fontSize:"13px",color:"var(--txt-secondary)"}}>Carregando o sistema...</div>
+          <div className="neptera-loading-copy">
+            <strong>{NEPTERA.nome}</strong>
+            <span>{NEPTERA.descritor}</span>
+            <small>Carregando o ambiente operacional...</small>
           </div>
           <div className="loading-dots"><span/><span/><span/></div>
         </div>
@@ -4141,7 +4178,7 @@ function Sistema({onLogout}){
     return(
       <div className={`app${temaClaro?" tema-claro":""} carga-erro-page`}>
         <div className="carga-erro-card">
-          <img src={temaClaro?logoLight:logo} alt="Stock-ON"/>
+          <img src={temaClaro?NEPTERA.logoHorizontalEscuro:NEPTERA.logoHorizontalClaro} alt="NEPTERA — Plataforma Operacional Integrada"/>
           <h2>Não foi possível carregar o sistema</h2>
           <p>{erroCarregamento}</p>
           <p className="carga-erro-dica">Verifique sua internet e tente novamente. Se continuar, envie uma foto desta mensagem.</p>
@@ -4158,9 +4195,9 @@ function Sistema({onLogout}){
     <div className={`app${temaClaro?" tema-claro":""}${aba==="devedores"&&acessoDevedores?" operations-shell":""}${aba==="dashboard"?" dashboard-shell":""}`}>
       <div className={`sidebar-overlay ${sidebarAberta?"ativo":""}`} onClick={fecharSidebar}/>
 
-      <aside aria-hidden={drawerContextual&&!sidebarAberta?true:undefined} aria-label={drawerContextual?"Navegação principal do Stock-On":undefined} aria-modal={drawerContextual&&sidebarAberta?"true":undefined} className={`sidebar ${sidebarAberta?"aberta":""}`} id="stock-on-primary-navigation" inert={drawerContextual&&!sidebarAberta?true:undefined} ref={sidebarRef} role={drawerContextual?"dialog":undefined} tabIndex={drawerContextual?-1:undefined}>
+      <aside aria-hidden={drawerContextual&&!sidebarAberta?true:undefined} aria-label={drawerContextual?"Navegação principal do NEPTERA":undefined} aria-modal={drawerContextual&&sidebarAberta?"true":undefined} className={`sidebar ${sidebarAberta?"aberta":""}`} id="stock-on-primary-navigation" inert={drawerContextual&&!sidebarAberta?true:undefined} ref={sidebarRef} role={drawerContextual?"dialog":undefined} tabIndex={drawerContextual?-1:undefined}>
         <div className="sidebar-logo">
-          <img src={temaClaro?logoLight:logo} alt="Stock-ON" className="logo-sidebar-emblem"/>
+          <img src={temaClaro?NEPTERA.logoHorizontalEscuro:NEPTERA.logoHorizontalClaro} alt="NEPTERA — Plataforma Operacional Integrada, by Anderion Labs" className="logo-sidebar-emblem"/>
         </div>
         <BuscaGlobalSearch consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
         <nav className="sidebar-nav">
@@ -4197,7 +4234,7 @@ function Sistema({onLogout}){
           </a>
           <button className="btn-senha" onClick={()=>setModalSenha(true)}>🔒 Alterar minha senha</button>
           <button className="btn-logout" onClick={()=>setConfirmLogout(true)}>🚪 Sair do sistema</button>
-          <div className="sidebar-version">Stock-ON v1.0 · Supabase ☁️</div>
+          <div className="sidebar-version">NEPTERA v1.0 · by Anderion Labs</div>
         </div>
       </aside>
 

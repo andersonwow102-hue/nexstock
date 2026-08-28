@@ -8166,6 +8166,444 @@ body {
   }
 }
 
+/* ══════════════════════════════════════════════════════
+   NEPTERA — CAMADA INSTITUCIONAL
+   Escopo deliberadamente limitado a marca, login e loading.
+══════════════════════════════════════════════════════ */
+.sidebar-logo {
+  padding: 15px 12px 14px;
+}
+
+.logo-sidebar-emblem {
+  display: block;
+  width: 100%;
+  max-width: 196px;
+  max-height: 78px;
+  object-fit: contain;
+  filter: none;
+  border: 1px solid rgba(196, 219, 246, 0.15);
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.tema-claro .logo-sidebar-emblem {
+  padding: 0;
+  background: #ffffff;
+  border-color: #d8e2f0;
+}
+
+.sidebar-version {
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+.login-page {
+  --neptera-ink: #040a16;
+  --neptera-navy: #07172c;
+  --neptera-electric: #157dff;
+  --neptera-cyan: #5ce9ff;
+  --neptera-paper: #f7faff;
+  --neptera-line: #263b56;
+  min-height: 100vh;
+  padding: clamp(16px, 3vw, 42px);
+  background:
+    linear-gradient(132deg, rgba(21, 125, 255, 0.11), transparent 36%),
+    radial-gradient(circle at 90% 12%, rgba(92, 233, 255, 0.08), transparent 24%),
+    #030812;
+}
+
+.login-page::before {
+  width: min(52vw, 760px);
+  height: 1px;
+  top: 13%;
+  left: -5%;
+  border-radius: 0;
+  background: linear-gradient(90deg, transparent, rgba(92, 233, 255, 0.58), transparent);
+  transform: rotate(-22deg);
+  animation: none;
+}
+
+.login-page::after {
+  width: min(48vw, 680px);
+  height: min(48vw, 680px);
+  right: -22%;
+  bottom: -42%;
+  background: radial-gradient(circle, rgba(21, 125, 255, 0.14), transparent 66%);
+  animation: none;
+}
+
+.login-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.72fr);
+  width: min(980px, 100%);
+  min-height: min(650px, calc(100vh - 84px));
+  overflow: hidden;
+  border: 1px solid rgba(148, 180, 218, 0.22);
+  border-radius: 26px;
+  background: rgba(4, 10, 22, 0.88);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.46);
+}
+
+.login-brand-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 34px;
+  min-width: 0;
+  padding: clamp(30px, 5vw, 62px);
+  overflow: hidden;
+  border-right: 1px solid rgba(148, 180, 218, 0.18);
+  background:
+    linear-gradient(154deg, rgba(20, 69, 132, 0.52), rgba(4, 12, 26, 0.94) 58%),
+    var(--neptera-navy);
+}
+
+.login-brand-stage::before {
+  content: "";
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  right: -190px;
+  top: -150px;
+  border: 1px solid rgba(92, 233, 255, 0.22);
+  border-radius: 42%;
+  transform: rotate(28deg);
+}
+
+.login-brand-stage::after {
+  content: "";
+  position: absolute;
+  left: clamp(30px, 5vw, 62px);
+  right: clamp(30px, 5vw, 62px);
+  bottom: 118px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--neptera-electric), rgba(92, 233, 255, 0.08));
+}
+
+.login-brand-plate {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  width: min(430px, 100%);
+  padding: 10px;
+  border: 1px solid rgba(196, 219, 246, 0.6);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.28);
+  animation: neptera-brand-arrival 0.55s cubic-bezier(.2,.7,.2,1) both;
+}
+
+.login-brand-plate picture,
+.login-brand-plate img {
+  display: block;
+  width: 100%;
+}
+
+.login-brand-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 460px;
+  margin-top: auto;
+  padding-bottom: 54px;
+}
+
+.login-brand-copy span,
+.login-access-label {
+  color: #75dfff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.login-brand-copy strong {
+  color: #f7fbff;
+  font-size: clamp(25px, 3vw, 38px);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.login-brand-copy p {
+  max-width: 390px;
+  color: #afc1d8;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.login-brand-stage > small {
+  position: relative;
+  z-index: 1;
+  color: #7489a5;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.login-card {
+  align-items: stretch;
+  justify-content: center;
+  gap: 13px;
+  width: auto;
+  max-width: none;
+  padding: clamp(32px, 5vw, 58px);
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(13, 27, 47, 0.98), rgba(5, 12, 24, 0.99));
+  box-shadow: none;
+  animation: neptera-panel-arrival 0.45s 0.08s cubic-bezier(.2,.7,.2,1) both;
+}
+
+.login-card::before {
+  left: clamp(32px, 5vw, 58px);
+  right: auto;
+  width: 42px;
+  height: 2px;
+  background: var(--neptera-electric);
+  opacity: 1;
+}
+
+.login-titulo {
+  color: #f7fbff;
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+
+.login-subtitulo {
+  margin-top: -5px;
+  color: #9cafc7;
+  line-height: 1.5;
+}
+
+.login-form {
+  gap: 13px;
+  margin-top: 12px;
+}
+
+.login-card .campo label {
+  color: #c2cee0;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.login-card .campo input {
+  min-height: 44px;
+  border-color: #293f5b;
+  border-radius: 9px;
+  background: #081526;
+}
+
+.login-card .campo input:focus {
+  border-color: #2a94ff;
+  box-shadow: 0 0 0 3px rgba(21, 125, 255, 0.14);
+}
+
+.btn-login {
+  min-height: 45px;
+  border-color: #238bff;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0874ed, #155fd5);
+  box-shadow: 0 14px 30px rgba(8, 116, 237, 0.2);
+}
+
+.btn-login:hover:not(:disabled) {
+  background: linear-gradient(135deg, #188bff, #1769df);
+  border-color: #3aa0ff;
+  box-shadow: 0 16px 32px rgba(8, 116, 237, 0.28);
+}
+
+.login-rodape {
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 180, 218, 0.12);
+  color: #6f829d;
+  letter-spacing: 0.03em;
+}
+
+.sessao-verificando {
+  gap: 18px;
+}
+
+.sessao-verificando > img {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+}
+
+.neptera-loading-page {
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(21, 125, 255, 0.12), transparent 28%),
+    var(--bg-base);
+}
+
+.neptera-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  text-align: center;
+  animation: neptera-panel-arrival 0.42s cubic-bezier(.2,.7,.2,1) both;
+}
+
+.neptera-loading-mark {
+  position: relative;
+  display: grid;
+  width: 116px;
+  height: 116px;
+  place-items: center;
+}
+
+.neptera-loading-mark > span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border);
+  border-top-color: #2a94ff;
+  border-radius: 30px;
+  animation: spin 1.4s linear infinite;
+}
+
+.neptera-loading-mark img {
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+}
+
+.neptera-loading-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.neptera-loading-copy strong {
+  color: var(--txt-primary);
+  font-size: 19px;
+  letter-spacing: 0.12em;
+}
+
+.neptera-loading-copy span {
+  color: #59cfff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.neptera-loading-copy small {
+  margin-top: 5px;
+  color: var(--txt-muted);
+  font-size: 12px;
+}
+
+.carga-erro-card img {
+  width: min(280px, 82%);
+  max-height: 120px;
+  border-radius: 12px;
+  object-fit: contain;
+  filter: none;
+}
+
+@keyframes neptera-brand-arrival {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes neptera-panel-arrival {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-color-scheme: light) {
+  .login-page {
+    background:
+      linear-gradient(132deg, rgba(21, 125, 255, 0.10), transparent 42%),
+      #edf3fa;
+  }
+  .login-shell {
+    border-color: #cbd8e8;
+    background: #ffffff;
+    box-shadow: 0 30px 72px rgba(20, 45, 78, 0.18);
+  }
+  .login-brand-stage {
+    border-right-color: #cfdae8;
+    background: linear-gradient(150deg, #ffffff, #edf5ff 72%);
+  }
+  .login-brand-copy strong,
+  .login-titulo { color: #07172c; }
+  .login-brand-copy p,
+  .login-subtitulo { color: #526985; }
+  .login-brand-stage > small { color: #72859d; }
+  .login-card { background: #ffffff; }
+  .login-card .campo label { color: #425874; }
+  .login-card .campo input {
+    border-color: #c8d6e7;
+    background: #f7faff;
+    color: #07172c;
+    -webkit-text-fill-color: #07172c;
+    caret-color: #07172c;
+  }
+  .login-card .campo input::placeholder {
+    color: #7b8da4;
+    -webkit-text-fill-color: #7b8da4;
+  }
+  .login-card .campo input:-webkit-autofill,
+  .login-card .campo input:-webkit-autofill:hover,
+  .login-card .campo input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #07172c;
+    box-shadow: 0 0 0 1000px #f7faff inset;
+  }
+  .login-rodape { border-top-color: #dce5f0; color: #718399; }
+}
+
+@media (max-width: 820px) {
+  .login-page { align-items: flex-start; overflow-y: auto; }
+  .login-shell {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    margin: auto;
+  }
+  .login-brand-stage {
+    gap: 22px;
+    min-height: 250px;
+    padding: 28px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 180, 218, 0.18);
+  }
+  .login-brand-plate { width: min(390px, 100%); }
+  .login-brand-copy { gap: 6px; padding-bottom: 22px; }
+  .login-brand-copy strong { font-size: 25px; }
+  .login-brand-copy p,
+  .login-brand-stage > small { display: none; }
+  .login-brand-stage::after { bottom: 28px; }
+  .login-card { min-height: 430px; padding: 34px 28px; }
+}
+
+@media (max-width: 480px) {
+  .login-page { padding: 0; }
+  .login-shell { min-height: 100vh; border: 0; border-radius: 0; }
+  .login-brand-stage { min-height: 210px; padding: 22px; }
+  .login-brand-copy strong { font-size: 22px; }
+  .login-brand-copy span { font-size: 9px; }
+  .login-card { min-height: auto; padding: 32px 22px 38px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-brand-plate,
+  .login-card,
+  .neptera-loading-card,
+  .neptera-loading-mark > span,
+  .loading-dots span {
+    animation: none !important;
+  }
+}
+
 @media (max-width: 480px) {
   .fechamento-campos-grid,
   .fechamento-acoes {

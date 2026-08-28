@@ -29,7 +29,7 @@ window.addEventListener('unhandledrejection', (event) => {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <Sentry.ErrorBoundary fallback={<div className="app-fallback-error">O Stock-ON encontrou um erro inesperado. Atualize a página e tente novamente.</div>}>
+    <Sentry.ErrorBoundary fallback={<div className="app-fallback-error">O NEPTERA encontrou um erro inesperado. Atualize a página e tente novamente.</div>}>
       <App />
     </Sentry.ErrorBoundary>
   </StrictMode>,

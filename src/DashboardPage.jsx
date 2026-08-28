@@ -222,7 +222,7 @@ export default function DashboardPage({
             <button
               aria-controls="stock-on-primary-navigation"
               aria-expanded={menuAberto}
-              aria-label="Abrir navegação principal do Stock-On"
+              aria-label="Abrir navegação principal da NEPTERA"
               className="dash-cf-menu"
               onClick={onAbrirMenu}
               type="button"
@@ -231,7 +231,7 @@ export default function DashboardPage({
             </button>
           ) : null}
           <div>
-            <span className="dash-cf-eyebrow">Stock-On / controle operacional</span>
+            <span className="dash-cf-eyebrow">NEPTERA / controle operacional</span>
             <h1>Central de posição</h1>
             <p>{gerente ? `Carteira de ${gerenteNomeBase || gerenteAtual}` : "Leitura unificada do estoque e das movimentações"}</p>
           </div>

@@ -1,10 +1,14 @@
-const CACHE_NAME = 'stock-on-shell-v1';
+const CACHE_NAME = 'neptera-shell-v1';
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
-  '/icons/stock-on-192.png',
-  '/icons/stock-on-512.png',
-  '/icons/stock-on-maskable-512.png'
+  '/brand/neptera/icons/neptera-favicon-16.png',
+  '/brand/neptera/icons/neptera-favicon-32.png',
+  '/brand/neptera/icons/neptera-favicon-48.png',
+  '/brand/neptera/icons/neptera-apple-touch-icon-180.png',
+  '/brand/neptera/icons/neptera-app-icon-192.png',
+  '/brand/neptera/icons/neptera-app-icon-512.png',
+  '/brand/neptera/icons/neptera-app-icon-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {

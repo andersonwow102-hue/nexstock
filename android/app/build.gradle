@@ -24,15 +24,15 @@ def twaManifest = [
     applicationId: 'com.stockon.app',
     hostName: 'nexstock-delta.vercel.app', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
-    name: 'Stock-ON', // The application name.
-    launcherName: 'Stock-ON', // The name shown on the Android Launcher.
-    themeColor: '#07152F', // The color used for the status bar.
-    themeColorDark: '#000000', // The color used for the dark status bar.
-    navigationColor: '#000000', // The color used for the navigation bar.
-    navigationColorDark: '#000000', // The color used for the dark navbar.
-    navigationDividerColor: '#000000', // The navbar divider color.
-    navigationDividerColorDark: '#000000', // The dark navbar divider color.
-    backgroundColor: '#07152F', // The color used for the splash screen background.
+    name: 'NEPTERA', // The application name.
+    launcherName: 'NEPTERA', // The name shown on the Android Launcher.
+    themeColor: '#03378A', // The color used for the status bar.
+    themeColorDark: '#021538', // The color used for the dark status bar.
+    navigationColor: '#021538', // The color used for the navigation bar.
+    navigationColorDark: '#021538', // The color used for the dark navbar.
+    navigationDividerColor: '#03378A', // The navbar divider color.
+    navigationDividerColorDark: '#03378A', // The dark navbar divider color.
+    backgroundColor: '#EEF4FA', // The color used for the splash screen background.
     enableNotifications: true, // Set to true to enable notification delegation.
     // Every shortcut must include the following fields:
     // - name: String that will show up in the shortcut.

@@ -160,7 +160,7 @@ async function exportarPontosPDF(pontos){
   await gerarPDF({
     titulo:"Relatório de Pontos",
     descricao:"Estabelecimentos cadastrados, responsáveis e despesas",
-    nomeArquivo:`stock-on_pontos_${hoje()}.pdf`,
+    nomeArquivo:`neptera_pontos_${hoje()}.pdf`,
     total:pontos.length,
     resumo:[
       {label:"Pontos",valor:pontos.length},
@@ -197,7 +197,7 @@ async function exportarHistoricoPontosPDF(historico){
   await gerarPDF({
     titulo:"Histórico de Pontos",
     descricao:"Registro de cadastros, alterações e exclusões de pontos",
-    nomeArquivo:`stock-on_historico_pontos_${hoje()}.pdf`,
+    nomeArquivo:`neptera_historico_pontos_${hoje()}.pdf`,
     total:historico.length,
     resumo:[
       {label:"Movimentações",valor:historico.length},
@@ -225,7 +225,7 @@ async function exportarHistoricoDespesasPDF({ linhas, competencia, busca }) {
   await gerarPDF({
     titulo:"Histórico de Despesas",
     descricao:`Conferência mensal dos lançamentos por ponto e gerente${busca?` | Busca: ${busca}`:""}`,
-    nomeArquivo:`stock-on_historico-despesas_${competencia||"todos"}_${slugArquivo(busca||"geral")}.pdf`,
+    nomeArquivo:`neptera_historico-despesas_${competencia||"todos"}_${slugArquivo(busca||"geral")}.pdf`,
     total:linhas.length,
     resumo:[
       {label:"Total",valor:formatarReais(total),destaque:[222,147,0]},

@@ -766,7 +766,7 @@ export default function DevedoresPage({ perfilAtual, onAbrirMenu, menuAberto = f
 
   return <div className="dev-page dev-command-flow">
     <aside aria-label="Contexto e exposição da carteira" className="dev-cf-rail">
-      <div className="dev-cf-rail-brand"><span aria-hidden="true"><i/><i/><i/><i/></span><div><strong>Stock-On</strong><small>Comando de recebíveis</small></div>{onAbrirMenu&&<button aria-controls="stock-on-primary-navigation" aria-expanded={menuAberto} aria-label="Abrir navegação principal do Stock-On" onClick={onAbrirMenu} type="button"><IconeFluxo nome="menu" size={16}/></button>}</div>
+      <div className="dev-cf-rail-brand"><img alt="" aria-hidden="true" src="/brand/neptera/neptera-symbol.png"/><div><strong>NEPTERA</strong><small>Plataforma operacional integrada</small></div>{onAbrirMenu&&<button aria-controls="stock-on-primary-navigation" aria-expanded={menuAberto} aria-label="Abrir navegação principal da NEPTERA" onClick={onAbrirMenu} type="button"><IconeFluxo nome="menu" size={16}/></button>}</div>
       <section aria-label="Exposição ativa" className="dev-cf-exposure">
         <div><span><i aria-hidden="true"/>Exposição ativa</span><small>{kpis.abertas} abertas</small></div>
         <strong>{moeda(kpis.saldo)}</strong>
