@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { OperationIcon } from "./components/operations/OperationsUI.jsx";
 
 const PRIORIDADE_STATUS = {
@@ -68,10 +68,22 @@ export default function FechamentoWorkbench({
   const [buscaRota, setBuscaRota] = useState("");
   const [revisaoAberta, setRevisaoAberta] = useState(etapaAtual >= 4);
   const [resumoMobileAberto, setResumoMobileAberto] = useState(false);
+  const resumoMobileToggleRef = useRef(null);
 
   useEffect(() => {
     if (etapaAtual >= 4) setRevisaoAberta(true);
   }, [etapaAtual]);
+
+  useEffect(() => {
+    if (!resumoMobileAberto) return undefined;
+    function fecharResumoComEscape(event) {
+      if (event.key !== "Escape" || !window.matchMedia("(max-width: 900px)").matches) return;
+      setResumoMobileAberto(false);
+      window.requestAnimationFrame(() => resumoMobileToggleRef.current?.focus());
+    }
+    document.addEventListener("keydown", fecharResumoComEscape);
+    return () => document.removeEventListener("keydown", fecharResumoComEscape);
+  }, [resumoMobileAberto]);
 
   const rotasVisiveis = useMemo(() => {
     const termo = normalizarBusca(buscaRota);
@@ -92,6 +104,7 @@ export default function FechamentoWorkbench({
 
   function irParaEtapa(numero) {
     if (numero === 4) setRevisaoAberta(true);
+    if (numero === 5 && rotaAtiva) setResumoMobileAberto(true);
     const destinos = {
       1: "fechamento-periodo",
       2: "fechamento-rotas",
@@ -100,12 +113,15 @@ export default function FechamentoWorkbench({
       5: rotaAtiva ? "fechamento-publicacao" : "fechamento-rotas",
     };
     window.requestAnimationFrame(() => {
-      document.getElementById(destinos[numero])?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const destino = document.getElementById(destinos[numero]);
+      if (numero === 2 && destino instanceof HTMLDetailsElement) destino.open = true;
+      const reduzirMovimento = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      destino?.scrollIntoView({ behavior: reduzirMovimento ? "auto" : "smooth", block: "start" });
     });
   }
 
   return (
-    <section className="secao fechamento-page" data-layout="workbench">
+    <section className="secao fechamento-page" data-layout="workbench" data-visual="a3-executive">
       <nav className="fechamento-progress" aria-label="Progressão do fechamento">
         <ol>
           {etapas.map((etapa, indice) => {
@@ -168,50 +184,58 @@ export default function FechamentoWorkbench({
         </div>
       </section>
 
-      <section className="fechamento-rotas" id="fechamento-rotas" aria-labelledby="fechamento-rotas-titulo">
-        <header className="fc-section-head">
+      <details className={`fechamento-rotas ${rotaAtiva ? "has-selection" : ""}`} id="fechamento-rotas" open={!rotaAtiva} aria-labelledby="fechamento-rotas-titulo">
+        <summary className="fc-section-head">
           <div>
             <span className="fechamento-step-label"><b>02</b> Rota</span>
-            <h2 id="fechamento-rotas-titulo">Fila operacional</h2>
+            <h2 id="fechamento-rotas-titulo">{rotaAtiva ? `${selecao.rota} · ${selecao.gerente}` : "Fila operacional"}</h2>
+            {rotaAtiva && <p>{statusAtual.titulo} · {selecao.pontos} ponto{selecao.pontos !== 1 ? "s" : ""} · {selecao.equipamentos} equipamento{selecao.equipamentos !== 1 ? "s" : ""}</p>}
           </div>
+          <span className="fechamento-rota-summary-action">{rotaAtiva ? "Alterar rota" : `${rotasVisiveis.length} rota${rotasVisiveis.length !== 1 ? "s" : ""}`} <Icon name="chevronDown" size={15} /></span>
+        </summary>
+
+        <div className="fechamento-rotas-body" aria-labelledby="fechamento-rotas-titulo">
           <label className="fechamento-rota-busca">
             <span className="fc-sr-only">Buscar gerente, rota ou status</span>
             <Icon name="search" size={16} />
             <input value={buscaRota} onChange={(event) => setBuscaRota(event.target.value)} placeholder="Buscar gerente, rota ou status" />
             {buscaRota && <button type="button" onClick={() => setBuscaRota("")} aria-label="Limpar busca"><Icon name="close" size={14} /></button>}
           </label>
-        </header>
 
-        <div className="fechamento-rota-ledger" role="listbox" aria-label="Gerentes e rotas do fechamento">
-          <div className="fechamento-rota-ledger-head" aria-hidden="true">
-            <span>Rota e responsável</span><span>Despesas</span><span>Base</span><span>Situação</span>
-          </div>
-          <div className="fechamento-rota-ledger-body">
-            {rotasVisiveis.map((item) => {
-              const ativa = selecao?.gerente === item.gerente && selecao?.rota === item.rota;
-              const status = item.status || {};
-              return (
-                <button
-                  key={`${item.gerente}-${item.rota}`}
-                  className={`fechamento-rota-row ${ativa ? "is-selected" : ""} status-${status.classe || "pendente"}`}
-                  type="button"
-                  role="option"
-                  aria-selected={ativa}
-                  onClick={() => selecao?.onSelecionar?.(item)}
-                  style={{ "--gerente-cor": item.cor?.color, "--gerente-bg": item.cor?.bg, "--gerente-border": item.cor?.border }}
-                >
-                  <span className="fechamento-rota-nome"><i aria-hidden="true">{String(item.rota || "R").slice(0, 2).toUpperCase()}</i><span><strong>{item.rota}</strong><small>{item.gerente}</small></span></span>
-                  <span className="fechamento-rota-valor"><small>Despesas</small><b>{formatar(item.totalDespesas)}</b></span>
-                  <span className="fechamento-rota-base"><small>Base</small><b>{item.pontos} pt.</b><em>{item.equipamentos} equip.</em></span>
-                  <span className={`fechamento-rota-state ${status.classe || "pendente"}`}><Icon name={iconeStatus(status.classe)} size={16} /><span><b>{status.titulo}</b><small>{status.descricao}</small></span></span>
-                  <Icon name="chevronRight" size={16} />
-                </button>
-              );
-            })}
-            {rotasVisiveis.length === 0 && <p className="fechamento-vazio">Nenhuma rota corresponde à busca.</p>}
+          <div className="fechamento-rota-ledger" role="listbox" aria-label="Gerentes e rotas do fechamento">
+            <div className="fechamento-rota-ledger-head" aria-hidden="true">
+              <span>Rota e responsável</span><span>Despesas</span><span>Base</span><span>Situação</span>
+            </div>
+            <div className="fechamento-rota-ledger-body">
+              {rotasVisiveis.map((item) => {
+                const ativa = selecao?.gerente === item.gerente && selecao?.rota === item.rota;
+                const status = item.status || {};
+                return (
+                  <button
+                    key={`${item.gerente}-${item.rota}`}
+                    className={`fechamento-rota-row ${ativa ? "is-selected" : ""} status-${status.classe || "pendente"}`}
+                    type="button"
+                    role="option"
+                    aria-selected={ativa}
+                    onClick={(event) => {
+                      selecao?.onSelecionar?.(item);
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                    }}
+                    style={{ "--gerente-cor": item.cor?.color, "--gerente-bg": item.cor?.bg, "--gerente-border": item.cor?.border }}
+                  >
+                    <span className="fechamento-rota-nome"><i aria-hidden="true">{String(item.rota || "R").slice(0, 2).toUpperCase()}</i><span><strong>{item.rota}</strong><small>{item.gerente}</small></span></span>
+                    <span className="fechamento-rota-valor"><small>Despesas</small><b>{formatar(item.totalDespesas)}</b></span>
+                    <span className="fechamento-rota-base"><small>Base</small><b>{item.pontos} pt.</b><em>{item.equipamentos} equip.</em></span>
+                    <span className={`fechamento-rota-state ${status.classe || "pendente"}`}><Icon name={iconeStatus(status.classe)} size={16} /><span><b>{status.titulo}</b><small>{status.descricao}</small></span></span>
+                    <Icon name="chevronRight" size={16} />
+                  </button>
+                );
+              })}
+              {rotasVisiveis.length === 0 && <p className="fechamento-vazio">Nenhuma rota corresponde à busca.</p>}
+            </div>
           </div>
         </div>
-      </section>
+      </details>
 
       {rotaAtiva ? (
         <div className="fechamento-workspace">
@@ -220,7 +244,7 @@ export default function FechamentoWorkbench({
               <header className="fc-section-head fechamento-lancamentos-head">
                 <div>
                   <span className="fechamento-step-label"><b>03</b> Lançamentos</span>
-                  <h2 id="fechamento-lancamentos-titulo">Matriz financeira</h2>
+                  <h2 id="fechamento-lancamentos-titulo">Movimento por modalidade</h2>
                   <p>{selecao.gerente} · {selecao.rota} · {selecao.pontos} ponto{selecao.pontos !== 1 ? "s" : ""} · {selecao.equipamentos} equipamento{selecao.equipamentos !== 1 ? "s" : ""}</p>
                 </div>
                 {selecao.rotasDisponiveis?.length > 1 && (
@@ -244,7 +268,7 @@ export default function FechamentoWorkbench({
                         <label className="fechamento-valor-campo" data-label="Entrada" role="cell" htmlFor={`${idBase}-entrada`}><span>R$</span><input id={`${idBase}-entrada`} type="text" inputMode="decimal" value={valores.entrada || ""} onChange={(event) => financeiro.onAlterarModalidade?.(modalidade.id, "entrada", event.target.value)} placeholder="0,00" aria-label={`Entrada de ${modalidade.nome}`} /></label>
                         <label className={`fechamento-valor-campo ${automatica ? "is-calculated" : ""}`} data-label="Comissão" role="cell" htmlFor={`${idBase}-comissao`}><span>R$</span><input id={`${idBase}-comissao`} type="text" inputMode="decimal" value={comissaoEditavel ? semPrefixoMoeda(valores.comissao) : semPrefixoMoeda(formatar(modalidade.comissaoCalculada))} onChange={(event) => financeiro.onAlterarModalidade?.(modalidade.id, "comissao", event.target.value)} onBlur={() => comissaoEditavel && financeiro.onFormatarComissao?.(modalidade.id)} disabled={!comissaoEditavel} placeholder="0,00" aria-label={`Comissão de ${modalidade.nome}`} /></label>
                         <label className="fechamento-valor-campo" data-label="Saída" role="cell" htmlFor={`${idBase}-saida`}><span>R$</span><input id={`${idBase}-saida`} type="text" inputMode="decimal" value={valores.saida || ""} onChange={(event) => financeiro.onAlterarModalidade?.(modalidade.id, "saida", event.target.value)} placeholder="0,00" aria-label={`Saída de ${modalidade.nome}`} /></label>
-                        <output className={`fechamento-saldo-output ${sinalResultado(modalidade.saldoBruto)}`} role="cell" htmlFor={`${idBase}-entrada ${idBase}-comissao ${idBase}-saida`} aria-live="polite"><small>Saldo</small><Money key={`${modalidade.id}-${modalidade.saldoBruto}`} value={modalidade.saldoBruto} formatar={formatar} /></output>
+                        <output className={`fechamento-saldo-output ${sinalResultado(modalidade.saldoBruto)}`} data-label="Saldo" role="cell" htmlFor={`${idBase}-entrada ${idBase}-comissao ${idBase}-saida`} aria-live="polite"><small>Saldo</small><Money key={`${modalidade.id}-${modalidade.saldoBruto}`} value={modalidade.saldoBruto} formatar={formatar} /></output>
                         <div className="fechamento-regra" role="cell">
                           {modalidade.comissao === null ? <span className="is-manual"><Icon name="edit" size={14} /> Manual</span> : (
                             <div className="fechamento-regra-toggle" role="group" aria-label={`Regra de comissão de ${modalidade.nome}`}>
@@ -301,13 +325,57 @@ export default function FechamentoWorkbench({
               </div>
             </section>
 
-            <section className="fechamento-publicacao" id="fechamento-publicacao" aria-labelledby="fechamento-publicacao-titulo">
-              <header className="fc-section-head"><div><span className="fechamento-section-label"><span>05</span><strong>Envio</strong></span><h2 id="fechamento-publicacao-titulo">Publicação da prestação</h2></div><span className={`fechamento-publicacao-status ${statusAtual.classe}`}><Icon name={iconeStatus(statusAtual.classe)} /><b>{statusAtual.titulo}</b></span></header>
-              <div className="fechamento-publicacao-grid">
+          </div>
+
+          <aside
+            className={`fechamento-summary ${resumoMobileAberto ? "is-open" : ""}`}
+            data-status={statusAtual.classe}
+            aria-label="Coluna de decisão do fechamento"
+          >
+            <button ref={resumoMobileToggleRef} className="fechamento-summary-mobile-toggle" type="button" aria-expanded={resumoMobileAberto} aria-controls="fechamento-summary-panel" onClick={() => setResumoMobileAberto((atual) => !atual)}>
+              <span><small>Valor a repassar</small><Money value={totais.saldoRepassar} formatar={formatar} /></span><Icon name="chevronDown" />
+            </button>
+            <div className="fechamento-summary-body" id="fechamento-summary-panel">
+              <header className="fechamento-decision-head">
+                <span>Coluna de decisão</span>
+                <div><strong>Parecer da rota</strong><span className={`fechamento-publicacao-status ${statusAtual.classe}`}><Icon name={iconeStatus(statusAtual.classe)} /><b>{statusAtual.titulo}</b></span></div>
+                <h2>{selecao.rota}</h2>
+                <small>{selecao.gerente} · {periodo?.label}</small>
+              </header>
+              <div className="fechamento-summary-base"><span><small>Pontos</small><b>{selecao.pontos}</b></span><span><small>Equipamentos</small><b>{selecao.equipamentos}</b></span></div>
+
+              <section className={`fechamento-decision-state ${statusAtual.classe}`} aria-label="Estado operacional real">
+                <span>Estado operacional</span>
+                <strong>{statusAtual.titulo}</strong>
+                <small>{statusAtual.texto || statusAtual.descricao}</small>
+                <div className="fechamento-decision-stage" aria-label={`Etapa atual: ${etapas[etapaAtual - 1] || statusAtual.titulo}`}>
+                  <span>Etapa {String(etapaAtual).padStart(2, "0")} de {String(etapas.length).padStart(2, "0")}</span>
+                  <strong>{etapas[etapaAtual - 1] || statusAtual.titulo}</strong>
+                </div>
+              </section>
+
+              <section className="fechamento-decision-group" aria-labelledby="fechamento-decision-composicao">
+                <h3 id="fechamento-decision-composicao">Composição do resultado</h3>
+                <dl className="fechamento-summary-ledger">
+                  <div><dt><span>Entradas</span></dt><dd>+ {formatar(totais.entradas)}</dd></div>
+                  <div><dt><span>Saídas</span><small>Comissões: {formatar(totais.comissoes)}</small></dt><dd>− {formatar(totais.saidas)}</dd></div>
+                  <div><dt><span>Despesas registradas</span><small>{despesas?.quantidadeLancamentos || 0} lançamento{despesas?.quantidadeLancamentos !== 1 ? "s" : ""} · base informativa</small></dt><dd>{formatar(totais.despesasSistema)}</dd></div>
+                  <div className="is-subtotal"><dt><span>Despesas consolidadas</span><small>Dedução real após os ajustes aplicáveis</small></dt><dd>− {formatar(totais.despesasFinais)}</dd></div>
+                </dl>
+                <div className="fechamento-decision-manager-proof">
+                  <span>Após despesas</span>
+                  <strong>{formatar(totais.saldoFinal)}</strong>
+                  <small>Comissão do gerente − {formatar(totais.comissaoGerente)}</small>
+                </div>
+              </section>
+
+              <div className={`fechamento-summary-result ${sinalResultado(totais.saldoRepassar)}`}><span>Valor a repassar</span><Money value={totais.saldoRepassar} formatar={formatar} /><small>Resultado final da rota</small></div>
+
+              <section className="fechamento-publicacao" id="fechamento-publicacao" aria-labelledby="fechamento-publicacao-titulo">
                 <div className="fechamento-publicacao-copy">
-                  <strong>{statusAtual.texto || statusAtual.descricao}</strong>
-                  <p>{acoes?.isEnviado ? "Uma nova publicação reinicia o ciclo de visualização e confirmação." : `A publicação libera para ${selecao.gerente} o fechamento de ${selecao.rota}, no recorte ${periodo?.label}, com o PDF da rota.`}</p>
-                  <dl><div><dt>Destino</dt><dd>{selecao.gerente}</dd></div><div><dt>Rota</dt><dd>{selecao.rota}</dd></div><div><dt>Valor a repassar</dt><dd>{formatar(totais.saldoRepassar)}</dd></div></dl>
+                  <span className="fechamento-section-label"><span>05</span><strong>Ação principal</strong></span>
+                  <h2 id="fechamento-publicacao-titulo" className="fc-sr-only">Publicação da prestação</h2>
+                  <p>{acoes?.isEnviado ? "Uma nova publicação reinicia o ciclo de visualização e confirmação." : `Destino: ${selecao.gerente} · ${selecao.rota}`}</p>
                 </div>
                 <div className="fechamento-publicacao-actions">
                   {acoes?.isFinalizado ? (
@@ -326,32 +394,8 @@ export default function FechamentoWorkbench({
                     <div><button type="button" onClick={acoes?.onBaixarRota}>Baixar rota atual</button><button type="button" onClick={acoes?.onBaixarGerente}>Baixar todas as rotas</button></div>
                   </details>
                 </div>
-              </div>
-              {(feedback?.erro || feedback?.sucesso) && <div className={feedback.erro ? "erro-box" : "sucesso-box"} role="status">{feedback.erro || feedback.sucesso}</div>}
-            </section>
-          </div>
-
-          <aside className={`fechamento-summary ${resumoMobileAberto ? "is-open" : ""}`} aria-label="Resumo persistente do fechamento">
-            <button className="fechamento-summary-mobile-toggle" type="button" aria-expanded={resumoMobileAberto} onClick={() => setResumoMobileAberto((atual) => !atual)}>
-              <span><small>Valor a repassar</small><Money value={totais.saldoRepassar} formatar={formatar} /></span><Icon name="chevronDown" />
-            </button>
-            <div className="fechamento-summary-body">
-              <header><span>Conferência ativa</span><strong>{selecao.rota}</strong><small>{selecao.gerente} · {periodo?.label}</small></header>
-              <div className="fechamento-summary-base"><span><small>Pontos</small><b>{selecao.pontos}</b></span><span><small>Equipamentos</small><b>{selecao.equipamentos}</b></span></div>
-              <dl className="fechamento-summary-ledger">
-                <div><dt>Entradas</dt><dd>{formatar(totais.entradas)}</dd></div>
-                <div><dt>Comissões</dt><dd>− {formatar(totais.comissoes)}</dd></div>
-                <div><dt>Saídas</dt><dd>− {formatar(totais.saidas)}</dd></div>
-                <div className="is-subtotal"><dt>Saldo bruto</dt><dd>{formatar(totais.saldoBruto)}</dd></div>
-                <div><dt>Despesas registradas</dt><dd>− {formatar(totais.despesasSistema)}</dd></div>
-                {Number(ajustes?.playBet?.numero) > 0 && <div className="is-adjustment"><dt>Abatimento Play Bet</dt><dd>+ {formatar(ajustes.playBet.numero)}</dd></div>}
-                {Number(ajustes?.ajudaCusto?.numero) > 0 && <div className="is-adjustment"><dt>Ajuda de custo</dt><dd>− {formatar(ajustes.ajudaCusto.numero)}</dd></div>}
-                {ajustes?.comissaoExtra?.permitida && Number(ajustes.comissaoExtra.numero) > 0 && <div className="is-adjustment"><dt>Comissão extra</dt><dd>− {formatar(ajustes.comissaoExtra.numero)}</dd></div>}
-                <div className="is-subtotal"><dt>Após despesas</dt><dd>{formatar(totais.saldoFinal)}</dd></div>
-                <div><dt>Comissão do gerente</dt><dd>− {formatar(totais.comissaoGerente)}</dd></div>
-              </dl>
-              <div className={`fechamento-summary-result ${sinalResultado(totais.saldoRepassar)}`}><span>Valor a repassar</span><Money value={totais.saldoRepassar} formatar={formatar} /><small>Resultado final da rota</small></div>
-              <div className={`fechamento-summary-status ${statusAtual.classe}`}><Icon name={iconeStatus(statusAtual.classe)} /><span><small>Situação</small><strong>{statusAtual.titulo}</strong></span></div>
+                {(feedback?.erro || feedback?.sucesso) && <div className={feedback.erro ? "erro-box" : "sucesso-box"} role="status">{feedback.erro || feedback.sucesso}</div>}
+              </section>
             </div>
           </aside>
         </div>

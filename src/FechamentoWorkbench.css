@@ -16,6 +16,7 @@
   --fc-text-muted: #918c84;
   --fc-copper: #c67b49;
   --fc-copper-strong: #dc9260;
+  --fc-on-copper: #17130f;
   --fc-copper-soft: rgba(198, 123, 73, 0.14);
   --fc-copper-line: rgba(198, 123, 73, 0.52);
   --fc-success: #91aa91;
@@ -51,9 +52,10 @@
   --fc-line-strong: #b9ad9e;
   --fc-text: #2d2924;
   --fc-text-soft: #5f5850;
-  --fc-text-muted: #82796f;
+  --fc-text-muted: #706960;
   --fc-copper: #a85f35;
   --fc-copper-strong: #8f4d2a;
+  --fc-on-copper: #fffdf8;
   --fc-copper-soft: rgba(168, 95, 53, 0.1);
   --fc-copper-line: rgba(168, 95, 53, 0.42);
   --fc-success: #547457;
@@ -168,7 +170,7 @@
   right: 0;
 }
 
-.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress li.is-complete::after { background: var(--fc-success); }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress li.is-complete::after { background: var(--fc-copper); }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress li.is-current::after { background: var(--fc-copper-strong); }
 
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress button {
@@ -205,9 +207,9 @@
 }
 
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress .is-complete { color: var(--fc-text-soft); }
-.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress .is-complete button > span { border-color: var(--fc-success-line); color: var(--fc-success); }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress .is-complete button > span { border-color: var(--fc-copper-line); color: var(--fc-copper-strong); }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress .is-current { background: var(--fc-copper-soft); color: var(--fc-text); }
-.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress .is-current button > span { background: var(--fc-copper); border-color: var(--fc-copper); color: #17130f; font-weight: 900; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-progress .is-current button > span { background: var(--fc-copper); border-color: var(--fc-copper); color: var(--fc-on-copper); font-weight: 900; }
 
 /* Contexto persistente e compacto. */
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-contexto {
@@ -335,7 +337,7 @@
 .command-flow-shell .fechamento-page[data-layout="workbench"] .prorrogacao-despesas-form label { color: var(--fc-text-muted); font-size: 10px; font-weight: 700; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .prorrogacao-despesas-form input,
 .command-flow-shell .fechamento-page[data-layout="workbench"] .prorrogacao-despesas-form select { background: var(--fc-field); border: 1px solid var(--fc-line); border-radius: 4px; color: var(--fc-text); height: 36px; padding: 0 9px; width: 100%; }
-.command-flow-shell .fechamento-page[data-layout="workbench"] .prorrogacao-despesas-form .btn-primario { background: var(--fc-copper); border: 1px solid var(--fc-copper); border-radius: 4px; color: #17130f; min-height: 36px; padding: 7px 12px; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .prorrogacao-despesas-form .btn-primario { background: var(--fc-copper); border: 1px solid var(--fc-copper); border-radius: 4px; color: var(--fc-on-copper); min-height: 36px; padding: 7px 12px; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .prorrogacao-despesas-lista { border-top: 1px solid var(--fc-line); margin-top: 13px; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .prorrogacao-despesas-lista article { align-items: center; background: transparent; border: 0; border-bottom: 1px solid var(--fc-line); border-radius: 0; display: grid; gap: 10px; grid-template-columns: minmax(140px, 1fr) minmax(170px, 1fr) auto auto; padding: 9px 0; }
 
@@ -377,7 +379,7 @@
 }
 
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-rota-busca:focus-within { border-color: var(--fc-copper-line); }
-.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-rota-busca input { background: transparent; border: 0; color: var(--fc-text); height: 36px; min-width: 0; outline: 0; width: 100%; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-rota-busca input { background: transparent; border: 0; color: var(--fc-text); height: 36px; min-width: 0; width: 100%; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-rota-busca button { background: transparent; border: 0; color: inherit; cursor: pointer; display: grid; place-items: center; }
 
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-rota-ledger { min-width: 0; }
@@ -566,7 +568,7 @@
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-publicacao-copy dt { color: var(--fc-text-muted); font-size: 8px; font-weight: 700; text-transform: uppercase; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-publicacao-copy dd { color: var(--fc-text); font-size: 10px; font-weight: 720; margin: 0; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-publicacao-actions { display: grid; gap: 8px; }
-.command-flow-shell .fechamento-page[data-layout="workbench"] .fc-primary-action { align-items: center; background: var(--fc-copper); border: 1px solid var(--fc-copper); border-radius: 4px; color: #17130f; cursor: pointer; display: flex; font-size: 11px; font-weight: 800; gap: 7px; justify-content: center; min-height: 40px; padding: 8px 12px; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fc-primary-action { align-items: center; background: var(--fc-copper); border: 1px solid var(--fc-copper); border-radius: 4px; color: var(--fc-on-copper); cursor: pointer; display: flex; font-size: 11px; font-weight: 800; gap: 7px; justify-content: center; min-height: 40px; padding: 8px 12px; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fc-primary-action:hover:not(:disabled) { background: var(--fc-copper-strong); }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fc-primary-action:disabled { cursor: not-allowed; opacity: 0.56; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fc-primary-action.is-complete { background: var(--fc-success-soft); border-color: var(--fc-success-line); color: var(--fc-success); opacity: 1; }
@@ -783,7 +785,7 @@
   .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-review-teaser { grid-template-columns: 1fr 12px 1fr; padding: 0 8px; }
   .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-review-teaser > span { padding: 9px 5px; }
   .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-review-teaser > span:nth-of-type(n + 3),
-  .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-review-teaser > svg:nth-of-type(n + 3) { display: none; }
+  .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-review-teaser > svg:nth-of-type(n + 2) { display: none; }
   .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesas-ledger article { grid-template-columns: minmax(0, 1fr) auto; }
   .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesa-contexto { grid-column: 1 / -1; }
   .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-ajustes-ledger label { grid-template-columns: minmax(0, 1fr) 14px minmax(112px, 0.8fr); }
@@ -830,5 +832,865 @@
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * A3 — EXECUTIVE, implementação oficial.
+ * Esta camada preserva o contrato do Workbench e altera somente composição,
+ * hierarquia e comportamento responsivo do Fechamento real.
+ */
+.command-flow-shell .fechamento-page[data-layout="workbench"][data-visual="a3-executive"] {
+  gap: 18px;
+  padding-bottom: 64px;
+}
+
+/* A rota escolhida vira contexto compacto; a fila continua acessível sob demanda. */
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas {
+  overflow: visible;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas > summary::-webkit-details-marker {
+  display: none;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas:not([open]) > summary {
+  border-bottom: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas.has-selection:not([open]) > summary {
+  min-height: 64px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rota-summary-action {
+  align-items: center;
+  color: var(--fc-text-soft);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 760;
+  gap: 7px;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rota-summary-action svg {
+  transition: transform 160ms ease;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas[open] .fechamento-rota-summary-action svg {
+  transform: rotate(180deg);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas-body {
+  border-top: 1px solid var(--fc-line);
+  min-width: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas-body > .fechamento-rota-busca {
+  margin: 12px 14px;
+  margin-left: auto;
+}
+
+/* Mesa 70/30 do Conference Desk. */
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
+  gap: clamp(26px, 2.6vw, 42px);
+  grid-template-columns: minmax(0, 7fr) minmax(350px, 3fr);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace-main {
+  gap: 26px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao {
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos {
+  border-bottom: 0;
+  border-top: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head {
+  align-items: end;
+  border-bottom: 0;
+  min-height: 78px;
+  padding: 15px 0 16px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head h2 {
+  font-size: clamp(19px, 1.6vw, 23px);
+  letter-spacing: -0.035em;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head p {
+  font-size: 10px;
+}
+
+/* Cada modalidade é uma unidade financeira ampla, nunca uma linha de planilha. */
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz {
+  border-bottom: 1px solid var(--fc-line-strong);
+  border-top: 1px solid var(--fc-line-strong);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-head {
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
+  align-items: stretch;
+  border-bottom: 1px solid var(--fc-line);
+  display: grid;
+  gap: 0 clamp(10px, 1.15vw, 18px);
+  grid-template-areas:
+    "mode mode mode rule"
+    "entry commission exit balance";
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(132px, 1.14fr);
+  grid-template-rows: minmax(54px, auto) minmax(78px, auto);
+  min-height: 142px;
+  padding: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row > * {
+  border: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade {
+  align-items: center;
+  grid-area: mode;
+  padding: 12px 0 6px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade > span {
+  background: transparent;
+  border-color: var(--fc-copper-line);
+  flex-basis: 32px;
+  height: 32px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade strong {
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade small {
+  font-size: 9px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo:nth-child(2) { grid-area: entry; }
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo:nth-child(3) { grid-area: commission; }
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo:nth-child(4) { grid-area: exit; }
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo {
+  align-content: end;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto 54px;
+  padding-bottom: 14px;
+  position: relative;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo::before {
+  color: var(--fc-text-muted);
+  content: attr(data-label);
+  font-size: 8px;
+  font-weight: 760;
+  grid-column: 1 / -1;
+  letter-spacing: 0.07em;
+  position: static;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo > span {
+  align-items: center;
+  color: var(--fc-text-muted);
+  display: flex;
+  font-size: 9px;
+  grid-column: 1;
+  grid-row: 2;
+  left: auto;
+  padding-top: 4px;
+  position: static;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
+  align-self: stretch;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--fc-line-strong);
+  border-radius: 0;
+  color: var(--fc-text);
+  font-size: clamp(17px, 1.35vw, 22px);
+  font-weight: 680;
+  grid-column: 2;
+  grid-row: 2;
+  height: 54px;
+  letter-spacing: -0.045em;
+  padding: 4px 2px 0 5px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo:focus-within input {
+  border-bottom-color: var(--fc-copper-strong);
+  box-shadow: 0 2px 0 var(--fc-copper-soft);
+  outline: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input:focus-visible {
+  outline: 2px solid var(--fc-copper-strong);
+  outline-offset: 2px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input:disabled {
+  background: transparent;
+  color: var(--fc-text-soft);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
+  align-content: end;
+  background: transparent;
+  border-left: 1px solid var(--fc-line-strong);
+  display: grid;
+  gap: 9px;
+  grid-area: balance;
+  justify-items: start;
+  padding: 0 0 17px clamp(14px, 1.4vw, 22px);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output small {
+  display: block;
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
+  color: var(--fc-copper-strong);
+  font-size: clamp(21px, 1.65vw, 28px);
+  font-weight: 820;
+  line-height: 1;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output.is-negative .fc-money {
+  color: var(--fc-danger);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra {
+  align-items: center;
+  display: flex;
+  grid-area: rule;
+  justify-content: flex-end;
+  padding: 10px 0 4px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra > .is-manual {
+  color: var(--fc-text-muted);
+  justify-content: flex-end;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra-toggle {
+  background: transparent;
+  grid-template-columns: 1fr 1fr;
+  min-width: 154px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra-toggle button {
+  min-height: 30px;
+  padding-inline: 8px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra-toggle button + button {
+  border-left: 1px solid var(--fc-line);
+  border-top: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos-foot {
+  border-top: 0;
+  padding: 16px 0 0;
+}
+
+/* Conferência espaçada, subordinada à mesa financeira. */
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao > .fc-section-head {
+  min-height: 70px;
+  padding: 13px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser {
+  border-top: 1px solid var(--fc-line);
+  padding: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser > span {
+  padding: 15px 9px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser .fc-money {
+  font-size: 14px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser .is-result {
+  border-bottom-color: var(--fc-copper);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajuste-input:focus-within {
+  border-color: var(--fc-copper-strong);
+  box-shadow: 0 0 0 2px var(--fc-copper-soft);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajuste-input input:focus-visible {
+  outline: 2px solid var(--fc-copper-strong);
+  outline-offset: 2px;
+}
+
+/* Coluna de decisão: estado, composição, valor final e ações reais. */
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary {
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-line);
+  border-top: 3px solid var(--fc-copper);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.12);
+  max-height: calc(100vh - 28px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  top: 14px;
+}
+
+.app.tema-claro.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary {
+  box-shadow: 0 18px 38px rgba(70, 52, 34, 0.09);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
+  padding: 0 22px 22px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body > .fechamento-decision-head {
+  border-bottom: 1px solid var(--fc-line-strong);
+  gap: 4px;
+  padding: 18px 0 14px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > span {
+  color: var(--fc-copper-strong);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > div {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > div > strong {
+  color: var(--fc-text);
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head h2 {
+  color: var(--fc-text);
+  font-size: clamp(22px, 2vw, 27px);
+  letter-spacing: -0.045em;
+  margin: 12px 0 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > small {
+  color: var(--fc-text-muted);
+  font-size: 10px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao-status {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  padding: 5px 8px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base {
+  border-bottom-color: var(--fc-line);
+  padding: 2px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base > span {
+  padding: 10px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base > span + span {
+  border-left: 0;
+  padding-left: 18px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base b {
+  font-size: 15px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state {
+  border-bottom: 1px solid var(--fc-line);
+  display: grid;
+  gap: 4px;
+  padding: 13px 0 14px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state > span,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-group > h3 {
+  color: var(--fc-text-soft);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state > strong {
+  color: var(--fc-text);
+  font-size: 13px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state > small {
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-stage {
+  align-items: end;
+  border-top: 1px solid var(--fc-line);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 11px;
+  padding-top: 10px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-stage > span {
+  color: var(--fc-text-soft);
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-stage > strong {
+  color: var(--fc-copper-strong);
+  font-size: 10px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-group {
+  border-bottom: 1px solid var(--fc-line);
+  padding: 15px 0 8px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger {
+  margin-top: 7px;
+  padding: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger > div {
+  min-height: 35px;
+  padding: 7px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger dt {
+  color: var(--fc-text-soft);
+  display: grid;
+  font-size: 10px;
+  gap: 2px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger dt > small {
+  color: var(--fc-text-soft);
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger dd {
+  color: var(--fc-text);
+  font-size: 11px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger .is-subtotal {
+  border-top-color: var(--fc-line-strong);
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof {
+  border-top: 1px solid var(--fc-line-strong);
+  display: grid;
+  gap: 3px 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 0 5px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof > span {
+  color: var(--fc-text-soft);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof > strong {
+  color: var(--fc-text);
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof > small {
+  color: var(--fc-text-soft);
+  font-size: 8px;
+  grid-column: 1 / -1;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result {
+  border: 0;
+  border-bottom: 1px solid var(--fc-line-strong);
+  gap: 7px;
+  margin: 0;
+  padding: 20px 0 21px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result > span {
+  font-size: 10px;
+  letter-spacing: 0.055em;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result .fc-money {
+  color: var(--fc-text);
+  font-size: clamp(30px, 2.8vw, 50px);
+  font-weight: 860;
+  letter-spacing: -0.075em;
+  line-height: 0.98;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status="confirmado"] .fechamento-summary-result .fc-money,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status="finalizado"] .fechamento-summary-result .fc-money {
+  color: var(--fc-success);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result.is-negative .fc-money {
+  color: var(--fc-danger);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result.is-zero .fc-money {
+  color: var(--fc-text-muted);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status] .fechamento-summary-result.is-negative .fc-money {
+  color: var(--fc-danger);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status] .fechamento-summary-result.is-zero .fc-money {
+  color: var(--fc-text-muted);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao {
+  background: transparent;
+  border: 0;
+  padding: 17px 0 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao-copy > p {
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  line-height: 1.4;
+  margin: 7px 0 14px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao-actions {
+  gap: 9px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fc-primary-action {
+  background: var(--fc-copper);
+  border-color: var(--fc-copper);
+  color: #111511;
+  min-height: 46px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fc-primary-action:hover:not(:disabled) {
+  background: var(--fc-copper-strong);
+}
+
+.app.tema-claro.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fc-primary-action {
+  color: #fffdf8;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-secondary-actions {
+  grid-template-columns: 1fr 1fr;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-downloads {
+  position: static;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-downloads > div {
+  margin-top: 4px;
+  position: static;
+  width: 100%;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao .erro-box,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao .sucesso-box {
+  margin: 12px 0 0;
+}
+
+@media (max-width: 1280px) {
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
+    gap: 26px;
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 350px);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(124px, 1.08fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
+    grid-template-columns: minmax(0, 1fr) 328px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
+    padding-inline: 18px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
+    gap: 0 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
+    font-size: 17px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
+    font-size: 21px;
+  }
+}
+
+@media (max-width: 900px) {
+  .command-flow-shell .fechamento-page[data-layout="workbench"][data-visual="a3-executive"] {
+    padding-bottom: calc(102px + env(safe-area-inset-bottom));
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
+    display: block;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace-main {
+    margin-bottom: 0;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary {
+    border: 0;
+    border-top: 3px solid var(--fc-copper);
+    bottom: 0;
+    box-shadow: 0 -14px 36px rgba(0, 0, 0, 0.26);
+    left: 0;
+    max-height: none;
+    overflow: visible;
+    padding-bottom: env(safe-area-inset-bottom);
+    position: fixed;
+    right: 0;
+    top: auto;
+    z-index: 195;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-mobile-toggle {
+    min-height: 68px;
+    padding: 10px max(18px, env(safe-area-inset-right)) 10px max(18px, env(safe-area-inset-left));
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-mobile-toggle .fc-money {
+    color: var(--fc-text);
+    font-size: 18px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status="confirmado"] .fechamento-summary-mobile-toggle .fc-money,
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status="finalizado"] .fechamento-summary-mobile-toggle .fc-money {
+    color: var(--fc-success);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status] .fechamento-summary-mobile-toggle .fc-money.is-negative {
+    color: var(--fc-danger);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status] .fechamento-summary-mobile-toggle .fc-money.is-zero {
+    color: var(--fc-text-muted);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    max-height: min(78dvh, 690px);
+    padding: 0 22px 24px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result .fc-money {
+    font-size: clamp(34px, 6.2vw, 48px);
+  }
+
+  .command-flow-shell .sidebar.aberta ~ .main .fechamento-page[data-visual="a3-executive"] .fechamento-summary {
+    z-index: 140;
+  }
+}
+
+@media (max-width: 720px) {
+  .command-flow-shell .fechamento-page[data-layout="workbench"][data-visual="a3-executive"] {
+    gap: 12px;
+    padding-inline: 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas-body > .fechamento-rota-busca {
+    margin: 10px;
+    width: calc(100% - 20px);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head {
+    padding-inline: 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz {
+    border-bottom: 0;
+    border-top: 0;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-body {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
+    background: transparent;
+    border: 1px solid var(--fc-line);
+    display: grid;
+    gap: 0 14px;
+    grid-template-areas:
+      "mode mode"
+      "entry commission"
+      "exit balance"
+      "rule rule";
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto;
+    min-height: 0;
+    padding: 0 12px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row > * {
+    border: 0;
+    padding-inline: 0;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade {
+    border-bottom: 1px solid var(--fc-line);
+    padding: 13px 0 11px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo {
+    min-height: 84px;
+    padding: 11px 0 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo::before {
+    left: auto;
+    position: static;
+    top: auto;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo > span {
+    left: auto;
+    position: static;
+    top: auto;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
+    height: 54px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
+    border-left: 1px solid var(--fc-line-strong);
+    border-top: 0;
+    min-height: 84px;
+    padding: 13px 0 13px 14px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output::before {
+    display: none;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra {
+    border-top: 1px solid var(--fc-line);
+    grid-column: auto;
+    justify-content: flex-end;
+    padding: 11px 0;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos-foot {
+    padding: 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao > .fc-section-head {
+    padding-inline: 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
+    padding-inline: 18px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result .fc-money {
+    font-size: clamp(32px, 9.2vw, 42px);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-secondary-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rota-summary-action {
+    font-size: 8px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
+    gap: 0 10px;
+    padding-inline: 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
+    font-size: 16px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
+    font-size: clamp(15px, 4.3vw, 18px);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > div {
+    align-items: flex-start;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao-status {
+    font-size: 8px;
   }
 }
