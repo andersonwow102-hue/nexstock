@@ -34,6 +34,7 @@ const NEPTERA = Object.freeze({
   descritor: "Plataforma Operacional Integrada",
   autoria: "Anderion Labs",
   simbolo: "/brand/neptera/neptera-symbol.png",
+  simboloCompacto: "/brand/neptera/icons/neptera-favicon-48.png",
   icone: "/brand/neptera/neptera-app-icon.png",
   iconeNotificacao: "/brand/neptera/icons/neptera-app-icon-192.png",
   logoHorizontalEscuro: "/brand/neptera/neptera-logo-horizontal-dark.png",
@@ -91,6 +92,8 @@ const ICON_PATHS = {
   minus: <><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></>,
   arrowDown: <><path d="M12 3v14"/><path d="m6 11 6 6 6-6"/><path d="M5 21h14"/></>,
   download: <><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></>,
+  eye: <><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.75"/></>,
+  eyeOff: <><path d="m3 3 18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15.6 15.6 0 0 1-2.2 2.8"/><path d="M6.7 6.7A16.5 16.5 0 0 0 2.5 12s3.5 6 9.5 6c1.2 0 2.3-.2 3.3-.6"/><path d="M10.1 10.1a2.75 2.75 0 0 0 3.8 3.8"/></>,
 };
 
 const HIST_ICONES = {
@@ -3153,11 +3156,9 @@ function MarcaLogin(){
         </picture>
       </div>
       <div className="login-brand-copy">
-        <span>Comando operacional integrado</span>
         <strong>Integra. Gerencia. Evolui.</strong>
         <p>Uma visão contínua da operação, do estoque aos recebíveis.</p>
       </div>
-      <small>Identidade e produto por {NEPTERA.autoria}</small>
     </section>
   );
 }
@@ -3224,13 +3225,13 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
           <div className="login-titulo">Acesso à plataforma</div>
           <div className="login-subtitulo">Entre com suas credenciais para continuar.</div>
           <form className="login-form" onSubmit={tentar}>
-            {erro&&<div className="login-erro">🔒 {erro}</div>}
-            {mensagem&&<div className="login-sucesso">✅ {mensagem}</div>}
+            {erro&&<div className="login-erro"><Icon name="lock" className="login-status-icon"/><span>{erro}</span></div>}
+            {mensagem&&<div className="login-sucesso"><Icon name="checkCircle" className="login-status-icon"/><span>{mensagem}</span></div>}
             <div className="campo"><label>Login ou e-mail</label><input type="text" placeholder="ex: beu ou seu@email.com" value={identificador} onChange={e=>setIdentificador(e.target.value)} autoFocus/></div>
             <div className="campo"><label>Senha</label>
               <div className="input-senha-wrapper">
                 <input type={visivel?"text":"password"} placeholder="Digite sua senha" value={senha} onChange={e=>setSenha(e.target.value)}/>
-                <button type="button" className="btn-ver-senha" aria-label={visivel?"Ocultar senha":"Mostrar senha"} onClick={()=>setVisivel(!visivel)}>{visivel?"🙈":"👁️"}</button>
+                <button type="button" className="btn-ver-senha" aria-label={visivel?"Ocultar senha":"Mostrar senha"} onClick={()=>setVisivel(!visivel)}><Icon name={visivel?"eyeOff":"eye"}/></button>
               </div>
             </div>
             <button type="submit" className="btn-login" disabled={carregando||!identificador||!senha}>{carregando?"Entrando...":"Entrar →"}</button>
@@ -3245,7 +3246,6 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
               <button type="button" className="btn-secundario btn-recuperar" disabled={carregando||!emailConfirmado} onClick={recuperarSenha}>{carregando?"Enviando...":"Enviar link de recuperação"}</button>
             </div>}
           </form>
-          <div className="login-rodape">{NEPTERA.nome} · by {NEPTERA.autoria}</div>
         </div>
       </div>
     </div>
@@ -3280,12 +3280,11 @@ function TelaNovaSenha({onConcluir}) {
           <div className="login-titulo">Cadastrar nova senha</div>
           <div className="login-subtitulo">Crie uma senha nova para continuar.</div>
           <form className="login-form" onSubmit={salvar}>
-            {erro&&<div className="login-erro">🔒 {erro}</div>}
+            {erro&&<div className="login-erro"><Icon name="lock" className="login-status-icon"/><span>{erro}</span></div>}
             <div className="campo"><label>Nova senha</label><input type="password" placeholder="Mínimo de 10 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} autoFocus/></div>
             <div className="campo"><label>Confirmar nova senha</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
             <button type="submit" className="btn-login" disabled={carregando||!novaSenha||!confirmacao}>{carregando?"Salvando...":"Salvar nova senha"}</button>
           </form>
-          <div className="login-rodape">{NEPTERA.nome} · by {NEPTERA.autoria}</div>
         </div>
       </div>
     </div>
@@ -4197,7 +4196,8 @@ function Sistema({onLogout}){
 
       <aside aria-hidden={drawerContextual&&!sidebarAberta?true:undefined} aria-label={drawerContextual?"Navegação principal do NEPTERA":undefined} aria-modal={drawerContextual&&sidebarAberta?"true":undefined} className={`sidebar ${sidebarAberta?"aberta":""}`} id="stock-on-primary-navigation" inert={drawerContextual&&!sidebarAberta?true:undefined} ref={sidebarRef} role={drawerContextual?"dialog":undefined} tabIndex={drawerContextual?-1:undefined}>
         <div className="sidebar-logo">
-          <img src={temaClaro?NEPTERA.logoHorizontalEscuro:NEPTERA.logoHorizontalClaro} alt="NEPTERA — Plataforma Operacional Integrada, by Anderion Labs" className="logo-sidebar-emblem"/>
+          <img src={NEPTERA.simboloCompacto} alt="" aria-hidden="true" className="logo-sidebar-emblem"/>
+          <strong className="sidebar-brand-name">{NEPTERA.nome}</strong>
         </div>
         <BuscaGlobalSearch consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
         <nav className="sidebar-nav">

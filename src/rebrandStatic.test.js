@@ -125,7 +125,20 @@ test("login, shell, loading e notificações usam a hierarquia pública NEPTERA"
   assert.match(app, /new Notification\([\s\S]{0,100}NEPTERA/);
   assert.match(app, /iconeNotificacao:\s*"\/brand\/neptera\/icons\/neptera-app-icon-192\.png"/);
   assert.match(app, /icon:\s*NEPTERA\.iconeNotificacao/);
+  assert.match(app, /simboloCompacto:\s*"\/brand\/neptera\/icons\/neptera-favicon-48\.png"/);
   assert.doesNotMatch(app, /\.\/assets\/stock-on-(?:dark|light)\.png/);
+
+  const login = app.slice(app.indexOf("function MarcaLogin"), app.indexOf("function ModalAlterarSenha"));
+  assert.doesNotMatch(login, /Comando operacional integrado|Identidade e produto por/);
+  for (const emoji of ["🔒", "✅", "👁️", "🙈"]) {
+    assert.ok(!login.includes(emoji), `login rebrandizado ainda usa emoji como iconografia: ${emoji}`);
+  }
+  assert.match(login, /<Icon name=\{visivel\?"eyeOff":"eye"\}\/>/);
+
+  const sidebar = app.slice(app.indexOf('<aside aria-hidden={drawerContextual'), app.indexOf('<main className="main">'));
+  assert.match(sidebar, /src=\{NEPTERA\.simboloCompacto\}/);
+  assert.match(sidebar, /className="sidebar-brand-name">\{NEPTERA\.nome\}/);
+  assert.doesNotMatch(sidebar, /NEPTERA\.logoHorizontal/, "sidebar compacta não deve carregar o lockup horizontal completo");
   assert.match(main, /NEPTERA/);
   assertSemMarcaLegadaVisivel("src/main.jsx");
 });
