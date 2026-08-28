@@ -841,8 +841,11 @@
  * hierarquia e comportamento responsivo do Fechamento real.
  */
 .command-flow-shell .fechamento-page[data-layout="workbench"][data-visual="a3-executive"] {
-  gap: 18px;
-  padding-bottom: 64px;
+  gap: 26px;
+  margin-inline: auto;
+  max-width: 1520px;
+  padding-bottom: 96px;
+  width: 100%;
 }
 
 /* A rota escolhida vira contexto compacto; a fila continua acessível sob demanda. */
@@ -864,7 +867,7 @@
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas.has-selection:not([open]) > summary {
-  min-height: 64px;
+  min-height: 78px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rota-summary-action {
@@ -872,7 +875,7 @@
   color: var(--fc-text-soft);
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 760;
   gap: 7px;
   text-transform: uppercase;
@@ -892,18 +895,20 @@
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas-body > .fechamento-rota-busca {
-  margin: 12px 14px;
+  margin: 16px 18px;
   margin-left: auto;
 }
 
-/* Mesa 70/30 do Conference Desk. */
+/* Mesa 65/35 do Conference Desk: o parecer ganha presença sem comprimir os números. */
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
-  gap: clamp(26px, 2.6vw, 42px);
-  grid-template-columns: minmax(0, 7fr) minmax(350px, 3fr);
+  gap: clamp(30px, 2.5vw, 40px);
+  grid-template-columns: minmax(0, 65fr) minmax(400px, 35fr);
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace-main {
-  gap: 26px;
+  container-name: fechamento-main;
+  container-type: inline-size;
+  gap: 38px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos,
@@ -921,23 +926,38 @@
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head {
   align-items: end;
   border-bottom: 0;
-  min-height: 78px;
-  padding: 15px 0 16px;
+  min-height: 96px;
+  padding: 20px 0 24px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head h2 {
-  font-size: clamp(19px, 1.6vw, 23px);
+  font-size: clamp(25px, 2vw, 30px);
   letter-spacing: -0.035em;
 }
 
-.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head p {
-  font-size: 10px;
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-step-label {
+  font-size: 11px;
+  gap: 8px;
+}
+
+/* Contextos repetidos permanecem disponíveis ao leitor de tela, sem competir visualmente. */
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos-head p,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade small,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos-foot > span,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result > small {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 /* Cada modalidade é uma unidade financeira ampla, nunca uma linha de planilha. */
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz {
-  border-bottom: 1px solid var(--fc-line-strong);
-  border-top: 1px solid var(--fc-line-strong);
+  border: 0;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-head {
@@ -953,16 +973,21 @@
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
   align-items: stretch;
-  border-bottom: 1px solid var(--fc-line);
+  border-bottom: 1px solid var(--fc-line-strong);
   display: grid;
-  gap: 0 clamp(10px, 1.15vw, 18px);
+  gap: 0 clamp(18px, 1.7vw, 26px);
   grid-template-areas:
-    "mode mode mode rule"
-    "entry commission exit balance";
-  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(132px, 1.14fr);
-  grid-template-rows: minmax(54px, auto) minmax(78px, auto);
-  min-height: 142px;
+    "mode entry commission"
+    "exit balance rule";
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(80px, auto));
+  min-height: 168px;
   padding: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-body {
+  display: grid;
+  gap: 22px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row > * {
@@ -974,23 +999,19 @@
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade {
   align-items: center;
   grid-area: mode;
-  padding: 12px 0 6px;
+  padding: 18px 0 12px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade > span {
   background: transparent;
   border-color: var(--fc-copper-line);
-  flex-basis: 32px;
-  height: 32px;
+  flex-basis: 40px;
+  height: 40px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade strong {
-  font-size: 15px;
+  font-size: clamp(18px, 1.45vw, 21px);
   letter-spacing: -0.02em;
-}
-
-.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade small {
-  font-size: 9px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo:nth-child(2) { grid-area: entry; }
@@ -998,21 +1019,21 @@
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo:nth-child(4) { grid-area: exit; }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo {
-  align-content: end;
+  align-content: center;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto 54px;
-  padding-bottom: 14px;
+  grid-template-rows: auto 58px;
+  padding: 6px 0 8px;
   position: relative;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo::before {
   color: var(--fc-text-muted);
   content: attr(data-label);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 760;
   grid-column: 1 / -1;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.045em;
   position: static;
   text-transform: uppercase;
 }
@@ -1021,11 +1042,11 @@
   align-items: center;
   color: var(--fc-text-muted);
   display: flex;
-  font-size: 9px;
+  font-size: 11px;
   grid-column: 1;
   grid-row: 2;
   left: auto;
-  padding-top: 4px;
+  padding-top: 5px;
   position: static;
 }
 
@@ -1036,13 +1057,13 @@
   border-bottom: 1px solid var(--fc-line-strong);
   border-radius: 0;
   color: var(--fc-text);
-  font-size: clamp(17px, 1.35vw, 22px);
-  font-weight: 680;
+  font-size: clamp(24px, 2.05vw, 32px);
+  font-weight: 720;
   grid-column: 2;
   grid-row: 2;
-  height: 54px;
+  height: 58px;
   letter-spacing: -0.045em;
-  padding: 4px 2px 0 5px;
+  padding: 6px 2px 0 7px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo:focus-within input {
@@ -1062,28 +1083,29 @@
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
-  align-content: end;
-  background: transparent;
-  border-left: 1px solid var(--fc-line-strong);
+  align-content: center;
+  background: var(--fc-copper-soft);
+  border-left: 2px solid var(--fc-copper-line);
   display: grid;
-  gap: 9px;
+  gap: 6px;
   grid-area: balance;
   justify-items: start;
-  padding: 0 0 17px clamp(14px, 1.4vw, 22px);
+  padding: 8px clamp(10px, 1vw, 14px);
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output small {
   display: block;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 760;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.045em;
   text-transform: uppercase;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
   color: var(--fc-copper-strong);
-  font-size: clamp(21px, 1.65vw, 28px);
+  font-size: clamp(28px, 2.1vw, 32px);
   font-weight: 820;
+  letter-spacing: -0.07em;
   line-height: 1;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -1098,24 +1120,28 @@
   align-items: center;
   display: flex;
   grid-area: rule;
-  justify-content: flex-end;
-  padding: 10px 0 4px;
+  justify-content: flex-start;
+  padding: 10px 0 18px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra > .is-manual {
   color: var(--fc-text-muted);
-  justify-content: flex-end;
+  font-size: 12px;
+  justify-content: flex-start;
+  min-height: 44px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra-toggle {
   background: transparent;
   grid-template-columns: 1fr 1fr;
-  min-width: 154px;
+  min-width: 138px;
+  width: 100%;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra-toggle button {
-  min-height: 30px;
-  padding-inline: 8px;
+  font-size: 11px;
+  min-height: 44px;
+  padding-inline: 10px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra-toggle button + button {
@@ -1125,30 +1151,151 @@
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos-foot {
   border-top: 0;
-  padding: 16px 0 0;
+  justify-content: flex-end;
+  padding: 22px 0 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos-foot .fc-secondary-action {
+  font-size: 12px;
+  min-height: 50px;
+  padding-inline: 18px;
 }
 
 /* Conferência espaçada, subordinada à mesa financeira. */
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao > .fc-section-head {
-  min-height: 70px;
-  padding: 13px 0;
+  min-height: 90px;
+  padding: 20px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao > .fc-section-head h2,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas > summary h2 {
+  font-size: clamp(21px, 1.75vw, 25px);
+  letter-spacing: -0.03em;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao .fc-disclosure {
+  font-size: 12px;
+  min-height: 46px;
+  padding-inline: 15px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser {
-  border-top: 1px solid var(--fc-line);
+  border-top: 1px solid var(--fc-line-strong);
+  gap: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 0;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser > span {
-  padding: 15px 9px;
+  gap: 7px;
+  padding: 20px 0 22px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser > svg {
+  display: none;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser small {
+  font-size: 12px;
+  letter-spacing: 0.035em;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser .fc-money {
-  font-size: 14px;
+  font-size: clamp(17px, 1.35vw, 20px);
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-review-teaser .is-result {
   border-bottom-color: var(--fc-copper);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao.is-open .fechamento-revisao-conteudo {
+  column-gap: clamp(28px, 3vw, 44px);
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger {
+  border-right: 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger > header,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-ledger > header {
+  background: transparent;
+  border-bottom-color: var(--fc-line-strong);
+  padding: 17px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger header span,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-ledger header span {
+  font-size: 13px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger header strong,
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-ledger header strong {
+  font-size: 15px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger header small {
+  font-size: 10px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger article {
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger article strong {
+  font-size: 13px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger article small {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-despesas-ledger article > b {
+  font-size: 14px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-ledger label {
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 18px minmax(142px, 0.72fr);
+  padding: 16px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-ledger label strong {
+  font-size: 13px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-ledger label small {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajuste-input {
+  padding-left: 10px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajuste-input b {
+  font-size: 10px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajuste-input input {
+  font-size: 16px;
+  height: 48px;
+  padding-inline: 9px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-total {
+  background: transparent;
+  border-top: 1px solid var(--fc-line-strong);
+  padding: 17px 0;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-total > span {
+  font-size: 12px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajustes-total .fc-money {
+  font-size: 17px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-ajuste-input:focus-within {
@@ -1178,18 +1325,18 @@
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
-  padding: 0 22px 22px;
+  padding: 0 28px 30px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body > .fechamento-decision-head {
   border-bottom: 1px solid var(--fc-line-strong);
-  gap: 4px;
-  padding: 18px 0 14px;
+  gap: 5px;
+  padding: 24px 0 20px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > span {
   color: var(--fc-copper-strong);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 850;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -1205,26 +1352,27 @@
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > div > strong {
   color: var(--fc-text);
-  font-size: 18px;
+  font-size: 22px;
   letter-spacing: -0.03em;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head h2 {
   color: var(--fc-text);
-  font-size: clamp(22px, 2vw, 27px);
+  font-size: clamp(28px, 2.5vw, 34px);
   letter-spacing: -0.045em;
-  margin: 12px 0 0;
+  margin: 16px 0 0;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > small {
   color: var(--fc-text-muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao-status {
   border-radius: 999px;
   flex: 0 0 auto;
-  padding: 5px 8px;
+  min-height: 34px;
+  padding: 6px 10px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base {
@@ -1233,7 +1381,7 @@
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base > span {
-  padding: 10px 0;
+  padding: 15px 0;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base > span + span {
@@ -1242,20 +1390,24 @@
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base b {
-  font-size: 15px;
+  font-size: 18px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-base small {
+  font-size: 10px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state {
   border-bottom: 1px solid var(--fc-line);
   display: grid;
-  gap: 4px;
-  padding: 13px 0 14px;
+  gap: 6px;
+  padding: 18px 0 19px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state > span,
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-group > h3 {
   color: var(--fc-text-soft);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   margin: 0;
@@ -1264,13 +1416,13 @@
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state > strong {
   color: var(--fc-text);
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-state > small {
   color: var(--fc-text-muted);
-  font-size: 9px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-stage {
@@ -1279,13 +1431,13 @@
   display: flex;
   gap: 10px;
   justify-content: space-between;
-  margin-top: 11px;
-  padding-top: 10px;
+  margin-top: 15px;
+  padding-top: 13px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-stage > span {
   color: var(--fc-text-soft);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 760;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -1293,93 +1445,101 @@
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-stage > strong {
   color: var(--fc-copper-strong);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-group {
   border-bottom: 1px solid var(--fc-line);
-  padding: 15px 0 8px;
+  padding: 22px 0 12px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-group > h3 {
+  font-size: 11px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger {
-  margin-top: 7px;
+  margin-top: 12px;
   padding: 0;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger > div {
-  min-height: 35px;
-  padding: 7px 0;
+  min-height: 52px;
+  padding: 11px 0;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger dt {
   color: var(--fc-text-soft);
   display: grid;
-  font-size: 10px;
-  gap: 2px;
+  font-size: 12px;
+  gap: 3px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger dt > small {
   color: var(--fc-text-soft);
-  font-size: 8px;
-  line-height: 1.3;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger dd {
   color: var(--fc-text);
-  font-size: 11px;
+  font-size: 16px;
+  max-width: 58%;
+  overflow-wrap: anywhere;
+  text-align: right;
+  white-space: normal;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-ledger .is-subtotal {
   border-top-color: var(--fc-line-strong);
-  margin-top: 4px;
-  padding-top: 10px;
+  margin-top: 7px;
+  padding-top: 14px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof {
   border-top: 1px solid var(--fc-line-strong);
   display: grid;
-  gap: 3px 14px;
+  gap: 5px 16px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 14px 0 5px;
+  padding: 18px 0 7px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof > span {
   color: var(--fc-text-soft);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 760;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof > strong {
   color: var(--fc-text);
   font-family: var(--font-mono, monospace);
-  font-size: 13px;
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-manager-proof > small {
   color: var(--fc-text-soft);
-  font-size: 8px;
+  font-size: 10px;
   grid-column: 1 / -1;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result {
   border: 0;
   border-bottom: 1px solid var(--fc-line-strong);
-  gap: 7px;
+  gap: 10px;
   margin: 0;
-  padding: 20px 0 21px;
+  padding: 29px 0 31px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result > span {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.055em;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result .fc-money {
   color: var(--fc-text);
-  font-size: clamp(30px, 2.8vw, 50px);
+  font-size: clamp(46px, 3.4vw, 52px);
   font-weight: 860;
-  letter-spacing: -0.075em;
+  letter-spacing: -0.09em;
   line-height: 0.98;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -1410,25 +1570,27 @@
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao {
   background: transparent;
   border: 0;
-  padding: 17px 0 0;
+  padding: 24px 0 0;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao-copy > p {
   color: var(--fc-text-muted);
-  font-size: 9px;
-  line-height: 1.4;
-  margin: 7px 0 14px;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 9px 0 17px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-publicacao-actions {
-  gap: 9px;
+  gap: 12px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fc-primary-action {
   background: var(--fc-copper);
   border-color: var(--fc-copper);
   color: #111511;
-  min-height: 46px;
+  font-size: 14px;
+  min-height: 58px;
+  padding-inline: 16px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fc-primary-action:hover:not(:disabled) {
@@ -1443,8 +1605,23 @@
   grid-template-columns: 1fr 1fr;
 }
 
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-secondary-actions .fc-secondary-action {
+  font-size: 12px;
+  min-height: 48px;
+}
+
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-downloads {
   position: static;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-downloads summary {
+  font-size: 11px;
+  min-height: 44px;
+}
+
+.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-downloads button {
+  font-size: 12px;
+  min-height: 44px;
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-downloads > div {
@@ -1458,42 +1635,103 @@
   margin: 12px 0 0;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1320px) {
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
-    gap: 26px;
-    grid-template-columns: minmax(0, 1fr) minmax(330px, 350px);
+    gap: 28px;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 370px);
   }
 
-  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(124px, 1.08fr);
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
+    font-size: clamp(23px, 2vw, 27px);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
+    font-size: clamp(28px, 2.25vw, 31px);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
+    padding-inline: 10px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
+    padding: 0 24px 28px;
   }
 }
 
 @media (max-width: 1024px) {
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
-    grid-template-columns: minmax(0, 1fr) 328px;
+    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) 350px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
-    padding-inline: 18px;
+    padding-inline: 22px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > div {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > div > strong {
+    min-width: 100%;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
-    gap: 0 10px;
+    gap: 0 18px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
-    font-size: 17px;
+    font-size: clamp(22px, 2.4vw, 25px);
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
-    font-size: 21px;
+    font-size: clamp(27px, 2.8vw, 29px);
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
+    padding-inline: 8px;
+  }
+}
+
+/* A matriz responde à largura útil da mesa, inclusive quando o shell mantém o rail global. */
+@container fechamento-main (max-width: 600px) {
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
+    grid-template-areas:
+      "mode mode"
+      "entry commission"
+      "exit balance"
+      "rule rule";
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto;
+    min-height: 0;
+    padding-inline: 14px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra {
+    justify-content: flex-end;
+    padding-block: 14px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-regra-toggle {
+    width: min(220px, 100%);
+  }
+}
+
+@container fechamento-main (max-width: 420px) {
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
+    padding-inline: 5px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
+    font-size: 26px;
   }
 }
 
 @media (max-width: 900px) {
   .command-flow-shell .fechamento-page[data-layout="workbench"][data-visual="a3-executive"] {
-    padding-bottom: calc(102px + env(safe-area-inset-bottom));
+    gap: 22px;
+    padding-bottom: calc(116px + env(safe-area-inset-bottom));
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace {
@@ -1502,6 +1740,10 @@
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-workspace-main {
     margin-bottom: 0;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row .fechamento-regra {
+    grid-area: rule;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary {
@@ -1520,13 +1762,17 @@
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-mobile-toggle {
-    min-height: 68px;
-    padding: 10px max(18px, env(safe-area-inset-right)) 10px max(18px, env(safe-area-inset-left));
+    min-height: 76px;
+    padding: 12px max(22px, env(safe-area-inset-right)) 12px max(22px, env(safe-area-inset-left));
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-mobile-toggle small {
+    font-size: 10px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-mobile-toggle .fc-money {
     color: var(--fc-text);
-    font-size: 18px;
+    font-size: 22px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary[data-status="confirmado"] .fechamento-summary-mobile-toggle .fc-money,
@@ -1543,13 +1789,13 @@
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
-    bottom: calc(68px + env(safe-area-inset-bottom));
-    max-height: min(78dvh, 690px);
-    padding: 0 22px 24px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    max-height: min(82dvh, 760px);
+    padding: 0 26px 30px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result .fc-money {
-    font-size: clamp(34px, 6.2vw, 48px);
+    font-size: clamp(46px, 8vw, 58px);
   }
 
   .command-flow-shell .sidebar.aberta ~ .main .fechamento-page[data-visual="a3-executive"] .fechamento-summary {
@@ -1559,8 +1805,8 @@
 
 @media (max-width: 720px) {
   .command-flow-shell .fechamento-page[data-layout="workbench"][data-visual="a3-executive"] {
-    gap: 12px;
-    padding-inline: 10px;
+    gap: 16px;
+    padding-inline: 12px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rotas-body > .fechamento-rota-busca {
@@ -1569,7 +1815,8 @@
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos > .fc-section-head {
-    padding-inline: 10px;
+    min-height: 88px;
+    padding: 14px 10px 18px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz {
@@ -1578,15 +1825,15 @@
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-body {
-    gap: 10px;
-    padding: 10px;
+    gap: 18px;
+    padding: 10px 8px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
     background: transparent;
     border: 1px solid var(--fc-line);
     display: grid;
-    gap: 0 14px;
+    gap: 0 16px;
     grid-template-areas:
       "mode mode"
       "entry commission"
@@ -1595,7 +1842,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: auto auto auto auto;
     min-height: 0;
-    padding: 0 12px;
+    padding: 0 14px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row > * {
@@ -1605,12 +1852,12 @@
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-modalidade {
     border-bottom: 1px solid var(--fc-line);
-    padding: 13px 0 11px;
+    padding: 16px 0 14px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo {
-    min-height: 84px;
-    padding: 11px 0 10px;
+    min-height: 96px;
+    padding: 13px 0 12px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo::before {
@@ -1626,14 +1873,19 @@
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
-    height: 54px;
+    font-size: clamp(21px, 5.8vw, 26px);
+    height: 62px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
     border-left: 1px solid var(--fc-line-strong);
     border-top: 0;
-    min-height: 84px;
-    padding: 13px 0 13px 14px;
+    min-height: 96px;
+    padding: 15px 0 15px 16px;
+  }
+
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
+    font-size: clamp(23px, calc(4vw + 7px), 30px);
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output::before {
@@ -1644,23 +1896,23 @@
     border-top: 1px solid var(--fc-line);
     grid-column: auto;
     justify-content: flex-end;
-    padding: 11px 0;
+    padding: 14px 0;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-lancamentos-foot {
-    padding: 10px;
+    padding: 16px 10px 4px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-revisao > .fc-section-head {
-    padding-inline: 10px;
+    padding: 16px 10px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
-    padding-inline: 18px;
+    padding-inline: 20px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-result .fc-money {
-    font-size: clamp(32px, 9.2vw, 42px);
+    font-size: clamp(44px, 10.5vw, 52px);
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-secondary-actions {
@@ -1670,7 +1922,7 @@
 
 @media (max-width: 420px) {
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-rota-summary-action {
-    font-size: 8px;
+    font-size: 9px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-matriz-row {
@@ -1678,12 +1930,8 @@
     padding-inline: 10px;
   }
 
-  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-valor-campo input {
-    font-size: 16px;
-  }
-
-  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output .fc-money {
-    font-size: clamp(15px, 4.3vw, 18px);
+  .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-saldo-output {
+    padding-left: 10px;
   }
 
   .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-decision-head > div {
