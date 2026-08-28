@@ -121,7 +121,7 @@ export default function FechamentoWorkbench({
   }
 
   return (
-    <section className="secao fechamento-page" data-layout="workbench" data-visual="a3-executive">
+    <section className="secao fechamento-page" data-layout="workbench" data-visual="a3-executive" data-composition="final-a1-a3">
       <nav className="fechamento-progress" aria-label="Progressão do fechamento">
         <ol>
           {etapas.map((etapa, indice) => {
@@ -245,11 +245,13 @@ export default function FechamentoWorkbench({
                 <div>
                   <span className="fechamento-step-label"><b>03</b> Lançamentos</span>
                   <h2 id="fechamento-lancamentos-titulo">Movimento por modalidade</h2>
-                  <p>{selecao.gerente} · {selecao.rota} · {selecao.pontos} ponto{selecao.pontos !== 1 ? "s" : ""} · {selecao.equipamentos} equipamento{selecao.equipamentos !== 1 ? "s" : ""}</p>
                 </div>
-                {selecao.rotasDisponiveis?.length > 1 && (
-                  <label className="fechamento-trocar-rota"><span>Trocar rota</span><select value={selecao.rota} onChange={(event) => selecao.onTrocarRota?.(event.target.value)}>{selecao.rotasDisponiveis.map((rota) => <option key={rota} value={rota}>{rota}</option>)}</select></label>
-                )}
+                <div className="fechamento-lancamentos-meta">
+                  <p>Entrada, comissão e saída editáveis. Saldo calculado automaticamente.</p>
+                  {selecao.rotasDisponiveis?.length > 1 && (
+                    <label className="fechamento-trocar-rota"><span>Trocar rota</span><select value={selecao.rota} onChange={(event) => selecao.onTrocarRota?.(event.target.value)}>{selecao.rotasDisponiveis.map((rota) => <option key={rota} value={rota}>{rota}</option>)}</select></label>
+                  )}
+                </div>
               </header>
 
               <div className="fechamento-matriz" role="table" aria-label="Entradas, comissões, saídas e saldos por modalidade">
@@ -290,17 +292,17 @@ export default function FechamentoWorkbench({
 
             <section className={`fechamento-revisao ${revisaoAberta ? "is-open" : ""}`} id="fechamento-revisao" aria-labelledby="fechamento-revisao-titulo">
               <header className="fc-section-head">
-                <div><span className="fechamento-step-label"><b>04</b> Conferência</span><h2 id="fechamento-revisao-titulo">Prova do fechamento</h2></div>
+                <div><span className="fechamento-step-label"><b>04</b> Conferência</span><h2 id="fechamento-revisao-titulo">Despesas e ajustes</h2></div>
                 <button type="button" className="fc-disclosure" aria-expanded={revisaoAberta} aria-controls="fechamento-revisao-conteudo" onClick={() => setRevisaoAberta((atual) => !atual)}>{revisaoAberta ? "Recolher" : "Abrir conferência"}<Icon name="chevronDown" size={15} /></button>
               </header>
-              <div className="fechamento-review-teaser">
-                <span><small>Entrou</small><Money value={totais.entradas} formatar={formatar} /></span>
-                <Icon name="chevronRight" size={15} />
-                <span><small>Saiu</small><Money value={(totais.comissoes || 0) + (totais.saidas || 0)} formatar={formatar} /></span>
-                <Icon name="chevronRight" size={15} />
-                <span><small>Ajustado</small><Money value={totais.despesasFinais} formatar={formatar} /></span>
-                <Icon name="chevronRight" size={15} />
-                <span className="is-result"><small>Resultou</small><Money value={totais.saldoRepassar} formatar={formatar} /></span>
+              <div className="fechamento-review-teaser" aria-label="Composição do resultado final">
+                <span><small>Saldo bruto</small><Money value={totais.saldoBruto} formatar={formatar} /></span>
+                <b aria-hidden="true">−</b>
+                <span><small>Despesas</small><Money value={totais.despesasFinais} formatar={formatar} /></span>
+                <b aria-hidden="true">−</b>
+                <span><small>Comissão do gerente</small><Money value={totais.comissaoGerente} formatar={formatar} /></span>
+                <b aria-hidden="true">=</b>
+                <span className="is-result"><small>Resultado final</small><Money value={totais.saldoRepassar} formatar={formatar} /></span>
               </div>
 
               <div className="fechamento-revisao-conteudo" id="fechamento-revisao-conteudo" aria-hidden={!revisaoAberta} inert={!revisaoAberta ? true : undefined}>
@@ -333,7 +335,7 @@ export default function FechamentoWorkbench({
             aria-label="Coluna de decisão do fechamento"
           >
             <button ref={resumoMobileToggleRef} className="fechamento-summary-mobile-toggle" type="button" aria-expanded={resumoMobileAberto} aria-controls="fechamento-summary-panel" onClick={() => setResumoMobileAberto((atual) => !atual)}>
-              <span><small>Valor a repassar</small><Money value={totais.saldoRepassar} formatar={formatar} /></span><Icon name="chevronDown" />
+              <span><small>Resultado final</small><Money value={totais.saldoRepassar} formatar={formatar} /></span><Icon name="chevronDown" />
             </button>
             <div className="fechamento-summary-body" id="fechamento-summary-panel">
               <header className="fechamento-decision-head">
@@ -348,10 +350,13 @@ export default function FechamentoWorkbench({
                 <span>Estado operacional</span>
                 <strong>{statusAtual.titulo}</strong>
                 <small>{statusAtual.texto || statusAtual.descricao}</small>
-                <div className="fechamento-decision-stage" aria-label={`Etapa atual: ${etapas[etapaAtual - 1] || statusAtual.titulo}`}>
-                  <span>Etapa {String(etapaAtual).padStart(2, "0")} de {String(etapas.length).padStart(2, "0")}</span>
-                  <strong>{etapas[etapaAtual - 1] || statusAtual.titulo}</strong>
-                </div>
+                <ol className="fechamento-decision-ladder" aria-label={`Progressão real do fechamento: ${etapas[etapaAtual - 1] || statusAtual.titulo}`}>
+                  {etapas.map((etapa, indice) => {
+                    const numero = indice + 1;
+                    const classe = etapaClasse(numero, etapaAtual, etapaConcluida);
+                    return <li key={etapa} className={classe} aria-current={numero === etapaAtual ? "step" : undefined}><span aria-hidden="true" /><small>{etapa}</small></li>;
+                  })}
+                </ol>
               </section>
 
               <section className="fechamento-decision-group" aria-labelledby="fechamento-decision-composicao">
@@ -359,7 +364,15 @@ export default function FechamentoWorkbench({
                 <dl className="fechamento-summary-ledger">
                   <div><dt><span>Entradas</span></dt><dd>+ {formatar(totais.entradas)}</dd></div>
                   <div><dt><span>Saídas</span><small>Comissões: {formatar(totais.comissoes)}</small></dt><dd>− {formatar(totais.saidas)}</dd></div>
-                  <div><dt><span>Despesas registradas</span><small>{despesas?.quantidadeLancamentos || 0} lançamento{despesas?.quantidadeLancamentos !== 1 ? "s" : ""} · base informativa</small></dt><dd>{formatar(totais.despesasSistema)}</dd></div>
+                  <div className="is-informative"><dt><span>Despesas registradas</span><small>{despesas?.quantidadeLancamentos || 0} lançamento{despesas?.quantidadeLancamentos !== 1 ? "s" : ""} · base antes dos ajustes</small></dt><dd>{formatar(totais.despesasSistema)}</dd></div>
+                  <div className="is-adjustment">
+                    <dt><span>Ajustes</span><small>Valores informados antes da consolidação</small></dt>
+                    <dd className="fechamento-adjustment-values">
+                      <span>+ {formatar(ajustes?.playBet?.numero || 0)}</span>
+                      <span>− {formatar(ajustes?.ajudaCusto?.numero || 0)}</span>
+                      {ajustes?.comissaoExtra?.permitida && <span>− {formatar(ajustes.comissaoExtra.numero || 0)}</span>}
+                    </dd>
+                  </div>
                   <div className="is-subtotal"><dt><span>Despesas consolidadas</span><small>Dedução real após os ajustes aplicáveis</small></dt><dd>− {formatar(totais.despesasFinais)}</dd></div>
                 </dl>
                 <div className="fechamento-decision-manager-proof">
@@ -369,7 +382,7 @@ export default function FechamentoWorkbench({
                 </div>
               </section>
 
-              <div className={`fechamento-summary-result ${sinalResultado(totais.saldoRepassar)}`}><span>Valor a repassar</span><Money value={totais.saldoRepassar} formatar={formatar} /><small>Resultado final da rota</small></div>
+              <div className={`fechamento-summary-result ${sinalResultado(totais.saldoRepassar)}`}><span>Resultado final</span><Money value={totais.saldoRepassar} formatar={formatar} /><small>Valor a repassar ao gerente</small></div>
 
               <section className="fechamento-publicacao" id="fechamento-publicacao" aria-labelledby="fechamento-publicacao-titulo">
                 <div className="fechamento-publicacao-copy">
