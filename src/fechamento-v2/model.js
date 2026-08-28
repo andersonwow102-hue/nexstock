@@ -1,7 +1,14 @@
-export const CONCEPTS = [
-  { id: "A", name: "Conference Desk" },
-  { id: "B", name: "Financial Focus" },
-  { id: "C", name: "Route Workflow" },
+export const VARIATIONS = [
+  { id: "A1", name: "Refined" },
+  { id: "A2", name: "Spacious" },
+  { id: "A3", name: "Executive" },
+];
+
+export const OPERATIONAL_STATES = [
+  "Rascunho",
+  "Pronto para revisão",
+  "Pronto para envio",
+  "Enviado",
 ];
 
 export const STEPS = [

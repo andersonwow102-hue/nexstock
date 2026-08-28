@@ -1,0 +1,735 @@
+.a1 {
+  --a1-width: 1540px;
+  padding: 0 clamp(18px, 3vw, 44px) 64px;
+  background: var(--surface-canvas);
+}
+
+.a1 :where(h1, h2, h3, p, dl, dd) {
+  margin: 0;
+}
+
+.a1__context {
+  display: grid;
+  max-width: var(--a1-width);
+  min-height: 106px;
+  grid-template-columns: auto minmax(270px, 1fr) auto auto auto;
+  align-items: center;
+  gap: clamp(18px, 2.5vw, 34px);
+  margin: 0 auto;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.a1__heading h1,
+.a1__section-heading h2,
+.a1__conference h2,
+.a1__result h2 {
+  color: var(--text-strong);
+  letter-spacing: -0.035em;
+}
+
+.a1__heading h1 {
+  margin-top: 3px;
+  font-size: clamp(27px, 2.5vw, 33px);
+}
+
+.a1__route {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding-left: 19px;
+}
+
+.a1__route::before {
+  position: absolute;
+  inset: 2px auto 2px 0;
+  width: 3px;
+  background: var(--brand-action);
+  content: "";
+}
+
+.a1__route > span,
+.a1__competence > span,
+.a1__state > span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.a1__route > strong {
+  color: var(--text-strong);
+  font-size: 18px;
+  letter-spacing: -.02em;
+}
+
+.a1__route > small {
+  color: var(--text-default);
+  font-size: 12px;
+}
+
+.a1__route .v2-route-meta {
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.a1__competence,
+.a1__state {
+  display: grid;
+  gap: 6px;
+}
+
+.a1__competence strong {
+  color: var(--text-strong);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.a1__context-action,
+.a1__conference > button {
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-default);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+}
+
+.a1__context-action:hover,
+.a1__conference > button:hover:not(:disabled) {
+  border-color: var(--border-interactive);
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.a1__context-action:focus-visible,
+.a1__conference > button:focus-visible {
+  outline: 2px solid var(--border-interactive);
+  outline-offset: 2px;
+}
+
+.a1__desk {
+  display: grid;
+  max-width: var(--a1-width);
+  grid-template-columns: minmax(0, 7fr) minmax(350px, 3fr);
+  align-items: start;
+  gap: clamp(22px, 2.1vw, 32px);
+  margin: 28px auto 0;
+}
+
+.a1__workspace {
+  display: grid;
+  min-width: 0;
+  gap: 22px;
+}
+
+.a1__section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.a1__section-heading h2 {
+  margin-top: 5px;
+  font-size: 22px;
+}
+
+.a1__section-heading p {
+  max-width: 38ch;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.a1__ledger {
+  display: grid;
+  gap: 10px;
+}
+
+.a1__financial-unit {
+  position: relative;
+  display: grid;
+  min-height: 142px;
+  grid-template-columns: minmax(150px, .78fr) minmax(0, 3.22fr);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.a1__financial-unit:focus-within {
+  border-color: var(--border-control);
+  box-shadow: var(--shadow-sm);
+}
+
+.a1__unit-heading {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 22px 20px;
+  border-right: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-subtle) 78%, transparent);
+}
+
+.a1__unit-heading h3 {
+  color: var(--text-strong);
+  font-size: 17px;
+  letter-spacing: -.025em;
+}
+
+.a1__unit-heading span {
+  color: var(--text-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.a1__unit-values {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(118px, 1fr)) minmax(168px, 1.18fr);
+  align-items: stretch;
+}
+
+.a1__metric {
+  align-content: center;
+  gap: 9px;
+  padding: 20px 14px;
+}
+
+.a1__metric + .a1__metric {
+  border-left: 1px solid color-mix(in srgb, var(--border-subtle) 68%, transparent);
+}
+
+.a1__metric .v2-input-shell {
+  min-height: 48px;
+  border-color: transparent;
+  border-bottom-color: var(--border-control);
+  border-radius: 0;
+  background: transparent;
+}
+
+.a1__metric .v2-input-shell:focus-within {
+  border-bottom-color: var(--border-interactive);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--brand-action) 28%, transparent);
+}
+
+.a1__metric .v2-input-shell > span {
+  padding-left: 3px;
+  font-size: 10px;
+}
+
+.a1__metric .v2-input-shell input {
+  height: 47px;
+  padding-right: 3px;
+  font-size: clamp(20px, 1.65vw, 25px);
+}
+
+.a1__metric.v2-money-output output {
+  min-height: 49px;
+  padding-top: 11px;
+  font-size: clamp(20px, 1.65vw, 25px);
+}
+
+.a1__metric.is-calculated {
+  background: color-mix(in srgb, var(--surface-subtle) 42%, transparent);
+}
+
+.a1__balance-zone {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-width: 0;
+  padding: 20px 18px 20px 21px;
+  border-left: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--brand-action) 9%, var(--surface-panel));
+}
+
+.a1__balance-zone::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--brand-action);
+  content: "";
+}
+
+.a1__balance {
+  align-content: center;
+}
+
+.a1__balance .v2-field-label {
+  color: var(--text-default);
+}
+
+.a1__balance output {
+  color: var(--text-accent);
+  font-size: clamp(28px, 2.25vw, 34px);
+  font-weight: 760;
+  letter-spacing: -.055em;
+}
+
+.a1__expenses {
+  padding: 0 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+}
+
+.a1__conference {
+  display: grid;
+  grid-template-columns: minmax(210px, .8fr) minmax(0, 1.55fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: 22px 20px;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--brand-action);
+  border-radius: var(--radius-sm);
+  background: var(--surface-panel);
+}
+
+.a1__conference-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.a1__conference h2 {
+  font-size: 18px;
+}
+
+.a1__conference p {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.a1__equation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.a1__equation > span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.a1__equation small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.a1__equation strong {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: clamp(15px, 1.45vw, 20px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.04em;
+  white-space: nowrap;
+}
+
+.a1__equation > b {
+  color: var(--text-disabled);
+  font: 500 18px/1 var(--font-mono);
+}
+
+.a1__equation .is-result strong {
+  color: var(--text-accent);
+}
+
+.a1__conference > button:disabled {
+  cursor: default;
+  opacity: .62;
+}
+
+.a1__result {
+  position: sticky;
+  top: 92px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-top: 3px solid var(--brand-action);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.a1__result-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.a1__result-heading > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.a1__result h2 {
+  margin-top: 2px;
+  font-size: 24px;
+}
+
+.a1__result-heading small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.a1__result-heading .v2-status {
+  flex: none;
+  min-height: 26px;
+  padding-inline: 8px;
+  font-size: 10px;
+}
+
+.a1__result-group {
+  padding: 15px 22px 5px;
+}
+
+.a1__result-group + .a1__result-group {
+  margin-top: 5px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.a1__result-group h3 {
+  margin-bottom: 7px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+}
+
+.a1__result-group dl {
+  display: grid;
+}
+
+.a1__result-line {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.a1__result-line dt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.a1__result-line dd {
+  color: var(--text-default);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.025em;
+  white-space: nowrap;
+}
+
+.a1__result-line dd span {
+  padding-right: 4px;
+  color: var(--text-muted);
+}
+
+.a1__result-line.is-adjustment :is(dt, dd, dd span) {
+  color: var(--text-accent);
+}
+
+.a1__result-line.is-emphasis {
+  min-height: 41px;
+  margin-top: 5px;
+  border-top: 1px solid var(--border-strong);
+}
+
+.a1__result-line.is-emphasis :is(dt, dd) {
+  color: var(--text-strong);
+  font-weight: 760;
+}
+
+.a1__result-group.is-manager {
+  padding-bottom: 13px;
+}
+
+.a1__transfer {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  margin: 0 22px;
+  padding: 19px 0 21px 18px;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--brand-action) 7%, transparent);
+}
+
+.a1__transfer::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--brand-action);
+  content: "";
+}
+
+.a1__transfer > span {
+  color: var(--text-default);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.a1__transfer output {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: clamp(39px, 3.4vw, 49px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -.065em;
+  line-height: 1.02;
+  white-space: nowrap;
+}
+
+.a1__transfer small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.a1.is-sent .a1__transfer output {
+  color: var(--state-success);
+}
+
+.a1__actions {
+  padding: 18px 22px 22px;
+}
+
+.a1__actions .v2-action-set {
+  gap: 8px;
+}
+
+.a1__actions .v2-button-primary {
+  grid-row: 1;
+}
+
+.a1__actions .v2-button-secondary,
+.a1__actions .v2-button-quiet {
+  min-height: 40px;
+}
+
+@media (max-width: 1450px) {
+  .a1__financial-unit {
+    grid-template-columns: 1fr;
+  }
+
+  .a1__unit-heading {
+    display: flex;
+    min-height: 54px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+}
+
+@media (max-width: 1240px) {
+  .a1__context {
+    grid-template-columns: auto minmax(240px, 1fr) auto auto;
+  }
+
+  .a1__state {
+    display: none;
+  }
+
+  .a1__desk {
+    grid-template-columns: 1fr;
+  }
+
+  .a1__result {
+    position: static;
+  }
+
+  .a1__result-group {
+    padding-inline: 26px;
+  }
+
+  .a1__transfer {
+    margin-inline: 26px;
+  }
+}
+
+@media (max-width: 860px) {
+  .a1__context {
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+  }
+
+  .a1__heading {
+    grid-column: 1 / -1;
+  }
+
+  .a1__route {
+    grid-column: 1 / 3;
+  }
+
+  .a1__context-action {
+    grid-column: 3;
+  }
+
+  .a1__unit-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .a1__metric:nth-child(3) {
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+  }
+
+  .a1__balance-zone {
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .a1__conference {
+    grid-template-columns: 1fr;
+  }
+
+  .a1__conference > button {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 620px) {
+  .a1 {
+    padding: 0 14px 42px;
+  }
+
+  .a1__context {
+    min-height: 0;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    padding: 18px 0;
+  }
+
+  .a1__heading,
+  .a1__route {
+    grid-column: 1 / -1;
+  }
+
+  .a1__competence {
+    grid-column: 1;
+  }
+
+  .a1__context-action {
+    grid-column: 2;
+  }
+
+  .a1__desk {
+    margin-top: 22px;
+  }
+
+  .a1__section-heading {
+    align-items: flex-start;
+  }
+
+  .a1__section-heading p {
+    display: none;
+  }
+
+  .a1__unit-heading {
+    align-items: flex-start;
+  }
+
+  .a1__metric,
+  .a1__balance-zone {
+    padding: 15px 11px;
+  }
+
+  .a1__metric .v2-input-shell input,
+  .a1__metric.v2-money-output output {
+    font-size: 20px;
+  }
+
+  .a1__balance output {
+    font-size: 27px;
+  }
+
+  .a1__expenses {
+    padding-inline: 12px;
+  }
+
+  .a1__conference {
+    padding: 18px 14px;
+  }
+
+  .a1__equation {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .a1__equation > b:last-of-type {
+    display: none;
+  }
+
+  .a1__equation .is-result {
+    grid-column: 1 / -1;
+    padding-top: 11px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .a1__result-heading,
+  .a1__result-group,
+  .a1__actions {
+    padding-inline: 16px;
+  }
+
+  .a1__result-heading {
+    display: grid;
+  }
+
+  .a1__result-heading .v2-status {
+    justify-self: start;
+  }
+
+  .a1__transfer {
+    margin-inline: 16px;
+  }
+
+  .a1__transfer output {
+    font-size: clamp(37px, 11vw, 45px);
+  }
+}
+
+@media (max-width: 420px) {
+  .a1__unit-values {
+    grid-template-columns: 1fr;
+  }
+
+  .a1__metric + .a1__metric,
+  .a1__metric:nth-child(3),
+  .a1__balance-zone {
+    border-top: 1px solid var(--border-subtle);
+    border-left: 0;
+  }
+
+  .a1__balance-zone::before {
+    inset: 0 0 auto;
+    width: auto;
+    height: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a1 :is(.a1__financial-unit, .v2-input-shell, button) {
+    transition: none;
+  }
+}

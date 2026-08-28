@@ -1,30 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
-import ConceptA from "./ConceptA.jsx";
-import ConceptB from "./ConceptB.jsx";
-import ConceptC from "./ConceptC.jsx";
+import VariantA1 from "./VariantA1.jsx";
+import VariantA2 from "./VariantA2.jsx";
+import VariantA3 from "./VariantA3.jsx";
 import {
   calculateFinancials,
-  CONCEPTS,
   createInitialAdjustments,
   createInitialValues,
   FIXTURE,
+  VARIATIONS,
 } from "./model.js";
 
-const COMPONENTS = { A: ConceptA, B: ConceptB, C: ConceptC };
+const COMPONENTS = { A1: VariantA1, A2: VariantA2, A3: VariantA3 };
+
+function normalizeVariation(value) {
+  const requested = String(value || "A1").toUpperCase();
+  if (requested === "A") return "A1";
+  return COMPONENTS[requested] ? requested : "A1";
+}
 
 function initialQuery() {
   const params = new URLSearchParams(window.location.search);
-  const requestedConcept = (params.get("conceito") || params.get("concept") || "A").toUpperCase();
   return {
-    concept: COMPONENTS[requestedConcept] ? requestedConcept : "A",
+    variation: normalizeVariation(
+      params.get("variacao") || params.get("variation") || params.get("conceito") || params.get("concept"),
+    ),
     light: (params.get("tema") || "claro").toLowerCase() !== "escuro",
   };
 }
 
-function updateQuery(concept, light) {
+function updateQuery(variation, light) {
   const url = new URL(window.location.href);
+  url.searchParams.delete("conceito");
   url.searchParams.delete("concept");
-  url.searchParams.set("conceito", concept);
+  url.searchParams.delete("variation");
+  url.searchParams.set("variacao", variation);
   url.searchParams.set("tema", light ? "claro" : "escuro");
   window.history.replaceState({}, "", url);
 }
@@ -45,7 +54,7 @@ function RouteDrawer({ current, onSelect, onClose }) {
           <div><small>Contexto progressivo</small><h2 id="v2-route-title">Alterar rota</h2></div>
           <button type="button" className="v2-close" onClick={onClose} aria-label="Fechar seleção de rota">×</button>
         </header>
-        <p>A lista aparece somente durante a escolha. Os valores de QA permanecem iguais para comparar os conceitos.</p>
+        <p>A lista aparece somente durante a escolha. Os valores de QA permanecem iguais para comparar as variações.</p>
         <div className="v2-route-options">
           {FIXTURE.routes.map((route) => (
             <button type="button" key={route.id} className={route.id === current.id ? "is-selected" : ""} onClick={() => onSelect(route)}>
@@ -62,7 +71,7 @@ function RouteDrawer({ current, onSelect, onClose }) {
 
 export default function FechamentoSprintApp() {
   const query = useMemo(() => initialQuery(), []);
-  const [concept, setConcept] = useState(query.concept);
+  const [variation, setVariation] = useState(query.variation);
   const [light, setLight] = useState(query.light);
   const [values, setValues] = useState(createInitialValues);
   const [adjustments, setAdjustments] = useState(createInitialAdjustments);
@@ -73,7 +82,7 @@ export default function FechamentoSprintApp() {
   const [sent, setSent] = useState(false);
   const [toast, setToast] = useState("");
   const totals = useMemo(() => calculateFinancials(values, adjustments), [adjustments, values]);
-  const ActiveConcept = COMPONENTS[concept];
+  const ActiveVariation = COMPONENTS[variation];
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -81,16 +90,14 @@ export default function FechamentoSprintApp() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  function chooseConcept(next) {
-    setConcept(next);
+  function chooseVariation(next) {
+    setVariation(next);
     updateQuery(next, light);
   }
 
-  function toggleTheme() {
-    setLight((current) => {
-      updateQuery(concept, !current);
-      return !current;
-    });
+  function chooseTheme(nextLight) {
+    setLight(nextLight);
+    updateQuery(variation, nextLight);
   }
 
   function updateValue(modalityId, field, value) {
@@ -139,24 +146,25 @@ export default function FechamentoSprintApp() {
   };
 
   return (
-    <div className={`app operations-shell fechamento-v2-app${light ? " tema-claro" : ""}`} data-concept={concept}>
+    <div className={`app operations-shell fechamento-v2-app${light ? " tema-claro" : ""}`} data-variation={variation}>
       <header className="v2-labbar">
         <div className="v2-lab-brand">
           <img src="/brand/neptera/icons/neptera-favicon-48.png" alt="" />
-          <span><strong>NEPTERA</strong><small>Fechamento V2 · sprint conceitual</small></span>
+          <span><strong>NEPTERA</strong><small>Fechamento V2 · refinamento do A</small></span>
         </div>
-        <div className="v2-concept-switch" role="group" aria-label="Selecionar conceito">
-          {CONCEPTS.map((item) => (
-            <button key={item.id} type="button" className={concept === item.id ? "is-active" : ""} aria-label={`${item.id} — ${item.name}`} aria-pressed={concept === item.id} onClick={() => chooseConcept(item.id)}>
+        <div className="v2-concept-switch" role="group" aria-label="Selecionar variação do Conference Desk">
+          {VARIATIONS.map((item) => (
+            <button key={item.id} type="button" className={variation === item.id ? "is-active" : ""} aria-label={`${item.id} — ${item.name}`} aria-pressed={variation === item.id} onClick={() => chooseVariation(item.id)}>
               <b>{item.id}</b><span>{item.name}</span>
             </button>
           ))}
         </div>
-        <button type="button" className="v2-theme-switch" onClick={toggleTheme} aria-label={`Ativar tema ${light ? "escuro" : "claro"}`}>
-          <span className="v2-theme-indicator" aria-hidden="true" />{light ? "Escuro" : "Claro"}
-        </button>
+        <div className="v2-theme-switch" role="group" aria-label="Selecionar tema">
+          <button type="button" className={light ? "is-active" : ""} aria-pressed={light} onClick={() => chooseTheme(true)}>Claro</button>
+          <button type="button" className={!light ? "is-active" : ""} aria-pressed={!light} onClick={() => chooseTheme(false)}>Escuro</button>
+        </div>
       </header>
-      <ActiveConcept workspace={workspace} />
+      <ActiveVariation workspace={workspace} />
       {routeOpen && <RouteDrawer current={route} onSelect={selectRoute} onClose={() => setRouteOpen(false)} />}
       {toast && <div className="v2-toast" role="status">{toast}</div>}
     </div>
