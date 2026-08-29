@@ -401,7 +401,10 @@
   animation: cf-page-enter var(--motion-emphasized) var(--ease-emphasized) both;
 }
 
-.command-flow-shell .main:focus { outline: none; }
+.command-flow-shell .main:focus-visible {
+  outline: 2px solid var(--brand-action);
+  outline-offset: -2px;
+}
 
 .command-flow-shell .topbar {
   min-height: 64px;
@@ -1180,9 +1183,11 @@
 .consulta-cf-page {
   display: grid;
   min-width: 0;
-  grid-template-columns: 230px minmax(0, 1fr) 285px;
+  width: min(100%, 1480px);
+  margin-inline: auto;
+  grid-template-columns: 246px minmax(0, 1fr) 310px;
   align-items: start;
-  gap: 12px;
+  gap: 18px;
 }
 
 .consulta-cf-rail,
@@ -1192,22 +1197,23 @@
   background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
 }
 
 .consulta-cf-rail { overflow: hidden; }
-.consulta-cf-search { position: relative; padding: 10px; border-bottom: 1px solid var(--border-subtle); }
-.consulta-cf-search .app-icon { position: absolute; top: 50%; left: 22px; color: var(--text-muted); transform: translateY(-50%); pointer-events: none; }
-.consulta-cf-search input { width: 100%; min-height: 44px; padding-left: 38px; font-size: 13px; }
+.consulta-cf-search { position: relative; padding: 12px; border-bottom: 1px solid var(--border-subtle); }
+.consulta-cf-search .app-icon { position: absolute; top: 50%; left: 25px; color: var(--text-muted); transform: translateY(-50%); pointer-events: none; }
+.consulta-cf-search input { width: 100%; min-height: 46px; padding-left: 40px; font-size: 13.5px; }
 
 .consulta-cf-manager-list { display: grid; max-height: none; overflow: visible; scrollbar-color: var(--border-strong) transparent; }
 .consulta-cf-manager-list > button {
   display: grid;
   min-width: 0;
-  grid-template-columns: 30px minmax(0, 1fr) 16px;
+  grid-template-columns: 36px minmax(0, 1fr) 18px;
   align-items: center;
-  gap: 8px;
-  min-height: 54px;
-  padding: 8px 10px;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px 12px;
   color: var(--text-muted);
   background: transparent;
   border: 0;
@@ -1219,40 +1225,40 @@
 .consulta-cf-manager-list > button:hover { color: var(--text-strong); background: var(--surface-hover); }
 .consulta-cf-manager-list > button.is-active { color: var(--text-strong); background: var(--cf-copper-soft); box-shadow: inset 2px 0 0 var(--brand-action); }
 .consulta-cf-manager-list > button > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.consulta-cf-manager-list strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.consulta-cf-manager-list small { overflow: hidden; color: var(--text-muted); font: 10px/1.35 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
-.consulta-cf-avatar { display: grid; width: 30px; height: 30px; place-items: center; color: var(--brand-action); background: var(--cf-copper-soft); border: 1px solid var(--cf-copper-border); border-radius: 50%; }
+.consulta-cf-manager-list strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.consulta-cf-manager-list small { overflow: hidden; color: var(--text-muted); font: 10.5px/1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.consulta-cf-avatar { display: grid; width: 36px; height: 36px; place-items: center; color: var(--brand-action); background: var(--cf-copper-soft); border: 1px solid var(--cf-copper-border); border-radius: 50%; }
 .consulta-cf-mobile-select { display: none; }
 
-.consulta-cf-main { display: grid; min-width: 0; align-content: start; gap: 12px; }
-.consulta-cf-position { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; min-height: 76px; padding: 12px 14px; }
-.consulta-cf-position-copy { display: grid; min-width: 0; gap: 3px; }
-.consulta-cf-position-copy > span { color: var(--text-muted); font: 650 9px/1.25 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
-.consulta-cf-position-copy > strong { overflow: hidden; color: var(--text-strong); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
-.consulta-cf-position-copy > p { margin: 0; color: var(--text-muted); font-size: 11px; }
-.consulta-cf-view-switch { display: inline-grid; grid-template-columns: repeat(2, minmax(112px, 1fr)); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
-.consulta-cf-view-switch button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; color: var(--text-muted); background: transparent; border: 0; border-right: 1px solid var(--border-subtle); font-size: 11px; font-weight: 680; cursor: pointer; }
+.consulta-cf-main { display: grid; min-width: 0; align-content: start; gap: 18px; }
+.consulta-cf-position { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; min-height: 96px; padding: 18px 20px; border-top-color: var(--cf-copper-border); }
+.consulta-cf-position-copy { display: grid; min-width: 0; gap: 5px; }
+.consulta-cf-position-copy > span { color: var(--brand-action); font: 680 10px/1.25 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.consulta-cf-position-copy > strong { overflow: hidden; color: var(--text-strong); font-size: 22px; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.consulta-cf-position-copy > p { margin: 0; color: var(--text-muted); font-size: 12.5px; line-height: 1.45; }
+.consulta-cf-view-switch { display: inline-grid; grid-template-columns: repeat(2, minmax(128px, 1fr)); overflow: hidden; padding: 3px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.consulta-cf-view-switch button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; color: var(--text-muted); background: transparent; border: 0; border-right: 1px solid var(--border-subtle); font-size: 12px; font-weight: 700; cursor: pointer; }
 .consulta-cf-view-switch button:last-child { border-right: 0; }
 .consulta-cf-view-switch button:hover { color: var(--text-strong); background: var(--surface-hover); }
-.consulta-cf-view-switch button.is-active { color: var(--text-strong); background: var(--cf-copper-soft); box-shadow: inset 0 -2px 0 var(--brand-action); }
-.consulta-cf-equipment-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 0; }
-.consulta-cf-equipment-filters button { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; padding: 6px 10px; color: var(--text-muted); background: transparent; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 10.5px; cursor: pointer; }
-.consulta-cf-equipment-filters button b { color: var(--text-default); font: 650 10px/1 var(--font-mono); }
+.consulta-cf-view-switch button.is-active { color: var(--text-strong); background: var(--surface-panel); box-shadow: 0 2px 8px rgba(20, 24, 21, 0.08), inset 0 -2px 0 var(--brand-action); }
+.consulta-cf-equipment-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 2px; }
+.consulta-cf-equipment-filters button { display: inline-flex; min-height: 40px; align-items: center; gap: 8px; padding: 8px 12px; color: var(--text-muted); background: var(--surface-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 11.5px; font-weight: 650; cursor: pointer; }
+.consulta-cf-equipment-filters button b { color: var(--text-default); font: 700 11px/1 var(--font-mono); }
 .consulta-cf-equipment-filters button:hover { color: var(--text-strong); background: var(--surface-hover); }
 .consulta-cf-equipment-filters button.is-active { color: var(--text-strong); background: var(--cf-copper-soft); border-color: var(--cf-copper-border); }
 .consulta-cf-equipment-filters button.is-attention b { color: var(--state-warning); }
 
 .consulta-cf-ledgers { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
-.consulta-cf-ledgers > section > header { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid var(--border-subtle); }
-.consulta-cf-ledgers h2 { margin: 3px 0 0; color: var(--text-strong); font-size: 13px; }
-.consulta-cf-ledgers > section > header > b { color: var(--text-strong); font: 700 19px/1 var(--font-mono); }
+.consulta-cf-ledgers > section > header { display: flex; min-height: 72px; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 17px; border-bottom: 1px solid var(--border-subtle); }
+.consulta-cf-ledgers h2 { margin: 4px 0 0; color: var(--text-strong); font-size: 16px; }
+.consulta-cf-ledgers > section > header > b { color: var(--text-strong); font: 740 22px/1 var(--font-mono); }
 .consulta-cf-points-ledger > article {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
-  min-height: 55px;
-  padding: 8px 11px;
+  min-height: 66px;
+  padding: 11px 15px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1260,9 +1266,9 @@
 .consulta-cf-equipment-ledger > article:last-of-type { border-bottom: 0; }
 .consulta-cf-points-ledger article > span:nth-child(2),
 .consulta-cf-equipment-ledger article > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.consulta-cf-ledgers article strong { overflow: hidden; color: var(--text-strong); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.consulta-cf-ledgers article small { overflow: hidden; color: var(--text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.consulta-cf-line-icon { display: grid; width: 28px; height: 28px; place-items: center; color: var(--text-muted); background: var(--surface-raised); border-radius: var(--radius-sm); }
+.consulta-cf-ledgers article strong { overflow: hidden; color: var(--text-strong); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.consulta-cf-ledgers article small { overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.consulta-cf-line-icon { display: grid; width: 32px; height: 32px; place-items: center; color: var(--text-muted); background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
 .consulta-cf-point-state { color: var(--state-success); font: 600 8.5px/1 var(--font-mono); text-transform: uppercase; }
 .consulta-cf-point-state.is-off { color: var(--state-danger); }
 .consulta-cf-points-ledger article > b { color: var(--text-default); font: 650 11px/1 var(--font-mono); white-space: nowrap; }
@@ -1272,34 +1278,30 @@
   grid-template-columns: 28px minmax(120px, 1fr) auto auto auto;
   align-items: center;
   gap: 7px;
-  min-height: 55px;
-  padding: 8px 11px;
+  min-height: 66px;
+  padding: 11px 15px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .consulta-cf-equipment-ledger > article.is-attention { box-shadow: inset 2px 0 0 var(--state-warning); }
-.consulta-cf-equipment-ledger .btn-editar { display: inline-flex; min-height: 40px; align-items: center; gap: 6px; margin: 0; padding: 7px 10px; color: var(--text-muted); background: transparent; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 10.5px; }
-.consulta-filtro-nota { margin: 0; padding: 8px 12px; color: var(--text-muted); background: var(--surface-subtle); border-bottom: 1px solid var(--border-subtle); font-size: 9.5px; }
+.consulta-cf-equipment-ledger .btn-editar { display: inline-flex; min-height: 42px; align-items: center; gap: 7px; margin: 0; padding: 8px 11px; color: var(--text-muted); background: transparent; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 11.5px; }
+.consulta-filtro-nota { margin: 0; padding: 10px 15px; color: var(--text-muted); background: var(--surface-subtle); border-bottom: 1px solid var(--border-subtle); font-size: 11px; }
 .consulta-cf-pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-top: 1px solid var(--border-subtle); }
 .consulta-cf-pagination button { min-height: 32px; padding: 5px 9px; font-size: 9.5px; }
 .consulta-cf-pagination span { color: var(--text-muted); font: 10px/1 var(--font-mono); }
 
-.consulta-cf-dossier { position: sticky; top: 0; }
-.consulta-cf-dossier h2 { margin: 4px 0 2px; color: var(--text-strong); font-size: 16px; }
-.consulta-cf-dossier p { color: var(--text-muted); font-size: 11.5px; }
-.consulta-cf-dossier-state { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 9px; margin-bottom: 13px; padding: 10px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.consulta-cf-dossier { position: sticky; top: 0; box-shadow: var(--shadow-sm); }
+.consulta-cf-dossier h2 { margin: 5px 0 2px; color: var(--text-strong); font-size: 19px; }
+.consulta-cf-dossier p { color: var(--text-muted); font-size: 12px; }
+.consulta-cf-dossier-state { display: grid; grid-template-columns: 38px 1fr; align-items: center; gap: 11px; margin-bottom: 15px; padding: 12px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
 .consulta-cf-dossier-state > .app-icon { width: 30px; height: 30px; padding: 6px; color: var(--brand-action); background: var(--cf-copper-soft); border-radius: 50%; }
 .consulta-cf-dossier-state span { display: flex; flex-direction: column; gap: 2px; }
-.consulta-cf-dossier-state small { color: var(--text-muted); font: 600 9.5px/1.2 var(--font-mono); text-transform: uppercase; }
-.consulta-cf-dossier-state strong { color: var(--text-strong); font-size: 12.5px; }
-.consulta-cf-dossier-focus { display: grid; gap: 3px; padding: 14px 0; border-bottom: 1px solid var(--border-subtle); }
-.consulta-cf-dossier-focus small { color: var(--text-muted); font: 650 9px/1.2 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
-.consulta-cf-dossier-focus strong { color: var(--text-strong); font: 760 28px/1 var(--font-mono); }
-.consulta-cf-dossier-focus span { color: var(--text-muted); font-size: 10.5px; }
+.consulta-cf-dossier-state small { color: var(--text-muted); font: 650 10px/1.2 var(--font-mono); letter-spacing: .04em; text-transform: uppercase; }
+.consulta-cf-dossier-state strong { color: var(--text-strong); font-size: 13.5px; }
 .consulta-cf-dossier dl { display: grid; margin: 0; }
-.consulta-cf-dossier dl > div { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
-.consulta-cf-dossier dt { color: var(--text-muted); font-size: 11px; }
-.consulta-cf-dossier dd { margin: 0; color: var(--text-strong); font: 650 12px/1 var(--font-mono); }
+.consulta-cf-dossier dl > div { display: flex; min-height: 42px; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--border-subtle); }
+.consulta-cf-dossier dt { color: var(--text-muted); font-size: 12px; }
+.consulta-cf-dossier dd { margin: 0; color: var(--text-strong); font: 700 14px/1 var(--font-mono); }
 .consulta-cf-dossier-note { margin-top: 14px; padding-left: 9px; border-left: 2px solid var(--brand-action); line-height: 1.5; }
 
 @media (max-width: 1360px) {
@@ -1465,7 +1467,7 @@
 }
 
 /* Operational trace */
-.historico-cf-page { display: grid; min-width: 0; gap: 12px; }
+.historico-cf-page { display: grid; min-width: 0; width: min(100%, 1480px); margin-inline: auto; gap: 12px; }
 .historico-cf-command { justify-content: space-between; }
 .historico-cf-command-title { display: flex; min-width: 180px; flex-direction: column; gap: 3px; }
 .historico-cf-command-title strong { color: var(--text-strong); font-size: 12px; }
@@ -1853,22 +1855,22 @@
 
 .consulta-cf-rail,
 .consulta-cf-ledgers > section {
-  background: transparent;
-  border-radius: 0;
+  background: var(--surface-panel);
+  border-radius: var(--radius-md);
 }
 
 .consulta-cf-position {
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-top-color: var(--cf-copper-border);
+  border-radius: var(--radius-md);
 }
 
 .consulta-cf-position-copy { min-height: 0; padding-block: 0; }
-.consulta-cf-ledgers { gap: 0; border-block: 1px solid var(--border-subtle); }
-.consulta-cf-ledgers > section { border: 0; }
+.consulta-cf-ledgers { gap: 0; border-block: 0; }
+.consulta-cf-ledgers > section { border: 1px solid var(--border-subtle); }
 .consulta-cf-ledgers > section + section { border-left: 1px solid var(--border-subtle); }
-.consulta-cf-dossier-state { padding: 9px 0; background: transparent; border: 0; border-bottom: 1px solid var(--border-subtle); border-radius: 0; }
+.consulta-cf-dossier-state { padding: 12px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
 
 .senhas-cf-commandline {
   display: flex;

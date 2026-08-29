@@ -4613,7 +4613,7 @@ function Sistema({onLogout}){
                   <strong>{gerenteConsultaAtivo||"Sem seleção"}</strong>
                   <p>{pontosDoGerenteConsulta.length} pontos · {equipamentosDoGerenteConsulta.length} equipamentos · {equipamentosConsultaSemPonto.length} com gerente · {equipamentosConsultaConserto.length} conserto</p>
                 </div>
-                <div className="consulta-cf-view-switch" aria-label="Conteúdo do gerente">
+                <div className="consulta-cf-view-switch" role="group" aria-label="Conteúdo do gerente">
                   <button type="button" aria-pressed={consultaGerenteVisao==="pontos"} className={consultaGerenteVisao==="pontos"?"is-active":""} onClick={()=>setConsultaGerenteVisao("pontos")}><Icon name="mapPin"/> Pontos</button>
                   <button type="button" aria-pressed={consultaGerenteVisao==="equipamentos"} className={consultaGerenteVisao==="equipamentos"?"is-active":""} onClick={()=>setConsultaGerenteVisao("equipamentos")}><Icon name="package"/> Equipamentos</button>
                 </div>
@@ -4655,8 +4655,8 @@ function Sistema({onLogout}){
               <div className="cf-dossier__head"><span className="cf-kicker">Dossiê de responsabilidade</span><h2>{gerenteConsultaAtivo||"Sem gerente"}</h2></div>
               <div className="cf-dossier__body">
                 <div className="consulta-cf-dossier-state"><Icon name={equipamentosConsultaConserto.length?"warning":"check"}/><span><small>Prioridade atual</small><strong>{equipamentosConsultaConserto.length?`${equipamentosConsultaConserto.length} em conserto`:equipamentosConsultaSemPonto.length?`${equipamentosConsultaSemPonto.length} sem ponto`:"Posição acompanhada"}</strong></span></div>
-                <div className="consulta-cf-dossier-focus"><small>Visão ativa</small><strong>{consultaGerenteVisao==="pontos"?pontosDoGerenteConsulta.length:equipamentosConsultaExibidos.length}</strong><span>{consultaGerenteVisao==="pontos"?"pontos sob esta responsabilidade":tituloEquipamentosConsulta.toLocaleLowerCase("pt-BR")}</span></div>
-                <p className="consulta-cf-dossier-note">Cobertura atual: {pontosDoGerenteConsulta.length} pontos e {equipamentosDoGerenteConsulta.length} equipamentos nos vínculos já registrados.</p>
+                <dl><div><dt>Pontos</dt><dd>{pontosDoGerenteConsulta.length}</dd></div><div><dt>Equipamentos</dt><dd>{equipamentosDoGerenteConsulta.length}</dd></div><div><dt>Nos pontos</dt><dd>{equipamentosConsultaEmPontos.length}</dd></div><div><dt>Com gerente</dt><dd>{equipamentosConsultaSemPonto.length}</dd></div><div><dt>Conserto</dt><dd>{equipamentosConsultaConserto.length}</dd></div></dl>
+                <p className="consulta-cf-dossier-note">A consulta usa apenas vínculos de rota, ponto e responsabilidade já registrados no NEPTERA.</p>
               </div>
             </aside>
           </div>

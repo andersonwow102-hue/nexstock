@@ -41,16 +41,16 @@
 }
 
 .app.tema-claro .points-command-flow {
-  --pcf-canvas: var(--surface-canvas, #f5f6f7);
-  --pcf-panel: var(--surface-panel, #ffffff);
-  --pcf-raised: var(--surface-raised, #eef1f3);
-  --pcf-subtle: var(--surface-subtle, #f2f4f6);
-  --pcf-hover: var(--surface-hover, #e9edf0);
-  --pcf-text: var(--text-strong, #1f252b);
-  --pcf-muted: var(--text-muted, #66717c);
-  --pcf-dim: var(--text-muted, #66717c);
-  --pcf-border: var(--border-subtle, #e0e4e8);
-  --pcf-border-strong: var(--border-strong, #bcc4cc);
+  --pcf-canvas: var(--surface-canvas, #f3f3f1);
+  --pcf-panel: var(--surface-panel, #fffefb);
+  --pcf-raised: var(--surface-raised, #ebece8);
+  --pcf-subtle: var(--surface-subtle, #f0f0ed);
+  --pcf-hover: var(--surface-hover, #e7e8e4);
+  --pcf-text: var(--text-strong, #242724);
+  --pcf-muted: var(--text-muted, #626963);
+  --pcf-dim: var(--text-muted, #626963);
+  --pcf-border: var(--border-subtle, #d9dad5);
+  --pcf-border-strong: var(--border-strong, #adb1aa);
   --pcf-copper: var(--brand-action, #a65338);
   --pcf-copper-bright: var(--brand-action-hover, #884129);
   --pcf-copper-wash: color-mix(in srgb, var(--brand-action, #a65338) 10%, transparent);
@@ -60,8 +60,10 @@
   --pcf-danger-wash: var(--state-danger-surface, #fff1ef);
   --pcf-success: var(--state-success, #2f7556);
   --pcf-success-wash: var(--state-success-surface, #eef7f2);
-  --pcf-shadow: var(--shadow-md, 0 18px 50px rgba(15, 23, 42, 0.12));
-  background: var(--pcf-canvas);
+  --pcf-shadow: var(--shadow-md, 0 18px 50px rgba(32, 38, 34, 0.13));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--pcf-border) 25%, transparent) 1px, transparent 1px) 0 0 / 64px 64px,
+    var(--pcf-canvas);
 }
 
 .points-command-flow *,
@@ -1018,8 +1020,8 @@
 }
 
 .points-command-flow .pcf-dossier {
-  position: static;
-  top: auto;
+  position: sticky;
+  top: 14px;
   max-height: none;
   padding: 18px;
   overflow: visible;

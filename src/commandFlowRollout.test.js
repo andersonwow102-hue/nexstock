@@ -140,19 +140,19 @@ test("shell expõe navegação direta, busca global acessível e utilidades hier
   }
 });
 
-test("tema claro global usa superfícies frias e neutras", () => {
+test("tema claro global usa superfícies neutras levemente quentes", () => {
   assertMarkers(foundations, [
-    "--surface-canvas: #f5f6f7",
-    "--surface-navigation: #f8f9fa",
-    "--surface-panel: #ffffff",
-    "--border-subtle: #e0e4e8",
-    "--brand-action-vivid: #a65338",
-    "--text-strong: #1f252b",
-    "--text-muted: #66717c",
-    "--text-disabled: #66717c",
-  ], "Tema claro neutro");
+    "--surface-canvas: #f3f3f1",
+    "--surface-navigation: #f8f8f6",
+    "--surface-panel: #fffefb",
+    "--border-subtle: #d9dad5",
+    "--brand-action-vivid: #9c4b33",
+    "--text-strong: #242724",
+    "--text-muted: #626963",
+    "--text-disabled: #626963",
+  ], "Tema claro intermediário");
   assert.doesNotMatch(foundations, /--surface-canvas:\s*#f2eee7|--surface-panel:\s*#fffdf8/);
-  assert.match(pointsCss, /--pcf-dim:\s*var\(--text-muted,\s*#66717c\)/);
+  assert.match(pointsCss, /--pcf-dim:\s*var\(--text-muted,\s*#626963\)/);
 });
 
 test("fluxo vertical mantém um único scroll principal e sheets isolados por módulo", () => {
@@ -161,10 +161,10 @@ test("fluxo vertical mantém um único scroll principal e sheets isolados por m�
   assert.match(app, /open:aba==="historico"&&dossieHistoricoAberto/);
   assert.match(app, /if\(aba!=="itens"\|\|!dossieEquipamentoSheet\|\|!dossieEquipamentoAberto\)return undefined/);
   assert.match(app, /function navegar\(novaAba\)[\s\S]*?setDossieHistoricoAberto\(false\);[\s\S]*?setDossieEquipamentoAberto\(false\);/);
-  assert.match(pointsCss, /\.points-command-flow \.pcf-dossier\s*\{[\s\S]*?position:\s*static;[\s\S]*?max-height:\s*none;[\s\S]*?overflow:\s*visible;/);
-  assert.match(adminCss, /\.admin-command-flow \.admin-cf-dossier,[\s\S]*?\.admin-command-flow \.login-detail\s*\{[\s\S]*?position:\s*static;[\s\S]*?max-height:\s*none;[\s\S]*?overflow:\s*visible;/);
-  assert.match(fechamentoWorkbenchCss, /data-composition="final-a1-a3"\] \.fechamento-summary\s*\{[\s\S]*?overscroll-behavior:\s*auto;[\s\S]*?position:\s*static;/);
-  assert.match(fechamentoWorkbenchCss, /@media \(max-width: 1360px\)/);
+  assert.match(points, /acquireMainScrollLock/);
+  assert.match(adminCss, /@media \(max-width: 900px\)[\s\S]*?\.admin-command-flow \.admin-cf-dossier,[\s\S]*?position:\s*fixed;/);
+  assert.match(fechamentoWorkbenchCss, /data-composition="final-a1-a3"\] \.fechamento-summary\s*\{[\s\S]*?position:\s*sticky;[\s\S]*?top:\s*14px;/);
+  assert.match(fechamentoWorkbenchCss, /@media \(max-width: 1240px\)/);
 });
 
 test("Dashboard preserva mesa operacional, drill-downs e escopo visual próprio", () => {
@@ -257,6 +257,7 @@ test("Buscar Gerentes preserva seleção e alterna um ledger por vez", () => {
     'aria-label="Buscar gerente"',
     "consulta-cf-position",
     "consulta-cf-view-switch",
+    'role="group"',
     "consultaGerenteVisao",
     'consultaGerenteVisao==="pontos"?',
     'setConsultaEquipFiltro(atual=>atual==="pontos"?"todos":"pontos")',

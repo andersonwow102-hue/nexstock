@@ -653,9 +653,9 @@
   min-height: 100vh;
 }
 
-.fechamento-preview-app.tema-claro { --preview-bg: #eee9e1; --preview-panel: #fffdf8; --preview-line: #d4ccc0; --preview-text: #2d2924; }
+.fechamento-preview-app.tema-claro { --preview-bg: #f3f3f1; --preview-panel: #fffefb; --preview-line: #d9dad5; --preview-text: #242724; }
 .fechamento-preview-rail { background: #0b0e0c; border-right: 1px solid #303630; display: flex; flex-direction: column; gap: 18px; min-height: 100vh; padding: 18px 14px; position: sticky; top: 0; }
-.tema-claro .fechamento-preview-rail { background: #e5dfd5; border-color: #cbc1b3; }
+.tema-claro .fechamento-preview-rail { background: #e9eae6; border-color: #d2d4cf; }
 .fechamento-preview-brand { align-items: center; display: flex; gap: 9px; padding: 0 6px; }
 .fechamento-preview-brand img { height: 34px; object-fit: contain; width: 34px; }
 .fechamento-preview-brand span { display: grid; gap: 2px; }
@@ -2377,9 +2377,8 @@
   max-height: none;
   min-width: 0;
   overflow: visible;
-  overscroll-behavior: auto;
-  position: static;
-  top: auto;
+  position: sticky;
+  top: 14px;
 }
 
 .command-flow-shell .fechamento-page[data-composition="final-a1-a3"] .fechamento-summary-body {
@@ -2628,7 +2627,7 @@
   }
 }
 
-@media (max-width: 1360px) {
+@media (max-width: 1240px) {
   .command-flow-shell .fechamento-page[data-composition="final-a1-a3"] .fechamento-contexto {
     grid-template-columns: minmax(210px, 1fr) minmax(148px, 0.75fr) minmax(148px, 0.75fr) auto;
   }
