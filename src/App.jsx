@@ -4383,8 +4383,8 @@ function Sistema({onLogout}){
               <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">Inventário operacional</span><h1>Equipamentos</h1><p>Livro de posição, vínculos e movimentações da operação.</p></div>
             </div>
             <div className="cf-page-head__actions">
-              <button className="btn-secundario" onClick={()=>exportarEquipamentosExcel(itensOperacionais)}><Icon name="spreadsheet" /> Excel</button>
-              <button className="btn-secundario" onClick={()=>exportarEquipamentosPDF(itensOperacionais)}><Icon name="pdf" /> PDF</button>
+              <button className="btn-secundario equip-cf-export-utility" onClick={()=>exportarEquipamentosExcel(itensOperacionais)}><Icon name="spreadsheet" /> Excel</button>
+              <button className="btn-secundario equip-cf-export-utility" onClick={()=>exportarEquipamentosPDF(itensOperacionais)}><Icon name="pdf" /> PDF</button>
               {podeCadastrarEquipamento&&<button className="btn-primario" onClick={abrirNovo}><Icon name="plus" /> Novo equipamento</button>}
             </div>
           </header>

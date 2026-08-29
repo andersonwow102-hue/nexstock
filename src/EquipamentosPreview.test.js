@@ -54,6 +54,9 @@ test("preview expõe temas, rota, filtros, posições, ações e navegação ace
   const main = await read("main.jsx");
 
   assert.match(source, /data-preview-route="\/equipamentos"/);
+  assert.match(source, /command-flow-shell module-itens equipment-preview/);
+  assert.match(source, /className="equip-cf-export-utility"/);
+  assert.match(source, /\.equipment-preview__actions \.equip-cf-export-utility/);
   assert.match(source, /\?preview=equipamentos&tema=claro/);
   assert.match(source, /\?preview=equipamentos&tema=escuro/);
   assert.match(source, /useResponsiveSheet\(\{/);

@@ -2048,6 +2048,22 @@
   min-height: 44px;
 }
 
+.app.command-flow-shell.module-itens .equip-cf-head .equip-cf-export-utility {
+  padding-inline: 10px;
+  color: var(--text-muted);
+  background: transparent;
+  border-color: transparent;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.app.command-flow-shell.module-itens .equip-cf-head .equip-cf-export-utility:hover,
+.app.command-flow-shell.module-itens .equip-cf-head .equip-cf-export-utility:focus-visible {
+  color: var(--text-strong);
+  background: var(--surface-hover);
+  border-color: var(--border-subtle);
+}
+
 .app.command-flow-shell.module-itens > .main {
   animation: none;
 }
@@ -2060,6 +2076,7 @@
 .app.command-flow-shell.module-itens .equip-cf-position-strip {
   grid-template-columns: repeat(5, minmax(112px, 1fr)) minmax(140px, .8fr);
   min-height: 58px;
+  border-bottom-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
 }
 
 .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope {
@@ -2069,6 +2086,31 @@
 .app.command-flow-shell.module-itens .equip-cf-position-strip button {
   min-height: 58px;
   padding: 8px 14px;
+  border-right: 0;
+}
+
+.app.command-flow-shell.module-itens .equip-cf-position-strip button + button::before,
+.app.command-flow-shell.module-itens .equip-cf-position-note::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  pointer-events: none;
+}
+
+.app.command-flow-shell.module-itens .equip-cf-position-strip button:hover {
+  background: color-mix(in srgb, var(--surface-hover) 62%, transparent);
+}
+
+.app.command-flow-shell.module-itens .equip-cf-position-strip button.is-active {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--brand-action) 4%, transparent)
+  );
 }
 
 .app.command-flow-shell.module-itens .equip-cf-position-strip button > strong {
@@ -2081,7 +2123,13 @@
   text-transform: none;
 }
 
+.app.command-flow-shell.module-itens .equip-cf-position-strip button > small {
+  color: var(--text-disabled);
+  font-size: 8.5px;
+}
+
 .app.command-flow-shell.module-itens .equip-cf-position-note {
+  position: relative;
   display: grid;
   min-width: 0;
   min-height: 58px;
@@ -2090,7 +2138,7 @@
   gap: 3px;
   padding: 8px 14px;
   color: var(--text-muted);
-  background: var(--surface-subtle);
+  background: color-mix(in srgb, var(--surface-subtle) 72%, transparent);
 }
 
 .app.command-flow-shell.module-itens .equip-cf-position-note small {
@@ -2118,8 +2166,16 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .app.command-flow-shell.module-itens .equip-cf-position-strip:not(.is-manager-scope) button:nth-child(4)::before {
+    display: none;
+  }
+
   .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope button:nth-child(n+4) {
+    border-top: 0;
   }
 
   .app.command-flow-shell.module-itens .equip-cf-position-note {
@@ -2139,7 +2195,17 @@
     border-top: 0;
   }
 
+  .app.command-flow-shell.module-itens .equip-cf-position-strip:not(.is-manager-scope) button:nth-child(4)::before {
+    display: block;
+  }
+
   .app.command-flow-shell.module-itens .equip-cf-filterbar .so-filter-bar__chips > button {
     min-height: 44px;
+  }
+}
+
+@media (max-width: 680px) {
+  .app.command-flow-shell.module-itens .equip-cf-head .equip-cf-export-utility {
+    flex: 0 1 auto;
   }
 }

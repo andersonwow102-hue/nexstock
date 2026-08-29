@@ -1,5 +1,7 @@
 .equipment-inventory-ledger {
   --equipment-ledger-dossier: clamp(350px, 29vw, 380px);
+  --equipment-ledger-rule: color-mix(in srgb, var(--border-subtle) 68%, transparent);
+  --equipment-ledger-rule-strong: color-mix(in srgb, var(--border-strong) 52%, var(--border-subtle));
   --equipment-ledger-row: 70px;
   min-width: 0;
   color: var(--text-default);
@@ -31,7 +33,7 @@
   min-width: 0;
   overflow: hidden;
   background: var(--surface-panel);
-  border-block: 1px solid var(--border-subtle);
+  border-block: 1px solid var(--equipment-ledger-rule);
   border-radius: 0;
   box-shadow: none;
 }
@@ -61,7 +63,7 @@
   align-items: center;
   color: var(--text-muted);
   background: var(--surface-subtle);
-  border-bottom: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--equipment-ledger-rule-strong);
   font: 600 9px/1.25 var(--font-mono);
   letter-spacing: .035em;
   text-transform: uppercase;
@@ -88,7 +90,7 @@
   color: var(--text-default);
   background: var(--surface-panel);
   border: 0;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--equipment-ledger-rule);
   border-radius: 0;
   box-shadow: none;
   isolation: isolate;
@@ -171,7 +173,7 @@
 .equipment-inventory-ledger__register {
   justify-content: center;
   color: var(--text-disabled);
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--equipment-ledger-rule);
   font: 500 9px/1 var(--font-mono);
 }
 
@@ -316,12 +318,12 @@
   justify-content: center;
   gap: 6px;
   padding: 5px 8px;
-  color: var(--text-default);
+  color: var(--text-muted);
   background: transparent;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.15;
   cursor: pointer;
   transition:
@@ -330,7 +332,19 @@
     border-color var(--motion-fast, 140ms) var(--ease-standard, ease);
 }
 
+.equipment-inventory-ledger__row:where(:hover, .is-selected, :focus-within) .equipment-inventory-ledger__row-action > button:not(:disabled) {
+  color: var(--text-default);
+  background: var(--surface-subtle);
+  border-color: var(--border-subtle);
+}
+
 .equipment-inventory-ledger__row-action > button:hover:not(:disabled) {
+  color: var(--brand-action);
+  background: var(--surface-subtle);
+  border-color: var(--brand-action);
+}
+
+.equipment-inventory-ledger__row-action > button:focus-visible:not(:disabled) {
   color: var(--brand-action);
   background: var(--surface-subtle);
   border-color: var(--brand-action);
@@ -373,7 +387,7 @@
   padding: 6px 10px 6px 14px;
   color: var(--text-muted);
   background: var(--surface-subtle);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--equipment-ledger-rule);
   font: 500 10px/1.3 var(--font-mono);
 }
 
@@ -712,6 +726,20 @@
   padding: 28px;
   border: 0;
   text-align: center;
+}
+
+@media (min-width: 1600px) {
+  .equipment-inventory-ledger {
+    --equipment-ledger-dossier: 420px;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .equipment-inventory-ledger__row-action > button:not(:disabled) {
+    color: var(--text-default);
+    background: var(--surface-subtle);
+    border-color: var(--border-subtle);
+  }
 }
 
 @media (max-width: 1320px) {

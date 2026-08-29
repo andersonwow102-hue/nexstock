@@ -105,12 +105,14 @@ const PREVIEW_STYLES = `
   .equipment-preview__heading p { margin: 2px 0 0; color: var(--text-muted); font-size: 11px; }
   .equipment-preview__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
   .equipment-preview__actions .so-button { min-height: 44px; }
+  .equipment-preview__actions .equip-cf-export-utility { padding-inline: 10px; color: var(--text-muted); background: transparent; border-color: transparent; box-shadow: none; font-size: 10.5px; font-weight: 600; }
+  .equipment-preview__actions .equip-cf-export-utility:hover, .equipment-preview__actions .equip-cf-export-utility:focus-visible { color: var(--text-strong); background: var(--surface-hover); border-color: var(--border-subtle); }
   .equipment-preview__notice { display: flex; min-height: 40px; align-items: center; gap: 9px; padding: 9px 12px; color: var(--text-default); background: var(--state-info-surface); border-left: 3px solid var(--brand-action); font-size: 11px; }
   .equipment-preview__notice strong { color: var(--text-strong); }
   .equipment-preview__tab-panel { display: grid; min-width: 0; gap: 12px; }
   .equipment-preview > .equipment-preview__main { animation: none; }
   .equipment-preview .equip-cf-view-switch button, .equipment-preview .equip-cf-filterbar .so-filter-bar__toggle { min-height: 44px; }
-  .equipment-preview .equip-cf-position-strip { min-height: 66px; }
+  .equipment-preview .equip-cf-position-strip { min-height: 58px; }
   .equipment-preview .equip-cf-search { min-height: 44px; }
   .equipment-preview .equip-cf-search input { min-height: 42px; }
   .equipment-preview__summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--border-subtle); }
@@ -332,7 +334,7 @@ export default function EquipamentosPreviewApp() {
 
   return (
     <div
-      className={`app operations-shell command-flow-shell module-equipamentos equipment-preview${light ? " tema-claro" : ""}`}
+      className={`app operations-shell command-flow-shell module-itens equipment-preview${light ? " tema-claro" : ""}`}
       data-preview-mode="safe-local"
       data-preview-route="/equipamentos"
       onKeyDown={sheet.panelProps.onKeyDown}
@@ -362,8 +364,8 @@ export default function EquipamentosPreviewApp() {
             <p>Inventário, custódia e rastro reunidos em uma leitura contínua.</p>
           </div>
           <div className="equipment-preview__actions">
-            <Button size="sm" leadingIcon="spreadsheet" onClick={() => announce("Excel preparado localmente")}>Excel</Button>
-            <Button size="sm" leadingIcon="pdf" onClick={() => announce("PDF preparado localmente")}>PDF</Button>
+            <Button className="equip-cf-export-utility" size="sm" leadingIcon="spreadsheet" onClick={() => announce("Excel preparado localmente")}>Excel</Button>
+            <Button className="equip-cf-export-utility" size="sm" leadingIcon="pdf" onClick={() => announce("PDF preparado localmente")}>PDF</Button>
             <Button size="sm" variant="primary" leadingIcon="plus" onClick={() => announce("Novo equipamento aberto")}>Novo equipamento</Button>
           </div>
         </section>
