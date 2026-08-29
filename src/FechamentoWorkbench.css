@@ -43,30 +43,30 @@
 }
 
 .app.tema-claro.command-flow-shell .fechamento-page[data-layout="workbench"] {
-  --fc-canvas: #f2eee7;
-  --fc-panel: #fffdf8;
-  --fc-raised: #f5f0e8;
-  --fc-raised-strong: #e9e2d8;
-  --fc-field: #fffdfa;
-  --fc-line: #d5cdc1;
-  --fc-line-strong: #b9ad9e;
-  --fc-text: #2d2924;
-  --fc-text-soft: #5f5850;
-  --fc-text-muted: #706960;
-  --fc-copper: #a85f35;
-  --fc-copper-strong: #8f4d2a;
-  --fc-on-copper: #fffdf8;
-  --fc-copper-soft: rgba(168, 95, 53, 0.1);
-  --fc-copper-line: rgba(168, 95, 53, 0.42);
-  --fc-success: #547457;
-  --fc-success-soft: rgba(84, 116, 87, 0.1);
-  --fc-success-line: rgba(84, 116, 87, 0.38);
-  --fc-warning: #916a2f;
-  --fc-warning-soft: rgba(145, 106, 47, 0.1);
-  --fc-warning-line: rgba(145, 106, 47, 0.34);
-  --fc-danger: #a6534d;
-  --fc-danger-soft: rgba(166, 83, 77, 0.09);
-  --fc-danger-line: rgba(166, 83, 77, 0.34);
+  --fc-canvas: var(--surface-canvas);
+  --fc-panel: var(--surface-panel);
+  --fc-raised: var(--surface-subtle);
+  --fc-raised-strong: var(--surface-raised);
+  --fc-field: var(--surface-input);
+  --fc-line: var(--border-subtle);
+  --fc-line-strong: var(--border-strong);
+  --fc-text: var(--text-strong);
+  --fc-text-soft: var(--text-default);
+  --fc-text-muted: var(--text-muted);
+  --fc-copper: var(--brand-action);
+  --fc-copper-strong: var(--brand-action-hover);
+  --fc-on-copper: var(--text-inverse);
+  --fc-copper-soft: color-mix(in srgb, var(--brand-action) 10%, transparent);
+  --fc-copper-line: color-mix(in srgb, var(--brand-action) 42%, transparent);
+  --fc-success: var(--state-success);
+  --fc-success-soft: var(--state-success-surface);
+  --fc-success-line: var(--state-success-border);
+  --fc-warning: var(--state-warning);
+  --fc-warning-soft: var(--state-warning-surface);
+  --fc-warning-line: var(--state-warning-border);
+  --fc-danger: var(--state-danger);
+  --fc-danger-soft: var(--state-danger-surface);
+  --fc-danger-line: var(--state-danger-border);
   color-scheme: light;
 }
 
@@ -1321,7 +1321,7 @@
 }
 
 .app.tema-claro.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary {
-  box-shadow: 0 18px 38px rgba(70, 52, 34, 0.09);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.09);
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-summary-body {
@@ -1598,7 +1598,7 @@
 }
 
 .app.tema-claro.command-flow-shell .fechamento-page[data-visual="a3-executive"] .fc-primary-action {
-  color: #fffdf8;
+  color: var(--text-inverse);
 }
 
 .command-flow-shell .fechamento-page[data-visual="a3-executive"] .fechamento-secondary-actions {
@@ -2107,7 +2107,7 @@
 }
 
 .app.tema-claro.command-flow-shell .fechamento-page[data-composition="final-a1-a3"] .fechamento-matriz-row {
-  box-shadow: 0 2px 10px rgba(70, 52, 34, 0.055);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.055);
 }
 
 .command-flow-shell .fechamento-page[data-composition="final-a1-a3"] .fechamento-matriz-row:focus-within {
@@ -2377,8 +2377,9 @@
   max-height: none;
   min-width: 0;
   overflow: visible;
-  position: sticky;
-  top: 14px;
+  overscroll-behavior: auto;
+  position: static;
+  top: auto;
 }
 
 .command-flow-shell .fechamento-page[data-composition="final-a1-a3"] .fechamento-summary-body {
@@ -2627,7 +2628,7 @@
   }
 }
 
-@media (max-width: 1240px) {
+@media (max-width: 1360px) {
   .command-flow-shell .fechamento-page[data-composition="final-a1-a3"] .fechamento-contexto {
     grid-template-columns: minmax(210px, 1fr) minmax(148px, 0.75fr) minmax(148px, 0.75fr) auto;
   }

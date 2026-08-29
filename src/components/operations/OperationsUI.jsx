@@ -1,5 +1,6 @@
 import { Children, cloneElement, createElement, isValidElement, useEffect, useId, useRef } from "react";
 import "./OperationsUI.css";
+import { acquireMainScrollLock } from "./mainScrollLock.js";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -460,11 +461,7 @@ export function Modal({
     previousFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-    const previousOverflow = document.documentElement.style.overflow;
-    const mainContent = document.querySelector(".main");
-    const previousMainOverflow = mainContent?.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-    if (mainContent) mainContent.style.overflow = "hidden";
+    const releaseScrollLock = acquireMainScrollLock();
     syncModalLayers();
 
     const animationFrame = window.requestAnimationFrame(() => {
@@ -481,10 +478,9 @@ export function Modal({
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
+      releaseScrollLock();
       const previousFocus = previousFocusRef.current;
       window.requestAnimationFrame(() => {
-        document.documentElement.style.overflow = previousOverflow;
-        if (mainContent) mainContent.style.overflow = previousMainOverflow || "";
         syncModalLayers();
         if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
       });
@@ -830,20 +826,11 @@ export function FilterBar({
     });
 
     const mobileSheet = window.matchMedia?.("(max-width: 760px)").matches;
-    const previousOverflow = document.documentElement.style.overflow;
-    const mainContent = document.querySelector(".main");
-    const previousMainOverflow = mainContent?.style.overflow;
-    if (mobileSheet) {
-      document.documentElement.style.overflow = "hidden";
-      if (mainContent) mainContent.style.overflow = "hidden";
-    }
+    const releaseScrollLock = mobileSheet ? acquireMainScrollLock() : () => {};
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
-      if (mobileSheet) {
-        document.documentElement.style.overflow = previousOverflow;
-        if (mainContent) mainContent.style.overflow = previousMainOverflow || "";
-      }
+      releaseScrollLock();
       const previousFocus = previousSecondaryFocusRef.current;
       if (previousFocus?.isConnected) {
         window.requestAnimationFrame(() => previousFocus.focus({ preventScroll: true }));

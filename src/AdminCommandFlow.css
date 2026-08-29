@@ -28,25 +28,25 @@
 }
 
 .app.tema-claro .admin-command-flow {
-  --acf-canvas: #f2f4f1;
-  --acf-panel: #f9faf8;
-  --acf-panel-raised: #ffffff;
-  --acf-panel-soft: #ecefeb;
-  --acf-input: #ffffff;
-  --acf-border: #d4d9d3;
-  --acf-border-strong: #adb6ae;
-  --acf-text: #222622;
-  --acf-text-soft: #4e574f;
-  --acf-muted: #59635b;
-  --acf-copper: #9b5839;
-  --acf-copper-strong: #7d432c;
-  --acf-copper-soft: rgba(155, 88, 57, 0.1);
-  --acf-success: #327659;
-  --acf-success-soft: rgba(50, 118, 89, 0.1);
-  --acf-danger: #a74640;
-  --acf-danger-soft: rgba(167, 70, 64, 0.09);
-  --acf-warning: #896424;
-  --acf-warning-soft: rgba(137, 100, 36, 0.1);
+  --acf-canvas: var(--surface-canvas);
+  --acf-panel: var(--surface-panel);
+  --acf-panel-raised: var(--surface-raised);
+  --acf-panel-soft: var(--surface-subtle);
+  --acf-input: var(--surface-input);
+  --acf-border: var(--border-subtle);
+  --acf-border-strong: var(--border-strong);
+  --acf-text: var(--text-strong);
+  --acf-text-soft: var(--text-default);
+  --acf-muted: var(--text-muted);
+  --acf-copper: var(--brand-action);
+  --acf-copper-strong: var(--brand-action-hover);
+  --acf-copper-soft: color-mix(in srgb, var(--brand-action) 10%, transparent);
+  --acf-success: var(--state-success);
+  --acf-success-soft: var(--state-success-surface);
+  --acf-danger: var(--state-danger);
+  --acf-danger-soft: var(--state-danger-surface);
+  --acf-warning: var(--state-warning);
+  --acf-warning-soft: var(--state-warning-surface);
 }
 
 .admin-command-flow *,
@@ -994,11 +994,11 @@
 
 .admin-command-flow .admin-cf-dossier,
 .admin-command-flow .login-detail {
-  position: sticky;
-  top: 14px;
+  position: static;
+  top: auto;
   min-width: 0;
-  max-height: calc(100vh - 32px);
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .admin-cf-state--dossier {
@@ -1973,10 +1973,10 @@
 
 .admin-command-flow .admin-cf-dossier,
 .admin-command-flow .login-detail {
-  position: sticky;
-  top: 12px;
-  max-height: calc(100vh - 28px);
-  overflow: auto;
+  position: static;
+  top: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .admin-cf-dossier-head,

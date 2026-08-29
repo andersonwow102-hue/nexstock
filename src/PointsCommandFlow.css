@@ -41,29 +41,27 @@
 }
 
 .app.tema-claro .points-command-flow {
-  --pcf-canvas: var(--surface-canvas, #f2eee7);
-  --pcf-panel: var(--surface-panel, #fffdf8);
-  --pcf-raised: var(--surface-raised, #e8e3da);
-  --pcf-subtle: var(--surface-subtle, #ece7df);
-  --pcf-hover: var(--surface-hover, #e9e3da);
-  --pcf-text: var(--text-strong, #211d1a);
-  --pcf-muted: var(--text-muted, #716a64);
-  --pcf-dim: var(--text-disabled, #9b958e);
-  --pcf-border: var(--border-subtle, #d6d0c6);
-  --pcf-border-strong: var(--border-strong, #aaa298);
-  --pcf-copper: var(--brand-action, #a95339);
-  --pcf-copper-bright: var(--brand-action-hover, #8f432e);
-  --pcf-copper-wash: color-mix(in srgb, var(--brand-action, #a95339) 10%, transparent);
-  --pcf-warning: var(--state-warning, #79591f);
-  --pcf-warning-wash: var(--state-warning-surface, #fff6e5);
-  --pcf-danger: var(--state-danger, #a44739);
-  --pcf-danger-wash: var(--state-danger-surface, #fff0ed);
-  --pcf-success: var(--state-success, #2f7252);
-  --pcf-success-wash: var(--state-success-surface, #edf6f1);
-  --pcf-shadow: var(--shadow-md, 0 18px 50px rgba(33, 29, 26, 0.13));
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle, #d6d0c6) 25%, transparent) 1px, transparent 1px) 0 0 / 64px 64px,
-    var(--pcf-canvas);
+  --pcf-canvas: var(--surface-canvas, #f5f6f7);
+  --pcf-panel: var(--surface-panel, #ffffff);
+  --pcf-raised: var(--surface-raised, #eef1f3);
+  --pcf-subtle: var(--surface-subtle, #f2f4f6);
+  --pcf-hover: var(--surface-hover, #e9edf0);
+  --pcf-text: var(--text-strong, #1f252b);
+  --pcf-muted: var(--text-muted, #66717c);
+  --pcf-dim: var(--text-muted, #66717c);
+  --pcf-border: var(--border-subtle, #e0e4e8);
+  --pcf-border-strong: var(--border-strong, #bcc4cc);
+  --pcf-copper: var(--brand-action, #a65338);
+  --pcf-copper-bright: var(--brand-action-hover, #884129);
+  --pcf-copper-wash: color-mix(in srgb, var(--brand-action, #a65338) 10%, transparent);
+  --pcf-warning: var(--state-warning, #7a5b22);
+  --pcf-warning-wash: var(--state-warning-surface, #fff7e8);
+  --pcf-danger: var(--state-danger, #a6463b);
+  --pcf-danger-wash: var(--state-danger-surface, #fff1ef);
+  --pcf-success: var(--state-success, #2f7556);
+  --pcf-success-wash: var(--state-success-surface, #eef7f2);
+  --pcf-shadow: var(--shadow-md, 0 18px 50px rgba(15, 23, 42, 0.12));
+  background: var(--pcf-canvas);
 }
 
 .points-command-flow *,
@@ -1020,17 +1018,16 @@
 }
 
 .points-command-flow .pcf-dossier {
-  position: sticky;
-  top: 14px;
-  max-height: calc(100vh - 40px);
+  position: static;
+  top: auto;
+  max-height: none;
   padding: 18px;
-  overflow: auto;
+  overflow: visible;
   border: 1px solid var(--pcf-border-strong);
   border-radius: 2px;
   background: var(--pcf-raised);
   box-shadow: 0 14px 38px rgba(4, 6, 5, 0.16);
-  scrollbar-width: thin;
-  scrollbar-color: var(--pcf-border-strong) transparent;
+  overscroll-behavior-y: auto;
 }
 
 .points-command-flow .pcf-dossier-header {

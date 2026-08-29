@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { acquireMainScrollLock } from "./mainScrollLock.js";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -36,11 +37,7 @@ export function useResponsiveSheet({
     if (!panel) return undefined;
 
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.documentElement.style.overflow;
-    const mainContent = document.querySelector(".main");
-    const previousMainOverflow = mainContent?.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-    if (mainContent) mainContent.style.overflow = "hidden";
+    const releaseScrollLock = acquireMainScrollLock();
     const animationFrame = window.requestAnimationFrame(() => {
       const target = panel.querySelector(initialFocusSelector)
         || panel.querySelector(FOCUSABLE_SELECTOR)
@@ -50,8 +47,7 @@ export function useResponsiveSheet({
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
-      document.documentElement.style.overflow = previousOverflow;
-      if (mainContent) mainContent.style.overflow = previousMainOverflow || "";
+      releaseScrollLock();
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
       if (previousFocus?.isConnected) {

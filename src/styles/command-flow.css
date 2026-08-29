@@ -11,6 +11,13 @@
   color: var(--text-strong);
 }
 
+.app.command-flow-shell {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .command-flow-shell .sidebar {
   position: relative;
   z-index: var(--z-navigation);
@@ -21,6 +28,11 @@
   box-shadow: none;
   scrollbar-color: var(--border-strong) transparent;
   transition: transform var(--motion-emphasized) var(--ease-emphasized);
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .command-flow-shell .sidebar::before {
@@ -376,12 +388,20 @@
 }
 
 .command-flow-shell .main {
+  height: 100%;
+  min-height: 0;
   gap: 16px;
   padding: 20px 24px 32px;
   background: var(--surface-canvas);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  scrollbar-gutter: stable;
   scrollbar-color: var(--border-strong) transparent;
   animation: cf-page-enter var(--motion-emphasized) var(--ease-emphasized) both;
 }
+
+.command-flow-shell .main:focus { outline: none; }
 
 .command-flow-shell .topbar {
   min-height: 64px;
@@ -1179,7 +1199,7 @@
 .consulta-cf-search .app-icon { position: absolute; top: 50%; left: 22px; color: var(--text-muted); transform: translateY(-50%); pointer-events: none; }
 .consulta-cf-search input { width: 100%; min-height: 44px; padding-left: 38px; font-size: 13px; }
 
-.consulta-cf-manager-list { display: grid; max-height: calc(100dvh - 205px); overflow: auto; scrollbar-color: var(--border-strong) transparent; }
+.consulta-cf-manager-list { display: grid; max-height: none; overflow: visible; scrollbar-color: var(--border-strong) transparent; }
 .consulta-cf-manager-list > button {
   display: grid;
   min-width: 0;
@@ -1204,35 +1224,25 @@
 .consulta-cf-avatar { display: grid; width: 30px; height: 30px; place-items: center; color: var(--brand-action); background: var(--cf-copper-soft); border: 1px solid var(--cf-copper-border); border-radius: 50%; }
 .consulta-cf-mobile-select { display: none; }
 
-.consulta-cf-main { display: grid; min-width: 0; gap: 12px; }
-.consulta-cf-position { display: grid; grid-template-columns: 1.2fr repeat(4, minmax(105px, .8fr)); overflow: hidden; }
-.consulta-cf-position > :where(div, button) {
-  display: flex;
-  min-width: 0;
-  min-height: 75px;
-  align-items: flex-start;
-  justify-content: center;
-  flex-direction: column;
-  gap: 2px;
-  padding: 11px 12px;
-  color: var(--text-default);
-  background: transparent;
-  border: 0;
-  border-right: 1px solid var(--border-subtle);
-  text-align: left;
-}
+.consulta-cf-main { display: grid; min-width: 0; align-content: start; gap: 12px; }
+.consulta-cf-position { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; min-height: 76px; padding: 12px 14px; }
+.consulta-cf-position-copy { display: grid; min-width: 0; gap: 3px; }
+.consulta-cf-position-copy > span { color: var(--text-muted); font: 650 9px/1.25 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+.consulta-cf-position-copy > strong { overflow: hidden; color: var(--text-strong); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.consulta-cf-position-copy > p { margin: 0; color: var(--text-muted); font-size: 11px; }
+.consulta-cf-view-switch { display: inline-grid; grid-template-columns: repeat(2, minmax(112px, 1fr)); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.consulta-cf-view-switch button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; color: var(--text-muted); background: transparent; border: 0; border-right: 1px solid var(--border-subtle); font-size: 11px; font-weight: 680; cursor: pointer; }
+.consulta-cf-view-switch button:last-child { border-right: 0; }
+.consulta-cf-view-switch button:hover { color: var(--text-strong); background: var(--surface-hover); }
+.consulta-cf-view-switch button.is-active { color: var(--text-strong); background: var(--cf-copper-soft); box-shadow: inset 0 -2px 0 var(--brand-action); }
+.consulta-cf-equipment-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 0; }
+.consulta-cf-equipment-filters button { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; padding: 6px 10px; color: var(--text-muted); background: transparent; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 10.5px; cursor: pointer; }
+.consulta-cf-equipment-filters button b { color: var(--text-default); font: 650 10px/1 var(--font-mono); }
+.consulta-cf-equipment-filters button:hover { color: var(--text-strong); background: var(--surface-hover); }
+.consulta-cf-equipment-filters button.is-active { color: var(--text-strong); background: var(--cf-copper-soft); border-color: var(--cf-copper-border); }
+.consulta-cf-equipment-filters button.is-attention b { color: var(--state-warning); }
 
-.consulta-cf-position > :last-child { border-right: 0; }
-.consulta-cf-position > button { cursor: pointer; }
-.consulta-cf-position > button:hover { background: var(--surface-hover); }
-.consulta-cf-position > button.is-active { background: var(--cf-copper-soft); box-shadow: inset 0 2px 0 var(--brand-action); }
-.consulta-cf-position > button.is-attention strong { color: var(--state-warning); }
-.consulta-cf-position span { color: var(--text-muted); font: 650 9.5px/1.3 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
-.consulta-cf-position strong { overflow: hidden; max-width: 100%; color: var(--text-strong); font: 700 18px/1.1 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
-.consulta-cf-position > div strong { font-family: var(--font-sans); font-size: 14px; }
-.consulta-cf-position small { color: var(--text-muted); font-size: 10.5px; }
-
-.consulta-cf-ledgers { display: grid; min-width: 0; grid-template-columns: minmax(250px, .72fr) minmax(360px, 1.28fr); gap: 12px; }
+.consulta-cf-ledgers { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
 .consulta-cf-ledgers > section > header { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid var(--border-subtle); }
 .consulta-cf-ledgers h2 { margin: 3px 0 0; color: var(--text-strong); font-size: 13px; }
 .consulta-cf-ledgers > section > header > b { color: var(--text-strong); font: 700 19px/1 var(--font-mono); }
@@ -1282,6 +1292,10 @@
 .consulta-cf-dossier-state span { display: flex; flex-direction: column; gap: 2px; }
 .consulta-cf-dossier-state small { color: var(--text-muted); font: 600 9.5px/1.2 var(--font-mono); text-transform: uppercase; }
 .consulta-cf-dossier-state strong { color: var(--text-strong); font-size: 12.5px; }
+.consulta-cf-dossier-focus { display: grid; gap: 3px; padding: 14px 0; border-bottom: 1px solid var(--border-subtle); }
+.consulta-cf-dossier-focus small { color: var(--text-muted); font: 650 9px/1.2 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
+.consulta-cf-dossier-focus strong { color: var(--text-strong); font: 760 28px/1 var(--font-mono); }
+.consulta-cf-dossier-focus span { color: var(--text-muted); font-size: 10.5px; }
 .consulta-cf-dossier dl { display: grid; margin: 0; }
 .consulta-cf-dossier dl > div { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
 .consulta-cf-dossier dt { color: var(--text-muted); font-size: 11px; }
@@ -1296,28 +1310,27 @@
 
 @media (max-width: 1040px) {
   .consulta-cf-page { grid-template-columns: 200px minmax(0, 1fr); }
-  .consulta-cf-position { grid-template-columns: repeat(2, 1fr); }
-  .consulta-cf-position > :where(div, button) { border-bottom: 1px solid var(--border-subtle); }
-  .consulta-cf-position > :nth-child(2n) { border-right: 0; }
-  .consulta-cf-ledgers { grid-template-columns: 1fr; }
+  .consulta-cf-position { grid-template-columns: 1fr; align-items: stretch; }
+  .consulta-cf-view-switch { width: 100%; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .consulta-cf-page { grid-template-columns: 1fr; }
-  .consulta-cf-rail { max-height: 290px; }
-  .consulta-cf-manager-list { max-height: 225px; }
-  .consulta-cf-search { display: block; }
-  .consulta-cf-mobile-select { display: none; }
+  .consulta-cf-rail { max-height: none; }
+  .consulta-cf-manager-list,
+  .consulta-cf-search { display: none; }
+  .consulta-cf-mobile-select { display: grid; gap: 7px; padding: 14px; }
   .consulta-cf-mobile-select span { color: var(--text-muted); font: 600 9px/1 var(--font-mono); text-transform: uppercase; }
-  .consulta-cf-dossier { grid-row: 2; }
-  .consulta-cf-main { grid-row: 3; }
+  .consulta-cf-mobile-select select { width: 100%; min-height: 44px; color: var(--text-default); background: var(--surface-input); border: 1px solid var(--border-control); border-radius: var(--radius-sm); }
+  .consulta-cf-main,
+  .consulta-cf-dossier { grid-row: auto; }
   .consulta-cf-equipment-ledger > article { grid-template-columns: 28px minmax(0, 1fr) auto; }
   .consulta-cf-equipment-ledger article > :where(.badge-cat, .badge-status) { grid-row: 2; }
   .consulta-cf-equipment-ledger article > .badge-cat { grid-column: 2; }
   .consulta-cf-equipment-ledger article > .badge-status { grid-column: 3; }
   .consulta-cf-equipment-ledger article > button { grid-column: 2 / -1; width: 100%; justify-content: center; }
   .consulta-cf-dossier .cf-dossier__body { grid-template-columns: 1fr; }
-  .consulta-cf-manager-list > button,
+  .consulta-cf-equipment-filters button,
   .consulta-cf-equipment-ledger .btn-editar,
   .consulta-cf-pagination button { min-height: 44px; }
 }
@@ -1851,8 +1864,7 @@
   border-radius: 0;
 }
 
-.consulta-cf-position > :where(div, button) { min-height: 61px; padding-block: 8px; }
-.consulta-cf-position > button.is-active { background: var(--cf-copper-soft); box-shadow: inset 0 -2px 0 var(--brand-action); }
+.consulta-cf-position-copy { min-height: 0; padding-block: 0; }
 .consulta-cf-ledgers { gap: 0; border-block: 1px solid var(--border-subtle); }
 .consulta-cf-ledgers > section { border: 0; }
 .consulta-cf-ledgers > section + section { border-left: 1px solid var(--border-subtle); }

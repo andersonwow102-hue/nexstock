@@ -13,6 +13,7 @@ import {
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
 import { EmptyState, FilterBar, Modal as OperationModal, OperationIcon, Pagination, StatusBadge } from "./components/operations/OperationsUI.jsx";
+import { acquireMainScrollLock } from "./components/operations/mainScrollLock.js";
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, isManagerExpense } from "./expenseScope.js";
 import "./PointsCommandFlow.css";
@@ -783,11 +784,7 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
     const trigger=focoAntesDossieRef.current||document.querySelector(`[data-ponto-id="${pontoSelecionadoId}"]`);
     const seletor='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const focaveis=()=>Array.from(painel.querySelectorAll(seletor)).filter(elemento=>elemento.getClientRects().length>0);
-    const overflowAnterior=document.documentElement.style.overflow;
-    const conteudoPrincipal=document.querySelector(".main");
-    const overflowPrincipalAnterior=conteudoPrincipal?.style.overflow;
-    document.documentElement.style.overflow="hidden";
-    if(conteudoPrincipal)conteudoPrincipal.style.overflow="hidden";
+    const liberarScroll=acquireMainScrollLock();
     const frame=window.requestAnimationFrame(()=>{
       const alvo=painel.querySelector("[data-pcf-dossier-autofocus='true']")||focaveis()[0]||painel;
       alvo.focus({preventScroll:true});
@@ -812,8 +809,7 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
     return()=>{
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown",controlarTeclado);
-      document.documentElement.style.overflow=overflowAnterior;
-      if(conteudoPrincipal)conteudoPrincipal.style.overflow=overflowPrincipalAnterior||"";
+      liberarScroll();
       focoAntesDossieRef.current=null;
       if(trigger?.isConnected)window.requestAnimationFrame(()=>trigger.focus({preventScroll:true}));
     };

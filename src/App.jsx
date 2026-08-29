@@ -16,6 +16,8 @@ import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, expenseBelongsToRoute, isManagerExpense } from "./expenseScope.js";
 import { FilterBar, Modal as OperationModal, OperationIcon } from "./components/operations/OperationsUI.jsx";
 import { useResponsiveSheet } from "./components/operations/useResponsiveSheet.js";
+import { acquireMainScrollLock } from "./components/operations/mainScrollLock.js";
+import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
@@ -3312,6 +3314,7 @@ function Sistema({onLogout}){
   const [navegacaoCompacta,setNavegacaoCompacta]=useState(()=>typeof window!=="undefined"&&window.matchMedia?.("(max-width: 1024px)").matches);
   const [dashboardApresentado,setDashboardApresentado]=useState(false);
   const sidebarRef=useRef(null);
+  const mainRef=useRef(null);
   const focoAntesSidebarRef=useRef(null);
   const [itemDetalhe,setItemDetalhe]=useState(null);
   const [itemDetalheSomenteLeitura,setItemDetalheSomenteLeitura]=useState(false);
@@ -3323,6 +3326,7 @@ function Sistema({onLogout}){
   const [buscaGlobal,setBuscaGlobal]=useState("");
   const [paginaItens,setPaginaItens]=useState(1);
   const [gerenteConsulta,setGerenteConsulta]=useState("");
+  const [consultaGerenteVisao,setConsultaGerenteVisao]=useState("pontos");
   const [consultaEquipFiltro,setConsultaEquipFiltro]=useState("todos");
   const [buscaGerenteConsulta,setBuscaGerenteConsulta]=useState("");
   const [paginaGerenteConsulta,setPaginaGerenteConsulta]=useState(1);
@@ -3330,7 +3334,7 @@ function Sistema({onLogout}){
   const [perfilCarregado,setPerfilCarregado]=useState(false);
   const [avisoPrazoDespesas,setAvisoPrazoDespesas]=useState(null);
   const historicoDossieSheet=useResponsiveSheet({
-    open:dossieHistoricoAberto,
+    open:aba==="historico"&&dossieHistoricoAberto,
     onClose:()=>setDossieHistoricoAberto(false),
     mediaQuery:"(max-width: 800px)",
   });
@@ -3425,9 +3429,16 @@ function Sistema({onLogout}){
   }
   function navegar(novaAba){
     const mesmaAba=novaAba===aba;
+    setDossieHistoricoAberto(false);
+    setDossieEquipamentoAberto(false);
     setAba(novaAba);
     atualizarUrlDoModulo(novaAba,{substituir:mesmaAba});
     fecharSidebar(mesmaAba);
+    window.requestAnimationFrame(()=>{
+      if(!mainRef.current)return;
+      mainRef.current.scrollTop=0;
+      mainRef.current.focus({preventScroll:true});
+    });
   }
 
   const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
@@ -3438,7 +3449,17 @@ function Sistema({onLogout}){
   const drawerDashboard=aba==="dashboard"&&navegacaoCompacta;
   const drawerContextual=drawerDevedores||drawerDashboard||navegacaoCompacta;
   useEffect(()=>{
-    function acompanharHistoricoDoNavegador(){setAba(abaInicialDaUrl());setSidebarAberta(false);}
+    function acompanharHistoricoDoNavegador(){
+      setDossieHistoricoAberto(false);
+      setDossieEquipamentoAberto(false);
+      setAba(abaInicialDaUrl());
+      setSidebarAberta(false);
+      window.requestAnimationFrame(()=>{
+        if(!mainRef.current)return;
+        mainRef.current.scrollTop=0;
+        mainRef.current.focus({preventScroll:true});
+      });
+    }
     window.addEventListener("popstate",acompanharHistoricoDoNavegador);
     return()=>window.removeEventListener("popstate",acompanharHistoricoDoNavegador);
   },[]);
@@ -3684,16 +3705,12 @@ function Sistema({onLogout}){
   useEffect(()=>{setConsultaEquipFiltro("todos");},[gerenteConsultaAtivo]);
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
   useEffect(()=>{
-    if(!dossieEquipamentoSheet||!dossieEquipamentoAberto)return undefined;
+    if(aba!=="itens"||!dossieEquipamentoSheet||!dossieEquipamentoAberto)return undefined;
     const painel=dossieEquipamentoRef.current;
     if(!painel)return undefined;
     const seletor='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const focaveis=()=>Array.from(painel.querySelectorAll(seletor)).filter(elemento=>elemento.getClientRects().length>0);
-    const overflowAnterior=document.documentElement.style.overflow;
-    const conteudoPrincipal=document.querySelector(".main");
-    const overflowPrincipalAnterior=conteudoPrincipal?.style.overflow;
-    document.documentElement.style.overflow="hidden";
-    if(conteudoPrincipal)conteudoPrincipal.style.overflow="hidden";
+    const liberarScroll=acquireMainScrollLock();
     const quadro=window.requestAnimationFrame(()=>{
       const alvo=painel.querySelector("[data-equip-dossier-autofocus='true']")||focaveis()[0]||painel;
       alvo.focus({preventScroll:true});
@@ -3718,13 +3735,12 @@ function Sistema({onLogout}){
     return()=>{
       window.cancelAnimationFrame(quadro);
       document.removeEventListener("keydown",controlarTeclado);
-      document.documentElement.style.overflow=overflowAnterior;
-      if(conteudoPrincipal)conteudoPrincipal.style.overflow=overflowPrincipalAnterior||"";
+      liberarScroll();
       const alvo=focoAntesDossieEquipamentoRef.current;
       focoAntesDossieEquipamentoRef.current=null;
       if(alvo instanceof HTMLElement&&alvo.isConnected)window.requestAnimationFrame(()=>alvo.focus({preventScroll:true}));
     };
-  },[dossieEquipamentoAberto,dossieEquipamentoSheet,equipamentoFocoId]);
+  },[aba,dossieEquipamentoAberto,dossieEquipamentoSheet,equipamentoFocoId]);
   function selecionarEquipamentoFoco(item,gatilho){
     setEquipamentoFocoId(item.id);
     if(!dossieEquipamentoSheet)return;
@@ -4239,7 +4255,7 @@ function Sistema({onLogout}){
         </div>
       </aside>
 
-      <main className="main">
+      <main className="main" onKeyDown={handleMainScrollKey} ref={mainRef} tabIndex={-1}>
         {perfilAtual.emailTemporario&&(
           <div className={`email-temp-banner ${prazoEmailTemporario(perfilAtual.emailTemporarioExpiraEm)==="vencido"?"email-temp-vencido":""}`}>
             <strong>Login interno do sistema</strong>
@@ -4592,23 +4608,32 @@ function Sistema({onLogout}){
 
             <div className="consulta-cf-main">
               <section className="consulta-cf-position" aria-label="Posição do gerente">
-                <div><span>Gerente em foco</span><strong>{gerenteConsultaAtivo||"Sem seleção"}</strong><small>recorte operacional atual</small></div>
-                <button type="button" aria-pressed={consultaEquipFiltro==="todos"} className={consultaEquipFiltro==="todos"?"is-active":""} onClick={()=>setConsultaEquipFiltro("todos")}><span>Equipamentos</span><strong>{equipamentosDoGerenteConsulta.length}</strong><small>Total localizado</small></button>
-                <button type="button" aria-pressed={consultaEquipFiltro==="pontos"} className={consultaEquipFiltro==="pontos"?"is-active":""} onClick={()=>setConsultaEquipFiltro(atual=>atual==="pontos"?"todos":"pontos")}><span>Nos pontos</span><strong>{equipamentosConsultaEmPontos.length}</strong><small>Em operação</small></button>
-                <button type="button" aria-pressed={consultaEquipFiltro==="gerente"} className={consultaEquipFiltro==="gerente"?"is-active":""} onClick={()=>setConsultaEquipFiltro(atual=>atual==="gerente"?"todos":"gerente")}><span>Com gerente</span><strong>{equipamentosConsultaSemPonto.length}</strong><small>Sem ponto</small></button>
-                <button type="button" aria-pressed={consultaEquipFiltro==="conserto"} className={`is-attention ${consultaEquipFiltro==="conserto"?"is-active":""}`} onClick={()=>setConsultaEquipFiltro(atual=>atual==="conserto"?"todos":"conserto")}><span>Conserto</span><strong>{equipamentosConsultaConserto.length}</strong><small>Com operador</small></button>
+                <div className="consulta-cf-position-copy">
+                  <span>Gerente em foco</span>
+                  <strong>{gerenteConsultaAtivo||"Sem seleção"}</strong>
+                  <p>{pontosDoGerenteConsulta.length} pontos · {equipamentosDoGerenteConsulta.length} equipamentos · {equipamentosConsultaSemPonto.length} com gerente · {equipamentosConsultaConserto.length} conserto</p>
+                </div>
+                <div className="consulta-cf-view-switch" aria-label="Conteúdo do gerente">
+                  <button type="button" aria-pressed={consultaGerenteVisao==="pontos"} className={consultaGerenteVisao==="pontos"?"is-active":""} onClick={()=>setConsultaGerenteVisao("pontos")}><Icon name="mapPin"/> Pontos</button>
+                  <button type="button" aria-pressed={consultaGerenteVisao==="equipamentos"} className={consultaGerenteVisao==="equipamentos"?"is-active":""} onClick={()=>setConsultaGerenteVisao("equipamentos")}><Icon name="package"/> Equipamentos</button>
+                </div>
               </section>
 
-              <div className="consulta-cf-ledgers">
-                <section className="cf-ledger consulta-cf-points-ledger">
+              {consultaGerenteVisao==="equipamentos"&&<nav className="consulta-cf-equipment-filters" aria-label="Filtros dos equipamentos do gerente">
+                <button type="button" aria-pressed={consultaEquipFiltro==="todos"} className={consultaEquipFiltro==="todos"?"is-active":""} onClick={()=>setConsultaEquipFiltro("todos")}>Todos <b>{equipamentosDoGerenteConsulta.length}</b></button>
+                <button type="button" aria-pressed={consultaEquipFiltro==="pontos"} className={consultaEquipFiltro==="pontos"?"is-active":""} onClick={()=>setConsultaEquipFiltro(atual=>atual==="pontos"?"todos":"pontos")}>Nos pontos <b>{equipamentosConsultaEmPontos.length}</b></button>
+                <button type="button" aria-pressed={consultaEquipFiltro==="gerente"} className={consultaEquipFiltro==="gerente"?"is-active":""} onClick={()=>setConsultaEquipFiltro(atual=>atual==="gerente"?"todos":"gerente")}>Com gerente <b>{equipamentosConsultaSemPonto.length}</b></button>
+                <button type="button" aria-pressed={consultaEquipFiltro==="conserto"} className={`is-attention ${consultaEquipFiltro==="conserto"?"is-active":""}`} onClick={()=>setConsultaEquipFiltro(atual=>atual==="conserto"?"todos":"conserto")}>Conserto <b>{equipamentosConsultaConserto.length}</b></button>
+              </nav>}
+
+              <div className="consulta-cf-ledgers" data-view={consultaGerenteVisao}>
+                {consultaGerenteVisao==="pontos"?<section className="cf-ledger consulta-cf-points-ledger" id="consulta-gerente-pontos">
                   <header><div><span className="cf-kicker">Posição territorial</span><h2>Pontos vinculados</h2></div><b>{pontosDoGerenteConsulta.length}</b></header>
                   {pontosDoGerenteConsulta.length===0?<div className="cf-empty"><Icon name="mapPin"/><span>Nenhum ponto encontrado para este gerente.</span></div>:ordenarPontos(pontosDoGerenteConsulta).map(ponto=>{
                     const qtd=itens.filter(i=>normalizarTexto(i.localizacao)===normalizarTexto(ponto.nomeFantasia)).length;
                     return <article key={ponto.id}><span className="consulta-cf-line-icon"><Icon name="mapPin"/></span><span><strong>{ponto.nomeFantasia}</strong><small>{ponto.gerente||"Rota não informada"} · {ponto.telefone||"sem telefone"}</small></span><span className={`consulta-cf-point-state ${ponto.situacaoOperacional==="desativado"?"is-off":""}`}>{ponto.situacaoOperacional==="desativado"?"Desativado":"Ativo"}</span><b>{qtd}<small> equip.</small></b></article>;
                   })}
-                </section>
-
-                <section className="cf-ledger consulta-cf-equipment-ledger">
+                </section>:<section className="cf-ledger consulta-cf-equipment-ledger" id="consulta-gerente-equipamentos">
                   <header><div><span className="cf-kicker">{tituloEquipamentosConsulta}</span><h2>Equipamentos localizados</h2></div><b>{equipamentosConsultaExibidos.length}</b></header>
                   {consultaEquipFiltro==="conserto"&&<p className="consulta-filtro-nota">Encaminhados ao operador; abra a ficha para conferir defeito e andamento.</p>}
                   {consultaEquipFiltro==="gerente"&&<p className="consulta-filtro-nota">Sob responsabilidade do gerente e ainda sem vínculo com ponto.</p>}
@@ -4622,7 +4647,7 @@ function Sistema({onLogout}){
                     </article>
                   ))}
                   {equipamentosConsultaExibidos.length>itensPorPaginaGerenteConsulta&&<div className="consulta-cf-pagination"><button className="btn-secundario" disabled={paginaGerenteConsulta===1} onClick={()=>setPaginaGerenteConsulta(p=>p-1)}>Anterior</button><span>{paginaGerenteConsulta} / {totalPaginasGerenteConsulta}</span><button className="btn-secundario" disabled={paginaGerenteConsulta===totalPaginasGerenteConsulta} onClick={()=>setPaginaGerenteConsulta(p=>p+1)}>Próxima</button></div>}
-                </section>
+                </section>}
               </div>
             </div>
 
@@ -4630,8 +4655,8 @@ function Sistema({onLogout}){
               <div className="cf-dossier__head"><span className="cf-kicker">Dossiê de responsabilidade</span><h2>{gerenteConsultaAtivo||"Sem gerente"}</h2></div>
               <div className="cf-dossier__body">
                 <div className="consulta-cf-dossier-state"><Icon name={equipamentosConsultaConserto.length?"warning":"check"}/><span><small>Prioridade atual</small><strong>{equipamentosConsultaConserto.length?`${equipamentosConsultaConserto.length} em conserto`:equipamentosConsultaSemPonto.length?`${equipamentosConsultaSemPonto.length} sem ponto`:"Posição acompanhada"}</strong></span></div>
-                <dl><div><dt>Pontos</dt><dd>{pontosDoGerenteConsulta.length}</dd></div><div><dt>Equipamentos</dt><dd>{equipamentosDoGerenteConsulta.length}</dd></div><div><dt>Nos pontos</dt><dd>{equipamentosConsultaEmPontos.length}</dd></div><div><dt>Com gerente</dt><dd>{equipamentosConsultaSemPonto.length}</dd></div><div><dt>Conserto</dt><dd>{equipamentosConsultaConserto.length}</dd></div></dl>
-                <p className="consulta-cf-dossier-note">A consulta usa apenas vínculos de rota, ponto e responsabilidade já registrados no NEPTERA.</p>
+                <div className="consulta-cf-dossier-focus"><small>Visão ativa</small><strong>{consultaGerenteVisao==="pontos"?pontosDoGerenteConsulta.length:equipamentosConsultaExibidos.length}</strong><span>{consultaGerenteVisao==="pontos"?"pontos sob esta responsabilidade":tituloEquipamentosConsulta.toLocaleLowerCase("pt-BR")}</span></div>
+                <p className="consulta-cf-dossier-note">Cobertura atual: {pontosDoGerenteConsulta.length} pontos e {equipamentosDoGerenteConsulta.length} equipamentos nos vínculos já registrados.</p>
               </div>
             </aside>
           </div>

@@ -37,6 +37,7 @@ const foundations = read("styles/foundations.css");
 const commandFlowCss = read("styles/command-flow.css");
 const operationsUi = read("components/operations/OperationsUI.jsx");
 const responsiveSheet = read("components/operations/useResponsiveSheet.js");
+const mainScrollLock = read("components/operations/mainScrollLock.js");
 const dashboard = read("DashboardPage.jsx");
 const dashboardCss = read("DashboardPage.css");
 const points = read("PointsPage.jsx");
@@ -128,23 +129,42 @@ test("shell expõe navegação direta, busca global acessível e utilidades hier
   assert.match(app, /function ModalAlterarSenha[\s\S]*?<OperationModal/);
   assert.doesNotMatch(app, /gerente-welcome|avatarLendario/);
   assert.doesNotMatch(appCss, /animation:[^;]*(?:gerente|financeiro|prestacao|pulse-bg|confirmacao)[^;]*infinite/i);
-  assertMarkers(responsiveSheet, [
-    'document.querySelector(".main")',
-    'mainContent.style.overflow = "hidden"',
-    'mainContent.style.overflow = previousMainOverflow || ""',
-  ], "Scroll lock dos painéis responsivos");
+  assertMarkers(mainScrollLock, [
+    "new WeakMap()",
+    "tokens: new Set()",
+    'style.overflowY = "hidden"',
+    "current.tokens.size",
+  ], "Scroll lock compartilhado");
+  for (const source of [app, points, operationsUi, responsiveSheet]) {
+    assert.doesNotMatch(source, /document\.documentElement\.style\.overflow|querySelector\(["']\.main["']\).*style\.overflow/s);
+  }
 });
 
-test("tema claro global usa superfícies minerais neutras", () => {
+test("tema claro global usa superfícies frias e neutras", () => {
   assertMarkers(foundations, [
-    "--surface-canvas: #f1f3f0",
-    "--surface-navigation: #f7f9f6",
+    "--surface-canvas: #f5f6f7",
+    "--surface-navigation: #f8f9fa",
     "--surface-panel: #ffffff",
-    "--border-subtle: #d2d8d2",
-    "--text-strong: #202622",
-    "--text-muted: #59635b",
-  ], "Tema claro mineral");
+    "--border-subtle: #e0e4e8",
+    "--brand-action-vivid: #a65338",
+    "--text-strong: #1f252b",
+    "--text-muted: #66717c",
+    "--text-disabled: #66717c",
+  ], "Tema claro neutro");
   assert.doesNotMatch(foundations, /--surface-canvas:\s*#f2eee7|--surface-panel:\s*#fffdf8/);
+  assert.match(pointsCss, /--pcf-dim:\s*var\(--text-muted,\s*#66717c\)/);
+});
+
+test("fluxo vertical mantém um único scroll principal e sheets isolados por módulo", () => {
+  assert.match(commandFlowCss, /\.app\.command-flow-shell\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?overflow:\s*hidden;/);
+  assert.match(commandFlowCss, /\.command-flow-shell \.main\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior-y:\s*auto;/);
+  assert.match(app, /open:aba==="historico"&&dossieHistoricoAberto/);
+  assert.match(app, /if\(aba!=="itens"\|\|!dossieEquipamentoSheet\|\|!dossieEquipamentoAberto\)return undefined/);
+  assert.match(app, /function navegar\(novaAba\)[\s\S]*?setDossieHistoricoAberto\(false\);[\s\S]*?setDossieEquipamentoAberto\(false\);/);
+  assert.match(pointsCss, /\.points-command-flow \.pcf-dossier\s*\{[\s\S]*?position:\s*static;[\s\S]*?max-height:\s*none;[\s\S]*?overflow:\s*visible;/);
+  assert.match(adminCss, /\.admin-command-flow \.admin-cf-dossier,[\s\S]*?\.admin-command-flow \.login-detail\s*\{[\s\S]*?position:\s*static;[\s\S]*?max-height:\s*none;[\s\S]*?overflow:\s*visible;/);
+  assert.match(fechamentoWorkbenchCss, /data-composition="final-a1-a3"\] \.fechamento-summary\s*\{[\s\S]*?overscroll-behavior:\s*auto;[\s\S]*?position:\s*static;/);
+  assert.match(fechamentoWorkbenchCss, /@media \(max-width: 1360px\)/);
 });
 
 test("Dashboard preserva mesa operacional, drill-downs e escopo visual próprio", () => {
@@ -227,7 +247,7 @@ test("Pontos mantém leitura da rede, ledger territorial e dossiê", () => {
   assert.match(pointsCss, /@media \(max-width: 760px\)[\s\S]*?\.points-command-flow \.pcf-operation-modal \.so-modal__close[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px;/);
 });
 
-test("Buscar Gerentes preserva seleção, ledgers de responsabilidade e dossiê", () => {
+test("Buscar Gerentes preserva seleção e alterna um ledger por vez", () => {
   assertMarkers(app, [
     'aba==="buscar-gerentes"',
     "consulta-cf-head",
@@ -236,6 +256,13 @@ test("Buscar Gerentes preserva seleção, ledgers de responsabilidade e dossiê"
     "consulta-cf-manager-list",
     'aria-label="Buscar gerente"',
     "consulta-cf-position",
+    "consulta-cf-view-switch",
+    "consultaGerenteVisao",
+    'consultaGerenteVisao==="pontos"?',
+    'setConsultaEquipFiltro(atual=>atual==="pontos"?"todos":"pontos")',
+    'setConsultaEquipFiltro(atual=>atual==="gerente"?"todos":"gerente")',
+    'setConsultaEquipFiltro(atual=>atual==="conserto"?"todos":"conserto")',
+    "consulta-cf-equipment-filters",
     "consulta-cf-points-ledger",
     "consulta-cf-equipment-ledger",
     "consulta-cf-dossier",
@@ -245,10 +272,13 @@ test("Buscar Gerentes preserva seleção, ledgers de responsabilidade e dossiê"
     ".consulta-cf-rail",
     ".consulta-cf-ledgers",
     ".consulta-cf-dossier",
+    ".consulta-cf-view-switch",
+    ".consulta-cf-equipment-filters",
     "@media (max-width: 1360px)",
-    "@media (max-width: 720px)",
-    ".consulta-cf-search { display: block; }",
+    "@media (max-width: 900px)",
+    ".consulta-cf-mobile-select { display: grid;",
   ], "Buscar Gerentes CSS");
+  assert.doesNotMatch(commandFlowCss, /\.consulta-cf-manager-list\s*\{[^}]*max-height:\s*calc\(/);
 });
 
 test("Senhas preserva navegação por necessidade, editores, ledger e distribuição de aplicativos", () => {
@@ -353,7 +383,7 @@ test("Central de Acessos e Logins compartilham a arquitetura administrativa", ()
     "matchMedia",
     'event.key === "Escape"',
     "previousFocus",
-    "document.documentElement.style.overflow",
+    "acquireMainScrollLock",
     "inert:",
   ], "Sheet responsivo compartilhado");
   assert.doesNotMatch(management, /Senha provisória \*<\/label><input type="text"/);
