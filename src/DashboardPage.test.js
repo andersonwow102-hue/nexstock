@@ -94,6 +94,17 @@ test("direção rejeitada e emojis não retornam ao Dashboard", () => {
     assert.ok(!pagina.includes(rejeitado), `resíduo rejeitado: ${rejeitado}`);
   }
   assert.doesNotMatch(pagina, /\p{Extended_Pictographic}/u);
+  assert.doesNotMatch(app, /getMensagemMotivacionalDoDia|mensagemDoDia|iconesCategorias=\{ICONES\}/);
+});
+
+test("atalhos e categorias usam o catálogo SVG semântico", () => {
+  assert.match(pagina, /aria-label="Abrir equipamentos"[\s\S]*?name="package"/);
+  assert.match(pagina, /aria-label="Abrir pontos"[\s\S]*?name="mapPin"/);
+  assert.match(pagina, /aria-label="Abrir histórico"[\s\S]*?name="history"/);
+
+  for (const nome of ["tv", "printer", "tablet", "plug", "gift", "tower", "banknote", "terminal", "receipt", "package"]) {
+    assert.match(pagina, new RegExp(`return "${nome}"`));
+  }
 });
 
 test("interface mantém variação operacional por gerente e operador", () => {

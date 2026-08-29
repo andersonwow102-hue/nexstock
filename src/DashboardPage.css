@@ -162,7 +162,7 @@
   font-size: 10.5px;
   font-weight: 650;
   gap: 7px;
-  min-height: 38px;
+  min-height: 40px;
   padding: 7px 9px;
   transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), transform 100ms ease;
 }
@@ -343,7 +343,7 @@
 .dash-cf-position-copy small {
   color: var(--dash-cf-muted);
   font-family: var(--dash-cf-mono);
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.045em;
   overflow: hidden;
@@ -362,7 +362,7 @@
 
 .dash-cf-position-copy > span {
   color: var(--dash-cf-faint);
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.25;
   margin-top: 2px;
   overflow: hidden;
@@ -431,7 +431,7 @@
 .dash-cf-attention-body > span {
   color: var(--dash-cf-faint);
   font-family: var(--dash-cf-mono);
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.055em;
   text-transform: uppercase;
@@ -444,7 +444,7 @@
 
 .dash-cf-attention-body p {
   color: var(--dash-cf-muted);
-  font-size: 9.5px;
+  font-size: 10.5px;
   line-height: 1.35;
   margin: 0;
   overflow: hidden;
@@ -468,7 +468,7 @@
 
 .dash-cf-attention-count span {
   color: var(--dash-cf-faint);
-  font-size: 9px;
+  font-size: 9.5px;
 }
 
 .dash-cf-attention > button {
@@ -479,11 +479,11 @@
   color: var(--dash-cf-copper-high);
   cursor: pointer;
   display: flex;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 700;
   gap: 13px;
   justify-content: space-between;
-  min-height: 38px;
+  min-height: 40px;
   padding: 7px 10px;
 }
 
@@ -599,7 +599,7 @@
 }
 
 .dash-cf-category-name strong {
-  font-size: 10.5px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -713,7 +713,7 @@
 .dash-cf-changes-table th {
   color: var(--dash-cf-faint);
   font-family: var(--dash-cf-mono);
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.05em;
   padding: 7px 6px;
@@ -728,7 +728,7 @@
 .dash-cf-changes-table td {
   border-top: 1px solid var(--dash-cf-line);
   color: var(--dash-cf-muted);
-  font-size: 10px;
+  font-size: 10.5px;
   overflow: hidden;
   padding: 8px 6px;
   text-overflow: ellipsis;
@@ -879,7 +879,7 @@
 
   .dash-cf-shortcuts button {
     justify-content: center;
-    width: 38px;
+    width: 40px;
   }
 
   .dash-cf-canvas {

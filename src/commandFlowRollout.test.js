@@ -36,6 +36,7 @@ const appCss = read("App.css");
 const foundations = read("styles/foundations.css");
 const commandFlowCss = read("styles/command-flow.css");
 const operationsUi = read("components/operations/OperationsUI.jsx");
+const responsiveSheet = read("components/operations/useResponsiveSheet.js");
 const dashboard = read("DashboardPage.jsx");
 const dashboardCss = read("DashboardPage.css");
 const points = read("PointsPage.jsx");
@@ -86,6 +87,7 @@ test("OperationIcon é o catálogo compartilhado e o Dashboard não recria mapas
   for (const icon of [
     "dashboard", "package", "mapPin", "history", "shieldKey", "sun", "moon",
     "database", "logOut", "tv", "printer", "tablet", "banknote", "warning",
+    "minus", "eyeOff",
   ]) {
     assert.match(operationsUi, new RegExp(`\\b${icon}:\\s*<>`), `ícone compartilhado ausente: ${icon}`);
   }
@@ -94,6 +96,55 @@ test("OperationIcon é o catálogo compartilhado e o Dashboard não recria mapas
   assert.doesNotMatch(app, /const\s+(?:APP_)?ICON_PATHS\s*=/);
   assert.match(dashboard, /import \{ OperationIcon \} from "\.\/components\/operations\/OperationsUI\.jsx"/);
   assert.doesNotMatch(dashboard, /(?:DASHBOARD_)?ICON_PATHS|function\s+DashboardIcon|<svg\b/);
+});
+
+test("shell expõe navegação direta, busca global acessível e utilidades hierarquizadas", () => {
+  assertMarkers(app, [
+    "MODULO_PARA_ABA",
+    "ABA_PARA_MODULO",
+    "abaInicialDaUrl",
+    "atualizarUrlDoModulo",
+    'window.addEventListener("popstate"',
+    "perfilCarregado",
+    "abaPermitida",
+    'aba==="logins"&&administrador',
+    'role="search"',
+    'htmlFor="neptera-global-search-input"',
+    'aria-controls="neptera-global-search-results"',
+    'aria-current={aba==="dashboard"?"page":undefined}',
+    "sidebar-close",
+    "abrirForaDoDrawer",
+    "sidebar-utility-theme",
+    "sidebar-utility-danger",
+  ], "Shell navegável");
+  assertMarkers(commandFlowCss, [
+    ".command-flow-shell .busca-topo-control",
+    ".command-flow-shell .busca-topo-resultados",
+    ".command-flow-shell .sidebar-close",
+    ".command-flow-shell .sidebar-utility-theme",
+  ], "Shell CSS");
+  assert.match(commandFlowCss, /@media \(max-width: 1024px\)[\s\S]*?\.command-flow-shell \.busca-topo-resultados \{[\s\S]*?position:\s*static;[\s\S]*?width:\s*100%;/);
+  assert.match(app, /<OperationModal title="Sair do sistema"[\s\S]*?role="alertdialog"/);
+  assert.match(app, /function ModalAlterarSenha[\s\S]*?<OperationModal/);
+  assert.doesNotMatch(app, /gerente-welcome|avatarLendario/);
+  assert.doesNotMatch(appCss, /animation:[^;]*(?:gerente|financeiro|prestacao|pulse-bg|confirmacao)[^;]*infinite/i);
+  assertMarkers(responsiveSheet, [
+    'document.querySelector(".main")',
+    'mainContent.style.overflow = "hidden"',
+    'mainContent.style.overflow = previousMainOverflow || ""',
+  ], "Scroll lock dos painéis responsivos");
+});
+
+test("tema claro global usa superfícies minerais neutras", () => {
+  assertMarkers(foundations, [
+    "--surface-canvas: #f1f3f0",
+    "--surface-navigation: #f7f9f6",
+    "--surface-panel: #ffffff",
+    "--border-subtle: #d2d8d2",
+    "--text-strong: #202622",
+    "--text-muted: #59635b",
+  ], "Tema claro mineral");
+  assert.doesNotMatch(foundations, /--surface-canvas:\s*#f2eee7|--surface-panel:\s*#fffdf8/);
 });
 
 test("Dashboard preserva mesa operacional, drill-downs e escopo visual próprio", () => {
@@ -136,6 +187,8 @@ test("Equipamentos mantém comando compacto, posição, ledger, progressão e do
     "equip-cf-row",
     "equip-cf-flow",
     "equip-cf-dossier",
+    "equip-cf-form-modal",
+    'title="Ficha do equipamento"',
   ], "Equipamentos");
   assertMarkers(commandFlowCss, [
     ".equip-cf-control-line",
@@ -157,15 +210,21 @@ test("Pontos mantém leitura da rede, ledger territorial e dossiê", () => {
     "pcf-master-detail",
     "pcf-records",
     "pcf-dossier",
+    "Modal as OperationModal",
+    "pcf-operation-modal",
+    "blocked={enviando}",
   ], "Pontos");
+  assert.doesNotMatch(points, /<div className="modal-overlay"/, "Pontos não deve recriar overlays modais legados");
   assertMarkers(pointsCss, [
     ".points-command-flow {",
     ".points-command-flow .pcf-command-header",
     ".points-command-flow .pcf-workbench",
     ".points-command-flow .pcf-dossier",
+    ".points-command-flow .pcf-operation-modal",
     "@media (max-width: 900px)",
     "@media (prefers-reduced-motion: reduce)",
   ], "Pontos CSS");
+  assert.match(pointsCss, /@media \(max-width: 760px\)[\s\S]*?\.points-command-flow \.pcf-operation-modal \.so-modal__close[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px;/);
 });
 
 test("Buscar Gerentes preserva seleção, ledgers de responsabilidade e dossiê", () => {
@@ -175,6 +234,7 @@ test("Buscar Gerentes preserva seleção, ledgers de responsabilidade e dossiê"
     "consulta-cf-page",
     "consulta-cf-rail",
     "consulta-cf-manager-list",
+    'aria-label="Buscar gerente"',
     "consulta-cf-position",
     "consulta-cf-points-ledger",
     "consulta-cf-equipment-ledger",
@@ -185,6 +245,9 @@ test("Buscar Gerentes preserva seleção, ledgers de responsabilidade e dossiê"
     ".consulta-cf-rail",
     ".consulta-cf-ledgers",
     ".consulta-cf-dossier",
+    "@media (max-width: 1360px)",
+    "@media (max-width: 720px)",
+    ".consulta-cf-search { display: block; }",
   ], "Buscar Gerentes CSS");
 });
 
@@ -193,6 +256,10 @@ test("Senhas preserva navegação por necessidade, editores, ledger e distribui�
     'aba==="senhas"',
     "senhas-cf-page",
     "senhas-cf-commandline",
+    "senhas-cf-layout",
+    "senhas-cf-filterbar",
+    "filtrosCredenciaisAbertos",
+    "acessosFiltrados",
     'areaAtiva==="credenciais"',
     "senhas-cf-access-editor",
     "senhas-cf-app-editor",
@@ -203,9 +270,13 @@ test("Senhas preserva navegação por necessidade, editores, ledger e distribui�
   assertMarkers(commandFlowCss, [
     ".senhas-cf-page",
     ".senhas-cf-commandline",
+    ".senhas-cf-layout",
+    ".senhas-cf-filterbar",
     ".senhas-cf-workspace",
     ".senhas-cf-access-list",
   ], "Senhas CSS");
+  assert.match(app, /<span>Senha<\/span><input type="password" autoComplete="off"/);
+  assert.match(app, /role=\{erro\?"alert":"status"\}/);
 });
 
 test("Histórico preserva filtros recolhidos, ledger responsivo e dossiê do evento", () => {
@@ -218,13 +289,20 @@ test("Histórico preserva filtros recolhidos, ledger responsivo e dossiê do eve
     "historico-cf-ledger",
     "historico-cf-row",
     "historico-cf-dossier",
+    "historico-cf-backdrop",
+    "dossieHistoricoAberto",
+    "historicoDossieSheet",
+    "data-sheet-autofocus",
   ], "Histórico");
   assertMarkers(commandFlowCss, [
     ".historico-cf-page",
     ".historico-cf-filterbar",
     ".historico-cf-workspace",
     ".historico-cf-dossier",
+    ".historico-cf-backdrop",
+    ".historico-cf-dossier.is-open",
   ], "Histórico CSS");
+  assert.match(app, /useResponsiveSheet\(\{[\s\S]*?mediaQuery:"\(max-width: 800px\)"/);
 });
 
 test("Central de Acessos e Logins compartilham a arquitetura administrativa", () => {
@@ -236,6 +314,11 @@ test("Central de Acessos e Logins compartilham a arquitetura administrativa", ()
     "admin-cf-access-workspace",
     "admin-cf-directory",
     "admin-cf-dossier",
+    "useResponsiveSheet",
+    "data-sheet-autofocus",
+    "admin-cf-password-control",
+    "copiarSenhaCredencial",
+    "senhaAcessoVisivel",
   ], "Central de Acessos");
   assertMarkers(loginManager, [
     'import "./AdminCommandFlow.css"',
@@ -244,6 +327,13 @@ test("Central de Acessos e Logins compartilham a arquitetura administrativa", ()
     "admin-cf-filter-bar",
     "admin-cf-master-detail",
     "admin-cf-dossier",
+    "useResponsiveSheet",
+    "data-sheet-autofocus",
+    "estadoConta",
+    "Temporário",
+    "admin-cf-password-control",
+    "copiarSenhaCredencial",
+    "senhaEdicaoVisivel",
   ], "Gerenciar Logins");
   assertMarkers(adminCss, [
     ".admin-command-flow {",
@@ -251,10 +341,28 @@ test("Central de Acessos e Logins compartilham a arquitetura administrativa", ()
     ".admin-cf-filter-bar",
     ".admin-cf-master-detail",
     ".admin-cf-dossier",
+    ".admin-cf-password-action",
+    ".admin-cf-credential-feedback",
     ".admin-command-flow .login-manager-grid",
     "@media (max-width: 860px)",
     "@media (prefers-reduced-motion: reduce)",
   ], "Admin CSS");
+
+  assertMarkers(responsiveSheet, [
+    "FOCUSABLE_SELECTOR",
+    "matchMedia",
+    'event.key === "Escape"',
+    "previousFocus",
+    "document.documentElement.style.overflow",
+    "inert:",
+  ], "Sheet responsivo compartilhado");
+  assert.doesNotMatch(management, /Senha provisória \*<\/label><input type="text"/);
+  assert.doesNotMatch(loginManager, /(?:Nova senha|Senha provisória|Confirmar senha) \*<\/label><input type="text"/);
+  assert.match(management, /setDossieAberto\(false\);[\s\S]*?setUsuarioAcesso\(item\)/);
+  assert.match(loginManager, /setDossieAberto\(false\);[\s\S]*?setModalSenha\(usuario\)/);
+  assert.match(management, /aria-pressed=\{senha(?:Acesso|Novo)Visivel\}/);
+  assert.match(loginManager, /aria-pressed=\{senha(?:Edicao|Novo)Visivel\}/);
+  assert.match(adminCss, /@media \(max-width: 760px\)[\s\S]*?\.admin-cf-password-action\s*\{[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px;/);
 });
 
 test("Devedores aprovado mantém rail, command bar, ledger e dossiê", () => {

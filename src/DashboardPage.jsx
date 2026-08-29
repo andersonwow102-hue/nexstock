@@ -84,13 +84,16 @@ function iconeCategoria(categoria) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pt-BR");
 
-  if (nome.includes("televis")) return "eye";
-  if (nome.includes("noteiro")) return "money";
-  if (nome.includes("carregador")) return "refresh";
-  if (nome.includes("totem")) return "info";
-  if (nome.includes("brinde")) return "plus";
-  if (nome.includes("terminal") || nome.includes("tablet") || nome.includes("pdv")) return "receipt";
-  return "file";
+  if (nome.includes("televis")) return "tv";
+  if (nome.includes("impressor")) return "printer";
+  if (nome.includes("tablet")) return "tablet";
+  if (nome.includes("carregador")) return "plug";
+  if (nome.includes("brinde")) return "gift";
+  if (nome.includes("totem")) return "tower";
+  if (nome.includes("noteiro")) return "banknote";
+  if (nome.includes("terminal")) return "terminal";
+  if (nome.includes("pdv")) return "receipt";
+  return "package";
 }
 
 function PositionMetric({ animate, detail, icon, label, onClick, tone = "", value }) {
@@ -238,9 +241,9 @@ export default function DashboardPage({
         </div>
 
         <nav aria-label="Atalhos do Dashboard" className="dash-cf-shortcuts">
-          <button aria-label="Abrir equipamentos" onClick={onAbrirEquipamentos} title="Equipamentos" type="button"><OperationIcon name="file"/><span>Equipamentos</span></button>
-          <button aria-label="Abrir pontos" onClick={onAbrirPontos} title="Pontos" type="button"><OperationIcon name="info"/><span>Pontos</span></button>
-          <button aria-label="Abrir histórico" onClick={onAbrirHistorico} title="Histórico" type="button"><OperationIcon name="clock"/><span>Histórico</span></button>
+          <button aria-label="Abrir equipamentos" onClick={onAbrirEquipamentos} title="Equipamentos" type="button"><OperationIcon name="package"/><span>Equipamentos</span></button>
+          <button aria-label="Abrir pontos" onClick={onAbrirPontos} title="Pontos" type="button"><OperationIcon name="mapPin"/><span>Pontos</span></button>
+          <button aria-label="Abrir histórico" onClick={onAbrirHistorico} title="Histórico" type="button"><OperationIcon name="history"/><span>Histórico</span></button>
         </nav>
 
         <div className="dash-cf-profile" aria-label={`Perfil atual: ${rotuloPerfil(perfilAtual.perfil)}`}>

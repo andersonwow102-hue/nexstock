@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { gerenciarLogins } from "./db.js";
 import { GERENTES } from "./pointsData.js";
-import { FilterBar, OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { FilterBar, Modal, OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { useResponsiveSheet } from "./components/operations/useResponsiveSheet.js";
 import "./AdminCommandFlow.css";
 
 const perfisDisponiveis = [
@@ -81,7 +82,14 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
   const [formSenha, setFormSenha] = useState({ email: "", loginNome: "", senha: "", confirmar: "" });
   const [modalNovo, setModalNovo] = useState(false);
   const [formNovo, setFormNovo] = useState({ email: "", loginNome: "", perfil: "consulta", gerenteNome: "", senha: "", confirmar: "", emailTemporario: false });
+  const [senhaEdicaoVisivel, setSenhaEdicaoVisivel] = useState(false);
+  const [senhaNovoVisivel, setSenhaNovoVisivel] = useState(false);
+  const [feedbackCredencial, setFeedbackCredencial] = useState(null);
   const administrador = perfilAtual?.perfil === "administrador";
+  const { panelProps: dossieProps, backdropProps: dossieBackdropProps } = useResponsiveSheet({
+    open: dossieAberto,
+    onClose: () => setDossieAberto(false),
+  });
 
   async function carregar() {
     if (!administrador) return;
@@ -120,15 +128,6 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
     setUsuarioSelecionado(atual => usuarios.find(usuario => usuario.userId === atual?.userId) || usuarios[0]);
   }, [usuarios]);
 
-  useEffect(() => {
-    if (!dossieAberto) return undefined;
-    const fecharComEscape = event => {
-      if (event.key === "Escape") setDossieAberto(false);
-    };
-    window.addEventListener("keydown", fecharComEscape);
-    return () => window.removeEventListener("keydown", fecharComEscape);
-  }, [dossieAberto]);
-
   async function alterarPerfil(usuario, perfil, gerenteNome = usuario.gerenteNome || "") {
     try {
       const gerenteFinal = perfil === "gerente" ? gerenteNome : "";
@@ -160,16 +159,47 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
 
   function abrirSenha(usuario, gerar = false) {
     const senha = gerar ? senhaAleatoria() : "";
+    setDossieAberto(false);
     setModalSenha(usuario);
     setFormSenha({ email: usuario.email || "", loginNome: usuario.loginNome || "", senha, confirmar: senha });
+    setSenhaEdicaoVisivel(false);
+    setFeedbackCredencial(null);
     setErro("");
   }
 
   function abrirNovoLogin() {
     const senha = senhaAleatoria();
+    setDossieAberto(false);
     setFormNovo({ email: "", loginNome: "", perfil: "consulta", gerenteNome: "", senha, confirmar: senha, emailTemporario: false });
+    setSenhaNovoVisivel(false);
+    setFeedbackCredencial(null);
     setErro("");
     setModalNovo(true);
+  }
+
+  function fecharModalSenha() {
+    setModalSenha(null);
+    setSenhaEdicaoVisivel(false);
+    setFeedbackCredencial(null);
+  }
+
+  function fecharModalNovo() {
+    setModalNovo(false);
+    setSenhaNovoVisivel(false);
+    setFeedbackCredencial(null);
+  }
+
+  async function copiarSenhaCredencial(senha) {
+    if (!senha) {
+      setFeedbackCredencial({ tipo: "erro", texto: "Informe ou gere uma senha antes de copiar." });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(senha);
+      setFeedbackCredencial({ tipo: "sucesso", texto: "Senha copiada. O valor não será exibido nesta mensagem." });
+    } catch {
+      setFeedbackCredencial({ tipo: "erro", texto: "Não foi possível copiar a senha neste navegador." });
+    }
   }
 
   function alternarEmailTemporario() {
@@ -204,7 +234,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
         emailTemporario: formNovo.emailTemporario,
       });
       setMensagem(resposta.mensagem || "Novo login criado.");
-      setModalNovo(false);
+      fecharModalNovo();
       await carregar();
     } catch (e) {
       setErro(`Não foi possível criar o login: ${e.message}`);
@@ -228,7 +258,7 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
         novaSenha: formSenha.senha,
       });
       setMensagem(resposta.mensagem || "Acesso atualizado.");
-      setModalSenha(null);
+      fecharModalSenha();
       await carregar();
     } catch (e) {
       setErro(`Não foi possível atualizar o acesso: ${e.message}`);
@@ -330,26 +360,30 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
             <div className="admin-cf-state admin-cf-state--compact"><OperationIcon name="search" size={20} /><strong>Nenhum login encontrado</strong><p>Revise a busca ou os filtros.</p></div>
           ) : (
             <div className="login-users-list">
-              {usuariosFiltrados.map(usuario => (
+              {usuariosFiltrados.map(usuario => {
+                const estadoConta = usuario.bloqueado ? "blocked" : usuario.emailTemporario ? "temporary" : "active";
+                const estadoLabel = usuario.bloqueado ? "Bloqueado" : usuario.emailTemporario ? "Temporário" : "Ativo";
+                return (
                 <article key={usuario.userId} className={`login-user-card ${usuarioSelecionado?.userId === usuario.userId ? "ativo" : ""} ${usuario.bloqueado ? "bloqueado" : ""}`}>
                   <button className="login-user-main" type="button" aria-pressed={usuarioSelecionado?.userId === usuario.userId} onClick={() => { setUsuarioSelecionado(usuario); setDossieAberto(true); }}>
                     <span className="login-avatar">{(usuario.email || "?").slice(0, 1).toUpperCase()}</span>
                     <span className="login-user-copy">
-                      <strong>{usuario.email}</strong>
-                      <small>Login: {usuario.loginNome || "não definido"}{usuario.perfil === "gerente" && usuario.gerenteNome ? ` · ${usuario.gerenteNome}` : ""}</small>
+                      <strong>{usuario.nome || usuario.loginNome || usuario.email}</strong>
+                      <small>{usuario.loginNome || "login não definido"} · {usuario.email}{usuario.perfil === "gerente" && usuario.gerenteNome ? ` · ${usuario.gerenteNome}` : ""}</small>
                     </span>
                     <span className={`admin-cf-profile admin-cf-profile--${usuario.perfil}`}>{perfisDisponiveis.find(perfil => perfil.valor === usuario.perfil)?.label || usuario.perfil}</span>
-                    <span className={`admin-cf-status ${usuario.bloqueado ? "admin-cf-status--blocked" : "admin-cf-status--active"}`}><i />{usuario.bloqueado ? "Bloqueado" : "Ativo"}</span>
+                    <span className={`admin-cf-status admin-cf-status--${estadoConta}`}><i />{estadoLabel}</span>
                     <OperationIcon name="arrowRight" size={15} />
                   </button>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        <button className={`admin-cf-sheet-backdrop ${dossieAberto ? "is-open" : ""}`} type="button" aria-label="Fechar dossiê" onClick={() => setDossieAberto(false)} />
-        <aside className={`login-detail admin-cf-panel admin-cf-dossier ${dossieAberto ? "is-open" : ""}`} aria-label="Dossiê do login selecionado">
+        <button {...dossieBackdropProps} className={`admin-cf-sheet-backdrop ${dossieAberto ? "is-open" : ""}`} />
+        <aside {...dossieProps} className={`login-detail admin-cf-panel admin-cf-dossier ${dossieAberto ? "is-open" : ""}`} aria-label="Dossiê do login selecionado">
           {!usuarioSelecionado ? (
             <div className="admin-cf-state admin-cf-state--dossier">
               <span><OperationIcon name="lock" size={22} /></span>
@@ -360,12 +394,12 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
             <>
               <div className="login-detail-header">
                 <span className="login-avatar login-detail-avatar">{(usuarioSelecionado.email || "?").slice(0, 1).toUpperCase()}</span>
-                <div><span className="admin-cf-section-code">Identidade selecionada</span><h2>{usuarioSelecionado.email}</h2><small>{usuarioSelecionado.loginNome || "Login não definido"}</small></div>
+                <div><span className="admin-cf-section-code">Identidade selecionada</span><h2>{usuarioSelecionado.nome || usuarioSelecionado.loginNome || usuarioSelecionado.email}</h2><small>{usuarioSelecionado.loginNome || "Login não definido"} · {usuarioSelecionado.email}</small></div>
                 <span className={`admin-cf-profile admin-cf-profile--${usuarioSelecionado.perfil}`}>{usuarioSelecionado.perfil}</span>
-                <button type="button" className="admin-cf-icon-button admin-cf-sheet-close" onClick={() => setDossieAberto(false)} aria-label="Fechar dossiê"><OperationIcon name="close" size={17} /></button>
+                <button type="button" className="admin-cf-icon-button admin-cf-sheet-close" data-sheet-autofocus="true" onClick={() => setDossieAberto(false)} aria-label="Fechar dossiê"><OperationIcon name="close" size={17} /></button>
               </div>
               <div className="login-stats">
-                <article><small>Status</small><strong className={usuarioSelecionado.bloqueado ? "admin-cf-text-danger" : "admin-cf-text-success"}>{usuarioSelecionado.bloqueado ? "Bloqueado" : "Ativo"}</strong></article>
+                <article><small>Status</small><strong className={usuarioSelecionado.bloqueado ? "admin-cf-text-danger" : "admin-cf-text-success"}>{usuarioSelecionado.bloqueado ? "Bloqueado" : usuarioSelecionado.emailTemporario ? "Temporário" : "Ativo"}</strong></article>
                 <article><small>Login de entrada</small><strong>{usuarioSelecionado.loginNome || "Não definido"}</strong></article>
                 <article><small>Gerente vinculado</small><strong>{usuarioSelecionado.perfil === "gerente" ? usuarioSelecionado.gerenteNome || "Não vinculado" : "Não se aplica"}</strong></article>
                 <article><small>E-mail temporário</small><strong>{usuarioSelecionado.emailTemporario ? `Sim · ${diasRestantes(usuarioSelecionado.emailTemporarioExpiraEm)}` : "Não"}</strong></article>
@@ -423,36 +457,34 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
       </section>
 
       {modalSenha && (
-        <div className="modal-overlay admin-cf-modal-layer">
-          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="login-edit-title" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><div><span className="admin-cf-section-code">Credencial protegida</span><h3 id="login-edit-title">Editar acesso</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setModalSenha(null)} aria-label="Fechar edição de acesso"><OperationIcon name="close" size={18} /></button></div>
+        <Modal open title="Editar acesso" subtitle="Credencial protegida" onClose={fecharModalSenha} size="sm" className="admin-cf-modal" overlayClassName="admin-cf-modal-layer">
             <form onSubmit={salvarSenha}>
               <div className="modal-body">
                 <p className="senha-texto">Usuário: <strong>{modalSenha.email}</strong>. Como administrador, você pode trocar o e-mail e definir uma nova senha.</p>
                 {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
+                {feedbackCredencial && <div className={`admin-cf-credential-feedback ${feedbackCredencial.tipo === "erro" ? "is-error" : ""}`} role={feedbackCredencial.tipo === "erro" ? "alert" : "status"}><OperationIcon name={feedbackCredencial.tipo === "erro" ? "warning" : "check"} size={16} /><span>{feedbackCredencial.texto}</span></div>}
                 <div className="campo"><label>Login de entrada *</label><input type="text" value={formSenha.loginNome} onChange={e => setFormSenha({ ...formSenha, loginNome: e.target.value.toLowerCase() })} /></div>
                 <div className="campo"><label>E-mail de login *</label><input type="email" value={formSenha.email} onChange={e => setFormSenha({ ...formSenha, email: e.target.value })} /></div>
-                <div className="campo"><label>Nova senha *</label><input type="text" value={formSenha.senha} onChange={e => setFormSenha({ ...formSenha, senha: e.target.value })} /></div>
-                <div className="campo"><label>Confirmar senha *</label><input type="text" value={formSenha.confirmar} onChange={e => setFormSenha({ ...formSenha, confirmar: e.target.value })} /></div>
+                <div className="campo"><label htmlFor="login-manager-edit-password">Nova senha *</label><div className="admin-cf-password-control"><input id="login-manager-edit-password" type={senhaEdicaoVisivel ? "text" : "password"} autoComplete="new-password" value={formSenha.senha} onChange={e => { setFeedbackCredencial(null); setFormSenha({ ...formSenha, senha: e.target.value }); }} /><span className="admin-cf-password-actions"><button type="button" className="admin-cf-password-action" aria-label={senhaEdicaoVisivel ? "Ocultar nova senha" : "Revelar nova senha"} aria-pressed={senhaEdicaoVisivel} onClick={() => setSenhaEdicaoVisivel(visivel => !visivel)}><OperationIcon name={senhaEdicaoVisivel ? "eyeOff" : "eye"} size={16} /></button><button type="button" className="admin-cf-password-action" aria-label="Copiar nova senha" disabled={!formSenha.senha} onClick={() => copiarSenhaCredencial(formSenha.senha)}><OperationIcon name="copy" size={16} /></button></span></div></div>
+                <div className="campo"><label>Confirmar senha *</label><input type={senhaEdicaoVisivel ? "text" : "password"} autoComplete="new-password" value={formSenha.confirmar} onChange={e => setFormSenha({ ...formSenha, confirmar: e.target.value })} /></div>
                 <button type="button" className="btn-secundario" onClick={() => {
                   const senha = senhaAleatoria();
+                  setFeedbackCredencial(null);
                   setFormSenha(prev => ({ ...prev, senha, confirmar: senha }));
                 }}><OperationIcon name="refresh" size={15} />Gerar outra senha provisória</button>
               </div>
-              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalSenha(null)}>Cancelar</button><button type="submit" className="btn-primario">Salvar acesso</button></div>
+              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={fecharModalSenha}>Cancelar</button><button type="submit" className="btn-primario">Salvar acesso</button></div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {modalNovo && (
-        <div className="modal-overlay admin-cf-modal-layer">
-          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="login-new-title" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><div><span className="admin-cf-section-code">Nova identidade</span><h3 id="login-new-title">Novo login</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setModalNovo(false)} aria-label="Fechar criação de login"><OperationIcon name="close" size={18} /></button></div>
+        <Modal open title="Novo login" subtitle="Nova identidade" onClose={fecharModalNovo} size="sm" className="admin-cf-modal" overlayClassName="admin-cf-modal-layer">
             <form onSubmit={criarLogin}>
               <div className="modal-body">
                 <p className="senha-texto">Crie um acesso novo para sócio ou funcionário. Você pode usar um e-mail interno do app quando não precisar de recuperação por caixa de entrada.</p>
                 {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
+                {feedbackCredencial && <div className={`admin-cf-credential-feedback ${feedbackCredencial.tipo === "erro" ? "is-error" : ""}`} role={feedbackCredencial.tipo === "erro" ? "alert" : "status"}><OperationIcon name={feedbackCredencial.tipo === "erro" ? "warning" : "check"} size={16} /><span>{feedbackCredencial.texto}</span></div>}
                 <div className="campo">
                   <label>E-mail de login *</label>
                   <input type="email" placeholder="socio@gmail.com" value={formNovo.email} readOnly={formNovo.emailTemporario} onChange={e => setFormNovo(prev => ({ ...prev, email: e.target.value, emailTemporario: false, loginNome: prev.loginNome || gerarLoginSugerido(prev.perfil, prev.gerenteNome, e.target.value) }))} autoFocus />
@@ -477,17 +509,17 @@ export default function LoginManagerPage({ perfilAtual, historico = [], historic
                     {GERENTES.map(g => <option key={g} value={g}>{g}</option>)}
                   </select></div>
                 )}
-                <div className="campo"><label>Senha provisória *</label><input type="text" value={formNovo.senha} onChange={e => setFormNovo({ ...formNovo, senha: e.target.value })} /></div>
-                <div className="campo"><label>Confirmar senha *</label><input type="text" value={formNovo.confirmar} onChange={e => setFormNovo({ ...formNovo, confirmar: e.target.value })} /></div>
+                <div className="campo"><label htmlFor="login-manager-new-password">Senha provisória *</label><div className="admin-cf-password-control"><input id="login-manager-new-password" type={senhaNovoVisivel ? "text" : "password"} autoComplete="new-password" value={formNovo.senha} onChange={e => { setFeedbackCredencial(null); setFormNovo({ ...formNovo, senha: e.target.value }); }} /><span className="admin-cf-password-actions"><button type="button" className="admin-cf-password-action" aria-label={senhaNovoVisivel ? "Ocultar senha provisória" : "Revelar senha provisória"} aria-pressed={senhaNovoVisivel} onClick={() => setSenhaNovoVisivel(visivel => !visivel)}><OperationIcon name={senhaNovoVisivel ? "eyeOff" : "eye"} size={16} /></button><button type="button" className="admin-cf-password-action" aria-label="Copiar senha provisória" disabled={!formNovo.senha} onClick={() => copiarSenhaCredencial(formNovo.senha)}><OperationIcon name="copy" size={16} /></button></span></div></div>
+                <div className="campo"><label>Confirmar senha *</label><input type={senhaNovoVisivel ? "text" : "password"} autoComplete="new-password" value={formNovo.confirmar} onChange={e => setFormNovo({ ...formNovo, confirmar: e.target.value })} /></div>
                 <button type="button" className="btn-secundario" onClick={() => {
                   const senha = senhaAleatoria();
+                  setFeedbackCredencial(null);
                   setFormNovo(prev => ({ ...prev, senha, confirmar: senha }));
                 }}><OperationIcon name="refresh" size={15} />Gerar outra senha provisória</button>
               </div>
-              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalNovo(false)}>Cancelar</button><button type="submit" className="btn-primario">Criar login</button></div>
+              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={fecharModalNovo}>Cancelar</button><button type="submit" className="btn-primario">Criar login</button></div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

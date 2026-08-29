@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  GERENTES, GERENTE_CORES, MODALIDADES, ROTAS, ROTAS_POR_GERENTE,
+  GERENTES, MODALIDADES, ROTAS, ROTAS_POR_GERENTE,
   formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto,
   gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotasPermitidasDoPerfil,
 } from "./pointsData.js";
@@ -12,7 +12,7 @@ import {
   carregarSolicitacoesStatusPonto, solicitarDesativacaoPonto, decidirDesativacaoPonto, reativarPonto,
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
-import { EmptyState, FilterBar, OperationIcon, Pagination, StatusBadge } from "./components/operations/OperationsUI.jsx";
+import { EmptyState, FilterBar, Modal as OperationModal, OperationIcon, Pagination, StatusBadge } from "./components/operations/OperationsUI.jsx";
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, isManagerExpense } from "./expenseScope.js";
 import "./PointsCommandFlow.css";
@@ -124,10 +124,8 @@ function acessosDoPonto(acessos=[], pontoId) {
 
 export function BadgeGerente({ gerente }) {
   const rota = rotaCanonica(gerente);
-  const c = GERENTE_CORES[rota] || { bg:"rgba(107,122,153,0.15)", color:"#6b7a99", border:"rgba(107,122,153,0.3)" };
   return (
-    <span className="pcf-route-badge" style={{ display:"inline-block", background:c.bg, color:c.color, border:`1px solid ${c.border}`,
-      fontSize:"11px", fontWeight:700, padding:"3px 10px", borderRadius:"20px", whiteSpace:"nowrap" }}>
+    <span className="pcf-route-badge">
       {rota || gerente}
     </span>
   );
@@ -341,17 +339,24 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
   }
 
   return (
-    <div className="modal-overlay">
-      <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{ponto?"Editar Ponto":"Novo Ponto"}</h3>
-          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar formulário"><OperationIcon name="close"/></button>
-        </div>
-        <div className="modal-body">
+    <OperationModal
+      open
+      title={ponto?"Editar Ponto":"Novo Ponto"}
+      onClose={onFechar}
+      closeLabel="Fechar formulário"
+      closeOnBackdrop={false}
+      size="lg"
+      className="pcf-operation-modal modal-largo"
+      overlayClassName="pcf-operation-modal-overlay"
+      footer={<>
+        <button className="btn-secundario" type="button" onClick={onFechar}>Cancelar</button>
+        <button className="btn-primario" type="button" onClick={salvar}>{ponto?"Salvar Alterações":"Adicionar Ponto"}</button>
+      </>}
+    >
           {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
           <div className="campos-duplos">
             <div className="campo"><label>Nome Fantasia *</label>
-              <input type="text" placeholder="Ex: BAR DO ZÉ" value={form.nomeFantasia} onChange={e=>setForm({...form,nomeFantasia:e.target.value.toLocaleUpperCase("pt-BR")})}/></div>
+              <input type="text" data-so-autofocus="true" placeholder="Ex: BAR DO ZÉ" value={form.nomeFantasia} onChange={e=>setForm({...form,nomeFantasia:e.target.value.toLocaleUpperCase("pt-BR")})}/></div>
             <div className="campo"><label>Nome do Dono *</label>
               <input type="text" placeholder="Ex: José Silva" value={form.nomeDono} onChange={e=>setForm({...form,nomeDono:e.target.value})}/></div>
           </div>
@@ -464,13 +469,7 @@ export function PointFormModal({ ponto, pontos=[], equipamentos=[], perfilAtual,
           )}
           <div className="campo"><label>Observação</label>
             <textarea placeholder="Informações adicionais..." rows={2} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})}/></div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn-secundario" onClick={onFechar}>Cancelar</button>
-          <button className="btn-primario" onClick={salvar}>{ponto?"Salvar Alterações":"Adicionar Ponto"}</button>
-        </div>
-      </div>
-    </div>
+    </OperationModal>
   );
 }
 
@@ -488,16 +487,18 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
   }
 
   return (
-    <div className="modal-overlay">
-      <div className="modal modal-medio ponto-acessos-modal" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <h3>Acessos do ponto</h3>
-            <p>{ponto.nomeFantasia}</p>
-          </div>
-          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar acessos"><OperationIcon name="close"/></button>
-        </div>
-        <div className="modal-body">
+    <OperationModal
+      open
+      title="Acessos do ponto"
+      subtitle={ponto.nomeFantasia}
+      onClose={onFechar}
+      closeLabel="Fechar acessos"
+      closeOnBackdrop={false}
+      size="md"
+      className="pcf-operation-modal ponto-acessos-modal"
+      overlayClassName="pcf-operation-modal-overlay"
+      footer={<button className="btn-primario" type="button" data-so-autofocus="true" onClick={onFechar}>Fechar</button>}
+    >
           {acessos.length===0
             ?<div className="info-box">Nenhum acesso cadastrado para as modalidades deste ponto.</div>
             :<div className="ponto-acessos-lista">
@@ -526,12 +527,7 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
                 );
               })}
             </div>}
-        </div>
-        <div className="modal-footer">
-          <button className="btn-primario" onClick={onFechar}>Fechar</button>
-        </div>
-      </div>
-    </div>
+    </OperationModal>
   );
 }
 
@@ -592,10 +588,16 @@ function PointExpensesModal({ pontos, despesas = [], competenciaInicial = compet
     setSituacaoSelecionada("com");
   };
   return (
-    <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-largo modal-despesas-pontos" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header"><h3><OperationIcon name="money"/>Despesas dos pontos</h3><button className="modal-fechar" onClick={onFechar} aria-label="Fechar despesas"><OperationIcon name="close"/></button></div>
-        <div className="modal-body">
+    <OperationModal
+      open
+      title={<><OperationIcon name="money"/>Despesas dos pontos</>}
+      onClose={onFechar}
+      closeLabel="Fechar despesas"
+      size="lg"
+      className="pcf-operation-modal modal-despesas-pontos"
+      overlayClassName="pcf-operation-modal-overlay"
+      footer={<button className="btn-primario" type="button" data-so-autofocus="true" onClick={onFechar}>Fechar</button>}
+    >
           {permitirSelecionarCompetencia&&(
             <label className="despesas-competencia-filtro">
               <span>Mês de referência</span>
@@ -677,10 +679,7 @@ function PointExpensesModal({ pontos, despesas = [], competenciaInicial = compet
               </div>
             </>
           )}
-        </div>
-        <div className="modal-footer"><button className="btn-primario" onClick={onFechar}>Fechar</button></div>
-      </div>
-    </div>
+    </OperationModal>
   );
 }
 
@@ -727,6 +726,9 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [pagina, setPagina] = useState(1);
   const [pontoSelecionadoId, setPontoSelecionadoId] = useState(null);
+  const [dossieEmSheet, setDossieEmSheet] = useState(()=>typeof window!=="undefined"&&window.matchMedia?.("(max-width: 1024px)").matches);
+  const dossieRef = useRef(null);
+  const focoAntesDossieRef = useRef(null);
   const POR_PAGINA=25;
   const filtrados = pontos.filter(p=>{
     const q=busca.toLowerCase();
@@ -740,6 +742,14 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
   const paginaAtual=Math.min(pagina,totalPaginas);
   const visiveis=ordenados.slice((paginaAtual-1)*POR_PAGINA,paginaAtual*POR_PAGINA);
   useEffect(()=>setPagina(1),[busca,filtroGerente,filtroDespesa]);
+  useEffect(()=>{
+    if(typeof window==="undefined"||!window.matchMedia)return undefined;
+    const consulta=window.matchMedia("(max-width: 1024px)");
+    const atualizar=()=>setDossieEmSheet(consulta.matches);
+    atualizar();
+    consulta.addEventListener?.("change",atualizar);
+    return()=>consulta.removeEventListener?.("change",atualizar);
+  },[]);
   const dadosOperacionais = ponto => {
     const vinculados=equipamentos.filter(i=>i.localizacao===ponto.nomeFantasia);
     const bloqueadas=modalidadesBloqueadasDoPonto(ponto, solicitacoes);
@@ -767,40 +777,83 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
   </>:null;
 
   useEffect(()=>{
-    if(!pontoSelecionadoId||!window.matchMedia?.("(max-width: 680px)").matches)return undefined;
-    const trigger=document.querySelector(`[data-ponto-id="${pontoSelecionadoId}"]`);
+    if(!pontoSelecionadoId||!dossieEmSheet)return undefined;
+    const painel=dossieRef.current;
+    if(!painel)return undefined;
+    const trigger=focoAntesDossieRef.current||document.querySelector(`[data-ponto-id="${pontoSelecionadoId}"]`);
+    const seletor='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focaveis=()=>Array.from(painel.querySelectorAll(seletor)).filter(elemento=>elemento.getClientRects().length>0);
     const overflowAnterior=document.documentElement.style.overflow;
+    const conteudoPrincipal=document.querySelector(".main");
+    const overflowPrincipalAnterior=conteudoPrincipal?.style.overflow;
     document.documentElement.style.overflow="hidden";
-    const frame=window.requestAnimationFrame(()=>document.querySelector(".points-command-flow .pcf-dossier:not(.pcf-dossier--empty)")?.focus({preventScroll:true}));
-    const fecharComEscape=event=>{
-      if(event.key==="Escape")setPontoSelecionadoId(null);
-    };
-    document.addEventListener("keydown",fecharComEscape);
+    if(conteudoPrincipal)conteudoPrincipal.style.overflow="hidden";
+    const frame=window.requestAnimationFrame(()=>{
+      const alvo=painel.querySelector("[data-pcf-dossier-autofocus='true']")||focaveis()[0]||painel;
+      alvo.focus({preventScroll:true});
+    });
+    function controlarTeclado(event){
+      if(event.key==="Escape"){
+        event.preventDefault();
+        event.stopPropagation();
+        setPontoSelecionadoId(null);
+        return;
+      }
+      if(event.key!=="Tab")return;
+      const itens=focaveis();
+      if(!itens.length){event.preventDefault();painel.focus({preventScroll:true});return;}
+      const primeiro=itens[0];
+      const ultimo=itens[itens.length-1];
+      const ativo=document.activeElement;
+      if(event.shiftKey&&(ativo===primeiro||!painel.contains(ativo))){event.preventDefault();ultimo.focus({preventScroll:true});}
+      else if(!event.shiftKey&&(ativo===ultimo||!painel.contains(ativo))){event.preventDefault();primeiro.focus({preventScroll:true});}
+    }
+    document.addEventListener("keydown",controlarTeclado);
     return()=>{
       window.cancelAnimationFrame(frame);
-      document.removeEventListener("keydown",fecharComEscape);
+      document.removeEventListener("keydown",controlarTeclado);
       document.documentElement.style.overflow=overflowAnterior;
+      if(conteudoPrincipal)conteudoPrincipal.style.overflow=overflowPrincipalAnterior||"";
+      focoAntesDossieRef.current=null;
       if(trigger?.isConnected)window.requestAnimationFrame(()=>trigger.focus({preventScroll:true}));
     };
-  },[pontoSelecionadoId]);
+  },[dossieEmSheet,pontoSelecionadoId]);
+  function selecionarPonto(ponto,gatilho){
+    if(dossieEmSheet)focoAntesDossieRef.current=gatilho instanceof HTMLElement?gatilho:document.activeElement;
+    setPontoSelecionadoId(ponto.id);
+  }
+  function fecharDossie(){setPontoSelecionadoId(null);}
+  function executarAcaoDossie(acao){
+    if(!dossieEmSheet){acao();return;}
+    const gatilho=focoAntesDossieRef.current;
+    focoAntesDossieRef.current=null;
+    setPontoSelecionadoId(null);
+    window.requestAnimationFrame(()=>{
+      if(gatilho instanceof HTMLElement&&gatilho.isConnected)gatilho.focus({preventScroll:true});
+      acao();
+    });
+  }
 
   return (
     <section className="pcf-workbench" aria-labelledby="pcf-ledger-title">
       <FilterBar
         className="pcf-filter-command"
+        ariaHidden={dossieEmSheet&&pontoSelecionado?"true":undefined}
+        inert={dossieEmSheet&&pontoSelecionado?true:undefined}
         title={null}
         ariaLabel="Busca e filtros da rede de pontos"
-        primary={<label className="pcf-command-search">
-          <span className="pcf-visually-hidden">Buscar pontos</span>
+        primary={<div className="pcf-command-search">
+          <label className="pcf-visually-hidden" htmlFor="pcf-point-search-input">Buscar pontos</label>
           <OperationIcon name="search" size={17}/>
           <input
+            id="pcf-point-search-input"
             type="search"
             placeholder="Buscar ponto, responsável, telefone, rota ou equipamento"
             value={busca}
             onChange={e=>onBuscaChange(e.target.value)}
           />
           {busca&&<button type="button" onClick={onLimparBusca} aria-label="Limpar busca"><OperationIcon name="close" size={15}/></button>}
-        </label>}
+        </div>}
         secondary={<>
           <label className="pcf-select-control">
             <span>Rota</span>
@@ -827,7 +880,7 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
         chips={chipsFiltros}
       />
 
-      <header className="pcf-ledger-toolbar">
+      <header className="pcf-ledger-toolbar" aria-hidden={dossieEmSheet&&pontoSelecionado?"true":undefined} inert={dossieEmSheet&&pontoSelecionado?true:undefined}>
         <div>
           <span className="pcf-eyebrow">Rede operacional</span>
           <h2 id="pcf-ledger-title">Pontos encontrados<span>{filtrados.length}</span></h2>
@@ -848,7 +901,7 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
         />
       ) : (
         <div className="pcf-master-detail">
-          <div className="pcf-master-pane">
+          <div className="pcf-master-pane" inert={dossieEmSheet&&pontoSelecionado?true:undefined} aria-hidden={dossieEmSheet&&pontoSelecionado?"true":undefined}>
             <div className={`pcf-ledger-columns ${mostrarDespesas?"has-expense":""}`} aria-hidden="true">
               <span>Ponto / responsável</span><span>Rota</span><span>Serviços</span><span>Equip.</span>{mostrarDespesas&&<span>Despesa</span>}<span>Situação</span>
             </div>
@@ -863,7 +916,8 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
                   data-ponto-id={p.id}
                   className={`pcf-record ${mostrarDespesas?"has-expense":""} ${selecionadoAtual?"is-selected":""} ${dados.desativado?"is-disabled":""}`}
                   aria-pressed={selecionadoAtual}
-                  onClick={()=>setPontoSelecionadoId(p.id)}
+                  aria-haspopup={dossieEmSheet?"dialog":undefined}
+                  onClick={event=>selecionarPonto(p,event.currentTarget)}
                 >
                   <span className="pcf-record-identity"><strong>{p.nomeFantasia}<PlayBetBadge ponto={p}/></strong><small>{p.nomeDono} · {p.telefone}</small></span>
                   <span><BadgeGerente gerente={p.gerente}/></span>
@@ -880,16 +934,16 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
             {filtrados.length>POR_PAGINA&&<Pagination page={paginaAtual} totalPages={totalPaginas} totalItems={filtrados.length} itemLabel="pontos" onPageChange={setPagina} className="pcf-pagination"/>}
           </div>
 
-          {pontoSelecionado&&selecionado&&<button type="button" className="pcf-dossier-backdrop" aria-label="Fechar dossiê" onClick={()=>setPontoSelecionadoId(null)}/>}
-          {pontoSelecionado&&selecionado?<aside className="pcf-dossier" aria-label={`Dossiê de ${pontoSelecionado.nomeFantasia}`} tabIndex={-1} onKeyDown={event=>{if(event.key==="Escape")setPontoSelecionadoId(null);}}>
+          {dossieEmSheet&&pontoSelecionado&&selecionado&&<button type="button" className="pcf-dossier-backdrop" tabIndex={-1} aria-label="Fechar dossiê" onClick={fecharDossie}/>}
+          {pontoSelecionado&&selecionado?<aside ref={dossieRef} className="pcf-dossier" role={dossieEmSheet?"dialog":undefined} aria-modal={dossieEmSheet?"true":undefined} aria-labelledby="pcf-dossier-title" tabIndex={dossieEmSheet?-1:undefined}>
             <header className="pcf-dossier-header">
               <div className="pcf-dossier-monogram" aria-hidden="true">{String(pontoSelecionado.nomeFantasia||"P").trim().slice(0,2)}</div>
               <div>
                 <span className="pcf-eyebrow">Dossiê do ponto</span>
-                <h3>{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3>
+                <h3 id="pcf-dossier-title">{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3>
                 <BadgeGerente gerente={pontoSelecionado.gerente}/>
               </div>
-              <button type="button" className="pcf-dossier-close" onClick={()=>setPontoSelecionadoId(null)} aria-label="Fechar dossiê"><OperationIcon name="close" size={16}/></button>
+              <button type="button" className="pcf-dossier-close" data-pcf-dossier-autofocus="true" onClick={fecharDossie} aria-label="Fechar dossiê"><OperationIcon name="close" size={18}/></button>
             </header>
 
             <div className="pcf-dossier-status">
@@ -930,13 +984,13 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
             </section>
 
             <div className="pcf-dossier-actions" aria-label="Ações do ponto">
-              {selecionado.totalAcessos>0&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onVerAcessos?.(pontoSelecionado)}><OperationIcon name="lock"/>Acessos ({selecionado.totalAcessos})</button>}
-              {podeSolicitarModalidade&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onSolicitarModalidade(pontoSelecionado)}><OperationIcon name="warning"/>Bloquear / liberar</button>}
-              {podeEditarDespesas&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onDespesas(pontoSelecionado)}><OperationIcon name="money"/>Despesas</button>}
-              {podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>onEditar(pontoSelecionado)}><OperationIcon name="edit"/>Editar</button>}
-              {podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>onSolicitarDesativacao(pontoSelecionado)}><OperationIcon name="clock"/>Solicitar desativação</button>}
-              {podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>onReativar(pontoSelecionado)}><OperationIcon name="refresh"/>Reativar ponto</button>}
-              {podeExcluir&&<button type="button" className="pcf-button pcf-button--danger" onClick={()=>onExcluir(pontoSelecionado.id)}><OperationIcon name="trash"/>Excluir ponto</button>}
+              {selecionado.totalAcessos>0&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onVerAcessos?.(pontoSelecionado))}><OperationIcon name="lock"/>Acessos ({selecionado.totalAcessos})</button>}
+              {podeSolicitarModalidade&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onSolicitarModalidade(pontoSelecionado))}><OperationIcon name="warning"/>Bloquear / liberar</button>}
+              {podeEditarDespesas&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onDespesas(pontoSelecionado))}><OperationIcon name="money"/>Despesas</button>}
+              {podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onEditar(pontoSelecionado))}><OperationIcon name="edit"/>Editar</button>}
+              {podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>executarAcaoDossie(()=>onSolicitarDesativacao(pontoSelecionado))}><OperationIcon name="clock"/>Solicitar desativação</button>}
+              {podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>executarAcaoDossie(()=>onReativar(pontoSelecionado))}><OperationIcon name="refresh"/>Reativar ponto</button>}
+              {podeExcluir&&<button type="button" className="pcf-button pcf-button--danger" onClick={()=>executarAcaoDossie(()=>onExcluir(pontoSelecionado.id))}><OperationIcon name="trash"/>Excluir ponto</button>}
             </div>
           </aside>:<aside className="pcf-dossier pcf-dossier--empty" aria-label="Dossiê do ponto"><OperationIcon name="mapPin" size={20}/><span>Selecione um ponto na rede para abrir o dossiê.</span></aside>}
         </div>
@@ -1031,13 +1085,19 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
   }
 
   return (
-    <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-extra-largo" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{despesaDoGerente ? `Minhas despesas · ${gerenteDespesa}` : `Despesas mensais · ${ponto.nomeFantasia}`}</h3>
-          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar despesas mensais"><OperationIcon name="close"/></button>
-        </div>
-        <div className="modal-body">
+    <OperationModal
+      open
+      title={despesaDoGerente ? `Minhas despesas · ${gerenteDespesa}` : `Despesas mensais · ${ponto.nomeFantasia}`}
+      onClose={onFechar}
+      closeLabel="Fechar despesas mensais"
+      size="xl"
+      className="pcf-operation-modal modal-extra-largo"
+      overlayClassName="pcf-operation-modal-overlay"
+      footer={<>
+        <button className="btn-secundario" type="button" data-so-autofocus="true" onClick={onFechar}>Fechar</button>
+        {podeEditarAgora&&<button className="btn-primario" type="button" onClick={salvar}>Salvar despesas</button>}
+      </>}
+    >
           {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
           {prorrogacaoAtiva&&<div className="info-box despesa-excecao-aviso">Prazo disponível para esta competência: lançamentos permitidos até {formatarPrazoProrrogacao(prorrogacaoAtiva.expiraEm)}. Após esse horário, o mês será bloqueado automaticamente.</div>}
           {despesaDoGerente&&rotasGerente.length>1&&(
@@ -1121,13 +1181,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
             :despesaDoGerente
               ?"Nenhuma despesa própria lançada neste mês. Adicione uma despesa, informe o valor e salve."
               :"Nenhuma despesa lançada para este ponto neste mês. Adicione uma despesa, informe o valor e salve."}</p>}
-        </div>
-        <div className="modal-footer">
-          <button className="btn-secundario" onClick={onFechar}>Fechar</button>
-          {podeEditarAgora&&<button className="btn-primario" onClick={salvar}>Salvar despesas</button>}
-        </div>
-      </div>
-    </div>
+    </OperationModal>
   );
 }
 
@@ -1155,13 +1209,20 @@ function SolicitacaoModalidadeModal({ ponto, perfilAtual, onSalvar, onFechar }) 
   }
 
   return (
-    <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-pequeno solicitacao-modalidade-modal" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header">
-          <h3><OperationIcon name="warning"/>Bloquear ou liberar serviço</h3>
-          <button className="modal-fechar" onClick={onFechar} aria-label="Fechar solicitação"><OperationIcon name="close"/></button>
-        </div>
-        <div className="modal-body">
+    <OperationModal
+      open
+      title={<><OperationIcon name="warning"/>Bloquear ou liberar serviço</>}
+      onClose={onFechar}
+      closeLabel="Fechar solicitação"
+      blocked={enviando}
+      size="sm"
+      className="pcf-operation-modal solicitacao-modalidade-modal"
+      overlayClassName="pcf-operation-modal-overlay"
+      footer={<>
+        <button className="btn-secundario" type="button" disabled={enviando} onClick={onFechar}>Cancelar</button>
+        <button className="btn-primario" type="button" disabled={enviando} onClick={salvar}>{enviando?"Enviando...":"Enviar solicitação"}</button>
+      </>}
+    >
           {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
           <div className="solicitacao-ponto-resumo">
             <small>Ponto</small>
@@ -1170,7 +1231,7 @@ function SolicitacaoModalidadeModal({ ponto, perfilAtual, onSalvar, onFechar }) 
           </div>
           <div className="campo">
             <label>Ação solicitada *</label>
-            <select value={acao} onChange={e=>setAcao(e.target.value)}>
+            <select data-so-autofocus="true" value={acao} onChange={e=>setAcao(e.target.value)}>
               <option value="bloquear">Bloquear</option>
               <option value="desbloquear">Liberar</option>
             </select>
@@ -1193,13 +1254,7 @@ function SolicitacaoModalidadeModal({ ponto, perfilAtual, onSalvar, onFechar }) 
           <p className="acessos-nota">
             O pedido será enviado ao administrador, que fará o bloqueio ou a liberação na plataforma do serviço.
           </p>
-        </div>
-        <div className="modal-footer">
-          <button className="btn-secundario" onClick={onFechar}>Cancelar</button>
-          <button className="btn-primario" disabled={enviando} onClick={salvar}>{enviando?"Enviando...":"Enviar solicitação"}</button>
-        </div>
-      </div>
-    </div>
+    </OperationModal>
   );
 }
 
@@ -1214,18 +1269,25 @@ function MotivoCicloPontoModal({ ponto, titulo, acaoLabel, onConfirmar, onFechar
     catch (e) { setErro(e?.message || "Não foi possível concluir a operação."); }
     finally { setEnviando(false); }
   }
-  return <div className="modal-overlay" onClick={onFechar}>
-    <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
-      <div className="modal-header"><h3>{titulo}</h3><button className="modal-fechar" onClick={onFechar} aria-label="Fechar operação"><OperationIcon name="close"/></button></div>
-      <div className="modal-body">
+  return <OperationModal
+    open
+    title={titulo}
+    onClose={onFechar}
+    closeLabel="Fechar operação"
+    blocked={enviando}
+    size="sm"
+    className="pcf-operation-modal"
+    overlayClassName="pcf-operation-modal-overlay"
+    footer={<>
+      <button className="btn-secundario" type="button" disabled={enviando} onClick={onFechar}>Cancelar</button>
+      <button className="btn-primario" type="button" disabled={enviando} onClick={confirmar}>{enviando?"Processando...":acaoLabel}</button>
+    </>}
+  >
         <div className="solicitacao-ponto-resumo"><small>Ponto</small><strong>{ponto.nomeFantasia}</strong><span>{rotaCanonica(ponto.gerente)}</span></div>
         {titulo==="Solicitar desativação"&&<p className="campo-hint">Esta solicitação encerra a operação do ponto após aprovação administrativa. Ela não bloqueia nem desbloqueia modalidades.</p>}
-        <label className="campo"><span>Motivo</span><textarea rows="4" value={motivo} onChange={e=>setMotivo(e.target.value)} maxLength="1000" autoFocus/></label>
-        {erro&&<div className="erro-msg">{erro}</div>}
-      </div>
-      <div className="modal-footer"><button className="btn-secundario" onClick={onFechar}>Cancelar</button><button className="btn-primario" disabled={enviando} onClick={confirmar}>{enviando?"Processando...":acaoLabel}</button></div>
-    </div>
-  </div>;
+        <label className="campo"><span>Motivo</span><textarea rows="4" value={motivo} onChange={e=>setMotivo(e.target.value)} maxLength="1000" data-so-autofocus="true"/></label>
+        {erro&&<div className="erro-msg" role="alert">{erro}</div>}
+  </OperationModal>;
 }
 
 function formatarDataSolicitacao(data) {
@@ -1364,12 +1426,12 @@ function AbaHistoricoDespesas({ pontos, despesas, administrador=false }) {
           className="pcf-filter-command"
           title={null}
           ariaLabel="Busca e filtros do histórico de despesas"
-          primary={<label className="pcf-command-search">
-            <span className="pcf-visually-hidden">Buscar no histórico de despesas</span>
+          primary={<div className="pcf-command-search">
+            <label className="pcf-visually-hidden" htmlFor="pcf-expense-history-search-input">Buscar no histórico de despesas</label>
             <OperationIcon name="search" size={17}/>
-            <input type="search" placeholder="Buscar ponto, gerente, descrição ou valor" value={busca} onChange={e=>setBusca(e.target.value)}/>
+            <input id="pcf-expense-history-search-input" type="search" placeholder="Buscar ponto, gerente, descrição ou valor" value={busca} onChange={e=>setBusca(e.target.value)}/>
             {busca&&<button type="button" onClick={()=>setBusca("")} aria-label="Limpar busca"><OperationIcon name="close" size={15}/></button>}
-          </label>}
+          </div>}
           secondary={<label className="pcf-select-control">
             <span>Competência</span>
             <input className="select-filtro" type="month" value={competencia} onChange={e=>setCompetencia(e.target.value)} list="meses-despesas"/>
@@ -1898,21 +1960,25 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       {pontoAcessos&&<PointAccessModal ponto={pontoAcessos} acessos={acessosDoPonto(acessosModalidades,pontoAcessos.id)} onFechar={()=>setPontoAcessos(null)}/>}
 
       {excluindo&&(
-        <div className="modal-overlay" onClick={()=>setExcluindo(null)}>
-          <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><h3>Confirmar exclusão</h3><button className="modal-fechar" onClick={()=>setExcluindo(null)} aria-label="Fechar confirmação"><OperationIcon name="close"/></button></div>
-            <div className="modal-body">
-              {equipamentosNoPonto.length>0
-                ?<div className="erro-msg" role="alert"><OperationIcon name="warning" size={18}/><span>Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</span></div>
-                :<p className="pcf-confirm-copy">Tem certeza que deseja excluir este ponto?</p>}
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secundario" onClick={()=>setExcluindo(null)}>Cancelar</button>
-              {equipamentosNoPonto.length>0&&<button className="btn-primario" onClick={()=>disponibilizarEquipamentosEExcluirPonto(excluindo)}>Disponibilizar e excluir</button>}
-              {equipamentosNoPonto.length===0&&<button className="btn-danger" onClick={()=>excluirHandler(excluindo)}>Excluir</button>}
-            </div>
-          </div>
-        </div>
+        <OperationModal
+          open
+          title="Confirmar exclusão"
+          onClose={()=>setExcluindo(null)}
+          closeLabel="Fechar confirmação"
+          role="alertdialog"
+          size="sm"
+          className="pcf-operation-modal"
+          overlayClassName="pcf-operation-modal-overlay"
+          footer={<>
+            <button className="btn-secundario" type="button" data-so-autofocus="true" onClick={()=>setExcluindo(null)}>Cancelar</button>
+            {equipamentosNoPonto.length>0&&<button className="btn-primario" type="button" onClick={()=>disponibilizarEquipamentosEExcluirPonto(excluindo)}>Disponibilizar e excluir</button>}
+            {equipamentosNoPonto.length===0&&<button className="btn-danger" type="button" onClick={()=>excluirHandler(excluindo)}>Excluir</button>}
+          </>}
+        >
+          {equipamentosNoPonto.length>0
+            ?<div className="erro-msg" role="alert"><OperationIcon name="warning" size={18}/><span>Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</span></div>
+            :<p className="pcf-confirm-copy">Tem certeza que deseja excluir este ponto?</p>}
+        </OperationModal>
       )}
     </div>
   );

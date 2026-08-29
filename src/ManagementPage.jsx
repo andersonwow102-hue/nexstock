@@ -3,7 +3,8 @@ import {
   carregarPerfis, salvarPerfil, redefinirAcessoUsuario, excluirAcessoUsuario, gerenciarLogins,
 } from "./db.js";
 import { GERENTES, ROTAS_POR_GERENTE } from "./pointsData.js";
-import { FilterBar, OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { FilterBar, Modal, OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { useResponsiveSheet } from "./components/operations/useResponsiveSheet.js";
 import "./AdminCommandFlow.css";
 
 const MASTER_ADMIN_EMAILS = ["andersonwow102@gmail.com", "anderson@nexstock.com"];
@@ -76,8 +77,15 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState("");
   const [dossieAberto, setDossieAberto] = useState(false);
+  const [senhaAcessoVisivel, setSenhaAcessoVisivel] = useState(false);
+  const [senhaNovoVisivel, setSenhaNovoVisivel] = useState(false);
+  const [feedbackCredencial, setFeedbackCredencial] = useState(null);
   const administrador = perfilAtual?.perfil === "administrador";
   const adminMaster = ehAdminMaster(perfilAtual);
+  const { panelProps: dossieProps, backdropProps: dossieBackdropProps } = useResponsiveSheet({
+    open: dossieAberto,
+    onClose: () => setDossieAberto(false),
+  });
 
   async function recarregarPerfis() {
     if (!administrador) return;
@@ -159,16 +167,47 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
   }
 
   function abrirRedefinirAcesso(item) {
+    setDossieAberto(false);
     setUsuarioAcesso(item);
     setFormAcesso({ novoEmail: "", novaSenha: "", confirmacao: "" });
+    setSenhaAcessoVisivel(false);
+    setFeedbackCredencial(null);
     setErro("");
   }
 
   function abrirNovoLogin() {
     const senha = senhaAleatoria();
+    setDossieAberto(false);
     setFormNovo({ email: "", loginNome: "", perfil: "gerente", gerenteNome: "", rotasPermitidas: [], senha, confirmar: senha });
+    setSenhaNovoVisivel(false);
+    setFeedbackCredencial(null);
     setErro("");
     setModalNovo(true);
+  }
+
+  function fecharRedefinicaoAcesso() {
+    setUsuarioAcesso(null);
+    setSenhaAcessoVisivel(false);
+    setFeedbackCredencial(null);
+  }
+
+  function fecharNovoLogin() {
+    setModalNovo(false);
+    setSenhaNovoVisivel(false);
+    setFeedbackCredencial(null);
+  }
+
+  async function copiarSenhaCredencial(senha) {
+    if (!senha) {
+      setFeedbackCredencial({ tipo: "erro", texto: "Informe ou gere uma senha antes de copiar." });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(senha);
+      setFeedbackCredencial({ tipo: "sucesso", texto: "Senha copiada. O valor não será exibido nesta mensagem." });
+    } catch {
+      setFeedbackCredencial({ tipo: "erro", texto: "Não foi possível copiar a senha neste navegador." });
+    }
   }
 
   async function criarLogin(e) {
@@ -198,7 +237,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       if (criado && formNovo.perfil === "gerente") {
         await salvarPerfil({ ...criado, perfil: "gerente", gerenteNome: formNovo.gerenteNome, rotasPermitidas: formNovo.rotasPermitidas });
       }
-      setModalNovo(false);
+      fecharNovoLogin();
       setMensagem(resposta?.mensagem || "Novo login criado.");
       setPerfis(await carregarPerfis());
     } catch (e) {
@@ -228,7 +267,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       setSalvandoAcesso(true);
       await redefinirAcessoUsuario({ userId: usuarioAcesso.userId, novoEmail: email, novaSenha: formAcesso.novaSenha });
       await recarregarPerfis();
-      setUsuarioAcesso(null);
+      fecharRedefinicaoAcesso();
       setMensagem(`Acesso atualizado. O novo login de ${email} já pode ser utilizado.`);
     } catch (e) {
       const texto = e.message.toLowerCase();
@@ -267,15 +306,6 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       setUsuarioSelecionadoId(perfisFiltrados[0].userId);
     }
   }, [perfisFiltrados, usuarioSelecionadoId]);
-
-  useEffect(() => {
-    if (!dossieAberto) return undefined;
-    const fecharComEscape = event => {
-      if (event.key === "Escape") setDossieAberto(false);
-    };
-    window.addEventListener("keydown", fecharComEscape);
-    return () => window.removeEventListener("keydown", fecharComEscape);
-  }, [dossieAberto]);
 
   const filtrosAtivos = filtroPerfil === "todos" ? 0 : 1;
   const rotasSelecionadas = usuarioSelecionado?.rotasPermitidas?.length
@@ -391,8 +421,8 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
             <footer className="admin-cf-panel-note"><OperationIcon name="info" size={15} /><p>Novos usuários começam como apenas consulta. Alterações do dossiê são salvas ao selecionar.</p></footer>
           </div>
 
-          <button className={`admin-cf-sheet-backdrop ${dossieAberto ? "is-open" : ""}`} type="button" aria-label="Fechar dossiê" onClick={() => setDossieAberto(false)} />
-          <aside className={`admin-cf-panel admin-cf-dossier admin-cf-access-dossier ${dossieAberto ? "is-open" : ""}`} aria-label="Dossiê do acesso selecionado">
+          <button {...dossieBackdropProps} className={`admin-cf-sheet-backdrop ${dossieAberto ? "is-open" : ""}`} />
+          <aside {...dossieProps} className={`admin-cf-panel admin-cf-dossier admin-cf-access-dossier ${dossieAberto ? "is-open" : ""}`} aria-label="Dossiê do acesso selecionado">
             {!usuarioSelecionado ? (
               <div className="admin-cf-state admin-cf-state--dossier"><OperationIcon name="user" size={22} /><strong>Selecione uma identidade</strong><p>Perfil, escopo e ações aparecerão aqui.</p></div>
             ) : (
@@ -400,7 +430,7 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
                 <header className="admin-cf-dossier-head">
                   <span className={`acesso-avatar perfil-${usuarioSelecionado.perfil || "consulta"}`}>{String(usuarioSelecionado.nome || "?").slice(0, 1).toUpperCase()}</span>
                   <div><span className="admin-cf-section-code">Identidade selecionada</span><h3>{usuarioSelecionado.nome}</h3><small>{usuarioSelecionado.loginNome || usuarioSelecionado.nome}</small></div>
-                  <button type="button" className="admin-cf-icon-button admin-cf-sheet-close" onClick={() => setDossieAberto(false)} aria-label="Fechar dossiê"><OperationIcon name="close" size={17} /></button>
+                  <button type="button" className="admin-cf-icon-button admin-cf-sheet-close" data-sheet-autofocus="true" onClick={() => setDossieAberto(false)} aria-label="Fechar dossiê"><OperationIcon name="close" size={17} /></button>
                 </header>
 
                 <div className="admin-cf-dossier-section">
@@ -455,31 +485,28 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
       )}
 
       {usuarioAcesso && (
-        <div className="modal-overlay admin-cf-modal-layer">
-          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="access-reset-title" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><div><span className="admin-cf-section-code">Credencial protegida</span><h3 id="access-reset-title">Redefinir acesso</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setUsuarioAcesso(null)} aria-label="Fechar redefinição de acesso"><OperationIcon name="close" size={18} /></button></div>
+        <Modal open title="Redefinir acesso" subtitle="Credencial protegida" onClose={fecharRedefinicaoAcesso} size="sm" className="admin-cf-modal" overlayClassName="admin-cf-modal-layer">
             <form onSubmit={confirmarRedefinicaoAcesso}>
               <div className="modal-body">
                 <p className="senha-texto">Usuário atual: <strong>{usuarioAcesso.nome}</strong>. Informe o e-mail de login e uma senha provisória. Pode ser um e-mail interno do sistema ou um e-mail real.</p>
                 {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
+                {feedbackCredencial && <div className={`admin-cf-credential-feedback ${feedbackCredencial.tipo === "erro" ? "is-error" : ""}`} role={feedbackCredencial.tipo === "erro" ? "alert" : "status"}><OperationIcon name={feedbackCredencial.tipo === "erro" ? "warning" : "check"} size={16} /><span>{feedbackCredencial.texto}</span></div>}
                 <div className="campo"><label>Novo e-mail de login *</label><input type="email" placeholder="joao@stockon.com" value={formAcesso.novoEmail} onChange={e => setFormAcesso({ ...formAcesso, novoEmail: e.target.value })} autoFocus /></div>
-                <div className="campo"><label>Senha provisória *</label><input type="password" placeholder="Mínimo de 10 caracteres" value={formAcesso.novaSenha} onChange={e => setFormAcesso({ ...formAcesso, novaSenha: e.target.value })} /></div>
-                <div className="campo"><label>Confirmar senha *</label><input type="password" value={formAcesso.confirmacao} onChange={e => setFormAcesso({ ...formAcesso, confirmacao: e.target.value })} /></div>
+                <div className="campo"><label htmlFor="management-reset-password">Senha provisória *</label><div className="admin-cf-password-control"><input id="management-reset-password" type={senhaAcessoVisivel ? "text" : "password"} autoComplete="new-password" placeholder="Mínimo de 10 caracteres" value={formAcesso.novaSenha} onChange={e => { setFeedbackCredencial(null); setFormAcesso({ ...formAcesso, novaSenha: e.target.value }); }} /><span className="admin-cf-password-actions"><button type="button" className="admin-cf-password-action" aria-label={senhaAcessoVisivel ? "Ocultar senha provisória" : "Revelar senha provisória"} aria-pressed={senhaAcessoVisivel} onClick={() => setSenhaAcessoVisivel(visivel => !visivel)}><OperationIcon name={senhaAcessoVisivel ? "eyeOff" : "eye"} size={16} /></button><button type="button" className="admin-cf-password-action" aria-label="Copiar senha provisória" disabled={!formAcesso.novaSenha} onClick={() => copiarSenhaCredencial(formAcesso.novaSenha)}><OperationIcon name="copy" size={16} /></button></span></div></div>
+                <div className="campo"><label>Confirmar senha *</label><input type={senhaAcessoVisivel ? "text" : "password"} autoComplete="new-password" value={formAcesso.confirmacao} onChange={e => setFormAcesso({ ...formAcesso, confirmacao: e.target.value })} /></div>
               </div>
-              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setUsuarioAcesso(null)}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Salvando..." : "Atualizar acesso"}</button></div>
+              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={fecharRedefinicaoAcesso}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Salvando..." : "Atualizar acesso"}</button></div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {modalNovo && (
-        <div className="modal-overlay admin-cf-modal-layer">
-          <div className="modal modal-pequeno admin-cf-modal" role="dialog" aria-modal="true" aria-labelledby="access-new-title" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><div><span className="admin-cf-section-code">Nova identidade</span><h3 id="access-new-title">Novo login</h3></div><button type="button" className="modal-fechar admin-cf-icon-button" onClick={() => setModalNovo(false)} aria-label="Fechar criação de login"><OperationIcon name="close" size={18} /></button></div>
+        <Modal open title="Novo login" subtitle="Nova identidade" onClose={fecharNovoLogin} size="sm" className="admin-cf-modal" overlayClassName="admin-cf-modal-layer">
             <form onSubmit={criarLogin}>
               <div className="modal-body">
                 <p className="senha-texto">Crie o login interno do usuário, defina a senha provisória e marque rotas quando for um gerente. O domínio fica travado em <strong>@stockon.com</strong>.</p>
                 {erro && <div className="erro-msg admin-cf-inline-message" role="alert"><OperationIcon name="warning" size={17} /><span>{erro}</span></div>}
+                {feedbackCredencial && <div className={`admin-cf-credential-feedback ${feedbackCredencial.tipo === "erro" ? "is-error" : ""}`} role={feedbackCredencial.tipo === "erro" ? "alert" : "status"}><OperationIcon name={feedbackCredencial.tipo === "erro" ? "warning" : "check"} size={16} /><span>{feedbackCredencial.texto}</span></div>}
                 <div className="campo">
                   <label>Nome do login *</label>
                   <div className="login-interno-input">
@@ -518,17 +545,17 @@ export default function ManagementPage({ perfilAtual, onPerfilAtualChange }) {
                     )}
                   </>
                 )}
-                <div className="campo"><label>Senha provisória *</label><input type="text" value={formNovo.senha} onChange={e => setFormNovo({ ...formNovo, senha: e.target.value })} /></div>
-                <div className="campo"><label>Confirmar senha *</label><input type="text" value={formNovo.confirmar} onChange={e => setFormNovo({ ...formNovo, confirmar: e.target.value })} /></div>
+                <div className="campo"><label htmlFor="management-new-password">Senha provisória *</label><div className="admin-cf-password-control"><input id="management-new-password" type={senhaNovoVisivel ? "text" : "password"} autoComplete="new-password" value={formNovo.senha} onChange={e => { setFeedbackCredencial(null); setFormNovo({ ...formNovo, senha: e.target.value }); }} /><span className="admin-cf-password-actions"><button type="button" className="admin-cf-password-action" aria-label={senhaNovoVisivel ? "Ocultar senha provisória" : "Revelar senha provisória"} aria-pressed={senhaNovoVisivel} onClick={() => setSenhaNovoVisivel(visivel => !visivel)}><OperationIcon name={senhaNovoVisivel ? "eyeOff" : "eye"} size={16} /></button><button type="button" className="admin-cf-password-action" aria-label="Copiar senha provisória" disabled={!formNovo.senha} onClick={() => copiarSenhaCredencial(formNovo.senha)}><OperationIcon name="copy" size={16} /></button></span></div></div>
+                <div className="campo"><label>Confirmar senha *</label><input type={senhaNovoVisivel ? "text" : "password"} autoComplete="new-password" value={formNovo.confirmar} onChange={e => setFormNovo({ ...formNovo, confirmar: e.target.value })} /></div>
                 <button type="button" className="btn-secundario" onClick={() => {
                   const senha = senhaAleatoria();
+                  setFeedbackCredencial(null);
                   setFormNovo(prev => ({ ...prev, senha, confirmar: senha }));
                 }}><OperationIcon name="refresh" size={15} />Gerar outra senha provisória</button>
               </div>
-              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={() => setModalNovo(false)}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Criando..." : "Criar login"}</button></div>
+              <div className="modal-footer"><button type="button" className="btn-secundario" onClick={fecharNovoLogin}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvandoAcesso}>{salvandoAcesso ? "Criando..." : "Criar login"}</button></div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

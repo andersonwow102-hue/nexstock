@@ -28,19 +28,19 @@
 }
 
 .app.tema-claro .admin-command-flow {
-  --acf-canvas: #eee9e0;
-  --acf-panel: #faf7f1;
+  --acf-canvas: #f2f4f1;
+  --acf-panel: #f9faf8;
   --acf-panel-raised: #ffffff;
-  --acf-panel-soft: #f1ece3;
-  --acf-input: #fffdf8;
-  --acf-border: #d8d0c3;
-  --acf-border-strong: #bdb2a2;
-  --acf-text: #27231e;
-  --acf-text-soft: #574f45;
-  --acf-muted: #776e63;
-  --acf-copper: #9e6036;
-  --acf-copper-strong: #804521;
-  --acf-copper-soft: rgba(158, 96, 54, 0.1);
+  --acf-panel-soft: #ecefeb;
+  --acf-input: #ffffff;
+  --acf-border: #d4d9d3;
+  --acf-border-strong: #adb6ae;
+  --acf-text: #222622;
+  --acf-text-soft: #4e574f;
+  --acf-muted: #59635b;
+  --acf-copper: #9b5839;
+  --acf-copper-strong: #7d432c;
+  --acf-copper-soft: rgba(155, 88, 57, 0.1);
   --acf-success: #327659;
   --acf-success-soft: rgba(50, 118, 89, 0.1);
   --acf-danger: #a74640;
@@ -696,14 +696,14 @@
 }
 
 .admin-command-flow .rota-chips button {
-  min-height: 25px;
-  padding: 4px 7px;
+  min-height: 36px;
+  padding: 7px 9px;
   border: 1px solid var(--acf-border);
   border-radius: 4px;
   background: var(--acf-input);
   color: var(--acf-muted);
   font-family: var(--acf-font-data);
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 650;
   letter-spacing: 0.02em;
   transform: none;
@@ -949,6 +949,12 @@
   border-color: color-mix(in srgb, var(--acf-danger) 40%, transparent);
   background: var(--acf-danger-soft);
   color: var(--acf-danger);
+}
+
+.admin-cf-status--temporary {
+  border-color: color-mix(in srgb, var(--acf-warning) 34%, transparent);
+  background: var(--acf-warning-soft);
+  color: var(--acf-warning);
 }
 
 .admin-command-flow .login-user-actions {
@@ -1271,6 +1277,74 @@
   color: var(--acf-danger);
   font-size: 11px;
   line-height: 1.45;
+}
+
+.admin-cf-credential-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--acf-success) 42%, transparent);
+  border-radius: 6px;
+  background: var(--acf-success-soft);
+  color: var(--acf-success);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.admin-cf-credential-feedback.is-error {
+  border-color: color-mix(in srgb, var(--acf-danger) 42%, transparent);
+  background: var(--acf-danger-soft);
+  color: var(--acf-danger);
+}
+
+.admin-cf-password-control {
+  position: relative;
+  min-width: 0;
+}
+
+.admin-command-flow .admin-cf-modal .admin-cf-password-control > input {
+  min-height: 44px;
+  padding-right: 88px;
+}
+
+.admin-cf-password-actions {
+  position: absolute;
+  inset: 4px 4px 4px auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.admin-cf-password-action {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--acf-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.admin-cf-password-action:hover:not(:disabled),
+.admin-cf-password-action[aria-pressed="true"] {
+  background: var(--acf-copper-soft);
+  color: var(--acf-copper-strong);
+}
+
+.admin-cf-password-action:focus-visible {
+  outline: 2px solid var(--acf-copper);
+  outline-offset: 1px;
+}
+
+.admin-cf-password-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .admin-command-flow .login-interno-input {
@@ -2012,8 +2086,8 @@
 
 .admin-cf-security-actions > :is(.btn-acesso, .btn-secundario, .btn-danger-outline) {
   width: 100%;
-  min-height: 34px;
-  font-size: 10.5px;
+  min-height: 42px;
+  font-size: 11.5px;
 }
 
 .admin-cf-dossier-action-grid {
@@ -2023,9 +2097,9 @@
 }
 
 .admin-cf-dossier-action-grid > button {
-  min-height: 33px;
-  padding: 6px 8px;
-  font-size: 9.5px;
+  min-height: 42px;
+  padding: 8px 10px;
+  font-size: 10.5px;
 }
 
 .admin-cf-dossier-action-grid > button:last-child {
@@ -2176,6 +2250,8 @@
 
   .admin-cf-sheet-close {
     display: grid;
+    width: 44px;
+    height: 44px;
   }
 
   .admin-cf-sheet-backdrop {
@@ -2213,9 +2289,9 @@
 
   .admin-cf-page-bar > .admin-cf-head-actions > button {
     width: auto;
-    min-height: 34px;
-    padding: 6px 8px;
-    font-size: 10px;
+    min-height: 44px;
+    padding: 8px 11px;
+    font-size: 11px;
   }
 
   .admin-command-flow .admin-cf-filter-bar .so-filter-bar__primary {
@@ -2247,6 +2323,28 @@
     padding-inline: 12px 9px;
   }
 
+  .admin-command-flow .rota-chips button,
+  .admin-cf-security-actions > :is(.btn-acesso, .btn-secundario, .btn-danger-outline),
+  .admin-cf-dossier-action-grid > button {
+    min-height: 44px;
+  }
+
+  .admin-command-flow .admin-cf-modal :is(input, select),
+  .admin-command-flow .admin-cf-modal .modal-body > .btn-secundario,
+  .admin-command-flow .admin-cf-modal .modal-footer button {
+    min-height: 44px;
+  }
+
+  .admin-command-flow .admin-cf-modal .admin-cf-password-control > input {
+    min-height: 52px;
+    padding-right: 104px;
+  }
+
+  .admin-cf-password-action {
+    width: 44px;
+    height: 44px;
+  }
+
   .admin-command-flow .login-user-main .admin-cf-status {
     grid-column: auto;
     justify-self: end;
@@ -2263,8 +2361,8 @@
   }
 
   .admin-cf-page-bar > .admin-cf-head-actions > button {
-    width: 34px;
-    min-width: 34px;
+    width: 44px;
+    min-width: 44px;
     padding: 0;
     overflow: hidden;
     color: transparent;

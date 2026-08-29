@@ -41,28 +41,28 @@
 }
 
 .app.tema-claro .points-command-flow {
-  --pcf-canvas: #f1ede6;
-  --pcf-panel: #fffdf8;
-  --pcf-raised: #e9e3d9;
-  --pcf-subtle: #f8f4ed;
-  --pcf-hover: #ece6dd;
-  --pcf-text: #2b2520;
-  --pcf-muted: #6e655d;
-  --pcf-dim: #8c8177;
-  --pcf-border: rgba(62, 51, 42, 0.14);
-  --pcf-border-strong: rgba(62, 51, 42, 0.24);
-  --pcf-copper: #a95f33;
-  --pcf-copper-bright: #8f4d28;
-  --pcf-copper-wash: rgba(169, 95, 51, 0.1);
-  --pcf-warning: #936d25;
-  --pcf-warning-wash: rgba(147, 109, 37, 0.1);
-  --pcf-danger: #a84640;
-  --pcf-danger-wash: rgba(168, 70, 64, 0.09);
-  --pcf-success: #4f7756;
-  --pcf-success-wash: rgba(79, 119, 86, 0.1);
-  --pcf-shadow: 0 24px 60px rgba(67, 54, 43, 0.12);
+  --pcf-canvas: var(--surface-canvas, #f2eee7);
+  --pcf-panel: var(--surface-panel, #fffdf8);
+  --pcf-raised: var(--surface-raised, #e8e3da);
+  --pcf-subtle: var(--surface-subtle, #ece7df);
+  --pcf-hover: var(--surface-hover, #e9e3da);
+  --pcf-text: var(--text-strong, #211d1a);
+  --pcf-muted: var(--text-muted, #716a64);
+  --pcf-dim: var(--text-disabled, #9b958e);
+  --pcf-border: var(--border-subtle, #d6d0c6);
+  --pcf-border-strong: var(--border-strong, #aaa298);
+  --pcf-copper: var(--brand-action, #a95339);
+  --pcf-copper-bright: var(--brand-action-hover, #8f432e);
+  --pcf-copper-wash: color-mix(in srgb, var(--brand-action, #a95339) 10%, transparent);
+  --pcf-warning: var(--state-warning, #79591f);
+  --pcf-warning-wash: var(--state-warning-surface, #fff6e5);
+  --pcf-danger: var(--state-danger, #a44739);
+  --pcf-danger-wash: var(--state-danger-surface, #fff0ed);
+  --pcf-success: var(--state-success, #2f7252);
+  --pcf-success-wash: var(--state-success-surface, #edf6f1);
+  --pcf-shadow: var(--shadow-md, 0 18px 50px rgba(33, 29, 26, 0.13));
   background:
-    linear-gradient(90deg, rgba(76, 61, 48, 0.03) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(90deg, color-mix(in srgb, var(--border-subtle, #d6d0c6) 25%, transparent) 1px, transparent 1px) 0 0 / 64px 64px,
     var(--pcf-canvas);
 }
 
@@ -198,7 +198,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   width: min(100%, 720px);
-  min-height: 40px;
+  min-height: 44px;
   gap: 8px;
   padding: 0 11px;
   border: 1px solid var(--pcf-border-strong);
@@ -231,8 +231,8 @@
 .points-command-flow .pcf-command-search button,
 .points-command-flow .pcf-icon-action {
   display: inline-grid;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   padding: 0;
   border: 1px solid transparent;
@@ -251,7 +251,7 @@
 
 .points-command-flow .pcf-button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 42px;
   align-items: center;
   justify-content: center;
   gap: 7px;
@@ -772,7 +772,7 @@
 
 .points-command-flow .pcf-filter-chip {
   display: inline-flex;
-  min-height: 26px;
+  min-height: 32px;
   align-items: center;
   gap: 5px;
   padding: 4px 8px;
@@ -829,7 +829,7 @@
 
 .points-command-flow .pcf-select-control select {
   min-width: 150px;
-  min-height: 36px;
+  min-height: 42px;
   padding: 0 30px 0 10px;
   border: 1px solid var(--pcf-border-strong);
   border-radius: 7px;
@@ -892,8 +892,8 @@
 .points-command-flow .pcf-record {
   position: relative;
   width: 100%;
-  min-height: 66px;
-  padding: 9px 12px;
+  min-height: 72px;
+  padding: 11px 13px;
   border: 0;
   border-bottom: 1px solid var(--pcf-border);
   color: var(--pcf-text);
@@ -946,7 +946,7 @@
   gap: 6px;
   overflow: hidden;
   color: var(--pcf-text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -955,26 +955,26 @@
 .points-command-flow .pcf-record-identity small {
   overflow: hidden;
   color: var(--pcf-dim);
-  font-size: 10px;
+  font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .points-command-flow .pcf-route-badge {
-  display: inline-flex !important;
+  display: inline-flex;
   width: fit-content;
   max-width: 100%;
   align-items: center;
   gap: 5px;
-  padding: 3px 7px !important;
+  padding: 4px 8px;
   overflow: hidden;
-  border: 1px solid var(--pcf-border-strong) !important;
-  border-radius: 5px !important;
-  color: var(--pcf-muted) !important;
-  background: var(--pcf-raised) !important;
+  border: 1px solid var(--pcf-border-strong);
+  border-radius: 5px;
+  color: var(--pcf-muted);
+  background: var(--pcf-raised);
   font-family: var(--font-data, "JetBrains Mono", monospace);
-  font-size: 9px !important;
-  font-weight: 600 !important;
+  font-size: 10px;
+  font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -989,13 +989,13 @@
 .points-command-flow .pcf-record-money {
   color: var(--pcf-text);
   font-family: var(--font-data, "JetBrains Mono", monospace);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .points-command-flow .pcf-record-count small {
   color: var(--pcf-dim);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .points-command-flow .pcf-record-state {
@@ -1007,10 +1007,10 @@
 }
 
 .points-command-flow .so-status-badge {
-  min-height: 22px;
-  padding: 3px 7px;
+  min-height: 26px;
+  padding: 4px 8px;
   border-radius: 5px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 650;
 }
 
@@ -1023,7 +1023,7 @@
   position: sticky;
   top: 14px;
   max-height: calc(100vh - 40px);
-  padding: 15px;
+  padding: 18px;
   overflow: auto;
   border: 1px solid var(--pcf-border-strong);
   border-radius: 2px;
@@ -1070,8 +1070,8 @@
 
 .points-command-flow .pcf-dossier-close {
   display: none;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   padding: 0;
   border: 1px solid var(--pcf-border);
@@ -1120,7 +1120,7 @@
 
 .points-command-flow .pcf-contact-strip div {
   min-width: 0;
-  padding: 9px;
+  padding: 11px;
   border: 1px solid var(--pcf-border);
   border-radius: 6px;
   background: var(--pcf-subtle);
@@ -1134,14 +1134,14 @@
 .points-command-flow .pcf-contact-strip dt {
   margin-bottom: 4px;
   color: var(--pcf-dim);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
 .points-command-flow .pcf-contact-strip dd {
   overflow: hidden;
   color: var(--pcf-text);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1169,7 +1169,7 @@
   display: grid;
   grid-template-columns: 29px minmax(0, 1fr);
   gap: 10px;
-  padding: 9px 0;
+  padding: 11px 0;
 }
 
 .points-command-flow .pcf-spine-node {
@@ -1193,14 +1193,14 @@
   display: block;
   margin-bottom: 3px;
   color: var(--pcf-dim);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
 .points-command-flow .pcf-operational-spine strong {
   display: block;
   color: var(--pcf-text);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1277,13 +1277,13 @@
 
 .points-command-flow .pcf-dossier-note span {
   color: var(--pcf-dim);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
 .points-command-flow .pcf-dossier-note p {
   margin: 4px 0 0;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -1301,7 +1301,7 @@
 
 .points-command-flow .pcf-dossier-history > header span {
   color: var(--pcf-dim);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.055em;
   text-transform: uppercase;
 }
@@ -1309,7 +1309,7 @@
 .points-command-flow .pcf-dossier-history > header b {
   color: var(--pcf-copper-bright);
   font-family: var(--font-data, "JetBrains Mono", monospace);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .points-command-flow .pcf-dossier-history ol {
@@ -1342,7 +1342,7 @@
 .points-command-flow .pcf-dossier-history li strong {
   overflow: hidden;
   color: var(--pcf-muted);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1351,7 +1351,7 @@
 .points-command-flow .pcf-dossier-history li small,
 .points-command-flow .pcf-dossier-history > p {
   color: var(--pcf-dim);
-  font-size: 8px;
+  font-size: 9.5px;
 }
 
 .points-command-flow .pcf-dossier-history > p {
@@ -1368,6 +1368,7 @@
 
 .points-command-flow .pcf-dossier-actions .pcf-button {
   min-width: 0;
+  min-height: 44px;
   justify-content: flex-start;
   text-align: left;
 }
@@ -1532,13 +1533,13 @@
   margin-top: 10px;
 }
 
-.points-command-flow .modal-overlay {
+.points-command-flow .pcf-operation-modal-overlay {
   padding: 18px;
   background: rgba(6, 8, 7, 0.76);
   backdrop-filter: none;
 }
 
-.points-command-flow .modal {
+.points-command-flow .pcf-operation-modal {
   border: 1px solid var(--pcf-border-strong);
   border-radius: 5px 16px 5px 16px;
   color: var(--pcf-text);
@@ -1546,14 +1547,26 @@
   box-shadow: 0 32px 90px rgba(0, 0, 0, 0.44);
 }
 
-.points-command-flow .modal-header {
+.points-command-flow .pcf-operation-modal.modal-largo {
+  width: min(100%, 620px);
+}
+
+.points-command-flow .pcf-operation-modal.modal-despesas-pontos {
+  width: min(760px, calc(100vw - 36px));
+}
+
+.points-command-flow .pcf-operation-modal.modal-extra-largo {
+  width: min(860px, calc(100vw - 36px));
+}
+
+.points-command-flow .pcf-operation-modal .so-modal__header {
   min-height: 58px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--pcf-border);
   background: var(--pcf-raised);
 }
 
-.points-command-flow .modal-header h3 {
+.points-command-flow .pcf-operation-modal .so-modal__header h2 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1564,16 +1577,16 @@
   letter-spacing: -0.02em;
 }
 
-.points-command-flow .modal-header p {
+.points-command-flow .pcf-operation-modal .so-modal__header p {
   margin: 4px 0 0;
   color: var(--pcf-muted);
   font-size: 11px;
 }
 
-.points-command-flow .modal-fechar {
+.points-command-flow .pcf-operation-modal .so-modal__close {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   padding: 0;
   border: 1px solid transparent;
@@ -1582,50 +1595,50 @@
   background: transparent;
 }
 
-.points-command-flow .modal-fechar:hover {
+.points-command-flow .pcf-operation-modal .so-modal__close:hover:not(:disabled) {
   border-color: var(--pcf-border-strong);
   color: var(--pcf-copper-bright);
   background: var(--pcf-subtle);
 }
 
-.points-command-flow .modal-body {
+.points-command-flow .pcf-operation-modal .so-modal__body {
   padding: 18px;
   color: var(--pcf-text);
 }
 
-.points-command-flow .modal-footer {
+.points-command-flow .pcf-operation-modal .so-modal__footer {
   gap: 8px;
   padding: 12px 18px;
   border-top: 1px solid var(--pcf-border);
   background: var(--pcf-raised);
 }
 
-.points-command-flow .modal .btn-primario,
-.points-command-flow .modal .btn-secundario,
-.points-command-flow .modal .btn-danger,
-.points-command-flow .modal .btn-editar,
-.points-command-flow .modal .btn-excluir {
-  min-height: 36px;
+.points-command-flow .pcf-operation-modal .btn-primario,
+.points-command-flow .pcf-operation-modal .btn-secundario,
+.points-command-flow .pcf-operation-modal .btn-danger,
+.points-command-flow .pcf-operation-modal .btn-editar,
+.points-command-flow .pcf-operation-modal .btn-excluir {
+  min-height: 42px;
   border-radius: 6px;
   box-shadow: none;
   font-size: 11px;
 }
 
-.points-command-flow .modal .btn-primario {
+.points-command-flow .pcf-operation-modal .btn-primario {
   border-color: var(--pcf-copper);
   color: #19130f;
   background: var(--pcf-copper-bright);
 }
 
-.points-command-flow .modal .btn-secundario,
-.points-command-flow .modal .btn-editar {
+.points-command-flow .pcf-operation-modal .btn-secundario,
+.points-command-flow .pcf-operation-modal .btn-editar {
   border-color: var(--pcf-border-strong);
   color: var(--pcf-text);
   background: var(--pcf-raised);
 }
 
-.points-command-flow .modal .btn-danger,
-.points-command-flow .modal .btn-excluir {
+.points-command-flow .pcf-operation-modal .btn-danger,
+.points-command-flow .pcf-operation-modal .btn-excluir {
   border-color: rgba(207, 113, 103, 0.32);
   color: var(--pcf-danger);
   background: var(--pcf-danger-wash);
@@ -1642,9 +1655,9 @@
 .points-command-flow .campo input,
 .points-command-flow .campo select,
 .points-command-flow .campo textarea,
-.points-command-flow .modal input,
-.points-command-flow .modal select,
-.points-command-flow .modal textarea,
+.points-command-flow .pcf-operation-modal input,
+.points-command-flow .pcf-operation-modal select,
+.points-command-flow .pcf-operation-modal textarea,
 .points-command-flow .historico-despesas-page input,
 .points-command-flow .historico-despesas-page select {
   border: 1px solid var(--pcf-border-strong);
@@ -1811,7 +1824,7 @@
 
 .points-command-flow .despesas-gerente-sinal,
 .points-command-flow .despesas-gerentes-resumo h4,
-.points-command-flow .modal-despesas-pontos .modal-header h3 {
+.points-command-flow .modal-despesas-pontos .so-modal__header h2 {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1990,6 +2003,46 @@
 
 @media (max-width: 1024px) {
   .points-command-flow .pcf-menu-button { display: grid; }
+
+  .points-command-flow .pcf-master-pane[aria-hidden="true"] {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .points-command-flow .pcf-dossier {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 621;
+    width: min(460px, 100vw);
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 20px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-block: 0;
+    border-right: 0;
+    border-radius: 12px 0 0 12px;
+    box-shadow: var(--pcf-shadow);
+    animation: pcf-dossier-side-in 180ms ease-out both;
+  }
+
+  .points-command-flow .pcf-dossier-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 620;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: var(--surface-overlay, rgba(4, 6, 5, 0.68));
+    cursor: default;
+    animation: pcf-dossier-backdrop-in 160ms ease-out both;
+  }
+
+  .points-command-flow .pcf-dossier-close { display: grid; }
+  .points-command-flow .pcf-dossier-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .points-command-flow .pcf-dossier-actions .pcf-button--warning,
+  .points-command-flow .pcf-dossier-actions .pcf-button--danger { grid-column: 1 / -1; }
 }
 
 @media (max-width: 900px) {
@@ -2238,6 +2291,7 @@
     inset: auto 0 0;
     z-index: 621;
     width: 100%;
+    height: auto;
     max-height: min(88dvh, 760px);
     padding: 15px;
     border-right: 0;
@@ -2254,7 +2308,7 @@
     display: block;
     padding: 0;
     border: 0;
-    background: rgba(4, 6, 5, 0.62);
+    background: var(--surface-overlay, rgba(4, 6, 5, 0.68));
     cursor: default;
     animation: pcf-dossier-backdrop-in 160ms ease-out both;
   }
@@ -2290,25 +2344,29 @@
     border-right: 0;
   }
 
-  .points-command-flow .modal-overlay {
-    align-items: flex-end;
+  .points-command-flow .pcf-operation-modal-overlay {
+    place-items: end center;
     padding: 0;
   }
 
-  .points-command-flow .modal {
+  .points-command-flow .pcf-operation-modal,
+  .points-command-flow .pcf-operation-modal.modal-largo,
+  .points-command-flow .pcf-operation-modal.modal-despesas-pontos,
+  .points-command-flow .pcf-operation-modal.modal-extra-largo {
     width: 100%;
-    max-height: min(92vh, 900px);
+    height: auto;
+    max-height: min(92dvh, 900px);
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
     border-radius: 14px 14px 0 0;
   }
 
-  .points-command-flow .modal-body {
+  .points-command-flow .pcf-operation-modal .so-modal__body {
     padding: 15px;
   }
 
-  .points-command-flow .modal-footer {
+  .points-command-flow .pcf-operation-modal .so-modal__footer {
     padding: 11px 15px calc(11px + env(safe-area-inset-bottom));
   }
 
@@ -2359,9 +2417,27 @@
   }
 }
 
+@media (max-width: 760px) {
+  .points-command-flow .pcf-command-search button,
+  .points-command-flow .pcf-icon-action,
+  .points-command-flow .pcf-operation-modal .so-modal__close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .points-command-flow .pcf-operation-modal :is(.btn-primario, .btn-secundario, .btn-danger, .btn-editar, .btn-excluir) {
+    min-height: 44px;
+  }
+}
+
 @keyframes pcf-dossier-sheet-in {
   from { transform: translateY(18px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pcf-dossier-side-in {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 @keyframes pcf-dossier-backdrop-in {

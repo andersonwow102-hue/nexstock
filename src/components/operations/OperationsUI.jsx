@@ -63,6 +63,7 @@ const ICON_PATHS = {
   activity: <><path d="M3 12h4l2-7 4 14 2-7h6" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></>,
   plus: <><path d="M12 5v14M5 12h14" /></>,
+  minus: <><path d="M5 12h14" /></>,
   search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></>,
   filter: <><path d="M4 6h16M7 12h10M10 18h4" /></>,
   close: <><path d="m6 6 12 12M18 6 6 18" /></>,
@@ -70,6 +71,7 @@ const ICON_PATHS = {
   chevronRight: <><path d="m9.5 6 6 6-6 6" /></>,
   chevronDown: <><path d="m6 9 6 6 6-6" /></>,
   eye: <><path d="M3 12s3.4-6 9-6 9 6 9 6-3.4 6-9 6-9-6-9-6Z" /><circle cx="12" cy="12" r="2.5" /></>,
+  eyeOff: <><path d="m3 3 18 18" /><path d="M10.6 6.2A9.5 9.5 0 0 1 12 6c5.6 0 9 6 9 6a15.8 15.8 0 0 1-2.2 3.1M6.1 6.1C4.1 7.7 3 12 3 12s3.4 6 9 6a9.4 9.4 0 0 0 3.1-.5" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></>,
   edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
   trash: <><path d="M4 7h16M9 7V4h6v3M18 7l-1 13H7L6 7M10 11v5M14 11v5" /></>,
   warning: <><path d="M12 3 2.8 19a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L12 3Z" /><path d="M12 9v5M12 18h.01" /></>,
@@ -458,6 +460,11 @@ export function Modal({
     previousFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
+    const previousOverflow = document.documentElement.style.overflow;
+    const mainContent = document.querySelector(".main");
+    const previousMainOverflow = mainContent?.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    if (mainContent) mainContent.style.overflow = "hidden";
     syncModalLayers();
 
     const animationFrame = window.requestAnimationFrame(() => {
@@ -476,6 +483,8 @@ export function Modal({
       window.cancelAnimationFrame(animationFrame);
       const previousFocus = previousFocusRef.current;
       window.requestAnimationFrame(() => {
+        document.documentElement.style.overflow = previousOverflow;
+        if (mainContent) mainContent.style.overflow = previousMainOverflow || "";
         syncModalLayers();
         if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
       });
@@ -799,6 +808,8 @@ export function FilterBar({
   applyLabel = "Aplicar filtros",
   className = "",
   ariaLabel = "Filtros",
+  ariaHidden,
+  inert,
 }) {
   const secondaryId = useId();
   const secondaryTitleId = useId();
@@ -820,11 +831,19 @@ export function FilterBar({
 
     const mobileSheet = window.matchMedia?.("(max-width: 760px)").matches;
     const previousOverflow = document.documentElement.style.overflow;
-    if (mobileSheet) document.documentElement.style.overflow = "hidden";
+    const mainContent = document.querySelector(".main");
+    const previousMainOverflow = mainContent?.style.overflow;
+    if (mobileSheet) {
+      document.documentElement.style.overflow = "hidden";
+      if (mainContent) mainContent.style.overflow = "hidden";
+    }
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
-      if (mobileSheet) document.documentElement.style.overflow = previousOverflow;
+      if (mobileSheet) {
+        document.documentElement.style.overflow = previousOverflow;
+        if (mainContent) mainContent.style.overflow = previousMainOverflow || "";
+      }
       const previousFocus = previousSecondaryFocusRef.current;
       if (previousFocus?.isConnected) {
         window.requestAnimationFrame(() => previousFocus.focus({ preventScroll: true }));
@@ -866,7 +885,7 @@ export function FilterBar({
   };
 
   return (
-    <section className={classes("so-filter-bar", className)} aria-label={ariaLabel}>
+    <section className={classes("so-filter-bar", className)} aria-label={ariaLabel} aria-hidden={ariaHidden} inert={inert}>
       {title || description ? (
         <header className="so-filter-bar__header">
           <div>

@@ -12,10 +12,10 @@ import FechamentoWorkbench from "./FechamentoWorkbench.jsx";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
-import { getMensagemMotivacionalDoDia } from "./motivationalMessages.js";
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, expenseBelongsToRoute, isManagerExpense } from "./expenseScope.js";
-import { FilterBar, OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { FilterBar, Modal as OperationModal, OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { useResponsiveSheet } from "./components/operations/useResponsiveSheet.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
@@ -45,6 +45,33 @@ const NEPTERA = Object.freeze({
   logoHorizontalEscuro: "/brand/neptera/neptera-logo-horizontal-dark.png",
   logoHorizontalClaro: "/brand/neptera/neptera-logo-horizontal-light.png",
 });
+
+const MODULO_PARA_ABA = Object.freeze({
+  dashboard: "dashboard",
+  equipamentos: "itens",
+  pontos: "pontos",
+  devedores: "devedores",
+  "buscar-gerentes": "buscar-gerentes",
+  senhas: "senhas",
+  fechamento: "fechamento",
+  "prestacao-de-conta": "prestacao-gerente",
+  "central-de-acessos": "gestao",
+  "gerenciar-logins": "logins",
+  historico: "historico",
+});
+const ABA_PARA_MODULO = Object.freeze(Object.fromEntries(Object.entries(MODULO_PARA_ABA).map(([modulo,aba])=>[aba,modulo])));
+
+function abaInicialDaUrl() {
+  if(typeof window==="undefined")return "dashboard";
+  return MODULO_PARA_ABA[new URLSearchParams(window.location.search).get("modulo")]||"dashboard";
+}
+
+function atualizarUrlDoModulo(aba,{substituir=false}={}) {
+  if(typeof window==="undefined"||!ABA_PARA_MODULO[aba])return;
+  const url=new URL(window.location.href);
+  url.searchParams.set("modulo",ABA_PARA_MODULO[aba]);
+  window.history[substituir?"replaceState":"pushState"]({modulo:ABA_PARA_MODULO[aba]},"",`${url.pathname}${url.search}${url.hash}`);
+}
 
 const CATEGORIAS = ["Televisões","Terminais","Impressoras","Tablets","Carregadores","Máquina de Brindes","Totens","Noteiro","PDV Touchscreen"];
 const STATUS_LISTA = ["Disponível","Em rota","Em conserto"];
@@ -96,11 +123,11 @@ function Icon({ name, className = "", title = "", size = 18 }) {
   return <OperationIcon className={`app-icon ${className}`.trim()} name={name} size={size} title={title} />;
 }
 
-function ModuleHeader({ eyebrow, title, subtitle, onMenu, actions = null, className = "" }) {
+function ModuleHeader({ eyebrow, title, subtitle, onMenu, menuOpen = false, actions = null, className = "" }) {
   return (
     <header className={`cf-page-head ${className}`.trim()}>
       <div className="cf-page-head__identity">
-        <button className="btn-hamburguer" onClick={onMenu} type="button" aria-label="Abrir navegação"><Icon name="menu" /></button>
+        <button className="btn-hamburguer" onClick={onMenu} type="button" aria-label={menuOpen?"Fechar navegação":"Abrir navegação"} aria-controls="stock-on-primary-navigation" aria-expanded={menuOpen}><Icon name="menu" /></button>
         <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">{eyebrow}</span><h1>{title}</h1><p>{subtitle}</p></div>
       </div>
       {actions&&<div className="cf-page-head__actions">{actions}</div>}
@@ -556,16 +583,30 @@ function RelatoriosPage({ itens, pontos, historico, historicoPontos, perfilAtual
 }
 
 function BuscaGlobalSearch({ consulta, onConsulta, itens, pontos, historico, onVerEquipamento, onAbrirPontos }) {
+  const containerRef=useRef(null);
   const termo=consulta.trim().toLowerCase();
   const equipamentos=termo?itens.filter(i=>[i.nome,i.categoria,i.status,i.localizacao,i.responsavel].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
   const pontosEncontrados=termo?pontos.filter(p=>[p.nomeFantasia,p.nomeDono,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),p.telefone,...p.modalidades].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
   const movimentos=termo?historico.filter(h=>[h.itemNome,h.categoria,h.tipo,h.responsavel,h.observacao].some(v=>(v||"").toLowerCase().includes(termo))).slice(0,6):[];
   const totalResultados=equipamentos.length+pontosEncontrados.length+movimentos.length;
+  useEffect(()=>{
+    if(!termo)return undefined;
+    function fecharAoClicarFora(evento){
+      if(containerRef.current&&!containerRef.current.contains(evento.target))onConsulta("");
+    }
+    document.addEventListener("pointerdown",fecharAoClicarFora);
+    return()=>document.removeEventListener("pointerdown",fecharAoClicarFora);
+  },[onConsulta,termo]);
   return(
-    <div className="busca-topo-wrap">
-      <input className="busca-topo-input" type="text" placeholder="Buscar geral..." value={consulta} onChange={e=>onConsulta(e.target.value)}/>
+    <div className="busca-topo-wrap" ref={containerRef} role="search" aria-label="Busca global" onKeyDown={evento=>{if(evento.key==="Escape"&&termo){evento.preventDefault();onConsulta("");}}}>
+      <label className="sr-only" htmlFor="neptera-global-search-input">Buscar em equipamentos, pontos e movimentações</label>
+      <div className="busca-topo-control">
+        <Icon name="search"/>
+        <input id="neptera-global-search-input" className="busca-topo-input" type="search" autoComplete="off" placeholder="Buscar no NEPTERA" value={consulta} onChange={e=>onConsulta(e.target.value)} aria-expanded={Boolean(termo)} aria-controls="neptera-global-search-results"/>
+        {consulta&&<button type="button" className="busca-topo-clear" onClick={()=>onConsulta("")} aria-label="Limpar busca global"><Icon name="close"/></button>}
+      </div>
       {termo&&(
-        <div className="busca-topo-resultados">
+        <div className="busca-topo-resultados" id="neptera-global-search-results" role="region" aria-label={`${totalResultados} resultado${totalResultados===1?"":"s"} na busca global`} aria-live="polite">
           <div className="busca-topo-head">
             <strong>Busca geral</strong>
             <button type="button" onClick={()=>onConsulta("")}>Limpar</button>
@@ -735,7 +776,23 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
   const [erro, setErro] = useState("");
   const [ok, setOk] = useState("");
   const [areaAtiva, setAreaAtiva] = useState("credenciais");
+  const [buscaCredencial, setBuscaCredencial] = useState("");
+  const [filtroGerenteCredencial, setFiltroGerenteCredencial] = useState("todos");
+  const [filtroModalidadeCredencial, setFiltroModalidadeCredencial] = useState("todas");
+  const [filtrosCredenciaisAbertos, setFiltrosCredenciaisAbertos] = useState(false);
   const acessosVisiveis = administrador ? acessos : acessos.filter(a => normalizarTexto(a.gerente) === normalizarTexto(gerenteAtual));
+  const gerentesComAcesso = [...new Set(acessosVisiveis.map(acesso=>acesso.gerente).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const modalidadesComAcesso = [...new Set(acessosVisiveis.map(acesso=>acesso.modalidade).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const acessosFiltrados = useMemo(()=>{
+    const termo=normalizarTexto(buscaCredencial);
+    return acessosVisiveis.filter(acesso=>{
+      if(administrador&&filtroGerenteCredencial!=="todos"&&acesso.gerente!==filtroGerenteCredencial)return false;
+      if(filtroModalidadeCredencial!=="todas"&&acesso.modalidade!==filtroModalidadeCredencial)return false;
+      if(!termo)return true;
+      return [acesso.gerente,acesso.modalidade,acesso.login,acesso.observacao].some(valor=>normalizarTexto(valor).includes(termo));
+    });
+  },[acessosVisiveis,administrador,buscaCredencial,filtroGerenteCredencial,filtroModalidadeCredencial]);
+  const filtrosAtivosCredenciais=(administrador&&filtroGerenteCredencial!=="todos"?1:0)+(filtroModalidadeCredencial!=="todas"?1:0);
   const appsPorModalidade = new Map(apps.map(app => [chaveAppModalidade(app.modalidade, app.appTipo), app]));
 
   function selecionarAcesso(acesso) {
@@ -756,9 +813,11 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
     if (!texto) return;
     try {
       await navigator.clipboard.writeText(texto);
-      alert(`${label} copiado.`);
+      setErro("");
+      setOk(`${label} copiado.`);
     } catch {
-      alert(`${label}: ${texto}`);
+      setOk("");
+      setErro(`Não foi possível copiar ${label.toLowerCase()}.`);
     }
   }
 
@@ -836,49 +895,50 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
         <span className="senhas-cf-scope"><small>Escopo atual</small><strong>{administrador ? "Administração" : gerenteAtual}</strong></span>
       </div>
 
-      {(erro||ok)&&<div className={`senhas-cf-feedback ${erro?"is-error":"is-success"}`} role="status"><Icon name={erro?"warning":"check"}/><span>{erro||ok}</span></div>}
+      {(erro||ok)&&<div className={`senhas-cf-feedback ${erro?"is-error":"is-success"}`} role={erro?"alert":"status"}><Icon name={erro?"warning":"check"}/><span>{erro||ok}</span></div>}
 
-      {administrador&&(
-        <div className={`senhas-cf-admin is-${areaAtiva}`}>
-          {areaAtiva==="credenciais"&&<form className="senhas-cf-panel senhas-cf-access-editor" onSubmit={salvarAcesso}>
-            <header><span className="senhas-cf-panel-icon"><Icon name="key"/></span><div><span className="cf-kicker">Identidade → modalidade</span><h3>{form.id?"Editar acesso":"Cadastrar acesso"}</h3><p>O registro é salvo apenas ao confirmar.</p></div></header>
-            <div className="senhas-cf-fields">
-              <label><span>Gerente</span><select value={form.gerente} onChange={e=>setForm({...form,gerente:e.target.value})}>{GERENTES.map(g=><option key={g}>{g}</option>)}</select></label>
-              <label><span>Modalidade</span><select value={form.modalidade} onChange={e=>setForm({...form,modalidade:e.target.value})}>{MODALIDADES.map(m=><option key={m}>{m}</option>)}</select></label>
-              <label><span>Login</span><input value={form.login} onChange={e=>setForm({...form,login:e.target.value})} placeholder="Usuário, e-mail ou código"/></label>
-              <label><span>Senha</span><input value={form.senha} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="Senha da modalidade"/></label>
-              <label className="is-wide"><span>Link da plataforma</span><input value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="https://..."/></label>
-              <label className="is-wide"><span>Observação</span><input value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} placeholder="Instrução rápida para o gerente"/></label>
-            </div>
-            <footer><span><Icon name="info"/> Login e senha permanecem ocultos no ledger até a revelação explícita.</span><button className="btn-primario" disabled={salvando}><Icon name="check"/>{salvando?"Salvando...":"Salvar acesso"}</button></footer>
-          </form>}
-
-          {areaAtiva==="aplicativos"&&<form className="senhas-cf-panel senhas-cf-app-editor" onSubmit={enviarApp}>
-            <header><span className="senhas-cf-panel-icon"><Icon name="download"/></span><div><span className="cf-kicker">Distribuição Android</span><h3>Disponibilizar aplicativo</h3><p>Arquivo local ou link público, nunca os dois.</p></div></header>
-            <div className="senhas-cf-fields">
-              <label className="is-wide"><span>Modalidade</span><select value={appForm.modalidade} onChange={e=>{const modalidade=e.target.value;const tipoAtualValido=APP_TIPOS_90_DA_SORTE.some(tipo=>tipo.id===appForm.appTipo);setAppForm({...appForm,modalidade,appTipo:modalidade==="90 da Sorte"?(tipoAtualValido?appForm.appTipo:"terminal"):"padrao"});}}>{MODALIDADES.map(m=><option key={m}>{m}</option>)}</select></label>
-              {appForm.modalidade==="90 da Sorte"&&<label className="is-wide"><span>Tipo do APK</span><select value={appForm.appTipo} onChange={e=>setAppForm({...appForm,appTipo:e.target.value})}>{APP_TIPOS_90_DA_SORTE.map(tipo=><option key={tipo.id} value={tipo.id}>{tipo.label}</option>)}</select></label>}
-              <label className="is-wide"><span>Arquivo APK</span><input type="file" accept=".apk,application/vnd.android.package-archive,application/octet-stream" onChange={e=>setAppForm({...appForm,arquivo:e.target.files?.[0]||null})}/></label>
-              <div className="senhas-cf-or"><span>ou</span></div>
-              <label className="is-wide"><span>Link externo do APK</span><input type="url" value={appForm.linkExterno} onChange={e=>setAppForm({...appForm,linkExterno:e.target.value})} placeholder="https://drive.google.com/..."/></label>
-            </div>
-            <footer><span><Icon name="info"/> Escolha um arquivo ou cole um link público para download.</span><button className="btn-primario" disabled={enviandoApp}><Icon name="upload"/>{enviandoApp?"Salvando...":"Salvar APK ou link"}</button></footer>
-          </form>}
-        </div>
-      )}
-
-      <div className={`senhas-cf-workspace is-${areaAtiva}`}>
-        {areaAtiva==="credenciais"&&<section className="senhas-cf-ledger">
-          <header><div><span className="cf-kicker">Credenciais</span><h3>{administrador?"Acessos cadastrados":"Acessos liberados para você"}</h3></div><b>{acessosVisiveis.length}</b></header>
-          {acessosVisiveis.length===0?<div className="cf-empty"><Icon name="key"/><strong>Nenhum acesso cadastrado</strong><span>As credenciais aparecerão aqui quando forem liberadas.</span></div>:<div className="senhas-cf-access-list">
-            {acessosVisiveis.map(acesso=>{
+      <div className={`senhas-cf-layout is-${areaAtiva} ${administrador?"has-admin":""}`}>
+        <div className={`senhas-cf-workspace is-${areaAtiva}`}>
+          {areaAtiva==="credenciais"&&<>
+            <FilterBar
+              className="senhas-cf-filterbar"
+              ariaLabel="Filtrar credenciais"
+              activeCount={filtrosAtivosCredenciais}
+              secondaryOpen={filtrosCredenciaisAbertos}
+              onSecondaryToggle={setFiltrosCredenciaisAbertos}
+              onClear={()=>{
+                setFiltroGerenteCredencial("todos");
+                setFiltroModalidadeCredencial("todas");
+              }}
+              primary={<>
+                <div className="senhas-cf-search">
+                  <label className="sr-only" htmlFor="senhas-cf-search-input">Buscar credencial</label>
+                  <Icon name="search"/>
+                  <input id="senhas-cf-search-input" type="search" value={buscaCredencial} onChange={e=>setBuscaCredencial(e.target.value)} placeholder="Buscar gerente, modalidade ou login"/>
+                  {buscaCredencial&&<button type="button" onClick={()=>setBuscaCredencial("")} aria-label="Limpar busca"><Icon name="close"/></button>}
+                </div>
+                <span className="senhas-cf-result-count"><strong>{acessosFiltrados.length}</strong><span>de {acessosVisiveis.length}</span></span>
+              </>}
+              secondary={<>
+                {administrador&&<label className="senhas-cf-filter-field"><span>Gerente</span><select value={filtroGerenteCredencial} onChange={e=>setFiltroGerenteCredencial(e.target.value)}><option value="todos">Todos os gerentes</option>{gerentesComAcesso.map(gerente=><option key={gerente} value={gerente}>{gerente}</option>)}</select></label>}
+                <label className="senhas-cf-filter-field"><span>Modalidade</span><select value={filtroModalidadeCredencial} onChange={e=>setFiltroModalidadeCredencial(e.target.value)}><option value="todas">Todas as modalidades</option>{modalidadesComAcesso.map(modalidade=><option key={modalidade} value={modalidade}>{modalidade}</option>)}</select></label>
+              </>}
+              chips={filtrosAtivosCredenciais>0?<>
+                {administrador&&filtroGerenteCredencial!=="todos"&&<button type="button" className="senhas-cf-filter-chip" onClick={()=>setFiltroGerenteCredencial("todos")}><span>Gerente: {filtroGerenteCredencial}</span><Icon name="close"/></button>}
+                {filtroModalidadeCredencial!=="todas"&&<button type="button" className="senhas-cf-filter-chip" onClick={()=>setFiltroModalidadeCredencial("todas")}><span>Modalidade: {filtroModalidadeCredencial}</span><Icon name="close"/></button>}
+              </>:null}
+            />
+            <section className="senhas-cf-ledger">
+              <header><div><span className="cf-kicker">Credenciais</span><h3>{administrador?"Acessos cadastrados":"Acessos liberados para você"}</h3></div><b>{acessosFiltrados.length}</b></header>
+              {acessosFiltrados.length===0?<div className="cf-empty"><Icon name="key"/><strong>Nenhuma credencial encontrada</strong><span>{acessosVisiveis.length?"Ajuste a busca ou remova os filtros ativos.":"As credenciais aparecerão aqui quando forem liberadas."}</span></div>:<div className="senhas-cf-access-list">
+            {acessosFiltrados.map(acesso=>{
               const chave=acesso.id||`${acesso.gerente}-${acesso.modalidade}`;
               const visivel=Boolean(senhasVisiveis[chave]);
               return <article key={chave} className={form.id===acesso.id?"is-selected":""}>
                 <span className="senhas-cf-record-icon"><Icon name="shieldKey"/></span>
                 <div className="senhas-cf-record-id"><strong>{acesso.modalidade}</strong><small>{acesso.gerente}</small>{acesso.observacao&&<p>{acesso.observacao}</p>}</div>
-                <div className="senhas-cf-secret"><span>Login</span><button type="button" onClick={()=>copiar(acesso.login,"Login")}><Icon name="copy"/>{acesso.login||"Não informado"}</button></div>
-                <div className="senhas-cf-secret"><span>Senha</span><button type="button" onClick={()=>copiar(acesso.senha,"Senha")}><Icon name="copy"/>{visivel?(acesso.senha||"Não informada"):"••••••••"}</button></div>
+                <div className="senhas-cf-secret"><span>Login</span><button type="button" onClick={()=>copiar(acesso.login,"Login")} aria-label={`Copiar login de ${acesso.modalidade}`}><Icon name="copy"/>{acesso.login||"Não informado"}</button></div>
+                <div className="senhas-cf-secret"><span>Senha</span><button type="button" onClick={()=>copiar(acesso.senha,"Senha")} aria-label={`Copiar senha de ${acesso.modalidade}`}><Icon name="copy"/>{visivel?(acesso.senha||"Não informada"):"••••••••"}</button></div>
                 <div className="senhas-cf-record-actions">
                   <button type="button" className="btn-secundario" onClick={()=>setSenhasVisiveis(v=>({...v,[chave]:!visivel}))}><Icon name={visivel?"eyeOff":"eye"}/>{visivel?"Ocultar":"Mostrar"}</button>
                   {acesso.link&&<button className="btn-secundario" type="button" onClick={()=>window.open(acesso.link,"_blank","noopener,noreferrer")}><Icon name="externalLink"/>Abrir</button>}
@@ -887,19 +947,50 @@ function SenhasModalidadesPage({ perfilAtual, acessos = [], apps = [], onAcessos
                 </div>
               </article>;
             })}
-          </div>}
-        </section>}
+              </div>}
+            </section>
+          </>}
 
-        {areaAtiva==="aplicativos"&&<section className="senhas-cf-downloads">
-          <header><div><span className="cf-kicker">Distribuição</span><h3>Apps das modalidades</h3></div><Icon name="download"/></header>
-          <div className="senhas-cf-app-list">
+          {areaAtiva==="aplicativos"&&<section className="senhas-cf-downloads">
+            <header><div><span className="cf-kicker">Distribuição</span><h3>Apps das modalidades</h3></div><Icon name="download"/></header>
+            <div className="senhas-cf-app-list">
             {MODALIDADES.filter(modalidade=>!MODALIDADES_SEM_APP.has(modalidade)).map(modalidade=>{
               if(modalidade==="90 da Sorte")return <article className="is-group" key={modalidade}><div className="senhas-cf-app-id"><span className="senhas-cf-record-icon"><Icon name="monitor"/></span><span><strong>{modalidade}</strong><small>TV e Terminal</small></span></div><div className="senhas-cf-app-variants">{APP_TIPOS_90_DA_SORTE.map(tipo=>{const app=appsPorModalidade.get(chaveAppModalidade(modalidade,tipo.id));return <div key={tipo.id} className={app?"is-available":""}><span><strong>{tipo.label}</strong><small>{app?`${app.appNome}${app.downloadUrl?" · Link externo":` · ${formatarTamanhoArquivo(app.tamanho)}`}`:"Nenhum APK enviado"}</small></span><button className="btn-secundario" type="button" disabled={!app} onClick={()=>baixarApp(app)}><Icon name="download"/>Baixar</button></div>;})}</div></article>;
               const app=appsPorModalidade.get(chaveAppModalidade(modalidade));
               return <article className={app?"is-available":""} key={modalidade}><div className="senhas-cf-app-id"><span className="senhas-cf-record-icon"><Icon name="terminal"/></span><span><strong>{modalidade}</strong><small>{app?`${app.appNome}${app.downloadUrl?" · Link externo":` · ${formatarTamanhoArquivo(app.tamanho)}`}`:"Nenhum APK enviado"}</small></span></div><button className="btn-secundario" type="button" disabled={!app} onClick={()=>baixarApp(app)}><Icon name="download"/>Baixar app</button></article>;
             })}
+            </div>
+          </section>}
+        </div>
+
+        {administrador&&(
+          <div className={`senhas-cf-admin is-${areaAtiva}`}>
+            {areaAtiva==="credenciais"&&<form className="senhas-cf-panel senhas-cf-access-editor" onSubmit={salvarAcesso}>
+              <header><span className="senhas-cf-panel-icon"><Icon name="key"/></span><div><span className="cf-kicker">Identidade → modalidade</span><h3>{form.id?"Editar acesso":"Cadastrar acesso"}</h3><p>O registro é salvo apenas ao confirmar.</p></div></header>
+              <div className="senhas-cf-fields">
+                <label><span>Gerente</span><select value={form.gerente} onChange={e=>setForm({...form,gerente:e.target.value})}>{GERENTES.map(g=><option key={g}>{g}</option>)}</select></label>
+                <label><span>Modalidade</span><select value={form.modalidade} onChange={e=>setForm({...form,modalidade:e.target.value})}>{MODALIDADES.map(m=><option key={m}>{m}</option>)}</select></label>
+                <label><span>Login</span><input value={form.login} onChange={e=>setForm({...form,login:e.target.value})} placeholder="Usuário, e-mail ou código"/></label>
+                <label><span>Senha</span><input type="password" autoComplete="off" value={form.senha} onChange={e=>setForm({...form,senha:e.target.value})} placeholder="Senha da modalidade"/></label>
+                <label className="is-wide"><span>Link da plataforma</span><input value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="https://..."/></label>
+                <label className="is-wide"><span>Observação</span><input value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} placeholder="Instrução rápida para o gerente"/></label>
+              </div>
+              <footer><span><Icon name="info"/> Login e senha permanecem ocultos no ledger até a revelação explícita.</span><button className="btn-primario" disabled={salvando}><Icon name="check"/>{salvando?"Salvando...":"Salvar acesso"}</button></footer>
+            </form>}
+
+            {areaAtiva==="aplicativos"&&<form className="senhas-cf-panel senhas-cf-app-editor" onSubmit={enviarApp}>
+              <header><span className="senhas-cf-panel-icon"><Icon name="download"/></span><div><span className="cf-kicker">Distribuição Android</span><h3>Disponibilizar aplicativo</h3><p>Arquivo local ou link público, nunca os dois.</p></div></header>
+              <div className="senhas-cf-fields">
+                <label className="is-wide"><span>Modalidade</span><select value={appForm.modalidade} onChange={e=>{const modalidade=e.target.value;const tipoAtualValido=APP_TIPOS_90_DA_SORTE.some(tipo=>tipo.id===appForm.appTipo);setAppForm({...appForm,modalidade,appTipo:modalidade==="90 da Sorte"?(tipoAtualValido?appForm.appTipo:"terminal"):"padrao"});}}>{MODALIDADES.map(m=><option key={m}>{m}</option>)}</select></label>
+                {appForm.modalidade==="90 da Sorte"&&<label className="is-wide"><span>Tipo do APK</span><select value={appForm.appTipo} onChange={e=>setAppForm({...appForm,appTipo:e.target.value})}>{APP_TIPOS_90_DA_SORTE.map(tipo=><option key={tipo.id} value={tipo.id}>{tipo.label}</option>)}</select></label>}
+                <label className="is-wide"><span>Arquivo APK</span><input type="file" accept=".apk,application/vnd.android.package-archive,application/octet-stream" onChange={e=>setAppForm({...appForm,arquivo:e.target.files?.[0]||null})}/></label>
+                <div className="senhas-cf-or"><span>ou</span></div>
+                <label className="is-wide"><span>Link externo do APK</span><input type="url" value={appForm.linkExterno} onChange={e=>setAppForm({...appForm,linkExterno:e.target.value})} placeholder="https://drive.google.com/..."/></label>
+              </div>
+              <footer><span><Icon name="info"/> Escolha um arquivo ou cole um link público para download.</span><button className="btn-primario" disabled={enviandoApp}><Icon name="upload"/>{enviandoApp?"Salvando...":"Salvar APK ou link"}</button></footer>
+            </form>}
           </div>
-        </section>}
+        )}
       </div>
     </section>
   );
@@ -1193,7 +1284,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
             <div className={`prestacao-confirmacao-acao ${fechamentoConfirmadoEm?"confirmada":""}`}>
               {fechamentoConfirmadoEm&&(
                 <div className="prestacao-confirmado-banner">
-                  <span>✓</span>
+                  <span aria-hidden="true"><Icon name="check"/></span>
                   <div>
                     <strong>Fechamento confirmado com sucesso</strong>
                     <small>Sua conferência foi registrada e enviada para a administração.</small>
@@ -1228,7 +1319,7 @@ function PrestacaoGerentePage({ gerenteAtual = "", pontos = [], itens = [], desp
   );
 }
 
-function FechamentoModule({ onMenu, ...pageProps }) {
+function FechamentoModule({ onMenu, menuOpen, ...pageProps }) {
   const [prazosAbertos, setPrazosAbertos] = useState(false);
   return <>
     <ModuleHeader
@@ -1236,6 +1327,7 @@ function FechamentoModule({ onMenu, ...pageProps }) {
       title="Fechamento"
       subtitle="Conferência, prova do resultado e publicação por rota."
       onMenu={onMenu}
+      menuOpen={menuOpen}
       actions={<button className="btn-secundario" type="button" aria-expanded={prazosAbertos} onClick={()=>setPrazosAbertos(atual=>!atual)}><Icon name="calendar"/> Prazos de despesas</button>}
     />
     <FechamentoPage {...pageProps} prazosAbertos={prazosAbertos} onFecharPrazos={()=>setPrazosAbertos(false)}/>
@@ -2513,12 +2605,18 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
   const pagamentoSolicitado=pagamentoStatus==="solicitado";
   const pagamentoPago=pagamentoStatus==="pago";
   return(
-    <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-ficha" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header"><h3>Ficha do Equipamento</h3><button className="modal-fechar" onClick={onFechar} aria-label="Fechar"><Icon name="close"/></button></div>
+    <>
+      <OperationModal
+        title="Ficha do equipamento"
+        subtitle={`${item.nome} · ${item.categoria}`}
+        onClose={onFechar}
+        size="lg"
+        className="modal-ficha"
+        footer={podeEditar&&!somenteLeitura&&!(admin&&emConserto)?<><button className="btn-secundario" type="button" onClick={()=>{onFechar();onEditar(item);}}>Editar</button><button className="btn-primario" type="button" onClick={()=>{onFechar();onMovimentar(item);}}>Movimentar</button></>:null}
+      >
         <div className="modal-body">
           <div className="ficha-cabecalho">
-            <div><h2>{ICONES[item.categoria]} {item.nome}</h2></div>
+            <div><h2><OperationIcon className="ficha-equipamento-icone" name={ICONES[item.categoria]} size={24}/><span>{item.nome}</span></h2></div>
             <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
           </div>
           <div className="ficha-dados">
@@ -2564,29 +2662,15 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
             {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação registrada.</p>:movimentos.map(h=><div className="ficha-evento" key={h.id}><span className={`badge-hist ${HIST_CFG[h.tipo]?.cor||""}`}>{HIST_CFG[h.tipo]?.label||h.tipo}</span><div><strong>{h.observacao||"Sem detalhe"}</strong><small>{h.data} · {h.responsavel||"-"}</small></div></div>)}
           </div>
         </div>
-        {podeEditar&&!somenteLeitura&&!(admin&&emConserto)&&<div className="modal-footer">
-          <button className="btn-secundario" onClick={()=>{onFechar();onEditar(item);}}>Editar</button>
-          <button className="btn-primario" onClick={()=>{onFechar();onMovimentar(item);}}>Movimentar</button>
-        </div>}
-      </div>
+      </OperationModal>
       {notaAberta&&(
-        <div className="nota-preview-overlay" onClick={e=>{e.stopPropagation();setNotaAberta(false);}}>
-          <div className="nota-preview-modal" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Nota fiscal do conserto</h3>
-              <button className="modal-fechar" onClick={()=>setNotaAberta(false)} aria-label="Fechar"><Icon name="close"/></button>
-            </div>
+        <OperationModal title="Nota fiscal do conserto" subtitle={item.consertoNotaNome||item.nome} onClose={()=>setNotaAberta(false)} size="xl" className="nota-preview-modal" overlayClassName="nota-preview-overlay" footer={<><a className="btn-secundario" href={item.consertoNotaArquivo} download={item.consertoNotaNome||"nota-fiscal-conserto.jpg"}>Baixar imagem</a><button className="btn-primario" type="button" onClick={()=>setNotaAberta(false)}>Fechar</button></>}>
             <div className="nota-preview-corpo">
               <img src={item.consertoNotaArquivo} alt={`Nota fiscal ${item.consertoNotaNome||item.nome}`}/>
             </div>
-            <div className="modal-footer">
-              <a className="btn-secundario" href={item.consertoNotaArquivo} download={item.consertoNotaNome||"nota-fiscal-conserto.jpg"}>Baixar imagem</a>
-              <button className="btn-primario" onClick={()=>setNotaAberta(false)}>Fechar</button>
-            </div>
-          </div>
-        </div>
+        </OperationModal>
       )}
-    </div>
+    </>
   );
 }
 
@@ -3100,31 +3184,32 @@ function ModalAlterarSenha({onFechar}) {
   }
 
   return(
-    <div className="modal-overlay" onClick={onFechar}>
-      <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header"><h3>Alterar Minha Senha</h3><button className="modal-fechar" onClick={onFechar} aria-label="Fechar"><Icon name="close"/></button></div>
-        {sucesso?(
-          <>
-            <div className="modal-body">
-              <div className="senha-sucesso"><Icon name="check"/> Senha alterada com sucesso.</div>
-              <p className="senha-texto">Na próxima entrada, use a nova senha cadastrada.</p>
-            </div>
-            <div className="modal-footer"><button className="btn-primario" onClick={onFechar}>Fechar</button></div>
-          </>
-        ):(
-          <form onSubmit={salvar}>
-            <div className="modal-body">
-              <p className="senha-texto">Esta alteração vale somente para o seu próprio login.</p>
-              {erro&&<div className="erro-msg"><Icon name="warning"/> {erro}</div>}
-              <div className="campo"><label>Senha atual *</label><input type="password" value={senhaAtual} onChange={e=>setSenhaAtual(e.target.value)} autoFocus/></div>
-              <div className="campo"><label>Nova senha *</label><input type="password" placeholder="Mínimo de 10 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)}/></div>
-              <div className="campo"><label>Confirmar nova senha *</label><input type="password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
-            </div>
-            <div className="modal-footer"><button type="button" className="btn-secundario" onClick={onFechar}>Cancelar</button><button type="submit" className="btn-primario" disabled={salvando}>{salvando?"Salvando...":"Alterar senha"}</button></div>
-          </form>
-        )}
-      </div>
-    </div>
+    <OperationModal
+      title="Alterar minha senha"
+      subtitle={sucesso?"Atualização concluída":"Esta alteração vale somente para o seu próprio login."}
+      onClose={onFechar}
+      blocked={salvando}
+      size="sm"
+      footer={sucesso
+        ?<button className="btn-primario" type="button" onClick={onFechar}>Fechar</button>
+        :<><button type="button" className="btn-secundario" onClick={onFechar}>Cancelar</button><button type="submit" form="alterar-minha-senha-form" className="btn-primario" disabled={salvando}>{salvando?"Salvando...":"Alterar senha"}</button></>}
+    >
+      {sucesso?(
+        <div className="modal-body">
+          <div className="senha-sucesso" role="status"><Icon name="check"/> Senha alterada com sucesso.</div>
+          <p className="senha-texto">Na próxima entrada, use a nova senha cadastrada.</p>
+        </div>
+      ):(
+        <form id="alterar-minha-senha-form" onSubmit={salvar}>
+          <div className="modal-body">
+            {erro&&<div className="erro-msg" role="alert"><Icon name="warning"/> {erro}</div>}
+            <div className="campo"><label>Senha atual *</label><input type="password" autoComplete="current-password" value={senhaAtual} onChange={e=>setSenhaAtual(e.target.value)} data-so-autofocus="true"/></div>
+            <div className="campo"><label>Nova senha *</label><input type="password" autoComplete="new-password" placeholder="Mínimo de 10 caracteres" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)}/></div>
+            <div className="campo"><label>Confirmar nova senha *</label><input type="password" autoComplete="new-password" value={confirmacao} onChange={e=>setConfirmacao(e.target.value)}/></div>
+          </div>
+        </form>
+      )}
+    </OperationModal>
   );
 }
 
@@ -3138,26 +3223,6 @@ function prazoEmailTemporario(data) {
 
 function nomeBaseGerente(nome) {
   return String(nome || "Gerente").trim().split(/\s+/)[0] || "Gerente";
-}
-
-function avatarLendario(nome) {
-  const base = nomeBaseGerente(nome);
-  const avatares = {
-    alex: { titulo:"Arqueiro Azul", classe:"avatar-alex" },
-    maynarden: { titulo:"Guardião Central", classe:"avatar-maynarden" },
-    yago: { titulo:"Cavaleiro das Rotas", classe:"avatar-yago" },
-    vitor: { titulo:"Titã da América", classe:"avatar-vitor" },
-    eliana: { titulo:"Estrela Neon", classe:"avatar-eliana" },
-    queixo: { titulo:"Escudo Dourado", classe:"avatar-queixo" },
-    wene: { titulo:"Falcão Rubi", classe:"avatar-wene" },
-    joão: { titulo:"Nobre Solar", classe:"avatar-joao" },
-    joao: { titulo:"Nobre Solar", classe:"avatar-joao" },
-    beu: { titulo:"Capitão Turquesa", classe:"avatar-beu" },
-    gavião: { titulo:"Xerife das Rotas", classe:"avatar-gaviao" },
-    gaviao: { titulo:"Xerife das Rotas", classe:"avatar-gaviao" },
-  };
-  const chave = normalizarTexto(base);
-  return avatares[chave] || { titulo:"Herói do Estoque", classe:"avatar-estoque" };
 }
 
 // ── App principal ─────────────────────────────────────────────────────────────
@@ -3217,7 +3282,7 @@ function Sistema({onLogout}){
   const [carregando,setCarregando] =useState(true);
   const [erroCarregamento,setErroCarregamento]=useState("");
   const [tentativaCarga,setTentativaCarga]=useState(0);
-  const [aba,setAba]               =useState("dashboard");
+  const [aba,setAba]               =useState(abaInicialDaUrl);
   const [abaEquip,setAbaEquip]     =useState("lista");
   const [filtroCatEquip,setFiltroCatEquip]=useState("Todas");
   const [modalForm,setModalForm]   =useState(false);
@@ -3239,6 +3304,7 @@ function Sistema({onLogout}){
   const [filtrosHistoricoAbertos,setFiltrosHistoricoAbertos]=useState(false);
   const [paginaHistorico,setPaginaHistorico]=useState(1);
   const [historicoFocoId,setHistoricoFocoId]=useState(null);
+  const [dossieHistoricoAberto,setDossieHistoricoAberto]=useState(false);
   const [confirmLogout,setConfirmLogout]=useState(false);
   const [modalSenha,setModalSenha]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
@@ -3250,6 +3316,10 @@ function Sistema({onLogout}){
   const [itemDetalhe,setItemDetalhe]=useState(null);
   const [itemDetalheSomenteLeitura,setItemDetalheSomenteLeitura]=useState(false);
   const [equipamentoFocoId,setEquipamentoFocoId]=useState(null);
+  const [dossieEquipamentoAberto,setDossieEquipamentoAberto]=useState(false);
+  const [dossieEquipamentoSheet,setDossieEquipamentoSheet]=useState(()=>typeof window!=="undefined"&&window.matchMedia?.("(max-width: 1180px)").matches);
+  const dossieEquipamentoRef=useRef(null);
+  const focoAntesDossieEquipamentoRef=useRef(null);
   const [buscaGlobal,setBuscaGlobal]=useState("");
   const [paginaItens,setPaginaItens]=useState(1);
   const [gerenteConsulta,setGerenteConsulta]=useState("");
@@ -3257,12 +3327,19 @@ function Sistema({onLogout}){
   const [buscaGerenteConsulta,setBuscaGerenteConsulta]=useState("");
   const [paginaGerenteConsulta,setPaginaGerenteConsulta]=useState(1);
   const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",perfilReal:false,emailTemporario:false,emailTemporarioExpiraEm:""});
+  const [perfilCarregado,setPerfilCarregado]=useState(false);
   const [avisoPrazoDespesas,setAvisoPrazoDespesas]=useState(null);
+  const historicoDossieSheet=useResponsiveSheet({
+    open:dossieHistoricoAberto,
+    onClose:()=>setDossieHistoricoAberto(false),
+    mediaQuery:"(max-width: 800px)",
+  });
 
   useEffect(()=>{
     let ativo=true;
     async function init(){
       setCarregando(true);
+      setPerfilCarregado(false);
       setErroCarregamento("");
       try{
         const [eq,pts]=await Promise.all([
@@ -3290,10 +3367,12 @@ function Sistema({onLogout}){
         if(complementos[4].status==="fulfilled")setPixEnvios(complementos[4].value);
         if(complementos[5].status==="fulfilled")setSenhasModalidades(complementos[5].value);
         if(complementos[6].status==="fulfilled")setModalidadeApps(complementos[6].value);
+        setPerfilCarregado(true);
       }catch(e){
         if(!ativo)return;
         setErroCarregamento(e.message||"Não foi possível buscar os dados do sistema.");
         setCarregando(false);
+        setPerfilCarregado(true);
       }
     }
     init();
@@ -3305,6 +3384,17 @@ function Sistema({onLogout}){
     if(typeof window==="undefined"||!window.matchMedia)return undefined;
     const consulta=window.matchMedia("(max-width: 1024px)");
     const atualizar=()=>setNavegacaoCompacta(consulta.matches);
+    atualizar();
+    consulta.addEventListener?.("change",atualizar);
+    return()=>consulta.removeEventListener?.("change",atualizar);
+  },[]);
+  useEffect(()=>{
+    if(typeof window==="undefined"||!window.matchMedia)return undefined;
+    const consulta=window.matchMedia("(max-width: 1180px)");
+    const atualizar=()=>{
+      setDossieEquipamentoSheet(consulta.matches);
+      if(!consulta.matches)setDossieEquipamentoAberto(false);
+    };
     atualizar();
     consulta.addEventListener?.("change",atualizar);
     return()=>consulta.removeEventListener?.("change",atualizar);
@@ -3323,9 +3413,23 @@ function Sistema({onLogout}){
     focoAntesSidebarRef.current=document.activeElement;
     setSidebarAberta(true);
   }
-  function navegar(novaAba){const mesmaAba=novaAba===aba;setAba(novaAba);fecharSidebar(mesmaAba);}
+  function abrirForaDoDrawer(abrir){
+    if(!drawerContextual||!sidebarAberta){abrir();return;}
+    const alvo=focoAntesSidebarRef.current;
+    focoAntesSidebarRef.current=null;
+    setSidebarAberta(false);
+    window.requestAnimationFrame(()=>{
+      if(alvo instanceof HTMLElement&&alvo.isConnected)alvo.focus({preventScroll:true});
+      abrir();
+    });
+  }
+  function navegar(novaAba){
+    const mesmaAba=novaAba===aba;
+    setAba(novaAba);
+    atualizarUrlDoModulo(novaAba,{substituir:mesmaAba});
+    fecharSidebar(mesmaAba);
+  }
 
-  const mensagemDoDia=getMensagemMotivacionalDoDia();
   const podeEditar=perfilAtual.perfil==="administrador"||perfilAtual.perfil==="operador";
   const administrador=perfilAtual.perfil==="administrador";
   const operador=perfilAtual.perfil==="operador";
@@ -3333,6 +3437,11 @@ function Sistema({onLogout}){
   const drawerDevedores=aba==="devedores"&&acessoDevedores;
   const drawerDashboard=aba==="dashboard"&&navegacaoCompacta;
   const drawerContextual=drawerDevedores||drawerDashboard||navegacaoCompacta;
+  useEffect(()=>{
+    function acompanharHistoricoDoNavegador(){setAba(abaInicialDaUrl());setSidebarAberta(false);}
+    window.addEventListener("popstate",acompanharHistoricoDoNavegador);
+    return()=>window.removeEventListener("popstate",acompanharHistoricoDoNavegador);
+  },[]);
   useEffect(()=>{
     if(!drawerContextual||!sidebarAberta)return undefined;
     const painel=sidebarRef.current;
@@ -3365,7 +3474,7 @@ function Sistema({onLogout}){
   useEffect(()=>{
     const metaTema=document.querySelector('meta[name="theme-color"]');
     if(!metaTema)return;
-    const cor=temaClaro?"#f2eee7":"#111412";
+    const cor=temaClaro?"#f1f3f0":"#111412";
     metaTema.setAttribute("content",cor);
   },[aba,acessoDevedores,temaClaro]);
   const gerentesChat=[...new Set([
@@ -3374,6 +3483,20 @@ function Sistema({onLogout}){
   ])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const gerenteAtual=perfilAtual.perfil==="gerente"?(perfilAtual.gerenteNome||perfilAtual.nome||""):"";
   const gerenteAtualKey=normalizarTexto(gerenteAtual);
+  useEffect(()=>{
+    if(!perfilCarregado)return;
+    const abaPermitida=["dashboard","itens","pontos","historico"].includes(aba)
+      ||(aba==="devedores"&&acessoDevedores)
+      ||(aba==="buscar-gerentes"&&(administrador||operador))
+      ||(aba==="senhas"&&(administrador||Boolean(gerenteAtual)))
+      ||(aba==="fechamento"&&administrador)
+      ||(aba==="prestacao-gerente"&&Boolean(gerenteAtual))
+      ||(aba==="gestao"&&administrador)
+      ||(aba==="logins"&&administrador);
+    if(abaPermitida)return;
+    setAba("dashboard");
+    atualizarUrlDoModulo("dashboard",{substituir:true});
+  },[aba,acessoDevedores,administrador,gerenteAtual,operador,perfilCarregado]);
   useEffect(()=>{
     function verificarAviso(){
       if(!gerenteAtual){setAvisoPrazoDespesas(null);return;}
@@ -3399,7 +3522,6 @@ function Sistema({onLogout}){
   }
   const podeCadastrarEquipamento=podeEditar||perfilAtual.perfil==="gerente";
   const gerenteNomeBase=nomeBaseGerente(gerenteAtual);
-  const gerenteAvatar=avatarLendario(gerenteAtual);
   const gerentesOperacionais=[...new Set([
     ...GERENTES,
     ...pontos.map(p=>gerenteDaRota(p.gerente)).filter(Boolean),
@@ -3561,6 +3683,65 @@ function Sistema({onLogout}){
   },[gerenteConsulta,gerentesOperacionais]);
   useEffect(()=>{setConsultaEquipFiltro("todos");},[gerenteConsultaAtivo]);
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
+  useEffect(()=>{
+    if(!dossieEquipamentoSheet||!dossieEquipamentoAberto)return undefined;
+    const painel=dossieEquipamentoRef.current;
+    if(!painel)return undefined;
+    const seletor='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focaveis=()=>Array.from(painel.querySelectorAll(seletor)).filter(elemento=>elemento.getClientRects().length>0);
+    const overflowAnterior=document.documentElement.style.overflow;
+    const conteudoPrincipal=document.querySelector(".main");
+    const overflowPrincipalAnterior=conteudoPrincipal?.style.overflow;
+    document.documentElement.style.overflow="hidden";
+    if(conteudoPrincipal)conteudoPrincipal.style.overflow="hidden";
+    const quadro=window.requestAnimationFrame(()=>{
+      const alvo=painel.querySelector("[data-equip-dossier-autofocus='true']")||focaveis()[0]||painel;
+      alvo.focus({preventScroll:true});
+    });
+    function controlarTeclado(evento){
+      if(evento.key==="Escape"){
+        evento.preventDefault();
+        evento.stopPropagation();
+        setDossieEquipamentoAberto(false);
+        return;
+      }
+      if(evento.key!=="Tab")return;
+      const itensFocaveis=focaveis();
+      if(!itensFocaveis.length){evento.preventDefault();painel.focus({preventScroll:true});return;}
+      const primeiro=itensFocaveis[0];
+      const ultimo=itensFocaveis[itensFocaveis.length-1];
+      const ativo=document.activeElement;
+      if(evento.shiftKey&&(ativo===primeiro||!painel.contains(ativo))){evento.preventDefault();ultimo.focus({preventScroll:true});}
+      else if(!evento.shiftKey&&(ativo===ultimo||!painel.contains(ativo))){evento.preventDefault();primeiro.focus({preventScroll:true});}
+    }
+    document.addEventListener("keydown",controlarTeclado);
+    return()=>{
+      window.cancelAnimationFrame(quadro);
+      document.removeEventListener("keydown",controlarTeclado);
+      document.documentElement.style.overflow=overflowAnterior;
+      if(conteudoPrincipal)conteudoPrincipal.style.overflow=overflowPrincipalAnterior||"";
+      const alvo=focoAntesDossieEquipamentoRef.current;
+      focoAntesDossieEquipamentoRef.current=null;
+      if(alvo instanceof HTMLElement&&alvo.isConnected)window.requestAnimationFrame(()=>alvo.focus({preventScroll:true}));
+    };
+  },[dossieEquipamentoAberto,dossieEquipamentoSheet,equipamentoFocoId]);
+  function selecionarEquipamentoFoco(item,gatilho){
+    setEquipamentoFocoId(item.id);
+    if(!dossieEquipamentoSheet)return;
+    focoAntesDossieEquipamentoRef.current=gatilho instanceof HTMLElement?gatilho:document.activeElement;
+    setDossieEquipamentoAberto(true);
+  }
+  function fecharDossieEquipamento(){setDossieEquipamentoAberto(false);}
+  function executarAcaoDossieEquipamento(acao){
+    if(!dossieEquipamentoSheet){acao();return;}
+    const alvo=focoAntesDossieEquipamentoRef.current;
+    focoAntesDossieEquipamentoRef.current=null;
+    setDossieEquipamentoAberto(false);
+    window.requestAnimationFrame(()=>{
+      if(alvo instanceof HTMLElement&&alvo.isConnected)alvo.focus({preventScroll:true});
+      acao();
+    });
+  }
   function abrirNovo(){
     if(!podeCadastrarEquipamento)return;
     setItemEdit(null);
@@ -3948,6 +4129,16 @@ function Sistema({onLogout}){
   }
 
   const tipoMovSel=TIPOS_MOV.find(t=>t.id===mov.tipoId);
+  const acaoMovimentacao=tipoMovSel?.id==="conserto"&&perfilAtual.perfil!=="operador"?"Solicitar conserto":tipoMovSel?.label||"Definir ação";
+  const destinoMovimentacao=tipoMovSel?.id==="ponto"
+    ?mov.ponto||"Selecione um ponto"
+    :tipoMovSel?.id==="gerente"
+      ?mov.gerente||"Selecione um gerente"
+      :tipoMovSel?.id==="conserto"
+        ?perfilAtual.perfil==="operador"?"Conserto":"Análise do operador"
+        :tipoMovSel?.id==="disponivel"
+          ?gerenteAtual?`Estoque de ${gerenteAtual}`:"Estoque interno"
+          :"A definir";
   const ABAS_EQUIP=[
     {id:"lista",label:`Equipamentos (${itensOperacionais.length})`,icone:"package"},
     {id:"resumo",label:"Posição por status",icone:"activity"},
@@ -3998,27 +4189,28 @@ function Sistema({onLogout}){
         <div className="sidebar-logo">
           <img src={NEPTERA.simboloCompacto} alt="" aria-hidden="true" className="logo-sidebar-emblem"/>
           <strong className="sidebar-brand-name">{NEPTERA.nome}</strong>
+          {drawerContextual&&<button className="sidebar-close" type="button" onClick={()=>fecharSidebar()} aria-label="Fechar navegação"><Icon name="close"/></button>}
         </div>
-        <BuscaGlobalSearch consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historico} onVerEquipamento={setItemDetalhe} onAbrirPontos={()=>navegar("pontos")}/>
+        <BuscaGlobalSearch consulta={buscaGlobal} onConsulta={setBuscaGlobal} itens={itensOperacionais} pontos={pontosOperacionais} historico={historicoOperacional} onVerEquipamento={item=>abrirForaDoDrawer(()=>setItemDetalhe(item))} onAbrirPontos={()=>navegar("pontos")}/>
         <nav className="sidebar-nav" aria-label="Módulos do NEPTERA">
           <span className="nav-section-label">Operação</span>
-          <button className={`nav-item ${aba==="dashboard"?"active":""}`} onClick={()=>navegar("dashboard")}><Icon name="dashboard" className="nav-icon" /> Dashboard</button>
-          <button className={`nav-item ${aba==="itens"?"active":""}`}     onClick={()=>navegar("itens")}><Icon name="package" className="nav-icon" /> Equipamentos</button>
-          <button className={`nav-item ${aba==="pontos"?"active":""}`}    onClick={()=>navegar("pontos")}><Icon name="mapPin" className="nav-icon" /> Pontos</button>
-          {acessoDevedores&&<button className={`nav-item ${aba==="devedores"?"active":""}`} onClick={()=>navegar("devedores")}><Icon name="fileText" className="nav-icon" /> Devedores</button>}
-          {(administrador||operador)&&<button className={`nav-item ${aba==="buscar-gerentes"?"active":""}`} onClick={()=>navegar("buscar-gerentes")}><Icon name="user" className="nav-icon" /> Buscar Gerentes</button>}
+          <button type="button" className={`nav-item ${aba==="dashboard"?"active":""}`} aria-current={aba==="dashboard"?"page":undefined} onClick={()=>navegar("dashboard")}><Icon name="dashboard" className="nav-icon" /> Dashboard</button>
+          <button type="button" className={`nav-item ${aba==="itens"?"active":""}`} aria-current={aba==="itens"?"page":undefined} onClick={()=>navegar("itens")}><Icon name="package" className="nav-icon" /> Equipamentos</button>
+          <button type="button" className={`nav-item ${aba==="pontos"?"active":""}`} aria-current={aba==="pontos"?"page":undefined} onClick={()=>navegar("pontos")}><Icon name="mapPin" className="nav-icon" /> Pontos</button>
+          {acessoDevedores&&<button type="button" className={`nav-item ${aba==="devedores"?"active":""}`} aria-current={aba==="devedores"?"page":undefined} onClick={()=>navegar("devedores")}><Icon name="fileText" className="nav-icon" /> Devedores</button>}
+          {(administrador||operador)&&<button type="button" className={`nav-item ${aba==="buscar-gerentes"?"active":""}`} aria-current={aba==="buscar-gerentes"?"page":undefined} onClick={()=>navegar("buscar-gerentes")}><Icon name="user" className="nav-icon" /> Buscar Gerentes</button>}
 
           {(gerenteAtual||administrador)&&<span className="nav-section-label">Controle</span>}
-          {gerenteAtual&&<button className={`nav-item ${aba==="prestacao-gerente"?"active":""}`} onClick={()=>navegar("prestacao-gerente")}><Icon name="fileText" className="nav-icon" /> Prestação de Conta</button>}
-          {(administrador||gerenteAtual)&&<button className={`nav-item ${aba==="senhas"?"active":""}`} onClick={()=>navegar("senhas")}><Icon name="shieldKey" className="nav-icon" /> Senhas</button>}
-          {administrador&&<button className={`nav-item ${aba==="fechamento"?"active":""}`} onClick={()=>navegar("fechamento")}><Icon name="checkCircle" className="nav-icon" /> Fechamento</button>}
+          {gerenteAtual&&<button type="button" className={`nav-item ${aba==="prestacao-gerente"?"active":""}`} aria-current={aba==="prestacao-gerente"?"page":undefined} onClick={()=>navegar("prestacao-gerente")}><Icon name="fileText" className="nav-icon" /> Prestação de Conta</button>}
+          {(administrador||gerenteAtual)&&<button type="button" className={`nav-item ${aba==="senhas"?"active":""}`} aria-current={aba==="senhas"?"page":undefined} onClick={()=>navegar("senhas")}><Icon name="shieldKey" className="nav-icon" /> Senhas</button>}
+          {administrador&&<button type="button" className={`nav-item ${aba==="fechamento"?"active":""}`} aria-current={aba==="fechamento"?"page":undefined} onClick={()=>navegar("fechamento")}><Icon name="checkCircle" className="nav-icon" /> Fechamento</button>}
 
           {administrador&&<span className="nav-section-label">Administração</span>}
-          {administrador&&<button className={`nav-item ${aba==="gestao"?"active":""}`} onClick={()=>navegar("gestao")}><Icon name="key" className="nav-icon" /> Central de Acessos</button>}
-          {administrador&&<button className={`nav-item ${aba==="logins"?"active":""}`} onClick={()=>navegar("logins")}><Icon name="lock" className="nav-icon" /> Gerenciar Logins</button>}
+          {administrador&&<button type="button" className={`nav-item ${aba==="gestao"?"active":""}`} aria-current={aba==="gestao"?"page":undefined} onClick={()=>navegar("gestao")}><Icon name="key" className="nav-icon" /> Central de Acessos</button>}
+          {administrador&&<button type="button" className={`nav-item ${aba==="logins"?"active":""}`} aria-current={aba==="logins"?"page":undefined} onClick={()=>navegar("logins")}><Icon name="lock" className="nav-icon" /> Gerenciar Logins</button>}
 
           <span className="nav-section-label">Registros</span>
-          <button className={`nav-item ${aba==="historico"?"active":""}`} onClick={()=>navegar("historico")}>
+          <button type="button" className={`nav-item ${aba==="historico"?"active":""}`} aria-current={aba==="historico"?"page":undefined} onClick={()=>navegar("historico")}>
             <Icon name="history" className="nav-icon" /> Histórico
             {historicoOperacional.length>0&&<span className="nav-badge">{historicoOperacional.length>99?"99+":historicoOperacional.length}</span>}
           </button>
@@ -4026,22 +4218,22 @@ function Sistema({onLogout}){
         <div className="sidebar-footer">
           <div className="sidebar-perfil">
             <span className="sidebar-profile-mark" aria-hidden="true"><Icon name="user" size={16}/></span>
-            <span><small>Acesso atual</small><strong>{perfilAtual.perfil}</strong></span>
+            <span><small>{perfilAtual.perfil}</small><strong>{perfilAtual.nome||perfilAtual.loginNome||"Usuário NEPTERA"}</strong></span>
           </div>
           <div className="sidebar-utilities" aria-label="Utilidades da conta">
-            <button className="sidebar-utility" onClick={toggleTema} type="button">
+            <button className="sidebar-utility sidebar-utility-theme" onClick={toggleTema} type="button" aria-pressed={temaClaro} aria-label={temaClaro?"Usar tema escuro":"Usar tema claro"}>
               <Icon name={temaClaro?"sun":"moon"} />
               <span>{temaClaro?"Tema claro":"Tema escuro"}</span>
               <span className={`tema-toggle ${temaClaro?"ativo":""}`} aria-hidden="true"/>
             </button>
             {["administrador","operador","gerente"].includes(perfilAtual.perfil)&&(
-              <button className="sidebar-utility" onClick={baixarBackupObrigatorio} type="button"><Icon name="database" /><span>Baixar backup</span></button>
+              <button className="sidebar-utility sidebar-utility-backup" onClick={baixarBackupObrigatorio} type="button"><Icon name="database" /><span>Baixar backup</span></button>
             )}
             <a className="sidebar-utility sidebar-app-download" href="/downloads/stock-on.apk" download="Stock-ON.apk">
               <Icon name="download" /> <span>Baixar aplicativo</span>
             </a>
-            <button className="sidebar-utility" onClick={()=>setModalSenha(true)} type="button"><Icon name="lock" /><span>Alterar minha senha</span></button>
-            <button className="sidebar-utility sidebar-utility-danger" onClick={()=>setConfirmLogout(true)} type="button"><Icon name="logOut" /><span>Sair do sistema</span></button>
+            <button className="sidebar-utility sidebar-utility-password" onClick={()=>abrirForaDoDrawer(()=>setModalSenha(true))} type="button"><Icon name="lock" /><span>Alterar minha senha</span></button>
+            <button className="sidebar-utility sidebar-utility-danger" onClick={()=>abrirForaDoDrawer(()=>setConfirmLogout(true))} type="button"><Icon name="logOut" /><span>Sair do sistema</span></button>
           </div>
           <div className="sidebar-version">NEPTERA v1.0 · by Anderion Labs</div>
         </div>
@@ -4054,28 +4246,6 @@ function Sistema({onLogout}){
             <span>Este acesso usa um e-mail interno apenas para autenticação. Se precisar trocar a senha, solicite ao administrador.</span>
           </div>
         )}
-        {perfilAtual.perfil==="gerente"&&(
-          <section className="gerente-welcome">
-            <div className={`gerente-avatar ${gerenteAvatar.classe}`}>
-              <span className="gerente-avatar-aura"/>
-              <span className="gerente-hero" aria-hidden="true">
-                <span className="hero-cape"/>
-                <span className="hero-body"/>
-                <span className="hero-head">
-                  <span className="hero-mask"/>
-                  <span className="hero-eye hero-eye-left"/>
-                  <span className="hero-eye hero-eye-right"/>
-                </span>
-                <span className="hero-emblem"/>
-              </span>
-            </div>
-            <div>
-              <span className="gerente-welcome-kicker">Acesso do gerente</span>
-              <h2>Bem-vindo, {gerenteNomeBase}</h2>
-              <p>{gerenteAvatar.titulo} · seus pontos, equipamentos e despesas estão filtrados para sua carteira.</p>
-            </div>
-          </section>
-        )}
         {aba==="dashboard"&&(
           <DashboardPage
             animarEntrada={!dashboardApresentado}
@@ -4083,8 +4253,6 @@ function Sistema({onLogout}){
             gerenteNomeBase={gerenteNomeBase}
             historicoConfig={HIST_CFG}
             historicoOperacional={historicoOperacional}
-            iconesCategorias={ICONES}
-            mensagemDoDia={mensagemDoDia}
             menuAberto={sidebarAberta}
             onAbrirEquipamentos={()=>navegar("itens")}
             onAbrirHistorico={()=>navegar("historico")}
@@ -4112,7 +4280,7 @@ function Sistema({onLogout}){
         {aba==="itens"&&(<>
           <header className="cf-page-head equip-cf-head">
             <div className="cf-page-head__identity">
-              <button className="btn-hamburguer" onClick={alternarSidebarContextual} type="button" aria-label="Abrir navegação"><Icon name="menu" /></button>
+              <button className="btn-hamburguer" onClick={alternarSidebarContextual} type="button" aria-label={sidebarAberta?"Fechar navegação":"Abrir navegação"} aria-controls="stock-on-primary-navigation" aria-expanded={sidebarAberta}><Icon name="menu" /></button>
               <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">Posição · estado · movimentação</span><h1>Equipamentos</h1><p>Ledger operacional do estoque, dos vínculos e das próximas ações.</p></div>
             </div>
             <div className="cf-page-head__actions">
@@ -4229,13 +4397,15 @@ function Sistema({onLogout}){
               )}
               <FilterBar
                 className="equip-cf-filterbar"
+                ariaHidden={dossieEquipamentoSheet&&dossieEquipamentoAberto?"true":undefined}
+                inert={dossieEquipamentoSheet&&dossieEquipamentoAberto?true:undefined}
                 ariaLabel="Consulta de equipamentos"
                 activeCount={filtrosEquipAtivos}
                 secondaryOpen={filtrosEquipAbertos}
                 onSecondaryToggle={setFiltrosEquipAbertos}
                 onClear={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setFiltroEscopoEquip("todos");}}
                 primary={<>
-                  <label className="equip-cf-search"><Icon name="search"/><input type="search" placeholder="Buscar equipamento, ponto ou gerente" value={busca} onChange={e=>setBusca(e.target.value)}/>{busca&&<button type="button" aria-label="Limpar busca" onClick={()=>setBusca("")}><Icon name="close"/></button>}</label>
+                  <div className="equip-cf-search"><label className="sr-only" htmlFor="equip-cf-search-input">Buscar equipamento, ponto ou gerente</label><Icon name="search"/><input id="equip-cf-search-input" type="search" placeholder="Buscar equipamento, ponto ou gerente" value={busca} onChange={e=>setBusca(e.target.value)}/>{busca&&<button type="button" aria-label="Limpar busca" onClick={()=>setBusca("")}><Icon name="close"/></button>}</div>
                   <span className="equip-cf-result-count" aria-live="polite"><strong>{itensFiltrados.length}</strong> resultado{itensFiltrados.length!==1?"s":""}</span>
                 </>}
                 secondary={<>
@@ -4250,7 +4420,7 @@ function Sistema({onLogout}){
                 </>:null}
               />
               <div className="equip-cf-workspace">
-                <div className="cf-ledger equip-cf-ledger" aria-label="Ledger de equipamentos">
+                <div className="cf-ledger equip-cf-ledger" aria-label="Ledger de equipamentos" aria-hidden={dossieEquipamentoSheet&&dossieEquipamentoAberto?"true":undefined} inert={dossieEquipamentoSheet&&dossieEquipamentoAberto?true:undefined}>
                   <div className="cf-ledger__head equip-cf-grid" aria-hidden="true">
                     <span>Equipamento</span><span>Posição</span><span>Estado</span><span>Próxima ação</span><span>Ações</span>
                   </div>
@@ -4265,7 +4435,7 @@ function Sistema({onLogout}){
                     const selecionado=equipamentoFoco?.id===item.id;
                     return(
                       <article key={item.id} className={`cf-ledger__row equip-cf-grid equip-cf-row ${selecionado?"is-selected":""} ${emConserto||consertoAguardandoOperador?"is-attention":""}`}>
-                        <button className="equip-cf-identity" type="button" aria-pressed={selecionado} onClick={()=>setEquipamentoFocoId(item.id)}>
+                        <button className="equip-cf-identity" type="button" aria-pressed={selecionado} aria-haspopup={dossieEquipamentoSheet?"dialog":undefined} onClick={evento=>selecionarEquipamentoFoco(item,evento.currentTarget)}>
                           <span className="equip-cf-category-icon"><Icon name={ICONES[item.categoria]} /></span>
                           <span><strong>{item.nome}</strong><small>{item.categoria}</small></span>
                         </button>
@@ -4291,12 +4461,24 @@ function Sistema({onLogout}){
                   })}
                 </div>
 
-                <aside className="cf-dossier equip-cf-dossier" aria-label="Dossiê do equipamento selecionado">
+                {dossieEquipamentoSheet&&dossieEquipamentoAberto&&equipamentoFoco&&<button className="equip-cf-dossier-backdrop" type="button" tabIndex={-1} aria-label="Fechar dossiê do equipamento" onClick={fecharDossieEquipamento}/>}
+                <aside
+                  className={`cf-dossier equip-cf-dossier ${dossieEquipamentoSheet&&dossieEquipamentoAberto?"is-sheet-open":""}`}
+                  ref={dossieEquipamentoRef}
+                  role={dossieEquipamentoSheet?"dialog":undefined}
+                  aria-modal={dossieEquipamentoSheet&&dossieEquipamentoAberto?"true":undefined}
+                  aria-labelledby={equipamentoFoco?"equip-cf-dossier-title":undefined}
+                  aria-label={equipamentoFoco?undefined:"Dossiê do equipamento selecionado"}
+                  aria-hidden={dossieEquipamentoSheet&&!dossieEquipamentoAberto?"true":undefined}
+                  inert={dossieEquipamentoSheet&&!dossieEquipamentoAberto?true:undefined}
+                  tabIndex={dossieEquipamentoSheet?-1:undefined}
+                >
                   {equipamentoFoco?(
                     <>
                       <div className="cf-dossier__head equip-cf-dossier-head">
+                        <button className="equip-cf-dossier-close" type="button" data-equip-dossier-autofocus="true" onClick={fecharDossieEquipamento} aria-label="Fechar dossiê"><Icon name="close"/></button>
                         <span className="equip-cf-category-icon"><Icon name={ICONES[equipamentoFoco.categoria]} size={20}/></span>
-                        <div><span className="cf-kicker">Dossiê permanente</span><h3>{equipamentoFoco.nome}</h3><p>{equipamentoFoco.categoria}</p></div>
+                        <div><span className="cf-kicker">Dossiê operacional</span><h3 id="equip-cf-dossier-title">{equipamentoFoco.nome}</h3><p>{equipamentoFoco.categoria}</p></div>
                         <span className={`badge-status ${STATUS_CFG[equipamentoFoco.status]?.cor||""}`}>{equipamentoFoco.status}</span>
                       </div>
                       <div className="cf-dossier__body">
@@ -4311,11 +4493,11 @@ function Sistema({onLogout}){
                           <div><Icon name={solicitacaoConsertoPendente(equipamentoFoco)?"wrench":"route"}/><span><small>Próxima ação</small><strong>{solicitacaoConsertoPendente(equipamentoFoco)?"Análise do operador":equipamentoFoco.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando?"Confirmar recebimento":podeMovimentarEquipamento(equipamentoFoco)?"Definir movimentação":"Acompanhar posição"}</strong></span></div>
                         </div>
                         <div className="equip-cf-dossier-actions">
-                          <button className="btn-secundario" onClick={()=>abrirFichaEquipamento(equipamentoFoco)}><Icon name="fileText"/> Abrir ficha completa</button>
-                          {podeMovimentarEquipamento(equipamentoFoco)&&<button className="btn-primario" onClick={()=>abrirMov(equipamentoFoco)}><Icon name="route"/> Movimentar</button>}
+                          <button className="btn-secundario" onClick={()=>executarAcaoDossieEquipamento(()=>abrirFichaEquipamento(equipamentoFoco))}><Icon name="fileText"/> Abrir ficha completa</button>
+                          {podeMovimentarEquipamento(equipamentoFoco)&&<button className="btn-primario" onClick={()=>executarAcaoDossieEquipamento(()=>abrirMov(equipamentoFoco))}><Icon name="route"/> Movimentar</button>}
                         </div>
                         <div className="equip-cf-trace">
-                          <div className="equip-cf-trace-head"><span className="cf-kicker">Rastro recente</span><button type="button" onClick={()=>setAbaEquip("historico")}>Ver histórico</button></div>
+                          <div className="equip-cf-trace-head"><span className="cf-kicker">Rastro recente</span><button type="button" onClick={()=>executarAcaoDossieEquipamento(()=>setAbaEquip("historico"))}>Ver histórico</button></div>
                           {historicoEquipamentoFoco.length===0?<p>Sem movimentações registradas.</p>:historicoEquipamentoFoco.map(evento=>{
                             const cfg=HIST_CFG[evento.tipo]||{icone:"file",label:evento.tipo};
                             return <div key={evento.id}><Icon name={cfg.icone}/><span><strong>{cfg.label}</strong><small>{evento.data}</small></span></div>;
@@ -4391,13 +4573,13 @@ function Sistema({onLogout}){
         {aba==="buscar-gerentes"&&(administrador||operador)&&(<>
           <header className="cf-page-head consulta-cf-head">
             <div className="cf-page-head__identity">
-              <button className="btn-hamburguer" onClick={alternarSidebarContextual} type="button" aria-label="Abrir navegação"><Icon name="menu" /></button>
+              <button className="btn-hamburguer" onClick={alternarSidebarContextual} type="button" aria-label={sidebarAberta?"Fechar navegação":"Abrir navegação"} aria-controls="stock-on-primary-navigation" aria-expanded={sidebarAberta}><Icon name="menu" /></button>
               <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">Consulta operacional</span><h1>Gerentes</h1><p>Responsabilidade, posição e pendências em um único recorte.</p></div>
             </div>
           </header>
           <div className="consulta-cf-page">
             <aside className="consulta-cf-rail" aria-label="Lista de gerentes">
-              <div className="consulta-cf-search"><Icon name="search" /><input type="search" placeholder="Buscar gerente" value={buscaGerenteConsulta} onChange={e=>setBuscaGerenteConsulta(e.target.value)} /></div>
+              <div className="consulta-cf-search"><Icon name="search" /><input type="search" aria-label="Buscar gerente" placeholder="Buscar gerente" value={buscaGerenteConsulta} onChange={e=>setBuscaGerenteConsulta(e.target.value)} /></div>
               <div className="consulta-cf-manager-list">
                 {gerentesConsultaFiltrados.length===0?<div className="cf-empty"><Icon name="user"/><span>Nenhum gerente neste filtro.</span></div>:gerentesConsultaFiltrados.map(nome=>{
                   const pontosQtd=pontos.filter(p=>rotaPertenceAoGerente(p.gerente,nome)).length;
@@ -4436,7 +4618,7 @@ function Sistema({onLogout}){
                       <span><strong>{item.nome}</strong><small>{textoLocalizacaoEquipamento(item)}</small></span>
                       <span className="badge-cat">{item.categoria}</span>
                       <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
-                      <button className="btn-editar" onClick={()=>abrirFichaEquipamento(item,true)} aria-label={`Abrir ficha de ${item.nome}`}><Icon name="eye"/> Ficha</button>
+                      <button className="btn-editar" type="button" onClick={()=>abrirFichaEquipamento(item,true)} aria-label={`Abrir ficha de ${item.nome}`}><Icon name="eye"/> Ficha</button>
                     </article>
                   ))}
                   {equipamentosConsultaExibidos.length>itensPorPaginaGerenteConsulta&&<div className="consulta-cf-pagination"><button className="btn-secundario" disabled={paginaGerenteConsulta===1} onClick={()=>setPaginaGerenteConsulta(p=>p-1)}>Anterior</button><span>{paginaGerenteConsulta} / {totalPaginasGerenteConsulta}</span><button className="btn-secundario" disabled={paginaGerenteConsulta===totalPaginasGerenteConsulta} onClick={()=>setPaginaGerenteConsulta(p=>p+1)}>Próxima</button></div>}
@@ -4456,7 +4638,7 @@ function Sistema({onLogout}){
         </>)}
 
         {aba==="senhas"&&(administrador||gerenteAtual)&&(<>
-          <ModuleHeader eyebrow="Credenciais e distribuição" title="Senhas" subtitle="Logins das modalidades e aplicativos liberados por perfil." onMenu={alternarSidebarContextual}/>
+          <ModuleHeader eyebrow="Credenciais e distribuição" title="Senhas" subtitle="Logins das modalidades e aplicativos liberados por perfil." onMenu={alternarSidebarContextual} menuOpen={sidebarAberta}/>
           <SenhasModalidadesPage
             perfilAtual={perfilAtual}
             acessos={senhasModalidades}
@@ -4467,7 +4649,7 @@ function Sistema({onLogout}){
         </>)}
 
         {aba==="prestacao-gerente"&&gerenteAtual&&(<>
-          <ModuleHeader eyebrow="Conferência financeira" title="Prestação de Conta" subtitle="PDF, PIX e conferência enviados pela administração." onMenu={alternarSidebarContextual} className="topbar-prestacao-gerente"/>
+          <ModuleHeader eyebrow="Conferência financeira" title="Prestação de Conta" subtitle="PDF, PIX e conferência enviados pela administração." onMenu={alternarSidebarContextual} menuOpen={sidebarAberta} className="topbar-prestacao-gerente"/>
           <PrestacaoGerentePage
             gerenteAtual={gerenteAtual}
             pontos={pontosOperacionais}
@@ -4481,6 +4663,7 @@ function Sistema({onLogout}){
         {aba==="fechamento"&&administrador&&(
           <FechamentoModule
             onMenu={alternarSidebarContextual}
+            menuOpen={sidebarAberta}
             pontos={pontos}
             itens={itens}
             despesas={despesasBackup}
@@ -4490,17 +4673,17 @@ function Sistema({onLogout}){
         )}
 
         {aba==="gestao"&&administrador&&(<>
-          <ModuleHeader eyebrow="Identidade e escopo" title="Central de Acessos" subtitle="Usuários, permissões e redefinição de login." onMenu={alternarSidebarContextual}/>
+          <ModuleHeader eyebrow="Identidade e escopo" title="Central de Acessos" subtitle="Usuários, permissões e redefinição de login." onMenu={alternarSidebarContextual} menuOpen={sidebarAberta}/>
           <ManagementPage perfilAtual={perfilAtual} onPerfilAtualChange={setPerfilAtual}/>
         </>)}
 
-        {aba==="logins"&&(<>
-          <ModuleHeader eyebrow="Diretório administrativo" title="Gerenciar Logins" subtitle="Controle exclusivo da administração." onMenu={alternarSidebarContextual}/>
+        {aba==="logins"&&administrador&&(<>
+          <ModuleHeader eyebrow="Diretório administrativo" title="Gerenciar Logins" subtitle="Controle exclusivo da administração." onMenu={alternarSidebarContextual} menuOpen={sidebarAberta}/>
           <LoginManagerPage perfilAtual={perfilAtual} historico={historicoOperacional} historicoPontos={historicoPontosOperacional} onPerfilAtualChange={setPerfilAtual}/>
         </>)}
 
         {aba==="historico"&&(<>
-          <ModuleHeader eyebrow="Rastro operacional" title="Histórico" subtitle={`${historicoOperacional.length} ${historicoOperacional.length===1?"movimentação registrada":"movimentações registradas"}.`} onMenu={alternarSidebarContextual} actions={<>
+          <ModuleHeader eyebrow="Rastro operacional" title="Histórico" subtitle={`${historicoOperacional.length} ${historicoOperacional.length===1?"movimentação registrada":"movimentações registradas"}.`} onMenu={alternarSidebarContextual} menuOpen={sidebarAberta} actions={<>
               {historicoOperacional.length>0&&<>
                 <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historicoOperacional)}><Icon name="spreadsheet"/> Excel</button>
                 <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historicoOperacional)}><Icon name="pdf"/> PDF</button>
@@ -4510,13 +4693,15 @@ function Sistema({onLogout}){
           <section className="historico-cf-page">
             <FilterBar
               className="historico-cf-filterbar"
+              ariaHidden={historicoDossieSheet.isSheet&&dossieHistoricoAberto?"true":undefined}
+              inert={historicoDossieSheet.isSheet&&dossieHistoricoAberto?true:undefined}
               ariaLabel="Consulta do histórico"
               activeCount={filtrosHistoricoAtivos}
               secondaryOpen={filtrosHistoricoAbertos}
               onSecondaryToggle={setFiltrosHistoricoAbertos}
               onClear={()=>{setHistFCat("Todas");setHistFTipo("Todos");}}
               primary={<>
-                <label className="historico-cf-search"><Icon name="search"/><input type="search" placeholder="Buscar equipamento ou responsável" value={histBusca} onChange={e=>setHistBusca(e.target.value)}/>{histBusca&&<button type="button" aria-label="Limpar busca" onClick={()=>setHistBusca("")}><Icon name="close"/></button>}</label>
+                <div className="historico-cf-search"><label className="sr-only" htmlFor="historico-cf-search-input">Buscar equipamento ou responsável</label><Icon name="search"/><input id="historico-cf-search-input" type="search" placeholder="Buscar equipamento ou responsável" value={histBusca} onChange={e=>setHistBusca(e.target.value)}/>{histBusca&&<button type="button" aria-label="Limpar busca" onClick={()=>setHistBusca("")}><Icon name="close"/></button>}</div>
                 <span className="historico-cf-result-count" aria-live="polite"><strong>{histFiltrado.length}</strong> evento{histFiltrado.length!==1?"s":""}</span>
               </>}
               secondary={<>
@@ -4530,14 +4715,14 @@ function Sistema({onLogout}){
             />
 
             <div className="historico-cf-workspace">
-              <div className="cf-ledger historico-cf-ledger">
+              <div className="cf-ledger historico-cf-ledger" aria-hidden={historicoDossieSheet.isSheet&&dossieHistoricoAberto?"true":undefined} inert={historicoDossieSheet.isSheet&&dossieHistoricoAberto?true:undefined}>
                 <div className="cf-ledger__head historico-cf-grid" aria-hidden="true"><span>Evento</span><span>Objeto</span><span>Responsável</span><span>Variação</span><span>Quando</span></div>
                 {histFiltrado.length===0?<div className="cf-empty"><Icon name="history"/><strong>Nenhuma movimentação encontrada</strong><span>Ajuste os filtros ou aguarde um novo evento operacional.</span></div>:historicoPagina.map(evento=>{
                   const cfg=HIST_CFG[evento.tipo]||{cor:"",icone:"file",label:evento.tipo};
                   const selecionado=historicoFoco?.id===evento.id;
                   return <article key={evento.id} className={`cf-ledger__row historico-cf-grid historico-cf-row ${selecionado?"is-selected":""}`}>
                     <span className={`historico-cf-event ${cfg.cor}`}><Icon name={cfg.icone}/><strong>{cfg.label}</strong></span>
-                    <button type="button" className="historico-cf-object" aria-pressed={selecionado} onClick={()=>setHistoricoFocoId(evento.id)}><Icon name={ICONES[evento.categoria]}/><span><strong>{evento.itemNome}</strong><small>{evento.categoria}</small></span></button>
+                    <button type="button" className="historico-cf-object" aria-pressed={selecionado} onClick={()=>{setHistoricoFocoId(evento.id);setDossieHistoricoAberto(true);}}><Icon name={ICONES[evento.categoria]}/><span><strong>{evento.itemNome}</strong><small>{evento.categoria}</small></span></button>
                     <span className="historico-cf-owner">{evento.responsavel||"Não informado"}</span>
                     <span className="historico-cf-delta"><b>{evento.qtdAntes}</b><Icon name="arrowRight"/><b>{evento.qtdDepois}</b></span>
                     <time>{evento.data}</time>
@@ -4546,9 +4731,10 @@ function Sistema({onLogout}){
                 {histFiltrado.length>eventosPorPaginaHistorico&&<div className="historico-cf-pagination"><button className="btn-secundario" disabled={paginaHistorico===1} onClick={()=>setPaginaHistorico(p=>p-1)}>Anterior</button><span>Página {paginaHistorico} de {totalPaginasHistorico}</span><button className="btn-secundario" disabled={paginaHistorico===totalPaginasHistorico} onClick={()=>setPaginaHistorico(p=>p+1)}>Próxima</button></div>}
               </div>
 
-              <aside className="cf-dossier historico-cf-dossier" aria-label="Dossiê do evento selecionado">
+              {historicoDossieSheet.isSheet&&dossieHistoricoAberto&&<button className="historico-cf-backdrop" {...historicoDossieSheet.backdropProps}/>}
+              <aside {...historicoDossieSheet.panelProps} className={`cf-dossier historico-cf-dossier ${dossieHistoricoAberto?"is-open":""}`} aria-label="Dossiê do evento selecionado">
                 {historicoFoco?(()=>{const cfg=HIST_CFG[historicoFoco.tipo]||{cor:"",icone:"file",label:historicoFoco.tipo};return <>
-                  <div className="cf-dossier__head"><span className="cf-kicker">Evento selecionado</span><div className={`historico-cf-dossier-event ${cfg.cor}`}><Icon name={cfg.icone}/><span><h2>{cfg.label}</h2><p>{historicoFoco.data}</p></span></div></div>
+                  <div className="cf-dossier__head"><div className="historico-cf-dossier-topline"><span className="cf-kicker">Evento selecionado</span>{historicoDossieSheet.isSheet&&<button type="button" className="historico-cf-dossier-close" data-sheet-autofocus="true" onClick={()=>setDossieHistoricoAberto(false)} aria-label="Fechar dossiê"><Icon name="close"/></button>}</div><div className={`historico-cf-dossier-event ${cfg.cor}`}><Icon name={cfg.icone}/><span><h2>{cfg.label}</h2><p>{historicoFoco.data}</p></span></div></div>
                   <div className="cf-dossier__body">
                     <div className="historico-cf-subject"><span className="equip-cf-category-icon"><Icon name={ICONES[historicoFoco.categoria]}/></span><span><small>Objeto</small><strong>{historicoFoco.itemNome}</strong><em>{historicoFoco.categoria}</em></span></div>
                     <dl><div><dt>Responsável</dt><dd>{historicoFoco.responsavel||"Não informado"}</dd></div><div><dt>Quantidade anterior</dt><dd>{historicoFoco.qtdAntes}</dd></div><div><dt>Quantidade posterior</dt><dd>{historicoFoco.qtdDepois}</dd></div></dl>
@@ -4562,11 +4748,16 @@ function Sistema({onLogout}){
       </main>
 
       {modalForm&&(
-        <div className="modal-overlay">
-          <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><h3>{itemEdit?"Editar Equipamento":"Novo Equipamento"}</h3><button className="modal-fechar" onClick={fecharForm} aria-label="Fechar"><Icon name="close"/></button></div>
+        <OperationModal
+          title={itemEdit?"Editar equipamento":"Novo equipamento"}
+          subtitle="Identificação, categoria e posição operacional"
+          onClose={fecharForm}
+          size="lg"
+          className="equip-cf-form-modal"
+          footer={<><button className="btn-secundario" type="button" onClick={fecharForm}>Cancelar</button><button className="btn-primario" type="button" onClick={salvarItem}>{itemEdit?"Salvar alterações":Number(form.quantidade)>1?`Adicionar ${Number(form.quantidade)||1} unidades`:"Adicionar"}</button></>}
+        >
             <div className="modal-body">
-              {erroForm&&<div className="erro-msg"><Icon name="warning"/> {erroForm}</div>}
+              {erroForm&&<div className="erro-msg" role="alert"><Icon name="warning"/> {erroForm}</div>}
               <div className="campos-duplos">
                 <div className="campo"><label>Nome do Equipamento *</label>
                   <input type="text" placeholder='Ex: TV HQ 32 BALCÃO' value={form.nome} onChange={e=>setForm({...form,nome:e.target.value.toUpperCase()})}/>
@@ -4608,12 +4799,7 @@ function Sistema({onLogout}){
                 <div className="campo-info-minimo"><Icon name="lock"/> Alerta operacional somente para <strong>Terminais com menos de 5 disponíveis</strong></div>
               )}
             </div>
-            <div className="modal-footer">
-              <button className="btn-secundario" onClick={fecharForm}>Cancelar</button>
-              <button className="btn-primario" onClick={salvarItem}>{itemEdit?"Salvar Alterações":Number(form.quantidade)>1?`Adicionar ${Number(form.quantidade)||1} unidades`:"Adicionar"}</button>
-            </div>
-          </div>
-        </div>
+        </OperationModal>
       )}
 
       {modalPontoRapido&&(
@@ -4629,16 +4815,38 @@ function Sistema({onLogout}){
       )}
 
       {modalMov&&(
-        <div className="modal-overlay" onClick={fecharMov}>
-          <div className="modal modal-largo" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><h3><Icon name="route"/> Movimentar Equipamento</h3><button className="modal-fechar" onClick={fecharMov} aria-label="Fechar"><Icon name="close"/></button></div>
-            <div className="modal-body">
-              <div className="mov-item-info">
-                <div className="mov-item-nome"><Icon name={ICONES[modalMov.categoria]}/> {modalMov.nome}</div>
-                <div className="mov-item-meta">
-                  <span className="badge-cat">{modalMov.categoria}</span>
-                  <span className={`badge-status ${STATUS_CFG[modalMov.status]?.cor||""}`}>{modalMov.status}</span>
-                  <span className="mov-item-qtd">Local atual: <strong>{modalMov.localizacao||"Sem ponto"}</strong></span>
+        <OperationModal
+          open
+          title="Movimentar equipamento"
+          subtitle={`${modalMov.nome} · ${modalMov.categoria}`}
+          onClose={fecharMov}
+          size="lg"
+          className="equip-cf-movement-modal"
+          overlayClassName="equip-cf-movement-overlay"
+          footer={<><button className="btn-secundario" type="button" onClick={fecharMov}>Cancelar</button><button className="btn-primario" type="button" onClick={confirmarMov}>{tipoMovSel.id==="conserto"&&perfilAtual.perfil!=="operador"?"Enviar solicitação ao operador":"Confirmar movimentação"}</button></>}
+        >
+              <div className="equip-cf-movement-subject">
+                <span className="equip-cf-category-icon"><Icon name={ICONES[modalMov.categoria]} size={20}/></span>
+                <span><small>Equipamento selecionado</small><strong>{modalMov.nome}</strong></span>
+                <span className={`badge-status ${STATUS_CFG[modalMov.status]?.cor||""}`}>{modalMov.status}</span>
+              </div>
+              <div className="equip-cf-movement-path" aria-label="Fluxo da movimentação: origem, ação e destino">
+                <div className="equip-cf-movement-step">
+                  <span>Origem</span>
+                  <strong>{textoLocalizacaoEquipamento(modalMov)}</strong>
+                  <small>Posição atual</small>
+                </div>
+                <span className="equip-cf-movement-arrow" aria-hidden="true"><Icon name="arrowRight"/></span>
+                <div className="equip-cf-movement-step is-action">
+                  <span>Ação</span>
+                  <strong>{acaoMovimentacao}</strong>
+                  <small>{tipoMovSel?.novoStatus||modalMov.status}</small>
+                </div>
+                <span className="equip-cf-movement-arrow" aria-hidden="true"><Icon name="arrowRight"/></span>
+                <div className="equip-cf-movement-step is-destination">
+                  <span>Destino</span>
+                  <strong aria-live="polite">{destinoMovimentacao}</strong>
+                  <small>Posição após confirmar</small>
                 </div>
               </div>
               {erroMov&&<div className="erro-msg"><Icon name="warning"/> {erroMov}</div>}
@@ -4646,7 +4854,7 @@ function Sistema({onLogout}){
                 <label>Tipo de Movimentação *</label>
                 <div className="tipos-mov-grid">
                   {TIPOS_MOV.filter(t=>podeEditar||t.id!=="gerente").map(t=>(
-                    <button key={t.id} className={`tipo-mov-btn ${mov.tipoId===t.id?"tipo-mov-ativo":""}`} onClick={()=>setMov({...mov,tipoId:t.id})}>
+                    <button key={t.id} type="button" aria-pressed={mov.tipoId===t.id} className={`tipo-mov-btn ${mov.tipoId===t.id?"tipo-mov-ativo":""}`} onClick={()=>setMov({...mov,tipoId:t.id})}>
                       <span className="tipo-mov-icone"><Icon name={t.icone}/></span>
                       <span className="tipo-mov-label">{t.id==="conserto"&&!operador?"Solicitar Conserto":t.label}</span>
                     </button>
@@ -4719,20 +4927,13 @@ function Sistema({onLogout}){
                 <div className="campo"><label>Responsável</label><input type="text" placeholder="Ex: Carlos" value={mov.responsavel} onChange={e=>setMov({...mov,responsavel:e.target.value})}/></div>
                 <div className="campo"><label>Observação</label><input type="text" placeholder="Motivo..." value={mov.observacao} onChange={e=>setMov({...mov,observacao:e.target.value})}/></div>
               </div>
-            </div>
-            <div className="modal-footer"><button className="btn-secundario" onClick={fecharMov}>Cancelar</button><button className="btn-primario" onClick={confirmarMov}>{tipoMovSel.id==="conserto"&&perfilAtual.perfil!=="operador"?"Enviar solicitação ao operador":"Confirmar"}</button></div>
-          </div>
-        </div>
+        </OperationModal>
       )}
 
       {excluindo&&(
-        <div className="modal-overlay" onClick={()=>setExcluindo(null)}>
-          <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><h3>Confirmar Exclusão</h3><button className="modal-fechar" onClick={()=>setExcluindo(null)} aria-label="Fechar"><Icon name="close"/></button></div>
-            <div className="modal-body"><p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja excluir este equipamento?</p></div>
-            <div className="modal-footer"><button className="btn-secundario" onClick={()=>setExcluindo(null)}>Cancelar</button><button className="btn-danger" onClick={()=>excluir(excluindo)}>Excluir</button></div>
-          </div>
-        </div>
+        <OperationModal title="Excluir equipamento" subtitle="Esta ação remove o registro selecionado." role="alertdialog" size="sm" onClose={()=>setExcluindo(null)} footer={<><button className="btn-secundario" type="button" onClick={()=>setExcluindo(null)}>Cancelar</button><button className="btn-danger" type="button" onClick={()=>excluir(excluindo)}>Excluir</button></>}>
+          <p className="senha-texto">Tem certeza que deseja excluir este equipamento?</p>
+        </OperationModal>
       )}
 
       {itemDetalhe&&(
@@ -4751,32 +4952,23 @@ function Sistema({onLogout}){
       )}
 
       {confirmLogout&&(
-        <div className="modal-overlay" onClick={()=>setConfirmLogout(false)}>
-          <div className="modal modal-pequeno" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><h3>Sair do Sistema</h3><button className="modal-fechar" onClick={()=>setConfirmLogout(false)} aria-label="Fechar"><Icon name="close"/></button></div>
-            <div className="modal-body"><p style={{color:"#94a3b8",lineHeight:"1.6"}}>Tem certeza que deseja sair?</p></div>
-            <div className="modal-footer"><button className="btn-secundario" onClick={()=>setConfirmLogout(false)}>Cancelar</button><button className="btn-danger" onClick={onLogout}>Sair</button></div>
-          </div>
-        </div>
+        <OperationModal title="Sair do sistema" subtitle="Sua sessão será encerrada neste dispositivo." role="alertdialog" size="sm" onClose={()=>setConfirmLogout(false)} footer={<><button className="btn-secundario" type="button" onClick={()=>setConfirmLogout(false)}>Cancelar</button><button className="btn-danger" type="button" onClick={onLogout}>Sair</button></>}>
+          <p className="senha-texto">Tem certeza que deseja sair?</p>
+        </OperationModal>
       )}
 
       {avisoPrazoDespesas&&(
-        <div className="modal-overlay aviso-prazo-overlay">
-          <div className="modal modal-pequeno aviso-prazo-despesas" role="alertdialog" aria-modal="true" aria-labelledby="aviso-prazo-titulo">
+        <OperationModal ariaLabel="Prazo de lançamento de despesas" role="alertdialog" size="sm" className="aviso-prazo-despesas" overlayClassName="aviso-prazo-overlay" showClose={false} closeOnBackdrop={false} closeOnEscape={false} onClose={confirmarAvisoPrazoDespesas} footer={<button className="btn-primario" type="button" onClick={confirmarAvisoPrazoDespesas}>Li e estou ciente</button>}>
             <div className="aviso-prazo-faixa">Prazo de lançamento se encerrando</div>
             <div className="modal-body">
-              <h3 id="aviso-prazo-titulo">Conclua as despesas de {avisoPrazoDespesas.competencia}</h3>
+              <h3>Conclua as despesas de {avisoPrazoDespesas.competencia}</h3>
               <p>Todos os lançamentos devem ser concluídos até o dia {avisoPrazoDespesas.ultimoDia}, às 23:59.</p>
               <p>Após o fechamento do mês, novas despesas ficarão bloqueadas e não poderão ser incluídas posteriormente.</p>
               <div className="aviso-prazo-responsabilidade">
                 Despesas não registradas dentro do prazo não serão consideradas no fechamento. A omissão será tratada como falta de comprometimento operacional, e eventual prejuízo ficará sob responsabilidade do gerente.
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn-primario" type="button" onClick={confirmarAvisoPrazoDespesas}>Li e estou ciente</button>
-            </div>
-          </div>
-        </div>
+        </OperationModal>
       )}
 
       {modalSenha&&<ModalAlterarSenha onFechar={()=>setModalSenha(false)}/>}

@@ -1290,7 +1290,7 @@ body {
 .gerente-welcome::after {
   content: ""; position: absolute; inset: -60% auto auto -20%; width: 280px; height: 280px;
   background: radial-gradient(circle, rgba(255,179,0,0.18), transparent 65%);
-  pointer-events: none; animation: gerenteGlow 5s ease-in-out infinite;
+  pointer-events: none;
 }
 .gerente-avatar {
   position: relative; width: 74px; height: 74px; flex-shrink: 0;
@@ -1298,11 +1298,10 @@ body {
   background: linear-gradient(145deg, #0b1f45, #061128);
   border: 1px solid rgba(255,255,255,0.22);
   box-shadow: 0 16px 34px rgba(0,0,0,0.24), inset 0 0 24px rgba(255,255,255,0.06);
-  animation: gerenteAvatarFloat 3.2s ease-in-out infinite;
 }
 .gerente-avatar-aura {
   position: absolute; inset: -7px; border-radius: 28px; opacity: .85;
-  filter: blur(1px); animation: gerenteAura 2.2s ease-in-out infinite;
+  filter: blur(1px);
 }
 .gerente-hero {
   --hero-main: #14b8a6;
@@ -2076,7 +2075,6 @@ body {
   background: linear-gradient(135deg, rgba(5,150,105,0.13), rgba(37,99,235,0.05));
   position: relative;
   overflow: hidden;
-  animation: financeiroGlow 2.8s ease-in-out infinite;
 }
 .conserto-financeiro-banner::after {
   content: "";
@@ -2086,7 +2084,6 @@ body {
   height: 280px;
   background: radial-gradient(circle, rgba(5,150,105,.18), transparent 66%);
   pointer-events: none;
-  animation: financeiroOrb 4.5s ease-in-out infinite alternate;
 }
 .conserto-financeiro-banner .conserto-operacao-topo span,
 .conserto-financeiro-banner .conserto-operacao-item small {
@@ -2100,7 +2097,6 @@ body {
   border-radius: 50%;
   background: var(--verde);
   box-shadow: 0 0 0 rgba(5,150,105,.55);
-  animation: financeiroPulse 1.2s ease-in-out infinite;
 }
 .financeiro-pendente-item {
   position: relative;
@@ -2387,7 +2383,6 @@ body {
   width: 100%;
   height: 3px;
   background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  animation: prestacaoLinha 2.2s ease-in-out infinite;
 }
 .prestacao-faixas {
   position: absolute;
@@ -2403,7 +2398,6 @@ body {
   border-radius: 999px;
   background: linear-gradient(180deg, transparent, rgba(255,179,0,.7), transparent);
   transform: rotate(24deg);
-  animation: prestacaoFaixa 3.4s ease-in-out infinite;
 }
 .prestacao-faixas span:nth-child(1) { left: 8%; animation-delay: 0s; }
 .prestacao-faixas span:nth-child(2) { left: 34%; animation-delay: .35s; }
@@ -3293,6 +3287,7 @@ body {
 }
 .modal-fechar:hover { color: var(--txt-primary); background: var(--bg-card); }
 .modal-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; }
+.so-modal__body > .modal-body { padding: 0; }
 .senha-texto { color: var(--txt-secondary); font-size: 13px; line-height: 1.55; }
 .senha-sucesso {
   padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--verde-border);
@@ -3432,13 +3427,11 @@ body {
   content: ''; position: absolute; width: 600px; height: 600px;
   background: radial-gradient(circle, rgba(255,179,0,0.09) 0%, transparent 70%);
   top: -200px; left: -200px; border-radius: 50%;
-  animation: pulse-bg 6s ease-in-out infinite;
 }
 .login-page::after {
   content: ''; position: absolute; width: 400px; height: 400px;
   background: radial-gradient(circle, rgba(30,83,160,0.12) 0%, transparent 70%);
   bottom: -100px; right: -100px; border-radius: 50%;
-  animation: pulse-bg 8s ease-in-out infinite reverse;
 }
 
 @keyframes pulse-bg {
@@ -4512,7 +4505,6 @@ body {
 .prestacao-confirmacao-acao.confirmada {
   border-color:rgba(5,150,105,.28);
   background:rgba(236,253,245,.9);
-  animation: confirmacaoGlow 2.8s ease-in-out infinite;
 }
 .prestacao-confirmado-banner,
 .fechamento-confirmado-destaque {
@@ -4524,7 +4516,7 @@ body {
   background:linear-gradient(135deg, rgba(236,253,245,.98), rgba(219,234,254,.7));
   color:#065f46;
   box-shadow:0 14px 30px rgba(5,150,105,.16);
-  animation: confirmacaoEntrada .38s ease both, confirmacaoGlow 2.8s ease-in-out infinite;
+  animation: confirmacaoEntrada .38s ease both;
 }
 .prestacao-confirmado-banner {
   padding:13px 14px;
@@ -4548,7 +4540,6 @@ body {
   font-size:22px;
   font-weight:900;
   box-shadow:0 0 0 0 rgba(5,150,105,.45);
-  animation: confirmacaoPulse 1.35s ease-in-out infinite;
 }
 .prestacao-confirmado-banner strong,
 .fechamento-confirmado-destaque strong {
@@ -5432,6 +5423,8 @@ body {
   overflow: hidden;
   border-color: var(--vermelho-border);
 }
+.aviso-prazo-despesas .so-modal__body { padding: 0; }
+.aviso-prazo-despesas .so-modal__body > .modal-body { padding: 18px 22px; }
 .aviso-prazo-faixa {
   padding: 13px 18px;
   border-bottom: 1px solid var(--vermelho-border);
