@@ -9,6 +9,7 @@ import LoginManagerPage from "./LoginManagerPage.jsx";
 import DevedoresPage from "./DevedoresPage.jsx";
 import DashboardPage from "./DashboardPage.jsx";
 import FechamentoWorkbench from "./FechamentoWorkbench.jsx";
+import EquipmentInventoryLedger from "./EquipmentInventoryLedger.jsx";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
@@ -217,6 +218,24 @@ function textoLocalizacaoEquipamento(item){
   if(item.gerenteResponsavel&&item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando)return`Enviado para ${item.gerenteResponsavel}`;
   if(item.gerenteResponsavel&&item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido)return`Estoque de ${item.gerenteResponsavel}`;
   return"Sem ponto";
+}
+
+function posicaoVisualEquipamento(item){
+  if(item.status==="Em conserto")return{label:"Conserto",detail:item.consertoAssistencia||"Assistência não informada",icon:"wrench"};
+  if(item.localizacao)return{label:"Em ponto",detail:item.localizacao,icon:"mapPin"};
+  if(item.gerenteResponsavel&&item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando)return{label:"Em transferência",detail:item.gerenteResponsavel,icon:"route"};
+  if(item.gerenteResponsavel)return{label:"Com gerente",detail:item.gerenteResponsavel,icon:"user"};
+  return{label:"Estoque interno",detail:"Base operacional",icon:"package"};
+}
+
+function identificadorVisualEquipamento(item){
+  return String(item.patrimonio||item.id||"").trim();
+}
+
+function vinculoVisualEquipamento(item){
+  if(item.gerenteResponsavel)return item.gerenteResponsavel;
+  if(item.localizacao)return"Sem gerente vinculado";
+  return"Sem vínculo ativo";
 }
 
 function LocalizacaoGerenteCell({ item }) {
@@ -3320,7 +3339,7 @@ function Sistema({onLogout}){
   const [itemDetalheSomenteLeitura,setItemDetalheSomenteLeitura]=useState(false);
   const [equipamentoFocoId,setEquipamentoFocoId]=useState(null);
   const [dossieEquipamentoAberto,setDossieEquipamentoAberto]=useState(false);
-  const [dossieEquipamentoSheet,setDossieEquipamentoSheet]=useState(()=>typeof window!=="undefined"&&window.matchMedia?.("(max-width: 1180px)").matches);
+  const [dossieEquipamentoSheet,setDossieEquipamentoSheet]=useState(()=>typeof window!=="undefined"&&window.matchMedia?.("(max-width: 1320px)").matches);
   const dossieEquipamentoRef=useRef(null);
   const focoAntesDossieEquipamentoRef=useRef(null);
   const [buscaGlobal,setBuscaGlobal]=useState("");
@@ -3394,7 +3413,7 @@ function Sistema({onLogout}){
   },[]);
   useEffect(()=>{
     if(typeof window==="undefined"||!window.matchMedia)return undefined;
-    const consulta=window.matchMedia("(max-width: 1180px)");
+    const consulta=window.matchMedia("(max-width: 1320px)");
     const atualizar=()=>{
       setDossieEquipamentoSheet(consulta.matches);
       if(!consulta.matches)setDossieEquipamentoAberto(false);
@@ -3561,6 +3580,15 @@ function Sistema({onLogout}){
   const itensOperacionaisIds=new Set(itensOperacionais.map(i=>i.id));
   const itensOperacionaisNomes=new Set(itensOperacionais.map(i=>i.nome));
   const historicoOperacional=gerenteAtual?historico.filter(h=>itensOperacionaisIds.has(h.itemId)||itensOperacionaisNomes.has(h.itemNome)):historico;
+  const ultimoEventoEquipamento=useMemo(()=>{
+    const porId=new Map();
+    const porNome=new Map();
+    historicoOperacional.forEach(evento=>{
+      if(evento.itemId!=null&&!porId.has(String(evento.itemId)))porId.set(String(evento.itemId),evento);
+      if(evento.itemNome&&!porNome.has(evento.itemNome))porNome.set(evento.itemNome,evento);
+    });
+    return{porId,porNome};
+  },[historicoOperacional]);
   const historicoPontosOperacional=gerenteAtual?historicoPontos.filter(h=>pontosOperacionaisNomes.has(h.nome)):historicoPontos;
   const recebimentosPendentes=gerenteAtual?itensOperacionais.filter(i=>normalizarTexto(i.gerenteResponsavel)===gerenteAtualKey&&i.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando):[];
   const podeMovimentarEquipamento=item=>solicitacaoConsertoPendente(item)
@@ -3669,7 +3697,7 @@ function Sistema({onLogout}){
       (filtroEscopoEquip==="gerentes"&&Boolean(i.gerenteResponsavel)&&!i.localizacao)||
       (filtroEscopoEquip==="conserto"&&(i.status==="Em conserto"||solicitacaoConsertoPendente(i)));
     const q=busca.toLowerCase();
-    const mB=!busca||[i.nome,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>(f||"").toLowerCase().includes(q));
+    const mB=!busca||[i.nome,i.patrimonio,i.id,i.categoria,i.responsavel,i.localizacao,i.gerenteResponsavel].some(f=>String(f||"").toLowerCase().includes(q));
     return mC&&mS&&mE&&mB;
   });
   const itensOrdenados=ordenarEquipamentos(itensFiltrados);
@@ -3743,6 +3771,7 @@ function Sistema({onLogout}){
   },[aba,dossieEquipamentoAberto,dossieEquipamentoSheet,equipamentoFocoId]);
   function selecionarEquipamentoFoco(item,gatilho){
     setEquipamentoFocoId(item.id);
+    setFiltrosEquipAbertos(false);
     if(!dossieEquipamentoSheet)return;
     focoAntesDossieEquipamentoRef.current=gatilho instanceof HTMLElement?gatilho:document.activeElement;
     setDossieEquipamentoAberto(true);
@@ -4144,6 +4173,60 @@ function Sistema({onLogout}){
     await limparHistoricoEquipamentos();setHistorico([]);
   }
 
+  function acaoPrimariaEquipamento(item){
+    const pendente=item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando;
+    const emConserto=item.status==="Em conserto";
+    const consertoAguardandoOperador=solicitacaoConsertoPendente(item);
+    const pagamentoConserto=statusPagamentoConserto(item);
+    if(operador&&(emConserto||consertoAguardandoOperador))return{
+      label:consertoAguardandoOperador?"Analisar":pagamentoConserto==="pago"?"Concluir":"Completar",
+      icon:"wrench",
+      disabled:pagamentoConserto==="solicitado",
+      title:pagamentoConserto==="solicitado"?"Aguardando pagamento da administração":"",
+      onClick:()=>abrirConsertoOperador(item),
+    };
+    if(pendente&&gerenteAtual)return{label:"Confirmar",icon:"check",onClick:()=>confirmarRecebimento(item)};
+    if(podeMovimentarEquipamento(item))return{label:"Movimentar",icon:"route",onClick:()=>abrirMov(item)};
+    return{label:"Consultar",icon:"eye",purpose:"detail",onClick:()=>abrirFichaEquipamento(item)};
+  }
+
+  function modeloLedgerEquipamento(item,indice){
+    const evento=ultimoEventoEquipamento.porId.get(String(item.id))||ultimoEventoEquipamento.porNome.get(item.nome)||null;
+    const detalhesEstado=[];
+    if(solicitacaoConsertoPendente(item))detalhesEstado.push("Aguardando operador");
+    if(item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando)detalhesEstado.push("Aguardando confirmação");
+    if(item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao)detalhesEstado.push("Recebido pelo gerente");
+    return{
+      id:item.id,
+      source:item,
+      register:String((paginaItens-1)*ITENS_POR_PAGINA+indice+1).padStart(3,"0"),
+      name:item.nome,
+      identifier:identificadorVisualEquipamento(item),
+      category:item.categoria,
+      position:posicaoVisualEquipamento(item),
+      link:vinculoVisualEquipamento(item),
+      manager:item.gerenteResponsavel||"",
+      responsible:item.responsavel||"—",
+      state:{label:item.status,className:STATUS_CFG[item.status]?.cor||"",detail:detalhesEstado.join(" · ")},
+      movement:evento?{label:HIST_CFG[evento.tipo]?.label||evento.tipo||"—",date:evento.data||"—"}:null,
+      attention:item.status==="Em conserto"||solicitacaoConsertoPendente(item),
+      selected:equipamentoFoco?.id===item.id,
+      primaryAction:acaoPrimariaEquipamento(item),
+      canEdit:podeMovimentarEquipamento(item),
+      canDelete:podeEditar,
+    };
+  }
+
+  const linhasEquipamentosLedger=itensPagina.map(modeloLedgerEquipamento);
+  const equipamentoFocoLedger=linhasEquipamentosLedger.find(linha=>linha.id===equipamentoFoco?.id)||null;
+  const historicoEquipamentoLedger=historicoEquipamentoFoco.map(evento=>({
+    id:evento.id,
+    icon:(HIST_CFG[evento.tipo]||{icone:"file"}).icone,
+    label:(HIST_CFG[evento.tipo]||{label:evento.tipo}).label,
+    detail:evento.observacao||"",
+    date:evento.data||"—",
+  }));
+
   const tipoMovSel=TIPOS_MOV.find(t=>t.id===mov.tipoId);
   const acaoMovimentacao=tipoMovSel?.id==="conserto"&&perfilAtual.perfil!=="operador"?"Solicitar conserto":tipoMovSel?.label||"Definir ação";
   const destinoMovimentacao=tipoMovSel?.id==="ponto"
@@ -4297,7 +4380,7 @@ function Sistema({onLogout}){
           <header className="cf-page-head equip-cf-head">
             <div className="cf-page-head__identity">
               <button className="btn-hamburguer" onClick={alternarSidebarContextual} type="button" aria-label={sidebarAberta?"Fechar navegação":"Abrir navegação"} aria-controls="stock-on-primary-navigation" aria-expanded={sidebarAberta}><Icon name="menu" /></button>
-              <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">Posição · estado · movimentação</span><h1>Equipamentos</h1><p>Ledger operacional do estoque, dos vínculos e das próximas ações.</p></div>
+              <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">Inventário operacional</span><h1>Equipamentos</h1><p>Livro de posição, vínculos e movimentações da operação.</p></div>
             </div>
             <div className="cf-page-head__actions">
               <button className="btn-secundario" onClick={()=>exportarEquipamentosExcel(itensOperacionais)}><Icon name="spreadsheet" /> Excel</button>
@@ -4314,16 +4397,63 @@ function Sistema({onLogout}){
             <span className="equip-cf-control-context"><strong>{totalGeral}</strong> registros na base</span>
           </div>
 
-          <nav className="equip-cf-position-strip" aria-label="Posição atual dos equipamentos">
+          <nav className={`equip-cf-position-strip${gerenteAtual?" is-manager-scope":""}`} aria-label="Posição atual dos equipamentos">
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="todos"} className={abaEquip==="lista"&&filtroEscopoEquip==="todos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("todos");setAbaEquip("lista");}}><span>Base</span><strong>{totalGeral}</strong><small>todos os registros</small></button>
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="interno"} className={abaEquip==="lista"&&filtroEscopoEquip==="interno"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("interno");setAbaEquip("lista");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>prontos para alocação</small></button>
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="pontos"} className={abaEquip==="lista"&&filtroEscopoEquip==="pontos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("pontos");setAbaEquip("lista");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>em operação</small></button>
             {!gerenteAtual&&<button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="gerentes"} className={abaEquip==="lista"&&filtroEscopoEquip==="gerentes"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("gerentes");setAbaEquip("lista");}}><span>Com gerentes</span><strong>{totalComGerentes}</strong><small>sob responsabilidade</small></button>}
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="conserto"} className={`is-attention ${abaEquip==="lista"&&filtroEscopoEquip==="conserto"?"is-active":""}`} onClick={()=>{setFiltroEscopoEquip("conserto");setAbaEquip("lista");}}><span>Conserto</span><strong>{totalConserto}</strong><small>{solicitacoesConsertoPendentes.length?`${solicitacoesConsertoPendentes.length} aguardando análise`:"fila operacional"}</small></button>
+            <span className="equip-cf-position-note"><small>Leitura atual</small><strong>{itensFiltrados.length} no recorte</strong></span>
           </nav>
 
           {abaEquip==="lista"&&(
             <section className="equip-lista equip-cf-list">
+              <FilterBar
+                className="equip-cf-filterbar"
+                ariaHidden={dossieEquipamentoSheet&&dossieEquipamentoAberto?"true":undefined}
+                inert={dossieEquipamentoSheet&&dossieEquipamentoAberto?true:undefined}
+                ariaLabel="Consulta de equipamentos"
+                activeCount={filtrosEquipAtivos}
+                secondaryOpen={filtrosEquipAbertos}
+                onSecondaryToggle={setFiltrosEquipAbertos}
+                onClear={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setFiltroEscopoEquip("todos");}}
+                primary={<>
+                  <div className="equip-cf-search"><label className="sr-only" htmlFor="equip-cf-search-input">Buscar por equipamento, patrimônio, categoria, ponto ou gerente</label><Icon name="search"/><input id="equip-cf-search-input" type="search" placeholder="Buscar equipamento, patrimônio, ponto ou gerente" value={busca} onChange={e=>setBusca(e.target.value)}/>{busca&&<button type="button" aria-label="Limpar busca" onClick={()=>setBusca("")}><Icon name="close"/></button>}</div>
+                  <span className="equip-cf-result-count" aria-live="polite"><strong>{itensFiltrados.length}</strong> resultado{itensFiltrados.length!==1?"s":""}</span>
+                </>}
+                secondary={<>
+                  <label><span>Escopo operacional</span><select value={filtroEscopoEquip} onChange={e=>setFiltroEscopoEquip(e.target.value)}><option value="todos">Todos</option><option value="interno">{gerenteAtual?"Disponíveis":"Estoque interno"}</option><option value="pontos">Em pontos</option>{!gerenteAtual&&<option value="gerentes">Com gerentes</option>}<option value="conserto">Conserto</option></select></label>
+                  <label><span>Categoria</span><select value={filtroCatEquip} onChange={e=>setFiltroCatEquip(e.target.value)}><option value="Todas">Todas as categorias</option>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></label>
+                  <label><span>Estado</span><select value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}><option value="Todos">Todos os status</option>{statusListaVisivel.map(s=><option key={s}>{s}</option>)}</select></label>
+                </>}
+                chips={filtrosEquipAtivos>0?<>
+                  {filtroEscopoEquip!=="todos"&&<button type="button" onClick={()=>setFiltroEscopoEquip("todos")}>{rotuloEscopoEquip}<Icon name="close"/></button>}
+                  {filtroCatEquip!=="Todas"&&<button type="button" onClick={()=>setFiltroCatEquip("Todas")}>{filtroCatEquip}<Icon name="close"/></button>}
+                  {filtroSt!=="Todos"&&<button type="button" onClick={()=>setFiltroSt("Todos")}>{filtroSt}<Icon name="close"/></button>}
+                </>:null}
+              />
+              <EquipmentInventoryLedger
+                rows={linhasEquipamentosLedger}
+                selected={equipamentoFocoLedger}
+                history={historicoEquipamentoLedger}
+                total={itensFiltrados.length}
+                page={paginaItens}
+                totalPages={totalPaginasItens}
+                pageSize={ITENS_POR_PAGINA}
+                onPageChange={setPaginaItens}
+                onSelect={selecionarEquipamentoFoco}
+                onCloseDossier={fecharDossieEquipamento}
+                onExecuteDossier={executarAcaoDossieEquipamento}
+                onOpenDetail={abrirFichaEquipamento}
+                onEdit={abrirEditar}
+                onDelete={item=>setExcluindo(item.id)}
+                onOpenHistory={()=>setAbaEquip("historico")}
+                dossierSheet={dossieEquipamentoSheet}
+                dossierOpen={dossieEquipamentoAberto}
+                dossierRef={dossieEquipamentoRef}
+                iconByCategory={ICONES}
+                emptyDescription="Ajuste a busca ou remova um filtro para consultar outros registros."
+              />
               {recebimentosPendentes.length>0&&(
                 <div className="recebimentos-pendentes">
                   <div>
@@ -4410,126 +4540,6 @@ function Sistema({onLogout}){
                     ))}
                   </div>
                 </section>
-              )}
-              <FilterBar
-                className="equip-cf-filterbar"
-                ariaHidden={dossieEquipamentoSheet&&dossieEquipamentoAberto?"true":undefined}
-                inert={dossieEquipamentoSheet&&dossieEquipamentoAberto?true:undefined}
-                ariaLabel="Consulta de equipamentos"
-                activeCount={filtrosEquipAtivos}
-                secondaryOpen={filtrosEquipAbertos}
-                onSecondaryToggle={setFiltrosEquipAbertos}
-                onClear={()=>{setFiltroCatEquip("Todas");setFiltroSt("Todos");setFiltroEscopoEquip("todos");}}
-                primary={<>
-                  <div className="equip-cf-search"><label className="sr-only" htmlFor="equip-cf-search-input">Buscar equipamento, ponto ou gerente</label><Icon name="search"/><input id="equip-cf-search-input" type="search" placeholder="Buscar equipamento, ponto ou gerente" value={busca} onChange={e=>setBusca(e.target.value)}/>{busca&&<button type="button" aria-label="Limpar busca" onClick={()=>setBusca("")}><Icon name="close"/></button>}</div>
-                  <span className="equip-cf-result-count" aria-live="polite"><strong>{itensFiltrados.length}</strong> resultado{itensFiltrados.length!==1?"s":""}</span>
-                </>}
-                secondary={<>
-                  <label><span>Escopo operacional</span><select value={filtroEscopoEquip} onChange={e=>setFiltroEscopoEquip(e.target.value)}><option value="todos">Todos</option><option value="interno">{gerenteAtual?"Disponíveis":"Estoque interno"}</option><option value="pontos">Em pontos</option>{!gerenteAtual&&<option value="gerentes">Com gerentes</option>}<option value="conserto">Conserto</option></select></label>
-                  <label><span>Categoria</span><select value={filtroCatEquip} onChange={e=>setFiltroCatEquip(e.target.value)}><option value="Todas">Todas as categorias</option>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></label>
-                  <label><span>Estado</span><select value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}><option value="Todos">Todos os status</option>{statusListaVisivel.map(s=><option key={s}>{s}</option>)}</select></label>
-                </>}
-                chips={filtrosEquipAtivos>0?<>
-                  {filtroEscopoEquip!=="todos"&&<button type="button" onClick={()=>setFiltroEscopoEquip("todos")}>{rotuloEscopoEquip}<Icon name="close"/></button>}
-                  {filtroCatEquip!=="Todas"&&<button type="button" onClick={()=>setFiltroCatEquip("Todas")}>{filtroCatEquip}<Icon name="close"/></button>}
-                  {filtroSt!=="Todos"&&<button type="button" onClick={()=>setFiltroSt("Todos")}>{filtroSt}<Icon name="close"/></button>}
-                </>:null}
-              />
-              <div className="equip-cf-workspace">
-                <div className="cf-ledger equip-cf-ledger" aria-label="Ledger de equipamentos" aria-hidden={dossieEquipamentoSheet&&dossieEquipamentoAberto?"true":undefined} inert={dossieEquipamentoSheet&&dossieEquipamentoAberto?true:undefined}>
-                  <div className="cf-ledger__head equip-cf-grid" aria-hidden="true">
-                    <span>Equipamento</span><span>Posição</span><span>Estado</span><span>Próxima ação</span><span>Ações</span>
-                  </div>
-                  {itensFiltrados.length===0?(
-                    <div className="cf-empty"><Icon name="search" /><strong>Nenhum equipamento neste recorte</strong><span>Ajuste os filtros para ampliar a consulta.</span></div>
-                  ):itensPagina.map(item=>{
-                    const pendente=item.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando;
-                    const recebido=item.transferenciaStatus===TRANSFERENCIA_GERENTE.recebido&&item.gerenteResponsavel&&!item.localizacao;
-                    const emConserto=item.status==="Em conserto";
-                    const consertoAguardandoOperador=solicitacaoConsertoPendente(item);
-                    const pagamentoConserto=statusPagamentoConserto(item);
-                    const selecionado=equipamentoFoco?.id===item.id;
-                    return(
-                      <article key={item.id} className={`cf-ledger__row equip-cf-grid equip-cf-row ${selecionado?"is-selected":""} ${emConserto||consertoAguardandoOperador?"is-attention":""}`}>
-                        <button className="equip-cf-identity" type="button" aria-pressed={selecionado} aria-haspopup={dossieEquipamentoSheet?"dialog":undefined} onClick={evento=>selecionarEquipamentoFoco(item,evento.currentTarget)}>
-                          <span className="equip-cf-category-icon"><Icon name={ICONES[item.categoria]} /></span>
-                          <span><strong>{item.nome}</strong><small>{item.categoria}</small></span>
-                        </button>
-                        <div className="equip-cf-position"><Icon name={item.localizacao?"mapPin":item.gerenteResponsavel?"user":"package"}/><span><strong>{textoLocalizacaoEquipamento(item)}</strong>{item.gerenteResponsavel&&<small>{item.gerenteResponsavel}</small>}</span></div>
-                        <div className="equip-cf-state">
-                          <span className={`badge-status ${STATUS_CFG[item.status]?.cor||""}`}>{item.status}</span>
-                          {consertoAguardandoOperador&&<small>Aguardando operador</small>}
-                          {pendente&&<small>Aguardando confirmação</small>}
-                          {recebido&&<small>Recebido pelo gerente</small>}
-                        </div>
-                        <div className="equip-cf-next">
-                          {operador&&(emConserto||consertoAguardandoOperador)?<button className="btn-movimentar btn-conserto-operador" disabled={pagamentoConserto==="solicitado"} title={pagamentoConserto==="solicitado"?"Aguardando pagamento da administração":""} onClick={()=>abrirConsertoOperador(item)}><Icon name="wrench" /> {consertoAguardandoOperador?"Analisar":pagamentoConserto==="pago"?"Concluir":"Completar"}</button>:
-                            pendente&&gerenteAtual?<button className="btn-movimentar" onClick={()=>confirmarRecebimento(item)}><Icon name="check" /> Confirmar</button>:
-                            podeMovimentarEquipamento(item)?<button className="btn-movimentar" onClick={()=>abrirMov(item)}><Icon name="route" /> Movimentar</button>:<span className="td-obs">Somente consulta</span>}
-                        </div>
-                        <div className="equip-cf-actions">
-                          <button className="btn-editar" onClick={()=>abrirFichaEquipamento(item)} title="Abrir ficha" aria-label={`Abrir ficha de ${item.nome}`}><Icon name="eye" /></button>
-                          {podeMovimentarEquipamento(item)&&<button className="btn-editar" onClick={()=>abrirEditar(item)} title="Editar" aria-label={`Editar ${item.nome}`}><Icon name="edit" /></button>}
-                          {podeEditar&&<button className="btn-excluir" onClick={()=>setExcluindo(item.id)} title="Excluir" aria-label={`Excluir ${item.nome}`}><Icon name="trash" /></button>}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-
-                {dossieEquipamentoSheet&&dossieEquipamentoAberto&&equipamentoFoco&&<button className="equip-cf-dossier-backdrop" type="button" tabIndex={-1} aria-label="Fechar dossiê do equipamento" onClick={fecharDossieEquipamento}/>}
-                <aside
-                  className={`cf-dossier equip-cf-dossier ${dossieEquipamentoSheet&&dossieEquipamentoAberto?"is-sheet-open":""}`}
-                  ref={dossieEquipamentoRef}
-                  role={dossieEquipamentoSheet?"dialog":undefined}
-                  aria-modal={dossieEquipamentoSheet&&dossieEquipamentoAberto?"true":undefined}
-                  aria-labelledby={equipamentoFoco?"equip-cf-dossier-title":undefined}
-                  aria-label={equipamentoFoco?undefined:"Dossiê do equipamento selecionado"}
-                  aria-hidden={dossieEquipamentoSheet&&!dossieEquipamentoAberto?"true":undefined}
-                  inert={dossieEquipamentoSheet&&!dossieEquipamentoAberto?true:undefined}
-                  tabIndex={dossieEquipamentoSheet?-1:undefined}
-                >
-                  {equipamentoFoco?(
-                    <>
-                      <div className="cf-dossier__head equip-cf-dossier-head">
-                        <button className="equip-cf-dossier-close" type="button" data-equip-dossier-autofocus="true" onClick={fecharDossieEquipamento} aria-label="Fechar dossiê"><Icon name="close"/></button>
-                        <span className="equip-cf-category-icon"><Icon name={ICONES[equipamentoFoco.categoria]} size={20}/></span>
-                        <div><span className="cf-kicker">Dossiê operacional</span><h3 id="equip-cf-dossier-title">{equipamentoFoco.nome}</h3><p>{equipamentoFoco.categoria}</p></div>
-                        <span className={`badge-status ${STATUS_CFG[equipamentoFoco.status]?.cor||""}`}>{equipamentoFoco.status}</span>
-                      </div>
-                      <div className="cf-dossier__body">
-                        <dl className="equip-cf-facts">
-                          <div><dt>Posição</dt><dd>{textoLocalizacaoEquipamento(equipamentoFoco)}</dd></div>
-                          <div><dt>Gerente</dt><dd>{equipamentoFoco.gerenteResponsavel||"Sem vínculo"}</dd></div>
-                          <div><dt>Responsável</dt><dd>{equipamentoFoco.responsavel||"Não informado"}</dd></div>
-                        </dl>
-                        <div className="equip-cf-flow" aria-label="Progressão operacional">
-                          <div className="is-complete"><Icon name="check"/><span><small>Registro</small><strong>Identificado</strong></span></div>
-                          <div className="is-current"><Icon name={equipamentoFoco.localizacao?"mapPin":equipamentoFoco.gerenteResponsavel?"user":"package"}/><span><small>Posição atual</small><strong>{textoLocalizacaoEquipamento(equipamentoFoco)}</strong></span></div>
-                          <div><Icon name={solicitacaoConsertoPendente(equipamentoFoco)?"wrench":"route"}/><span><small>Próxima ação</small><strong>{solicitacaoConsertoPendente(equipamentoFoco)?"Análise do operador":equipamentoFoco.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando?"Confirmar recebimento":podeMovimentarEquipamento(equipamentoFoco)?"Definir movimentação":"Acompanhar posição"}</strong></span></div>
-                        </div>
-                        <div className="equip-cf-dossier-actions">
-                          <button className="btn-secundario" onClick={()=>executarAcaoDossieEquipamento(()=>abrirFichaEquipamento(equipamentoFoco))}><Icon name="fileText"/> Abrir ficha completa</button>
-                          {podeMovimentarEquipamento(equipamentoFoco)&&<button className="btn-primario" onClick={()=>executarAcaoDossieEquipamento(()=>abrirMov(equipamentoFoco))}><Icon name="route"/> Movimentar</button>}
-                        </div>
-                        <div className="equip-cf-trace">
-                          <div className="equip-cf-trace-head"><span className="cf-kicker">Rastro recente</span><button type="button" onClick={()=>executarAcaoDossieEquipamento(()=>setAbaEquip("historico"))}>Ver histórico</button></div>
-                          {historicoEquipamentoFoco.length===0?<p>Sem movimentações registradas.</p>:historicoEquipamentoFoco.map(evento=>{
-                            const cfg=HIST_CFG[evento.tipo]||{icone:"file",label:evento.tipo};
-                            return <div key={evento.id}><Icon name={cfg.icone}/><span><strong>{cfg.label}</strong><small>{evento.data}</small></span></div>;
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  ):<div className="cf-empty"><Icon name="package"/><span>Selecione um equipamento para abrir o dossiê.</span></div>}
-                </aside>
-              </div>
-              {itensFiltrados.length>ITENS_POR_PAGINA&&(
-                <div className="paginacao">
-                  <button className="btn-secundario" disabled={paginaItens===1} onClick={()=>setPaginaItens(p=>p-1)}>Anterior</button>
-                  <span>Página <strong>{paginaItens}</strong> de <strong>{totalPaginasItens}</strong> · {itensFiltrados.length} itens</span>
-                  <button className="btn-secundario" disabled={paginaItens===totalPaginasItens} onClick={()=>setPaginaItens(p=>p+1)}>Próxima</button>
-                </div>
               )}
             </section>
           )}
@@ -4863,7 +4873,7 @@ function Sistema({onLogout}){
                 </div>
                 <span className="equip-cf-movement-arrow" aria-hidden="true"><Icon name="arrowRight"/></span>
                 <div className="equip-cf-movement-step is-action">
-                  <span>Ação</span>
+                  <span>Movimentação</span>
                   <strong>{acaoMovimentacao}</strong>
                   <small>{tipoMovSel?.novoStatus||modalMov.status}</small>
                 </div>

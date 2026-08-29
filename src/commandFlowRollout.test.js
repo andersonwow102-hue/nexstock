@@ -49,6 +49,8 @@ const devedores = read("DevedoresPage.jsx");
 const devedoresCss = read("DevedoresPage.css");
 const fechamentoWorkbench = read("FechamentoWorkbench.jsx");
 const fechamentoWorkbenchCss = read("FechamentoWorkbench.css");
+const equipmentInventoryLedger = read("EquipmentInventoryLedger.jsx");
+const equipmentInventoryLedgerCss = read("EquipmentInventoryLedger.css");
 
 test("fundações e shell Command Flow são globais e mantêm o drawer acessível", () => {
   assertMarkers(app, [
@@ -202,22 +204,56 @@ test("Equipamentos mantém comando compacto, posição, ledger, progressão e do
     "equip-cf-control-line",
     "equip-cf-position-strip",
     "equip-cf-filterbar",
-    "equip-cf-workspace",
-    "equip-cf-ledger",
-    "equip-cf-row",
-    "equip-cf-flow",
-    "equip-cf-dossier",
+    "EquipmentInventoryLedger",
+    "linhasEquipamentosLedger",
+    "historicoEquipamentoLedger",
+    "acaoPrimariaEquipamento",
+    'item.consertoAssistencia||"Assistência não informada"',
+    'aria-label="Fluxo da movimentação: origem, ação e destino"',
+    "<span>Origem</span>",
+    "<span>Movimentação</span>",
+    "<span>Destino</span>",
     "equip-cf-form-modal",
     'title="Ficha do equipamento"',
-  ], "Equipamentos");
+  ], "Equipamentos real");
+  assert.doesNotMatch(app, /item\.consertoAssistencia\|\|item\.responsavel/, "Conserto não deve usar responsável genérico como localização técnica");
+  assertMarkers(equipmentInventoryLedger, [
+    "equipment-inventory-ledger__workspace",
+    "equipment-inventory-ledger__ledger",
+    "equipment-inventory-ledger__row",
+    "equipment-inventory-ledger__current",
+    "equipment-inventory-ledger__dossier",
+    "equipment-inventory-ledger__grid",
+    "Última movimentação",
+    "onExecuteDossier",
+    "onOpenDetail",
+    "onEdit",
+    "onDelete",
+    "onOpenHistory",
+  ], "Inventory Ledger compartilhado");
+  assert.doesNotMatch(equipmentInventoryLedger, /\b(?:cf-empty|cf-ledger|cf-dossier|equip-cf-(?:workspace|ledger|row|flow|dossier))\b/, "Inventory Ledger deve permanecer isolado do CSS legado");
   assertMarkers(commandFlowCss, [
     ".equip-cf-control-line",
     ".equip-cf-position-strip",
     ".equip-cf-filterbar",
-    ".equip-cf-workspace",
-    ".equip-cf-ledger",
-    ".equip-cf-dossier",
-  ], "Equipamentos CSS");
+    ".app.command-flow-shell.module-itens .equip-cf-position-note",
+  ], "Equipamentos shell CSS");
+  assertMarkers(equipmentInventoryLedgerCss, [
+    "--equipment-ledger-dossier: clamp(350px, 29vw, 380px)",
+    "--equipment-ledger-row: 70px",
+    "min-width: 728px",
+    "@media (max-width: 1320px)",
+    "@media (max-width: 780px)",
+    "@media (prefers-reduced-motion: reduce)",
+  ], "Inventory Ledger CSS");
+  assert.equal(importPaths(equipmentInventoryLedger).some(isBackendPath), false, "Inventory Ledger visual não deve importar backend");
+
+  const listStart = app.indexOf('<section className="equip-lista equip-cf-list">');
+  const filterStart = app.indexOf("<FilterBar", listStart);
+  const ledgerStart = app.indexOf("<EquipmentInventoryLedger", listStart);
+  const operationalQueuesStart = app.indexOf("recebimentosPendentes.length", listStart);
+  assert.ok(listStart >= 0 && filterStart > listStart && ledgerStart > filterStart && operationalQueuesStart > ledgerStart,
+    "busca e Inventory Ledger devem preceder as filas operacionais");
 });
 
 test("Pontos mantém leitura da rede, ledger territorial e dossiê", () => {

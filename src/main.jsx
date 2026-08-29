@@ -4,6 +4,7 @@ import "./index.css";
 
 const parametros = new URLSearchParams(window.location.search);
 const previewFechamento = import.meta.env.DEV && parametros.get("preview") === "fechamento";
+const previewEquipamentos = import.meta.env.DEV && parametros.get("preview") === "equipamentos";
 const raiz = createRoot(document.getElementById("root"));
 
 function renderizar(conteudo) {
@@ -13,6 +14,11 @@ function renderizar(conteudo) {
 async function iniciarPreviewFechamento() {
   const { default: FechamentoPreviewApp } = await import("./FechamentoPreviewApp.jsx");
   renderizar(<FechamentoPreviewApp />);
+}
+
+async function iniciarPreviewEquipamentos() {
+  const { default: EquipamentosPreviewApp } = await import("./EquipamentosPreviewApp.jsx");
+  renderizar(<EquipamentosPreviewApp />);
 }
 
 async function iniciarAplicacao() {
@@ -57,7 +63,7 @@ async function iniciarAplicacao() {
   }
 }
 
-(previewFechamento ? iniciarPreviewFechamento() : iniciarAplicacao()).catch((erro) => {
+(previewEquipamentos ? iniciarPreviewEquipamentos() : previewFechamento ? iniciarPreviewFechamento() : iniciarAplicacao()).catch((erro) => {
   console.error("Falha ao iniciar o NEPTERA:", erro);
   renderizar(<div className="app-fallback-error">Não foi possível iniciar o NEPTERA. Atualize a página e tente novamente.</div>);
 });
