@@ -51,6 +51,8 @@ const fechamentoWorkbench = read("FechamentoWorkbench.jsx");
 const fechamentoWorkbenchCss = read("FechamentoWorkbench.css");
 const equipmentInventoryLedger = read("EquipmentInventoryLedger.jsx");
 const equipmentInventoryLedgerCss = read("EquipmentInventoryLedger.css");
+const historicoTimeline = read("HistoricoTimelinePage.jsx");
+const historicoTimelineCss = read("HistoricoTimeline.css");
 
 test("fundações e shell Command Flow são globais e mantêm o drawer acessível", () => {
   assertMarkers(app, [
@@ -159,12 +161,12 @@ test("tema claro global preserva base quente e Pontos usa acabamento mineral aut
   assert.match(pointsCss, /--pcf-dim:\s*#7b8582/);
 });
 
-test("fluxo vertical mantém um único scroll principal e sheets isolados por módulo", () => {
+test("fluxo vertical mantém um único scroll principal e overlays somente onde necessários", () => {
   assert.match(commandFlowCss, /\.app\.command-flow-shell\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?overflow:\s*hidden;/);
   assert.match(commandFlowCss, /\.command-flow-shell \.main\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior-y:\s*auto;/);
-  assert.match(app, /open:aba==="historico"&&dossieHistoricoAberto/);
   assert.match(app, /if\(aba!=="itens"\|\|!dossieEquipamentoSheet\|\|!dossieEquipamentoAberto\)return undefined/);
-  assert.match(app, /function navegar\(novaAba\)[\s\S]*?setDossieHistoricoAberto\(false\);[\s\S]*?setDossieEquipamentoAberto\(false\);/);
+  assert.match(app, /function navegar\(novaAba\)[\s\S]*?setDossieEquipamentoAberto\(false\);/);
+  assert.doesNotMatch(historicoTimelineCss, /position:\s*fixed/);
   assert.match(points, /acquireMainScrollLock/);
   assert.match(adminCss, /@media \(max-width: 900px\)[\s\S]*?\.admin-command-flow \.admin-cf-dossier,[\s\S]*?position:\s*fixed;/);
   assert.match(fechamentoWorkbenchCss, /data-composition="final-a1-a3"\] \.fechamento-summary\s*\{[\s\S]*?position:\s*sticky;[\s\S]*?top:\s*14px;/);
@@ -356,30 +358,33 @@ test("Senhas preserva navegação por necessidade, editores, ledger e distribui�
   assert.match(app, /role=\{erro\?"alert":"status"\}/);
 });
 
-test("Histórico preserva filtros recolhidos, ledger responsivo e dossiê do evento", () => {
+test("Histórico usa Chronological Ledger, filtros recolhidos e detalhe inline", () => {
   assertMarkers(app, [
     'aba==="historico"',
-    "historico-cf-page",
-    "historico-cf-filterbar",
-    "filtrosHistoricoAbertos",
-    "historico-cf-workspace",
-    "historico-cf-ledger",
-    "historico-cf-row",
-    "historico-cf-dossier",
-    "historico-cf-backdrop",
-    "dossieHistoricoAberto",
-    "historicoDossieSheet",
-    "data-sheet-autofocus",
+    "HistoricoTimelinePage",
+    "equipmentHistory={historicoOperacional}",
+    "pointHistory={historicoPontosOperacional}",
+    "loadError={erroHistorico}",
   ], "Histórico");
-  assertMarkers(commandFlowCss, [
-    ".historico-cf-page",
-    ".historico-cf-filterbar",
-    ".historico-cf-workspace",
-    ".historico-cf-dossier",
-    ".historico-cf-backdrop",
-    ".historico-cf-dossier.is-open",
-  ], "Histórico CSS");
-  assert.match(app, /useResponsiveSheet\(\{[\s\S]*?mediaQuery:"\(max-width: 800px\)"/);
+  assertMarkers(historicoTimeline, [
+    "Histórico operacional",
+    "history-timeline__period",
+    "history-timeline__secondary-filters",
+    "history-timeline__chapter",
+    "history-timeline__spine",
+    "history-timeline__event-details",
+    "aria-expanded",
+    "filteredEvents",
+  ], "Chronological Ledger");
+  assertMarkers(historicoTimelineCss, [
+    ".history-timeline__chapter-head",
+    ".history-timeline__event::before",
+    ".history-timeline__event-details",
+    "@media (max-width: 760px)",
+    "@media (prefers-reduced-motion: reduce)",
+  ], "Chronological Ledger CSS");
+  assert.doesNotMatch(historicoTimeline, /Limpar histórico|dossiê/i);
+  assert.doesNotMatch(app, /limparHistoricoEquipamentos|function limparHistorico\(/);
 });
 
 test("Central de Acessos e Logins compartilham a arquitetura administrativa", () => {

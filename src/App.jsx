@@ -10,18 +10,18 @@ import DevedoresPage from "./DevedoresPage.jsx";
 import DashboardPage from "./DashboardPage.jsx";
 import FechamentoWorkbench from "./FechamentoWorkbench.jsx";
 import EquipmentInventoryLedger from "./EquipmentInventoryLedger.jsx";
+import HistoricoTimelinePage from "./HistoricoTimelinePage.jsx";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, expenseBelongsToRoute, isManagerExpense } from "./expenseScope.js";
 import { FilterBar, Modal as OperationModal, OperationIcon } from "./components/operations/OperationsUI.jsx";
-import { useResponsiveSheet } from "./components/operations/useResponsiveSheet.js";
 import { acquireMainScrollLock } from "./components/operations/mainScrollLock.js";
 import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
-  carregarHistoricoEquipamentos, adicionarHistoricoEquipamento, limparHistoricoEquipamentos,
+  carregarHistoricoEquipamentos, adicionarHistoricoEquipamento,
   carregarPontos, salvarPonto, adicionarHistoricoPonto, carregarHistoricoPontos,
   carregarPerfilAtual, resolverEmailPorLogin, carregarDespesasMensais,
   carregarMensagensInternas, enviarMensagemInterna, marcarMensagensInternasLidas,
@@ -325,6 +325,49 @@ async function exportarHistoricoPDF(historico){
     ],
     colunas:["Tipo","Equipamento","Categoria","Responsável","Detalhe","Data"],
     linhas:historico.map(h=>[HIST_CFG[h.tipo]?.label||h.tipo,h.itemNome,h.categoria,h.responsavel||"-",h.observacao||"-",h.data]),
+  });
+}
+
+function formatarDataHoraTimeline(timestamp, fallback = "") {
+  if(!timestamp)return fallback||"—";
+  const data = new Date(timestamp);
+  if(Number.isNaN(data.getTime()))return fallback||"—";
+  return data.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+
+async function exportarTimelineExcel(eventos){
+  const dados=eventos.map(evento=>({
+    "Data e hora":formatarDataHoraTimeline(evento.timestamp,evento.legacyDate),
+    "Módulo":evento.moduleLabel||evento.module||"—",
+    "Ação":evento.eventLabel||evento.title||evento.eventType||"—",
+    "Entidade":evento.entity?.name||"—",
+    "Responsável operacional":evento.responsible||"—",
+    "Origem":evento.origin||"—",
+    "Destino":evento.destination||"—",
+    "Resumo":evento.summary||"—",
+  }));
+  exportarCsvSeguro(dados,`historico_operacional_${hoje()}.csv`);
+}
+
+async function exportarTimelinePDF(eventos){
+  await gerarPDF({
+    titulo:"Histórico operacional",
+    descricao:"Recorte pesquisado e filtrado de Equipamentos e Pontos",
+    nomeArquivo:`neptera_historico_operacional_${hoje()}.pdf`,
+    total:eventos.length,
+    resumo:[
+      {label:"Eventos",valor:eventos.length},
+      {label:"Equipamentos",valor:eventos.filter(evento=>evento.module==="equipment").length,destaque:[46,116,123]},
+      {label:"Pontos",valor:eventos.filter(evento=>evento.module==="point").length,destaque:[145,123,88]},
+    ],
+    colunas:["Data e hora","Módulo","Ação","Entidade","Contexto"],
+    linhas:eventos.map(evento=>[
+      formatarDataHoraTimeline(evento.timestamp,evento.legacyDate),
+      evento.moduleLabel||evento.module||"—",
+      evento.eventLabel||evento.title||evento.eventType||"—",
+      evento.entity?.name||"—",
+      [evento.origin&&`Origem: ${evento.origin}`,evento.destination&&`Destino: ${evento.destination}`,evento.responsible&&`Responsável: ${evento.responsible}`,evento.summary].filter(Boolean).join(" · ")||"—",
+    ]),
   });
 }
 
@@ -3296,6 +3339,7 @@ function Sistema({onLogout}){
   const [historico,setHistorico]   =useState([]);
   const [pontos,setPontos]         =useState([]);
   const [historicoPontos,setHistoricoPontos]=useState([]);
+  const [errosHistorico,setErrosHistorico]=useState({equipment:false,point:false});
   const [despesasBackup,setDespesasBackup]=useState([]);
   const [pixEnvios,setPixEnvios]=useState([]);
   const [senhasModalidades,setSenhasModalidades]=useState([]);
@@ -3319,13 +3363,6 @@ function Sistema({onLogout}){
   const [busca,setBusca]           =useState("");
   const [filtrosEquipAbertos,setFiltrosEquipAbertos]=useState(false);
   const [excluindo,setExcluindo]   =useState(null);
-  const [histFCat,setHistFCat]     =useState("Todas");
-  const [histFTipo,setHistFTipo]   =useState("Todos");
-  const [histBusca,setHistBusca]   =useState("");
-  const [filtrosHistoricoAbertos,setFiltrosHistoricoAbertos]=useState(false);
-  const [paginaHistorico,setPaginaHistorico]=useState(1);
-  const [historicoFocoId,setHistoricoFocoId]=useState(null);
-  const [dossieHistoricoAberto,setDossieHistoricoAberto]=useState(false);
   const [confirmLogout,setConfirmLogout]=useState(false);
   const [modalSenha,setModalSenha]=useState(false);
   const [temaClaro,setTemaClaro]   =useState(()=>{try{return localStorage.getItem("sc_tema")==="claro";}catch{return false;}});
@@ -3352,18 +3389,13 @@ function Sistema({onLogout}){
   const [perfilAtual,setPerfilAtual]=useState({userId:"",nome:"",perfil:"consulta",perfilReal:false,emailTemporario:false,emailTemporarioExpiraEm:""});
   const [perfilCarregado,setPerfilCarregado]=useState(false);
   const [avisoPrazoDespesas,setAvisoPrazoDespesas]=useState(null);
-  const historicoDossieSheet=useResponsiveSheet({
-    open:aba==="historico"&&dossieHistoricoAberto,
-    onClose:()=>setDossieHistoricoAberto(false),
-    mediaQuery:"(max-width: 800px)",
-  });
-
   useEffect(()=>{
     let ativo=true;
     async function init(){
       setCarregando(true);
       setPerfilCarregado(false);
       setErroCarregamento("");
+      setErrosHistorico({equipment:false,point:false});
       try{
         const [eq,pts]=await Promise.all([
           comPrazo(carregarEquipamentos(),"os equipamentos"),
@@ -3374,8 +3406,8 @@ function Sistema({onLogout}){
         setPontos(pts);
         setCarregando(false);
         const complementos=await Promise.allSettled([
-          comPrazo(carregarHistoricoEquipamentos(),"o histórico de equipamentos"),
-          comPrazo(carregarHistoricoPontos(),"o histórico de pontos"),
+          comPrazo(carregarHistoricoEquipamentos({strict:true}),"o histórico de equipamentos"),
+          comPrazo(carregarHistoricoPontos({strict:true}),"o histórico de pontos"),
           comPrazo(carregarPerfilAtual(),"seu perfil de acesso"),
           comPrazo(carregarDespesasMensais(),"as despesas mensais"),
           comPrazo(carregarPixEnvios(),"os avisos PIX"),
@@ -3383,8 +3415,12 @@ function Sistema({onLogout}){
           comPrazo(carregarModalidadeApps(),"os apps das modalidades"),
         ]);
         if(!ativo)return;
-        if(complementos[0].status==="fulfilled")setHistorico(complementos[0].value);
-        if(complementos[1].status==="fulfilled")setHistoricoPontos(complementos[1].value);
+        if(complementos[0].status==="fulfilled")setHistorico(complementos[0].value);else setHistorico([]);
+        if(complementos[1].status==="fulfilled")setHistoricoPontos(complementos[1].value);else setHistoricoPontos([]);
+        setErrosHistorico({
+          equipment:complementos[0].status==="rejected",
+          point:complementos[1].status==="rejected",
+        });
         if(complementos[2].status==="fulfilled")setPerfilAtual(complementos[2].value);
         if(complementos[3].status==="fulfilled")setDespesasBackup(complementos[3].value);
         if(complementos[4].status==="fulfilled")setPixEnvios(complementos[4].value);
@@ -3448,7 +3484,6 @@ function Sistema({onLogout}){
   }
   function navegar(novaAba){
     const mesmaAba=novaAba===aba;
-    setDossieHistoricoAberto(false);
     setDossieEquipamentoAberto(false);
     setAba(novaAba);
     atualizarUrlDoModulo(novaAba,{substituir:mesmaAba});
@@ -3469,7 +3504,6 @@ function Sistema({onLogout}){
   const drawerContextual=drawerDevedores||drawerDashboard||navegacaoCompacta;
   useEffect(()=>{
     function acompanharHistoricoDoNavegador(){
-      setDossieHistoricoAberto(false);
       setDossieEquipamentoAberto(false);
       setAba(abaInicialDaUrl());
       setSidebarAberta(false);
@@ -3590,6 +3624,10 @@ function Sistema({onLogout}){
     return{porId,porNome};
   },[historicoOperacional]);
   const historicoPontosOperacional=gerenteAtual?historicoPontos.filter(h=>pontosOperacionaisNomes.has(h.nome)):historicoPontos;
+  const fontesHistoricoComFalha=[errosHistorico.equipment&&"Equipamentos",errosHistorico.point&&"Pontos"].filter(Boolean);
+  const erroHistorico=fontesHistoricoComFalha.length
+    ?`Não foi possível carregar o histórico de ${fontesHistoricoComFalha.join(" e ")}. Recarregue a página para tentar novamente.`
+    :"";
   const recebimentosPendentes=gerenteAtual?itensOperacionais.filter(i=>normalizarTexto(i.gerenteResponsavel)===gerenteAtualKey&&i.transferenciaStatus===TRANSFERENCIA_GERENTE.aguardando):[];
   const podeMovimentarEquipamento=item=>solicitacaoConsertoPendente(item)
     ?operador
@@ -3707,23 +3745,10 @@ function Sistema({onLogout}){
   const historicoEquipamentoFoco=equipamentoFoco
     ?historicoOperacional.filter(evento=>evento.itemId===equipamentoFoco.id||evento.itemNome===equipamentoFoco.nome).slice(0,5)
     :[];
-  const histFiltrado=historicoOperacional.filter(h=>{
-    const mC=histFCat==="Todas"||h.categoria===histFCat;
-    const mT=histFTipo==="Todos"||h.tipo===histFTipo;
-    const q=histBusca.toLowerCase();
-    const mB=!histBusca||[h.itemNome,h.responsavel,h.observacao].some(f=>(f||"").toLowerCase().includes(q));
-    return mC&&mT&&mB;
-  });
-  const eventosPorPaginaHistorico=35;
-  const totalPaginasHistorico=Math.max(1,Math.ceil(histFiltrado.length/eventosPorPaginaHistorico));
-  const historicoPagina=histFiltrado.slice((paginaHistorico-1)*eventosPorPaginaHistorico,paginaHistorico*eventosPorPaginaHistorico);
-  const historicoFoco=historicoPagina.find(evento=>evento.id===historicoFocoId)||historicoPagina[0]||null;
   const filtrosEquipAtivos=(filtroSt!=="Todos"?1:0)+(filtroCatEquip!=="Todas"?1:0)+(filtroEscopoEquip!=="todos"?1:0);
-  const filtrosHistoricoAtivos=(histFCat!=="Todas"?1:0)+(histFTipo!=="Todos"?1:0);
   const rotuloEscopoEquip={interno:"Estoque interno",pontos:"Em pontos",gerentes:"Com gerentes",conserto:"Conserto"}[filtroEscopoEquip]||"Todos";
 
   useEffect(()=>{setPaginaItens(1);},[busca,filtroSt,filtroCatEquip,filtroEscopoEquip]);
-  useEffect(()=>{setPaginaHistorico(1);},[histBusca,histFCat,histFTipo]);
   useEffect(()=>{
     if(gerenteAtual&&filtroSt==="Em conserto")setFiltroSt("Todos");
   },[gerenteAtual,filtroSt]);
@@ -3887,7 +3912,7 @@ function Sistema({onLogout}){
       setItens(itens.map(i=>i.id===itemEdit.id?{...ff,id:itemEdit.id}:i));
       const d=[];
       if(itemEdit.status!==ff.status)d.push(`Status: ${itemEdit.status}→${ff.status}`);
-      const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora()};
+      const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora(),createdAt:isoAgora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     }else{
       const novos=[];
@@ -3897,7 +3922,7 @@ function Sistema({onLogout}){
         const novoId=await salvarEquipamento(itemNovo);
         if(!novoId){setErroForm("Não foi possível salvar todos os equipamentos no banco.");return;}
         novos.push({...itemNovo,id:novoId});
-        historicos.push({id:Date.now()+idx,tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:"Equipamento cadastrado",data:agora()});
+        historicos.push({id:Date.now()+idx,tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:"Equipamento cadastrado",data:agora(),createdAt:isoAgora()});
       }
       setItens(prev=>[...prev,...novos]);
       for(const h of historicos)await adicionarHistoricoEquipamento(h);
@@ -3911,7 +3936,7 @@ function Sistema({onLogout}){
     const upd={...item,status:"Disponível",localizacao:"",responsavel:gerenteAtual,transferenciaStatus:TRANSFERENCIA_GERENTE.recebido,transferenciaRecebidaEm:isoAgora()};
     await salvarEquipamento(upd);
     setItens(prev=>prev.map(i=>i.id===item.id?upd:i));
-    const h={id:Date.now(),tipo:"recebimento_gerente",itemId:item.id,itemNome:item.nome,categoria:item.categoria,qtdAntes:1,qtdDepois:1,responsavel:gerenteAtual,observacao:`Equipamento recebido por ${gerenteAtual}`,data:agora()};
+    const h={id:Date.now(),tipo:"recebimento_gerente",itemId:item.id,itemNome:item.nome,categoria:item.categoria,qtdAntes:1,qtdDepois:1,responsavel:gerenteAtual,observacao:`Equipamento recebido por ${gerenteAtual}`,data:agora(),createdAt:isoAgora()};
     await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
   }
 
@@ -3937,7 +3962,7 @@ function Sistema({onLogout}){
     const novoPonto={...ponto,id:novoId};
     setPontos(prev=>[...prev,novoPonto]);
     setForm(prev=>({...prev,status:"Em rota",localizacao:novoPonto.nomeFantasia}));
-    const h={id:Date.now(),tipo:"cadastro",nome:novoPonto.nomeFantasia,gerente:novoPonto.gerente,observacao:"Ponto cadastrado durante inclusão de equipamento",data:agora()};
+    const h={id:Date.now(),tipo:"cadastro",nome:novoPonto.nomeFantasia,gerente:novoPonto.gerente,observacao:"Ponto cadastrado durante inclusão de equipamento",data:agora(),createdAt:isoAgora()};
     await adicionarHistoricoPonto(h);
     setHistoricoPontos(prev=>[h,...prev]);
     setModalPontoRapido(false);
@@ -3948,7 +3973,7 @@ function Sistema({onLogout}){
     const item=itens.find(i=>i.id===id);
     await excluirEquipamento(id);
     setItens(prev=>prev.filter(i=>i.id!==id));
-    const h={id:Date.now(),tipo:"exclusao",itemId:id,itemNome:item.nome,categoria:item.categoria,qtdAntes:item.quantidade,qtdDepois:0,responsavel:"—",observacao:"Item removido",data:agora()};
+    const h={id:Date.now(),tipo:"exclusao",itemId:id,itemNome:item.nome,categoria:item.categoria,qtdAntes:item.quantidade,qtdDepois:0,responsavel:"—",observacao:"Item removido",data:agora(),createdAt:isoAgora()};
     await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
     setExcluindo(null);
   }
@@ -4026,7 +4051,7 @@ function Sistema({onLogout}){
         mov.consertoValor&&!gerenteAtual&&`Valor conserto: ${formatarMoedaPDF(mov.consertoValor)}`,
         mov.notaFiscalNome&&!gerenteAtual&&`Nota fiscal: ${mov.notaFiscalNome}`,
       ]:[];
-      const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora()};
+      const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora(),createdAt:isoAgora()};
       await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
       if(tipo.id==="conserto"&&apenasSolicitarConserto) window.alert("Solicitação enviada ao operador. O equipamento só entrará em conserto após a aprovação dele.");
       if(tipo.id==="conserto"&&perfilAtual.perfil==="operador") window.alert("Solicitação de pagamento enviada ao financeiro. A administração já pode conferir e confirmar o pagamento.");
@@ -4060,6 +4085,7 @@ function Sistema({onLogout}){
       responsavel:perfilAtual.nome||"Administração",
       observacao:`Administração confirmou o pagamento do conserto | Valor: ${formatarMoedaPDF(item.consertoValor||0)} | Forma: ${item.consertoFormaPagamento||"-"}`,
       data:agora(),
+      createdAt:isoAgora(),
     };
     await adicionarHistoricoEquipamento(h);
     setHistorico(prev=>[h,...prev]);
@@ -4165,12 +4191,6 @@ function Sistema({onLogout}){
       secoes:secoesBackup,
     });
     registrarBackupPerfil(perfilAtual);
-  }
-
-  async function limparHistorico(){
-    if(!administrador)return;
-    if(!window.confirm("Limpar todo o histórico?"))return;
-    await limparHistoricoEquipamentos();setHistorico([]);
   }
 
   function acaoPrimariaEquipamento(item){
@@ -4311,7 +4331,7 @@ function Sistema({onLogout}){
           <span className="nav-section-label">Registros</span>
           <button type="button" className={`nav-item ${aba==="historico"?"active":""}`} aria-current={aba==="historico"?"page":undefined} onClick={()=>navegar("historico")}>
             <Icon name="history" className="nav-icon" /> Histórico
-            {historicoOperacional.length>0&&<span className="nav-badge">{historicoOperacional.length>99?"99+":historicoOperacional.length}</span>}
+            {historicoOperacional.length+historicoPontosOperacional.length>0&&<span className="nav-badge">{historicoOperacional.length+historicoPontosOperacional.length>99?"99+":historicoOperacional.length+historicoPontosOperacional.length}</span>}
           </button>
         </nav>
         <div className="sidebar-footer">
@@ -4589,7 +4609,7 @@ function Sistema({onLogout}){
         </>)}
 
         {aba==="pontos"&&(
-          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={setHistoricoPontos} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onExcluirEquipamento={setExcluindo} onAbrirMenu={alternarSidebarContextual}/>
+          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={lista=>setHistoricoPontos(lista.map(evento=>Object.hasOwn(evento,"createdAt")?evento:{...evento,createdAt:isoAgora()}))} onHistoricoLoadError={failed=>setErrosHistorico(current=>({...current,point:failed}))} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onExcluirEquipamento={setExcluindo} onAbrirMenu={alternarSidebarContextual}/>
         )}
 
         {aba==="devedores"&&acessoDevedores&&(
@@ -4717,69 +4737,17 @@ function Sistema({onLogout}){
           <LoginManagerPage perfilAtual={perfilAtual} historico={historicoOperacional} historicoPontos={historicoPontosOperacional} onPerfilAtualChange={setPerfilAtual}/>
         </>)}
 
-        {aba==="historico"&&(<>
-          <ModuleHeader eyebrow="Rastro operacional" title="Histórico" subtitle={`${historicoOperacional.length} ${historicoOperacional.length===1?"movimentação registrada":"movimentações registradas"}.`} onMenu={alternarSidebarContextual} menuOpen={sidebarAberta} actions={<>
-              {historicoOperacional.length>0&&<>
-                <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historicoOperacional)}><Icon name="spreadsheet"/> Excel</button>
-                <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historicoOperacional)}><Icon name="pdf"/> PDF</button>
-              </>}
-              {administrador&&historico.length>0&&<button className="btn-danger-outline" onClick={limparHistorico}><Icon name="trash"/> Limpar</button>}
-            </>}/>
-          <section className="historico-cf-page">
-            <FilterBar
-              className="historico-cf-filterbar"
-              ariaHidden={historicoDossieSheet.isSheet&&dossieHistoricoAberto?"true":undefined}
-              inert={historicoDossieSheet.isSheet&&dossieHistoricoAberto?true:undefined}
-              ariaLabel="Consulta do histórico"
-              activeCount={filtrosHistoricoAtivos}
-              secondaryOpen={filtrosHistoricoAbertos}
-              onSecondaryToggle={setFiltrosHistoricoAbertos}
-              onClear={()=>{setHistFCat("Todas");setHistFTipo("Todos");}}
-              primary={<>
-                <div className="historico-cf-search"><label className="sr-only" htmlFor="historico-cf-search-input">Buscar equipamento ou responsável</label><Icon name="search"/><input id="historico-cf-search-input" type="search" placeholder="Buscar equipamento ou responsável" value={histBusca} onChange={e=>setHistBusca(e.target.value)}/>{histBusca&&<button type="button" aria-label="Limpar busca" onClick={()=>setHistBusca("")}><Icon name="close"/></button>}</div>
-                <span className="historico-cf-result-count" aria-live="polite"><strong>{histFiltrado.length}</strong> evento{histFiltrado.length!==1?"s":""}</span>
-              </>}
-              secondary={<>
-                <label><span>Categoria</span><select value={histFCat} onChange={e=>setHistFCat(e.target.value)}><option value="Todas">Todas as categorias</option>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></label>
-                <label><span>Tipo de evento</span><select value={histFTipo} onChange={e=>setHistFTipo(e.target.value)}><option value="Todos">Todos os tipos</option>{Object.entries(HIST_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></label>
-              </>}
-              chips={filtrosHistoricoAtivos>0?<>
-                {histFCat!=="Todas"&&<button type="button" onClick={()=>setHistFCat("Todas")}>{histFCat}<Icon name="close"/></button>}
-                {histFTipo!=="Todos"&&<button type="button" onClick={()=>setHistFTipo("Todos")}>{HIST_CFG[histFTipo]?.label||histFTipo}<Icon name="close"/></button>}
-              </>:null}
-            />
-
-            <div className="historico-cf-workspace">
-              <div className="cf-ledger historico-cf-ledger" aria-hidden={historicoDossieSheet.isSheet&&dossieHistoricoAberto?"true":undefined} inert={historicoDossieSheet.isSheet&&dossieHistoricoAberto?true:undefined}>
-                <div className="cf-ledger__head historico-cf-grid" aria-hidden="true"><span>Evento</span><span>Objeto</span><span>Responsável</span><span>Variação</span><span>Quando</span></div>
-                {histFiltrado.length===0?<div className="cf-empty"><Icon name="history"/><strong>Nenhuma movimentação encontrada</strong><span>Ajuste os filtros ou aguarde um novo evento operacional.</span></div>:historicoPagina.map(evento=>{
-                  const cfg=HIST_CFG[evento.tipo]||{cor:"",icone:"file",label:evento.tipo};
-                  const selecionado=historicoFoco?.id===evento.id;
-                  return <article key={evento.id} className={`cf-ledger__row historico-cf-grid historico-cf-row ${selecionado?"is-selected":""}`}>
-                    <span className={`historico-cf-event ${cfg.cor}`}><Icon name={cfg.icone}/><strong>{cfg.label}</strong></span>
-                    <button type="button" className="historico-cf-object" aria-pressed={selecionado} onClick={()=>{setHistoricoFocoId(evento.id);setDossieHistoricoAberto(true);}}><Icon name={ICONES[evento.categoria]}/><span><strong>{evento.itemNome}</strong><small>{evento.categoria}</small></span></button>
-                    <span className="historico-cf-owner">{evento.responsavel||"Não informado"}</span>
-                    <span className="historico-cf-delta"><b>{evento.qtdAntes}</b><Icon name="arrowRight"/><b>{evento.qtdDepois}</b></span>
-                    <time>{evento.data}</time>
-                  </article>;
-                })}
-                {histFiltrado.length>eventosPorPaginaHistorico&&<div className="historico-cf-pagination"><button className="btn-secundario" disabled={paginaHistorico===1} onClick={()=>setPaginaHistorico(p=>p-1)}>Anterior</button><span>Página {paginaHistorico} de {totalPaginasHistorico}</span><button className="btn-secundario" disabled={paginaHistorico===totalPaginasHistorico} onClick={()=>setPaginaHistorico(p=>p+1)}>Próxima</button></div>}
-              </div>
-
-              {historicoDossieSheet.isSheet&&dossieHistoricoAberto&&<button className="historico-cf-backdrop" {...historicoDossieSheet.backdropProps}/>}
-              <aside {...historicoDossieSheet.panelProps} className={`cf-dossier historico-cf-dossier ${dossieHistoricoAberto?"is-open":""}`} aria-label="Dossiê do evento selecionado">
-                {historicoFoco?(()=>{const cfg=HIST_CFG[historicoFoco.tipo]||{cor:"",icone:"file",label:historicoFoco.tipo};return <>
-                  <div className="cf-dossier__head"><div className="historico-cf-dossier-topline"><span className="cf-kicker">Evento selecionado</span>{historicoDossieSheet.isSheet&&<button type="button" className="historico-cf-dossier-close" data-sheet-autofocus="true" onClick={()=>setDossieHistoricoAberto(false)} aria-label="Fechar dossiê"><Icon name="close"/></button>}</div><div className={`historico-cf-dossier-event ${cfg.cor}`}><Icon name={cfg.icone}/><span><h2>{cfg.label}</h2><p>{historicoFoco.data}</p></span></div></div>
-                  <div className="cf-dossier__body">
-                    <div className="historico-cf-subject"><span className="equip-cf-category-icon"><Icon name={ICONES[historicoFoco.categoria]}/></span><span><small>Objeto</small><strong>{historicoFoco.itemNome}</strong><em>{historicoFoco.categoria}</em></span></div>
-                    <dl><div><dt>Responsável</dt><dd>{historicoFoco.responsavel||"Não informado"}</dd></div><div><dt>Quantidade anterior</dt><dd>{historicoFoco.qtdAntes}</dd></div><div><dt>Quantidade posterior</dt><dd>{historicoFoco.qtdDepois}</dd></div></dl>
-                    <div className="historico-cf-detail"><span className="cf-kicker">Detalhes registrados</span><HistoricoDetalhes texto={historicoFoco.observacao}/></div>
-                  </div>
-                </>})():<div className="cf-empty"><Icon name="history"/><span>Selecione um evento para consultar o dossiê.</span></div>}
-              </aside>
-            </div>
-          </section>
-        </>)}
+        {aba==="historico"&&(
+          <HistoricoTimelinePage
+            equipmentHistory={historicoOperacional}
+            pointHistory={historicoPontosOperacional}
+            loadError={erroHistorico}
+            onMenu={alternarSidebarContextual}
+            menuOpen={sidebarAberta}
+            onExportExcel={exportarTimelineExcel}
+            onExportPdf={exportarTimelinePDF}
+          />
+        )}
       </main>
 
       {modalForm&&(

@@ -1683,7 +1683,7 @@ function AbaHistorico({ historico, onExportExcel, onExportPDF }) {
 }
 
 // ─── PointsPage Principal ─────────────────────────────────────────────────────
-export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange, onDespesasChange, onEditarEquipamento, onExcluirEquipamento, onAbrirMenu }) {
+export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAtual, onPontosChange, onEquipamentosChange, onHistoricoChange, onHistoricoLoadError, onDespesasChange, onEditarEquipamento, onExcluirEquipamento, onAbrirMenu }) {
   const [pontos,     setPontos]    = useState([]);
   const [historico,  setHistorico] = useState([]);
   const [despesas,   setDespesas]  = useState([]);
@@ -1710,16 +1710,21 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     async function carregar(){
       setLoading(true);
       const operador = perfilAtual?.perfil === "operador";
-      const [pts, hist, desp, solic, solicStatus, acessos, prorrogacoesCarregadas] = await Promise.all([
+      const [pts, histResult, desp, solic, solicStatus, acessos, prorrogacoesCarregadas] = await Promise.all([
         carregarPontos(),
-        carregarHistoricoPontos(),
+        carregarHistoricoPontos({ strict: true })
+          .then(data => ({ data, failed: false }))
+          .catch(() => ({ data: null, failed: true })),
         operador ? Promise.resolve([]) : carregarDespesasMensais(),
         carregarSolicitacoesModalidade(),
         carregarSolicitacoesStatusPonto(),
         carregarPontoModalidadeAcessos(),
         operador ? Promise.resolve([]) : carregarProrrogacoesDespesas(),
       ]);
-      setPontos(pts); onPontosChange?.(pts); setHistorico(hist); onHistoricoChange?.(hist); setDespesas(desp); setSolicitacoes(solic); setSolicitacoesStatus(solicStatus); setAcessosModalidades(acessos); setProrrogacoes(prorrogacoesCarregadas); setLoading(false);
+      setPontos(pts); onPontosChange?.(pts);
+      if (!histResult.failed) { setHistorico(histResult.data); onHistoricoChange?.(histResult.data); }
+      onHistoricoLoadError?.(histResult.failed);
+      setDespesas(desp); setSolicitacoes(solic); setSolicitacoesStatus(solicStatus); setAcessosModalidades(acessos); setProrrogacoes(prorrogacoesCarregadas); setLoading(false);
     }
     carregar();
   },[perfilAtual?.perfil]);

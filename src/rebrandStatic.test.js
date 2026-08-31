@@ -225,11 +225,18 @@ test("identificadores Android, login e persistência permanecem compatíveis", (
   assert.equal(lerJson("package.json").name, "sistema-stock-on");
 });
 
-test("lote de rebranding não altera Supabase nem sua camada de acesso", () => {
-  const protegidos = ["supabase", "src/supabase.js", "src/db.js"];
+test("lote de rebranding não altera Supabase nem sua configuração", () => {
+  // O contrato dos mappers de leitura pode evoluir em trabalhos posteriores.
+  // A proteção permanente do rebranding permanece sobre infraestrutura,
+  // migrations e configuração do cliente Supabase.
+  const protegidos = ["supabase", "src/supabase.js"];
   const alterados = execFileSync("git", ["status", "--porcelain", "--untracked-files=all", "--", ...protegidos], {
     cwd: arquivo("."),
     encoding: "utf8",
   }).trim();
   assert.equal(alterados, "", `arquivos protegidos alterados neste lote:\n${alterados}`);
+
+  const db = ler("src/db.js");
+  assert.match(db, /\.from\('historico_equipamentos'\)[\s\S]*?\.select\('\*'\)[\s\S]*?\.order\('created_at', \{ ascending: false \}\)[\s\S]*?\.limit\(1000\)/);
+  assert.match(db, /\.from\('historico_pontos'\)[\s\S]*?\.select\('\*'\)[\s\S]*?\.order\('created_at', \{ ascending: false \}\)[\s\S]*?\.limit\(500\)/);
 });

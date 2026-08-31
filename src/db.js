@@ -291,17 +291,22 @@ export async function salvarPontoModalidadeAcessos(pontoId, acessos = []) {
 }
 
 // ── Histórico Equipamentos ────────────────────────────────────────────────────
-export async function carregarHistoricoEquipamentos() {
+export async function carregarHistoricoEquipamentos({ strict = false } = {}) {
   const { data, error } = await supabase
     .from('historico_equipamentos')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(1000);
-  if (error) { console.error('Erro ao carregar histórico:', error); return []; }
+  if (error) {
+    console.error('Erro ao carregar histórico:', error);
+    if (strict) throw new Error('Não foi possível carregar o histórico de equipamentos.');
+    return [];
+  }
   return data.map(h => ({
     id: h.id, tipo: h.tipo, itemId: h.item_id, itemNome: h.item_nome,
     categoria: h.categoria, qtdAntes: h.qtd_antes, qtdDepois: h.qtd_depois,
     responsavel: h.responsavel, observacao: normalizeFreeText(h.observacao || ''), data: h.data,
+    createdAt: h.created_at || null,
   }));
 }
 
@@ -320,14 +325,18 @@ export async function limparHistoricoEquipamentos() {
 }
 
 // ── Histórico Pontos ──────────────────────────────────────────────────────────
-export async function carregarHistoricoPontos() {
+export async function carregarHistoricoPontos({ strict = false } = {}) {
   const { data, error } = await supabase
     .from('historico_pontos')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(500);
-  if (error) { console.error('Erro ao carregar histórico pontos:', error); return []; }
-  return data.map(h => ({ id: h.id, tipo: h.tipo, nome: h.nome, gerente: h.gerente, observacao: h.observacao, data: h.data }));
+  if (error) {
+    console.error('Erro ao carregar histórico pontos:', error);
+    if (strict) throw new Error('Não foi possível carregar o histórico de pontos.');
+    return [];
+  }
+  return data.map(h => ({ id: h.id, tipo: h.tipo, nome: h.nome, gerente: h.gerente, observacao: h.observacao, data: h.data, createdAt: h.created_at || null }));
 }
 
 export async function adicionarHistoricoPonto(h) {

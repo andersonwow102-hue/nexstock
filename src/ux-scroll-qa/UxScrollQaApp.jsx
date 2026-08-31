@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { handleMainScrollKey } from "../components/operations/mainScrollNavigation.js";
+import HistoricoTimelinePage from "../HistoricoTimelinePage.jsx";
 
 const MODULES = [
   ["pontos", "Pontos"],
@@ -24,8 +25,23 @@ const USERS = Array.from({ length: 50 }, (_, index) => ({
 }));
 const HISTORY = Array.from({ length: 500 }, (_, index) => ({
   id: index + 1,
-  item: `Equipamento ${String(index + 1).padStart(3, "0")}`,
-  event: index % 4 === 0 ? "Movimentação" : index % 3 === 0 ? "Edição" : "Conferência",
+  tipo: index % 4 === 0 ? "ponto" : index % 3 === 0 ? "edicao" : "cadastro",
+  itemId: index + 1,
+  itemNome: `Equipamento ${String(index + 1).padStart(3, "0")}`,
+  categoria: "Terminais",
+  qtdAntes: index % 3 === 0 ? 1 : 0,
+  qtdDepois: 1,
+  responsavel: index % 4 === 0 ? `Rota ${(index % 12) + 1}` : "",
+  observacao: index % 4 === 0 ? `Origem: Estoque | Destino: Ponto ${(index % 30) + 1}` : index % 3 === 0 ? "Status: Disponível→Em rota" : "Equipamento cadastrado",
+  createdAt: new Date(Date.now() - index * 65 * 60_000).toISOString(),
+}));
+const POINT_HISTORY = Array.from({ length: 80 }, (_, index) => ({
+  id: index + 1,
+  tipo: index % 2 === 0 ? "edicao" : "cadastro",
+  nome: `Ponto operacional ${String(index + 1).padStart(3, "0")}`,
+  gerente: `Rota ${(index % 12) + 1}`,
+  observacao: index % 2 === 0 ? "Ponto editado" : "Ponto cadastrado",
+  createdAt: new Date(Date.now() - (index * 180 + 30) * 60_000).toISOString(),
 }));
 
 function QaHeading({ eyebrow, title, description }) {
@@ -108,11 +124,10 @@ function AccessFixture({ logins = false }) {
 
 function HistoryFixture() {
   const [size, setSize] = useState(500);
-  const visible = HISTORY.slice(0, Math.min(size, 35));
-  return <section className="historico-cf-page">
-    <QaHeading eyebrow="Rastro operacional · fixture local" title="Histórico" description={`${size} eventos simulados, com paginação preservada em 35 por página.`} />
-    <div className="cf-command-bar historico-cf-command"><div className="historico-cf-command-title"><strong>Volume de QA</strong><small>Sem dados reais</small></div><label>Registros <select value={size} onChange={event => setSize(Number(event.target.value))}><option value="20">20</option><option value="100">100</option><option value="500">500</option></select></label></div>
-    <div className="historico-cf-workspace"><div className="cf-ledger historico-cf-ledger"><div className="cf-ledger__head historico-cf-grid"><span>Evento</span><span>Objeto</span><span>Responsável</span><span>Variação</span><span>Quando</span></div>{visible.map(entry => <article className="cf-ledger__row historico-cf-grid historico-cf-row" key={entry.id}><span className="historico-cf-event"><strong>{entry.event}</strong></span><button type="button" className="historico-cf-object"><span><strong>{entry.item}</strong><small>Terminal</small></span></button><span className="historico-cf-owner">Operador de QA</span><span className="historico-cf-delta"><b>0</b><span>→</span><b>1</b></span><time>28/08/2026 21:30</time></article>)}<div className="historico-cf-pagination"><button type="button" disabled>Anterior</button><span>Página 1 de {Math.ceil(size / 35)}</span><button type="button">Próxima</button></div><LastMarker>Rodapé do Histórico alcançável</LastMarker></div><aside className="cf-dossier historico-cf-dossier"><div className="cf-dossier__head"><span className="cf-kicker">Evento selecionado</span><div className="historico-cf-dossier-event"><span><h2>Conferência</h2><p>28/08/2026</p></span></div></div><div className="cf-dossier__body"><div className="historico-cf-subject"><span className="consulta-cf-avatar">E</span><span><small>Objeto</small><strong>Equipamento 001</strong><em>Terminal</em></span></div><dl><div><dt>Responsável</dt><dd>Operador de QA</dd></div><div><dt>Quantidade anterior</dt><dd>0</dd></div><div><dt>Quantidade posterior</dt><dd>1</dd></div></dl></div></aside></div>
+  return <section className="uxqa-history">
+    <div className="uxqa-history-volume"><div><strong>Volume de QA</strong><small>Fixture local · zero escrita</small></div><label>Registros <select value={size} onChange={event => setSize(Number(event.target.value))}><option value="20">20</option><option value="100">100</option><option value="500">500</option></select></label></div>
+    <HistoricoTimelinePage equipmentHistory={HISTORY.slice(0, size)} pointHistory={POINT_HISTORY.slice(0, Math.ceil(size / 6))} initialPeriod="all" initialExpandedId="equipment:1" onExportExcel={() => {}} onExportPdf={() => {}} />
+    <LastMarker>Rodapé do Histórico alcançável</LastMarker>
   </section>;
 }
 

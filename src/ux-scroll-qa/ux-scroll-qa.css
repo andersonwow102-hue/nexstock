@@ -42,8 +42,13 @@
 .uxqa-shell .fechamento-summary-base > span { display: grid; gap: 4px; }
 .uxqa-shell .fechamento-publicacao { display: grid; gap: 10px; }
 .uxqa-shell .fechamento-secondary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.uxqa-shell .historico-cf-command label { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
-.uxqa-shell .historico-cf-command select { min-height: 40px; color: var(--text-default); background: var(--surface-input); border: 1px solid var(--border-subtle); }
+.uxqa-history { display: grid; gap: 12px; }
+.uxqa-history-volume { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; color: var(--text-muted); background: var(--surface-panel); border: 1px solid var(--border-subtle); }
+.uxqa-history-volume > div { display: grid; gap: 2px; }
+.uxqa-history-volume strong { color: var(--text-strong); font-size: 11px; }
+.uxqa-history-volume small { font: 8.5px/1.2 var(--font-mono); text-transform: uppercase; }
+.uxqa-history-volume label { display: flex; align-items: center; gap: 8px; font-size: 10px; }
+.uxqa-history-volume select { min-height: 40px; color: var(--text-default); background: var(--surface-input); border: 1px solid var(--border-subtle); }
 
 @media (max-width: 1024px) {
   .uxqa-sidebar { display: none; }
