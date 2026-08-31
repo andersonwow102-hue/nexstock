@@ -923,6 +923,51 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
   },[pontoSelecionadoId,pontoSelecionadoAtivoId]);
 
   useEffect(()=>{
+    if(!pontoSelecionadoAtivoId||dossieEmSheet)return;
+    const painel=dossieRef.current;
+    if(painel)painel.scrollTop=0;
+  },[pontoSelecionadoAtivoId,dossieEmSheet]);
+
+  useEffect(()=>{
+    if(!pontoSelecionadoAtivoId||dossieEmSheet||typeof window==="undefined")return undefined;
+    const painel=dossieRef.current;
+    const areaPrincipal=painel?.closest(".main");
+    const areaLedger=painel?.closest(".pcf-operations-ledger");
+    if(!painel||!areaPrincipal)return undefined;
+    let frame=0;
+    let alturaAnterior=-1;
+    const medirAlturaUtil=()=>{
+      frame=0;
+      const painelRect=painel.getBoundingClientRect();
+      const principalRect=areaPrincipal.getBoundingClientRect();
+      const deslocamentoSticky=Number.parseFloat(window.getComputedStyle(painel).top)||14;
+      const topoUtil=Math.max(deslocamentoSticky,painelRect.top-principalRect.top);
+      const alturaUtil=Math.max(0,Math.floor(areaPrincipal.clientHeight-topoUtil-deslocamentoSticky));
+      if(alturaUtil!==alturaAnterior){
+        alturaAnterior=alturaUtil;
+        painel.style.setProperty("--pcf-folio-available-height",`${alturaUtil}px`);
+      }
+    };
+    const agendarMedicao=()=>{
+      if(frame)window.cancelAnimationFrame(frame);
+      frame=window.requestAnimationFrame(medirAlturaUtil);
+    };
+    const observador=typeof window.ResizeObserver==="function"?new window.ResizeObserver(agendarMedicao):null;
+    observador?.observe(areaPrincipal);
+    if(areaLedger)observador?.observe(areaLedger);
+    areaPrincipal.addEventListener("scroll",agendarMedicao,{passive:true});
+    window.addEventListener("resize",agendarMedicao);
+    agendarMedicao();
+    return()=>{
+      if(frame)window.cancelAnimationFrame(frame);
+      observador?.disconnect();
+      areaPrincipal.removeEventListener("scroll",agendarMedicao);
+      window.removeEventListener("resize",agendarMedicao);
+      painel.style.removeProperty("--pcf-folio-available-height");
+    };
+  },[pontoSelecionadoAtivoId,dossieEmSheet]);
+
+  useEffect(()=>{
     if(!pontoSelecionadoAtivoId||!podeVerHistoricoFormal){
       historicoFormalRequestRef.current+=1;
       setHistoricoFormal({pontoId:null,status:"idle",itens:[],erro:""});
@@ -1037,7 +1082,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     </header>
 
     {filtrados.length===0?<EmptyState className="pcf-empty" icon="search" title="Nenhum ponto encontrado" description="Revise a busca ou os filtros para voltar à rede." action={(busca||filtrosAtivos>0)?<button type="button" className="pcf-button pcf-button--secondary" onClick={limparTudo}>Limpar busca e filtros</button>:null}/>:
-      <div className="pcf-master-detail">
+      <div className={`pcf-master-detail${dossieEmSheet?"":" is-permanent"}`}>
         <div className="pcf-master-pane" inert={dossieModalAberto?true:undefined} aria-hidden={dossieModalAberto?"true":undefined}>
           <div className="pcf-ledger-columns pcf-ops-grid" aria-hidden="true"><span className="pcf-ledger-col--identity">Unidade / responsável</span><span className="pcf-ledger-col--services">Cobertura</span><span className="pcf-ledger-col--equipment">Equipamentos</span><span className="pcf-ledger-col--admin">Administração</span><span className="pcf-ledger-col--state">Situação</span></div>
           <div className="pcf-records" aria-label="Pontos encontrados">
@@ -1060,8 +1105,10 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
         <PontosDossiePortal ativo={dossieModalAberto}>
         {dossieModalAberto&&pontoSelecionado&&selecionado&&<button type="button" className="pcf-dossier-backdrop" tabIndex={-1} aria-label="Fechar dossiê" onClick={fecharDossie}/>}
         {pontoSelecionado&&selecionado?<aside ref={dossieRef} className="pcf-dossier pcf-operations-folio" data-folio-state={selecionado.desativado?"disabled":selecionado.desativacaoPendente?"pending":"active"} role={dossieEmSheet?"dialog":undefined} aria-modal={dossieEmSheet?"true":undefined} aria-labelledby="pcf-dossier-title" tabIndex={dossieEmSheet?-1:undefined}><div className="pcf-folio-content" key={pontoSelecionado.id}>
-          <header className="pcf-dossier-header"><div><span className="pcf-eyebrow">Registro operacional</span><h3 id="pcf-dossier-title">{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3><p>{rotaCanonica(pontoSelecionado.gerente)||"Sem rota"}</p></div><button type="button" className="pcf-dossier-close" data-pcf-dossier-autofocus="true" onClick={fecharDossie} aria-label="Fechar dossiê"><OperationIcon name="close" size={18}/></button></header>
-          <div className="pcf-dossier-status"><StatusBadge tone={selecionado.desativado?"neutral":"success"} label={selecionado.desativado?"Operação desativada":"Operação ativa"}/>{selecionado.desativacaoPendente&&<StatusBadge tone="warning" label="Desativação pendente"/>}{selecionado.bloqueadas.length>0&&<StatusBadge tone="warning" label={`${selecionado.bloqueadas.length} serviço${selecionado.bloqueadas.length!==1?"s":""} bloqueado${selecionado.bloqueadas.length!==1?"s":""}`}/>}</div>
+          <div className="pcf-folio-context">
+            <header className="pcf-dossier-header"><div><span className="pcf-eyebrow">Registro operacional</span><h3 id="pcf-dossier-title">{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3><p>{rotaCanonica(pontoSelecionado.gerente)||"Sem rota"}</p></div><button type="button" className="pcf-dossier-close" data-pcf-dossier-autofocus="true" onClick={fecharDossie} aria-label="Fechar dossiê"><OperationIcon name="close" size={18}/></button></header>
+            <div className="pcf-dossier-status"><StatusBadge tone={selecionado.desativado?"neutral":"success"} label={selecionado.desativado?"Operação desativada":"Operação ativa"}/>{selecionado.desativacaoPendente&&<StatusBadge tone="warning" label="Desativação pendente"/>}{selecionado.bloqueadas.length>0&&<StatusBadge tone="warning" label={`${selecionado.bloqueadas.length} serviço${selecionado.bloqueadas.length!==1?"s":""} bloqueado${selecionado.bloqueadas.length!==1?"s":""}`}/>}</div>
+          </div>
           <dl className="pcf-folio-identity"><div><dt>Responsável</dt><dd>{pontoSelecionado.nomeDono}</dd></div><div><dt>Telefone</dt><dd>{pontoSelecionado.telefone}</dd></div></dl>
 
           <section className="pcf-folio-section"><header><span>Operação</span><small>{(pontoSelecionado.modalidades||[]).length} modalidades</small></header><dl className="pcf-folio-facts"><div><dt>Situação</dt><dd>{selecionado.desativado?"Fora dos seletores operacionais":"Disponível na rede"}</dd></div><div><dt>Acessos</dt><dd>{selecionado.totalAcessos||"Nenhum cadastrado"}</dd></div>{mostrarDespesas&&<div><dt>Despesa da competência</dt><dd>{pontoSelecionado.possuiDespesa==="sim"?formatarReais(pontoSelecionado.valorDespesa):"Sem lançamento"}</dd></div>}</dl><div className="modalidades-badges">{(pontoSelecionado.modalidades||[]).map(m=><BadgeModalidade key={m} m={m} bloqueada={selecionado.bloqueadas.includes(m)}/>)}</div>{pontoSelecionado.observacao&&<div className="pcf-dossier-note"><span>Observação</span><p>{pontoSelecionado.observacao}</p></div>}</section>
