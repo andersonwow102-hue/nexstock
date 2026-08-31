@@ -5,7 +5,7 @@ import {
   gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotasPermitidasDoPerfil,
 } from "./pointsData.js";
 import {
-  carregarPontos, salvarPonto, excluirPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
+  carregarPontos, salvarPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
   carregarDespesasMensais, salvarDespesaMensal, excluirDespesaMensal,
   carregarProrrogacoesDespesas,
   carregarSolicitacoesModalidade, criarSolicitacaoModalidade, concluirSolicitacaoModalidade,
@@ -722,7 +722,7 @@ function AbaVisaoGeral({ pontos, despesas = [], competencia = competenciaAtual()
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, onEditar, onExcluir, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onExportExcel, onExportPDF, podeEditar, podeExcluir=false, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
+function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onExportExcel, onExportPDF, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
   const [filtroGerente, setFiltroGerente] = useState("Todos");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [pagina, setPagina] = useState(1);
@@ -986,7 +986,6 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
               {podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onEditar(pontoSelecionado))}><OperationIcon name="edit"/>Editar</button>}
               {podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>executarAcaoDossie(()=>onSolicitarDesativacao(pontoSelecionado))}><OperationIcon name="clock"/>Solicitar desativação</button>}
               {podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>executarAcaoDossie(()=>onReativar(pontoSelecionado))}><OperationIcon name="refresh"/>Reativar ponto</button>}
-              {podeExcluir&&<button type="button" className="pcf-button pcf-button--danger" onClick={()=>executarAcaoDossie(()=>onExcluir(pontoSelecionado.id))}><OperationIcon name="trash"/>Excluir ponto</button>}
             </div>
           </aside>:<aside className="pcf-dossier pcf-dossier--empty" aria-label="Dossiê do ponto"><OperationIcon name="mapPin" size={20}/><span>Selecione um ponto na rede para abrir o dossiê.</span></aside>}
         </div>
@@ -1564,7 +1563,6 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [abaInterna, setAbaInterna]= useState("pontos");
   const [modalForm,  setModalForm] = useState(false);
   const [pontoEdit,  setPontoEdit] = useState(null);
-  const [excluindo,  setExcluindo] = useState(null);
   const [verDespesas,setVerDespesas]=useState(false);
   const [pontoDespesas,setPontoDespesas]=useState(null);
   const [despesasGerenteAbertas,setDespesasGerenteAbertas]=useState(false);
@@ -1623,7 +1621,6 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const gerentePodeCriarPonto = perfilAtual?.perfil === "gerente";
   const podeCriarPonto = administrador || gerentePodeCriarPonto;
   const podeEditarPonto = administrador || operador || (perfilAtual?.perfil === "gerente" && gerentePodeCriarPonto);
-  const podeExcluirPonto = administrador;
   const podeEditarDespesas = mostrarDespesas && (administrador || perfilAtual?.perfil === "gerente");
   const podeSolicitarModalidade = perfilAtual?.perfil === "gerente";
   const podeSolicitarDesativacao = perfilAtual?.perfil === "gerente";
@@ -1685,67 +1682,6 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
       setModalForm(false);setPontoEdit(null);
     }catch(e){console.error("Erro ao salvar ponto:",e); throw e;}
-  }
-
-  async function excluirHandler(id){
-    if(!podeExcluirPonto)return;
-    const p=pontos.find(x=>x.id===id);
-    if(!p)return;
-    const vinculados=equipamentos.filter(item=>item.localizacao===p.nomeFantasia);
-    if(vinculados.length>0)return;
-    try{
-      await excluirPonto(id);
-      const atualizados=pontos.filter(x=>x.id!==id);
-      setPontos(atualizados);onPontosChange?.(atualizados);
-      setSolicitacoes(prev=>prev.filter(s=>Number(s.pontoId)!==Number(id)));
-      const h={id:Date.now(),tipo:"exclusao",nome:p.nomeFantasia,gerente:p.gerente,observacao:"Ponto removido",data:agoraStr()};
-      await adicionarHistoricoPonto(h);
-      setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
-      setExcluindo(null);
-    }catch(e){console.error("Erro ao excluir ponto:",e);}
-  }
-
-  async function disponibilizarEquipamentosEExcluirPonto(id){
-    if(!podeExcluirPonto)return;
-    const p=pontos.find(x=>x.id===id);
-    if(!p)return;
-    const vinculados=equipamentos.filter(item=>item.localizacao===p.nomeFantasia);
-    if(vinculados.length===0){await excluirHandler(id);return;}
-    const ok=window.confirm(`Disponibilizar ${vinculados.length} equipamento${vinculados.length!==1?"s":""} no estoque interno e excluir o ponto ${p.nomeFantasia}?`);
-    if(!ok)return;
-    try{
-      const equipamentosAtualizados=equipamentos.map(item=>item.localizacao===p.nomeFantasia
-        ?{
-          ...item,
-          status:"Disponível",
-          localizacao:"",
-          gerenteResponsavel:"",
-          transferenciaStatus:"",
-          transferenciaEnviadaEm:"",
-          transferenciaRecebidaEm:"",
-        }
-        :item
-      );
-      const alterados=equipamentosAtualizados.filter((item,index)=>
-        item.status!==equipamentos[index].status||
-        item.localizacao!==equipamentos[index].localizacao||
-        item.gerenteResponsavel!==equipamentos[index].gerenteResponsavel||
-        item.transferenciaStatus!==equipamentos[index].transferenciaStatus
-      );
-      await Promise.all(alterados.map(item=>salvarEquipamento(item)));
-      onEquipamentosChange?.(equipamentosAtualizados);
-      await excluirPonto(id);
-      const pontosAtualizados=pontos.filter(x=>x.id!==id);
-      setPontos(pontosAtualizados);onPontosChange?.(pontosAtualizados);
-      setSolicitacoes(prev=>prev.filter(s=>Number(s.pontoId)!==Number(id)));
-      const h={id:Date.now(),tipo:"exclusao",nome:p.nomeFantasia,gerente:p.gerente,observacao:`Ponto removido após disponibilizar ${alterados.length} equipamento${alterados.length!==1?"s":""} no estoque interno`,data:agoraStr()};
-      await adicionarHistoricoPonto(h);
-      setHistorico(prev=>{const atualizados=[h,...prev];onHistoricoChange?.(atualizados);return atualizados;});
-      setExcluindo(null);
-    }catch(e){
-      console.error("Erro ao disponibilizar equipamentos e excluir ponto:",e);
-      window.alert(e?.message||"Não foi possível disponibilizar os equipamentos e excluir o ponto.");
-    }
   }
 
   async function salvarDespesasPonto(ponto, competencia, linhas) {
@@ -1873,8 +1809,6 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     setFiltroDespesa(filtro);
     setAbaInterna("pontos");
   }
-  const pontoExcluindo=pontos.find(p=>p.id===excluindo);
-  const equipamentosNoPonto=pontoExcluindo?equipamentos.filter(i=>i.localizacao===pontoExcluindo.nomeFantasia):[];
   const pontosParaExportar = pontosVisiveis;
   const pendenciasServicos = solicitacoesAtuais.filter(s=>s.status==="pendente").length;
   const pendenciasCiclo = solicitacoesStatus.filter(s=>s.status==="pendente").length;
@@ -1940,7 +1874,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       {!loading&&(<>
         {abaInterna==="pontos"&&<div className="pcf-network-view">
           <AbaVisaoGeral pontos={pontosVisiveis} despesas={despesasVisiveis} competencia={competenciaDespesas} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onAbrirPontos={abrirPontosFiltrados}/>
-          <AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} historico={historico} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} solicitacoesStatus={solicitacoesStatus} busca={buscaPontos} onBuscaChange={setBuscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeExcluir={podeExcluirPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} podeSolicitarDesativacao={podeSolicitarDesativacao} podeReativar={podeReativar} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onExcluir={setExcluindo} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onSolicitarDesativacao={setPontoDesativacao} onReativar={setPontoReativacao} onVerAcessos={setPontoAcessos}
+          <AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} historico={historico} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} solicitacoesStatus={solicitacoesStatus} busca={buscaPontos} onBuscaChange={setBuscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} podeSolicitarDesativacao={podeSolicitarDesativacao} podeReativar={podeReativar} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onSolicitarDesativacao={setPontoDesativacao} onReativar={setPontoReativacao} onVerAcessos={setPontoAcessos}
             onExportExcel={()=>exportarPontosExcel(pontosParaExportar)} onExportPDF={()=>exportarPontosPDF(pontosParaExportar)}/>
         </div>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
@@ -1954,28 +1888,6 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       {pontoDesativacao&&podeSolicitarDesativacao&&<MotivoCicloPontoModal ponto={pontoDesativacao} titulo="Solicitar desativação" acaoLabel="Enviar solicitação" onConfirmar={motivo=>enviarSolicitacaoDesativacao(pontoDesativacao,motivo)} onFechar={()=>setPontoDesativacao(null)}/>}
       {pontoReativacao&&podeReativar&&<MotivoCicloPontoModal ponto={pontoReativacao} titulo="Reativar ponto" acaoLabel="Reativar" onConfirmar={motivo=>confirmarReativacao(pontoReativacao,motivo)} onFechar={()=>setPontoReativacao(null)}/>}
       {pontoAcessos&&<PointAccessModal ponto={pontoAcessos} acessos={acessosDoPonto(acessosModalidades,pontoAcessos.id)} onFechar={()=>setPontoAcessos(null)}/>}
-
-      {excluindo&&(
-        <OperationModal
-          open
-          title="Confirmar exclusão"
-          onClose={()=>setExcluindo(null)}
-          closeLabel="Fechar confirmação"
-          role="alertdialog"
-          size="sm"
-          className="pcf-operation-modal"
-          overlayClassName="pcf-operation-modal-overlay"
-          footer={<>
-            <button className="btn-secundario" type="button" data-so-autofocus="true" onClick={()=>setExcluindo(null)}>Cancelar</button>
-            {equipamentosNoPonto.length>0&&<button className="btn-primario" type="button" onClick={()=>disponibilizarEquipamentosEExcluirPonto(excluindo)}>Disponibilizar e excluir</button>}
-            {equipamentosNoPonto.length===0&&<button className="btn-danger" type="button" onClick={()=>excluirHandler(excluindo)}>Excluir</button>}
-          </>}
-        >
-          {equipamentosNoPonto.length>0
-            ?<div className="erro-msg" role="alert"><OperationIcon name="warning" size={18}/><span>Este ponto possui {equipamentosNoPonto.length} equipamento{equipamentosNoPonto.length!==1?"s":""} vinculado{equipamentosNoPonto.length!==1?"s":""}: <strong>{equipamentosNoPonto.map(i=>i.nome).join(", ")}</strong>. Antes de excluir, disponibilize os equipamentos no estoque interno ou movimente para outro ponto.</span></div>
-            :<p className="pcf-confirm-copy">Tem certeza que deseja excluir este ponto?</p>}
-        </OperationModal>
-      )}
     </div>
   );
 }

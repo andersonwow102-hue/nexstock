@@ -6,6 +6,7 @@ const migration = fs.readFileSync(new URL('../supabase/migrations/202608241000_p
 const app = fs.readFileSync(new URL('./App.jsx', import.meta.url), 'utf8');
 const page = fs.readFileSync(new URL('./PointsPage.jsx', import.meta.url), 'utf8');
 const db = fs.readFileSync(new URL('./db.js', import.meta.url), 'utf8');
+const uxHarness = fs.readFileSync(new URL('./ux-scroll-qa/UxScrollQaApp.jsx', import.meta.url), 'utf8');
 
 test('ciclo de pontos é aditivo e preserva o padrão operacional atual', () => {
   assert.match(migration, /situacao_operacional text not null default 'ativo'/);
@@ -72,4 +73,30 @@ test('interface evita solicitação duplicada e traduz erros do ciclo do ponto',
   assert.match(page, /Desativação pendente/);
   assert.match(page, /mensagemErroCicloPonto/);
   assert.match(page, /encerramento operacional|encerra a operação do ponto/);
+});
+
+test('frontend de Pontos não oferece exclusão física nem automação de encerramento', () => {
+  assert.doesNotMatch(page, /\bexcluirPonto\b/);
+  assert.doesNotMatch(page, /\b(?:excluirHandler|disponibilizarEquipamentosEExcluirPonto|podeExcluirPonto|setExcluindo)\b/);
+  assert.doesNotMatch(page, /Disponibilizar e excluir|Excluir ponto|Confirmar exclusão/);
+  assert.doesNotMatch(uxHarness, /Excluir ponto|Disponibilizar e excluir/);
+  assert.match(db, /export async function excluirPonto\(id\)/);
+});
+
+test('ciclo formal mantém decisão bloqueada e encaminha movimentação manual', () => {
+  const inicioFila = page.indexOf('function PainelSolicitacoesStatusPonto');
+  const fimFila = page.indexOf('function PainelSolicitacoesModalidade', inicioFila);
+  const fila = page.slice(inicioFila, fimFila);
+  const inicioCiclo = page.indexOf('async function enviarSolicitacaoDesativacao');
+  const fimCiclo = page.indexOf('const ABAS', inicioCiclo);
+  const ciclo = page.slice(inicioCiclo, fimCiclo);
+
+  assert.ok(inicioFila >= 0 && fimFila > inicioFila, 'fila administrativa do ciclo não encontrada');
+  assert.ok(inicioCiclo >= 0 && fimCiclo > inicioCiclo, 'handlers do ciclo formal não encontrados');
+  assert.match(fila, /disabled=\{vinculados\.length>0\}/);
+  assert.match(fila, /Use o fluxo existente de Equipamentos/);
+  assert.match(ciclo, /solicitarDesativacaoPonto/);
+  assert.match(ciclo, /decidirDesativacaoPonto/);
+  assert.match(ciclo, /reativarPonto/);
+  assert.doesNotMatch(ciclo, /salvarEquipamento|onEquipamentosChange|equipamentos\.map/);
 });

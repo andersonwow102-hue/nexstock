@@ -59,7 +59,7 @@ function PointsFixture() {
         <div className="pcf-dossier-status"><b>Operação ativa</b></div>
         <div className="uxqa-facts">{Array.from({ length: 8 }, (_, index) => <div key={index}><small>Indicador {index + 1}</small><strong>{index + 2} registros</strong></div>)}</div>
         <section className="pcf-dossier-history"><header><span>Rastro recente</span><b>4</b></header><ol>{Array.from({ length: 4 }, (_, index) => <li key={index}><span><strong>Movimentação auditada</strong><small>28/08/2026</small></span></li>)}</ol></section>
-        <div className="pcf-dossier-actions"><button type="button" className="pcf-button pcf-button--secondary">Acessos</button><button type="button" className="pcf-button pcf-button--secondary">Despesas</button><button type="button" className="pcf-button pcf-button--secondary">Editar</button><button type="button" className="pcf-button pcf-button--warning">Solicitar desativação</button><button type="button" className="pcf-button pcf-button--danger">Excluir ponto</button></div>
+        <div className="pcf-dossier-actions"><button type="button" className="pcf-button pcf-button--secondary">Acessos</button><button type="button" className="pcf-button pcf-button--secondary">Despesas</button><button type="button" className="pcf-button pcf-button--secondary">Editar</button><button type="button" className="pcf-button pcf-button--warning">Solicitar desativação</button></div>
         <LastMarker>Fim do dossiê de Pontos alcançável</LastMarker>
       </aside>
     </div>
