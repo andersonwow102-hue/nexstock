@@ -8,6 +8,8 @@ const page = fs.readFileSync(new URL('./PointsPage.jsx', import.meta.url), 'utf8
 const db = fs.readFileSync(new URL('./db.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('./PointsCommandFlow.css', import.meta.url), 'utf8');
 const uxHarness = fs.readFileSync(new URL('./ux-scroll-qa/UxScrollQaApp.jsx', import.meta.url), 'utf8');
+const expenses = fs.readFileSync(new URL('./pointsExpenses.js', import.meta.url), 'utf8');
+const pointsPreview = fs.readFileSync(new URL('./PointsOperationsPreviewApp.jsx', import.meta.url), 'utf8');
 
 test('ciclo de pontos é aditivo e preserva o padrão operacional atual', () => {
   assert.match(migration, /situacao_operacional text not null default 'ativo'/);
@@ -156,4 +158,71 @@ test('rejeição permanece evento contextual e não recebe semântica destrutiva
   const inicioRastro = page.indexOf('className="pcf-folio-section pcf-operational-trace"');
   const fimRastro = page.indexOf('className="pcf-folio-section pcf-folio-administration"', inicioRastro);
   assert.doesNotMatch(page.slice(inicioRastro, fimRastro), /tone="danger"|pcf-danger/);
+});
+
+test('Expenses Explorer reutiliza o escopo atual e permanece invisível para operador', () => {
+  assert.match(page, /operador \? Promise\.resolve\(\[\]\) : carregarDespesasMensais\(\)/);
+  assert.match(page, /const mostrarDespesas = !operador/);
+  assert.match(page, /despesasEscopo = mostrarDespesas/);
+  assert.match(page, /totalDespesasCompetencia = despesasVisiveis/);
+  assert.match(page, /verDespesas&&mostrarDespesas&&<PointExpensesModal/);
+  assert.match(page, /mostrarDespesas&&<button type="button" className="pcf-register-finance"/);
+  assert.doesNotMatch(expenses, /carregarDespesasMensais|supabase|\.rpc\(|\.insert\(|\.update\(|\.delete\(/);
+});
+
+test('entrada financeira abre uma análise consolidada acessível', () => {
+  assert.match(page, /aria-haspopup="dialog"/);
+  assert.match(page, /aria-expanded=\{despesasAbertas\}/);
+  assert.match(page, /aria-controls="pcf-expenses-explorer"/);
+  assert.match(page, /ExpensesExplorerPortal/);
+  assert.match(page, /element\.inert = true/);
+  assert.doesNotMatch(page, /element\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(page, /title="Despesas da rede"/);
+  assert.match(page, /closeLabel="Fechar despesas da rede"/);
+  assert.match(page, /OperationModal/);
+});
+
+test('Explorer separa Rotas e Pontos e preserva transição, busca e detalhe real', () => {
+  const inicio = page.indexOf('export function PointExpensesModal');
+  const fim = page.indexOf('// ─── ABA: Visão Geral', inicio);
+  const explorer = page.slice(inicio, fim);
+  assert.ok(inicio >= 0 && fim > inicio, 'Expenses Explorer não encontrado');
+  assert.match(explorer, /role="tablist"/);
+  assert.match(explorer, />Rotas<\/button>/);
+  assert.match(explorer, />Pontos<\/button>/);
+  assert.match(explorer, /setPerspectiva\("pontos"\)/);
+  assert.match(explorer, /setRotaSelecionada\(rota\)/);
+  assert.match(explorer, /const alterarCompetencia = valor => \{[\s\S]*?setPerspectiva\("rotas"\)[\s\S]*?setRotaSelecionada\("Todas"\)[\s\S]*?setSituacaoSelecionada\("todos"\)[\s\S]*?setBusca\(""\)/);
+  assert.match(explorer, /Despesa do gerente \$\{formatarReais\(item\.totalGerente\)\}/);
+  assert.match(explorer, /type="search"/);
+  assert.match(explorer, /Todos <b>/);
+  assert.match(explorer, /Com despesas <b>/);
+  assert.match(explorer, /Sem despesas <b>/);
+  assert.match(explorer, /listarDespesasPonto/);
+  assert.match(explorer, /onAbrirDespesaPonto\(pontoSelecionado, competencia\)/);
+  assert.match(explorer, /voltarPontosRef\.current\?\.focus/);
+  assert.match(explorer, /focoOrigemExplorerRef/);
+  assert.doesNotMatch(explorer, /carregarDespesasMensais|salvarDespesaMensal|excluirDespesaMensal|\.rpc\(/);
+});
+
+test('Explorer tem workspace responsivo e valores financeiros neutros', () => {
+  assert.match(css, /\.pcf-expenses-explorer\s*\{[\s\S]*?width:\s*min\(1180px/);
+  assert.match(css, /\.pcf-expenses-route-row/);
+  assert.match(css, /\.pcf-expenses-point-row/);
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.pcf-expenses-explorer[\s\S]*?max-height:\s*min\(92dvh, 820px\)/);
+  assert.match(css, /calc\(14px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  const inicio = css.indexOf('.points-command-flow .pcf-expenses-route-value strong');
+  const fim = css.indexOf('.points-command-flow .pcf-expenses-points-context', inicio);
+  assert.match(css.slice(inicio, fim), /color:\s*var\(--pcf-text\)/);
+  assert.doesNotMatch(css.slice(inicio, fim), /pcf-success|state-success|verde/);
+});
+
+test('preview local cobre Light, Dark e perspectivas abertas sem backend', () => {
+  assert.match(pointsPreview, /params\.get\("expenses"\)/);
+  assert.match(pointsPreview, /PointExpensesModal/);
+  assert.match(pointsPreview, /DESPESAS_PREVIEW/);
+  assert.match(pointsPreview, /TOTAL_DESPESAS_PREVIEW/);
+  assert.match(pointsPreview, /Fixture local · zero escrita/);
+  assert.doesNotMatch(pointsPreview, /carregarDespesasMensais|salvarDespesaMensal|excluirDespesaMensal/);
 });

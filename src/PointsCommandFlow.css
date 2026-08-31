@@ -3083,6 +3083,843 @@
   .points-command-flow .pcf-operations-folio .pcf-dossier-actions .pcf-button { justify-content: center; }
 }
 
+/* ── Pontos V2: Expense Explorer + refinamento do registro ─────────────── */
+.points-command-flow.pcf-expenses-portal {
+  display: contents;
+}
+
+.points-command-flow .pcf-network-register {
+  background: color-mix(in srgb, var(--pcf-panel) 36%, transparent);
+}
+
+.points-command-flow .pcf-register-context,
+.points-command-flow .pcf-network-register > button,
+.points-command-flow .pcf-network-stat {
+  min-width: 106px;
+  flex: 1 1 auto;
+  border-right: 0;
+}
+
+.points-command-flow .pcf-register-context::after,
+.points-command-flow .pcf-network-register > button::after,
+.points-command-flow .pcf-network-stat::after {
+  position: absolute;
+  inset: 14px 0 14px auto;
+  width: 1px;
+  content: "";
+  background: color-mix(in srgb, var(--pcf-border-strong) 58%, transparent);
+}
+
+.points-command-flow .pcf-network-register > :last-child::after {
+  content: none;
+}
+
+.points-command-flow .pcf-network-register .pcf-register-finance {
+  min-width: 176px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "value arrow"
+    "label arrow";
+  align-content: center;
+  gap: 2px 10px;
+}
+
+.points-command-flow .pcf-register-finance strong { grid-area: value; }
+.points-command-flow .pcf-register-finance span { grid-area: label; align-self: auto; }
+.points-command-flow .pcf-register-finance > .so-icon { grid-area: arrow; color: var(--pcf-copper-bright); }
+
+.points-command-flow .pcf-register-finance:hover > .so-icon {
+  transform: translateX(2px);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-master-pane {
+  background: color-mix(in srgb, var(--pcf-panel) 82%, var(--pcf-canvas));
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-ledger-columns {
+  background: color-mix(in srgb, var(--pcf-raised) 78%, var(--pcf-panel));
+}
+
+.points-command-flow .pcf-route-chapter > header {
+  border-bottom-color: color-mix(in srgb, var(--pcf-border-strong) 68%, transparent);
+  background: color-mix(in srgb, var(--pcf-raised) 68%, var(--pcf-panel));
+}
+
+.points-command-flow .pcf-route-chapter > header h3 {
+  font-size: 12.5px;
+  letter-spacing: -0.012em;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record {
+  background: color-mix(in srgb, var(--pcf-panel) 72%, transparent);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record:hover {
+  background: color-mix(in srgb, var(--pcf-hover) 78%, var(--pcf-panel));
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record.is-selected {
+  background: color-mix(in srgb, var(--pcf-copper-wash) 58%, var(--pcf-panel));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--pcf-copper) 24%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--pcf-copper) 24%, transparent);
+}
+
+.points-command-flow .pcf-operations-folio {
+  background: color-mix(in srgb, var(--pcf-raised) 86%, var(--pcf-panel));
+  box-shadow: 0 12px 32px rgba(4, 6, 5, 0.1);
+}
+
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-master-pane {
+  border-color: color-mix(in srgb, var(--pcf-border-strong) 78%, var(--pcf-border));
+  background: #fbfbf8;
+}
+
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-ledger-columns {
+  background: #e9ebe6;
+}
+
+.app.tema-claro .points-command-flow .pcf-route-chapter > header {
+  background: #f0f1ed;
+}
+
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-record {
+  background: #fffefb;
+}
+
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-record:hover {
+  background: #f3f3ef;
+}
+
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-record.is-selected {
+  background: color-mix(in srgb, var(--pcf-copper-wash) 54%, #fffefb);
+}
+
+.app.tema-claro .points-command-flow .pcf-operations-folio {
+  border-color: #c7cac3;
+  background: #f7f7f3;
+  box-shadow: 0 12px 28px rgba(32, 38, 34, 0.08);
+}
+
+.app:not(.tema-claro) .points-command-flow .pcf-operations-ledger .pcf-record.is-selected {
+  background: color-mix(in srgb, var(--pcf-copper-wash) 42%, var(--pcf-panel));
+}
+
+.points-command-flow .pcf-expenses-explorer-overlay {
+  padding: clamp(14px, 2.2vw, 32px);
+  background: rgba(5, 7, 6, 0.78);
+}
+
+.points-command-flow .pcf-expenses-explorer {
+  width: min(1180px, calc(100vw - 40px));
+  max-height: min(90dvh, 900px);
+  border-radius: 4px 18px 4px 18px;
+  background: var(--pcf-panel);
+}
+
+.points-command-flow .pcf-expenses-explorer .so-modal__header {
+  min-height: 70px;
+  padding: 16px clamp(20px, 2.6vw, 32px);
+  background: color-mix(in srgb, var(--pcf-raised) 74%, var(--pcf-panel));
+}
+
+.points-command-flow .pcf-expenses-explorer .so-modal__header h2 {
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 12px;
+  font-weight: 680;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-expenses-explorer .so-modal__header p {
+  font-size: 11px;
+}
+
+.points-command-flow .pcf-expenses-explorer .so-modal__body {
+  display: block;
+  padding: 0;
+}
+
+.points-command-flow .pcf-expenses-hero {
+  display: grid;
+  grid-template-columns: minmax(270px, 1fr) auto minmax(150px, auto);
+  align-items: end;
+  gap: clamp(22px, 4vw, 58px);
+  padding: clamp(22px, 3vw, 36px) clamp(20px, 3.3vw, 42px);
+  border-bottom: 1px solid var(--pcf-border);
+  background: color-mix(in srgb, var(--pcf-panel) 88%, var(--pcf-canvas));
+}
+
+.points-command-flow .pcf-expenses-total {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.points-command-flow .pcf-expenses-total > span,
+.points-command-flow .pcf-expenses-competence > span,
+.points-command-flow .pcf-expenses-panel-heading span,
+.points-command-flow .pcf-expenses-points-context span {
+  color: var(--pcf-copper-bright);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-expenses-total strong {
+  overflow: hidden;
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: clamp(34px, 4vw, 54px);
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-expenses-total small {
+  color: var(--pcf-muted);
+  font-size: 11px;
+}
+
+.points-command-flow .pcf-expenses-breakdown {
+  display: flex;
+  gap: clamp(18px, 3vw, 36px);
+  padding: 5px 0;
+  margin: 0;
+}
+
+.points-command-flow .pcf-expenses-breakdown > div {
+  display: grid;
+  gap: 5px;
+}
+
+.points-command-flow .pcf-expenses-breakdown dt,
+.points-command-flow .pcf-expenses-breakdown dd {
+  margin: 0;
+}
+
+.points-command-flow .pcf-expenses-breakdown dt {
+  color: var(--pcf-dim);
+  font-size: 10px;
+}
+
+.points-command-flow .pcf-expenses-breakdown dd {
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-expenses-competence {
+  display: grid;
+  gap: 7px;
+  min-width: 150px;
+}
+
+.points-command-flow .pcf-expenses-competence input {
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.points-command-flow .pcf-expenses-competence.is-static strong {
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 12px;
+}
+
+.points-command-flow .pcf-expenses-tabs {
+  display: flex;
+  gap: 28px;
+  min-height: 54px;
+  align-items: end;
+  padding: 0 clamp(20px, 3.3vw, 42px);
+  border-bottom: 1px solid var(--pcf-border);
+  background: color-mix(in srgb, var(--pcf-raised) 38%, var(--pcf-panel));
+}
+
+.points-command-flow .pcf-expenses-tabs button {
+  position: relative;
+  min-width: 74px;
+  min-height: 53px;
+  padding: 0 2px;
+  border: 0;
+  color: var(--pcf-dim);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.points-command-flow .pcf-expenses-tabs button[aria-selected="true"] {
+  color: var(--pcf-text);
+}
+
+.points-command-flow .pcf-expenses-tabs button[aria-selected="true"]::after {
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  content: "";
+  background: var(--pcf-copper);
+}
+
+.points-command-flow .pcf-expenses-panel {
+  padding: clamp(20px, 2.8vw, 34px) clamp(20px, 3.3vw, 42px) clamp(26px, 3vw, 40px);
+}
+
+.points-command-flow .pcf-expenses-panel-heading,
+.points-command-flow .pcf-expenses-points-context {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.points-command-flow .pcf-expenses-panel-heading > div,
+.points-command-flow .pcf-expenses-points-context > div {
+  display: grid;
+  gap: 4px;
+}
+
+.points-command-flow .pcf-expenses-panel-heading h3,
+.points-command-flow .pcf-expenses-points-context h3 {
+  margin: 0;
+  color: var(--pcf-text);
+  font-size: 19px;
+  font-weight: 680;
+  letter-spacing: -0.025em;
+}
+
+.points-command-flow .pcf-expenses-panel-heading small {
+  color: var(--pcf-dim);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+}
+
+.points-command-flow .pcf-expenses-route-ledger,
+.points-command-flow .pcf-expenses-points-ledger,
+.points-command-flow .pcf-expenses-detail-ledger {
+  border-top: 1px solid var(--pcf-border-strong);
+  border-bottom: 1px solid var(--pcf-border-strong);
+}
+
+.points-command-flow .pcf-expenses-route-columns,
+.points-command-flow .pcf-expenses-route-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) minmax(170px, 1fr) minmax(170px, 0.9fr) minmax(160px, 0.8fr);
+  align-items: center;
+  gap: 20px;
+}
+
+.points-command-flow .pcf-expenses-route-columns,
+.points-command-flow .pcf-expenses-point-columns {
+  min-height: 34px;
+  padding: 0 15px;
+  color: var(--pcf-dim);
+  background: color-mix(in srgb, var(--pcf-raised) 70%, var(--pcf-panel));
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-expenses-route-row,
+.points-command-flow .pcf-expenses-point-row {
+  width: 100%;
+  min-height: 74px;
+  padding: 12px 15px;
+  border: 0;
+  border-top: 1px solid var(--pcf-border);
+  color: var(--pcf-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.points-command-flow .pcf-expenses-route-row:hover,
+.points-command-flow .pcf-expenses-point-row:hover {
+  background: color-mix(in srgb, var(--pcf-hover) 72%, transparent);
+}
+
+.points-command-flow .pcf-expenses-route-identity {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+}
+
+.points-command-flow .pcf-expenses-route-identity i {
+  color: var(--pcf-copper-bright);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.points-command-flow .pcf-expenses-route-identity strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-expenses-route-counts,
+.points-command-flow .pcf-expenses-route-manager {
+  display: grid;
+  gap: 4px;
+  color: var(--pcf-muted);
+}
+
+.points-command-flow .pcf-expenses-route-counts b,
+.points-command-flow .pcf-expenses-route-manager b {
+  color: var(--pcf-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.points-command-flow .pcf-expenses-route-counts small,
+.points-command-flow .pcf-expenses-route-manager small {
+  color: var(--pcf-dim);
+  font-size: 9.5px;
+}
+
+.points-command-flow .pcf-expenses-route-value,
+.points-command-flow .pcf-expenses-point-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.points-command-flow .pcf-expenses-route-value strong,
+.points-command-flow .pcf-expenses-point-value strong {
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-expenses-route-value .so-icon,
+.points-command-flow .pcf-expenses-point-value .so-icon {
+  color: var(--pcf-dim);
+}
+
+.points-command-flow .pcf-expenses-points-context > button,
+.points-command-flow .pcf-expenses-back {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--pcf-border);
+  border-radius: 5px;
+  color: var(--pcf-muted);
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.points-command-flow .pcf-expenses-back {
+  justify-self: start;
+}
+
+.points-command-flow .pcf-expenses-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(190px, 260px);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.points-command-flow .pcf-expenses-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--pcf-border-strong);
+  border-radius: 5px;
+  color: var(--pcf-dim);
+  background: var(--pcf-subtle);
+}
+
+.points-command-flow .pcf-expenses-search input {
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: 0;
+}
+
+.points-command-flow .pcf-expenses-toolbar > label:not(.pcf-expenses-search) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.points-command-flow .pcf-expenses-toolbar > label > span {
+  color: var(--pcf-dim);
+  font-size: 9px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-expenses-toolbar select {
+  min-height: 42px;
+  padding: 0 30px 0 10px;
+}
+
+.points-command-flow .pcf-expenses-situation-filter {
+  display: flex;
+  gap: 0;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-expenses-situation-filter button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--pcf-dim);
+  background: transparent;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.points-command-flow .pcf-expenses-situation-filter button[aria-pressed="true"] {
+  border-bottom-color: var(--pcf-copper);
+  color: var(--pcf-text);
+}
+
+.points-command-flow .pcf-expenses-situation-filter b {
+  margin-left: 4px;
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+}
+
+.points-command-flow .pcf-expenses-point-columns,
+.points-command-flow .pcf-expenses-point-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 0.85fr) minmax(110px, 0.65fr) minmax(150px, 0.75fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.points-command-flow .pcf-expenses-point-identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.points-command-flow .pcf-expenses-point-identity strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-expenses-point-identity small,
+.points-command-flow .pcf-expenses-point-route,
+.points-command-flow .pcf-expenses-point-state {
+  color: var(--pcf-muted);
+  font-size: 10px;
+}
+
+.points-command-flow .pcf-expenses-point-route {
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+}
+
+.points-command-flow .pcf-expenses-point-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.points-command-flow .pcf-expenses-point-detail > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid var(--pcf-border-strong);
+}
+
+.points-command-flow .pcf-expenses-point-detail > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.points-command-flow .pcf-expenses-point-detail > header span {
+  color: var(--pcf-copper-bright);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-expenses-point-detail > header h3,
+.points-command-flow .pcf-expenses-point-detail > header p {
+  margin: 0;
+}
+
+.points-command-flow .pcf-expenses-point-detail > header h3 {
+  color: var(--pcf-text);
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.points-command-flow .pcf-expenses-point-detail > header p {
+  color: var(--pcf-muted);
+  font-size: 10.5px;
+}
+
+.points-command-flow .pcf-expenses-point-detail > header > strong {
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: clamp(23px, 3vw, 34px);
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-expenses-detail-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 62px;
+  align-items: center;
+  gap: 18px;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-expenses-detail-entry:last-child { border-bottom: 0; }
+.points-command-flow .pcf-expenses-detail-entry > div { display: grid; gap: 4px; }
+.points-command-flow .pcf-expenses-detail-entry strong { color: var(--pcf-text); font-size: 12px; }
+.points-command-flow .pcf-expenses-detail-entry small { color: var(--pcf-dim); font-size: 10px; }
+.points-command-flow .pcf-expenses-detail-entry b { color: var(--pcf-text); font-family: var(--font-data, "JetBrains Mono", monospace); font-size: 13px; }
+
+.points-command-flow .pcf-expenses-detail-action {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--pcf-copper);
+  border-radius: 5px;
+  color: #19130f;
+  background: var(--pcf-copper-bright);
+  font-size: 11px;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.points-command-flow .pcf-expenses-empty {
+  padding: 28px 14px;
+  margin: 0;
+  color: var(--pcf-dim);
+  font-size: 11px;
+  text-align: center;
+}
+
+.app.tema-claro .points-command-flow .pcf-expenses-explorer {
+  border-color: #bfc3bb;
+  background: #fffefb;
+  box-shadow: 0 30px 80px rgba(35, 41, 37, 0.2);
+}
+
+.app.tema-claro .points-command-flow .pcf-expenses-hero {
+  background: #f7f7f3;
+}
+
+.app.tema-claro .points-command-flow .pcf-expenses-route-columns,
+.app.tema-claro .points-command-flow .pcf-expenses-point-columns {
+  background: #e9ebe6;
+}
+
+@media (max-width: 860px) {
+  .points-command-flow .pcf-expenses-hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .points-command-flow .pcf-expenses-breakdown {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding-top: 14px;
+    border-top: 1px solid var(--pcf-border);
+  }
+
+  .points-command-flow .pcf-expenses-route-columns,
+  .points-command-flow .pcf-expenses-point-columns {
+    display: none;
+  }
+
+  .points-command-flow .pcf-expenses-route-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "identity value"
+      "counts manager";
+    gap: 8px 18px;
+  }
+
+  .points-command-flow .pcf-expenses-route-identity { grid-area: identity; }
+  .points-command-flow .pcf-expenses-route-counts { grid-area: counts; }
+  .points-command-flow .pcf-expenses-route-manager { grid-area: manager; text-align: right; }
+  .points-command-flow .pcf-expenses-route-value { grid-area: value; }
+
+  .points-command-flow .pcf-expenses-point-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "identity value"
+      "route state";
+    gap: 8px 16px;
+  }
+
+  .points-command-flow .pcf-expenses-point-identity { grid-area: identity; }
+  .points-command-flow .pcf-expenses-point-route { grid-area: route; }
+  .points-command-flow .pcf-expenses-point-state { grid-area: state; text-align: right; }
+  .points-command-flow .pcf-expenses-point-value { grid-area: value; }
+}
+
+@media (max-width: 680px) {
+  .points-command-flow .pcf-expenses-explorer-overlay {
+    place-items: end center;
+    padding: 0;
+  }
+
+  .points-command-flow .pcf-expenses-explorer {
+    width: 100%;
+    max-height: min(92dvh, 820px);
+    border-radius: 14px 14px 0 0;
+  }
+
+  .points-command-flow .pcf-expenses-explorer .so-modal__header {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    min-height: 62px;
+    padding: 12px 16px;
+  }
+
+  .points-command-flow .pcf-expenses-explorer .so-modal__body {
+    padding: 0 0 calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .points-command-flow .pcf-expenses-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 20px 16px;
+  }
+
+  .points-command-flow .pcf-expenses-total strong {
+    font-size: clamp(31px, 10vw, 42px);
+  }
+
+  .points-command-flow .pcf-expenses-breakdown {
+    grid-column: auto;
+    grid-row: auto;
+    justify-content: space-between;
+  }
+
+  .points-command-flow .pcf-expenses-competence {
+    min-width: 0;
+  }
+
+  .points-command-flow .pcf-expenses-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    justify-content: stretch;
+    gap: 0;
+    padding: 0 16px;
+    background: var(--pcf-panel);
+  }
+
+  .points-command-flow .pcf-expenses-tabs button {
+    flex: 1;
+  }
+
+  .points-command-flow .pcf-expenses-panel {
+    padding: 20px 16px 24px;
+  }
+
+  .points-command-flow .pcf-expenses-panel-heading,
+  .points-command-flow .pcf-expenses-points-context {
+    align-items: flex-start;
+  }
+
+  .points-command-flow .pcf-expenses-panel-heading small {
+    padding-top: 4px;
+  }
+
+  .points-command-flow .pcf-expenses-points-context > button,
+  .points-command-flow .pcf-expenses-back {
+    min-height: 44px;
+  }
+
+  .points-command-flow .pcf-expenses-route-row,
+  .points-command-flow .pcf-expenses-point-row {
+    min-height: 92px;
+    padding: 13px 4px;
+  }
+
+  .points-command-flow .pcf-expenses-route-identity {
+    grid-template-columns: 27px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .points-command-flow .pcf-expenses-route-value strong,
+  .points-command-flow .pcf-expenses-point-value strong {
+    font-size: 12px;
+  }
+
+  .points-command-flow .pcf-expenses-route-value .so-icon,
+  .points-command-flow .pcf-expenses-point-value .so-icon {
+    display: none;
+  }
+
+  .points-command-flow .pcf-expenses-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .points-command-flow .pcf-expenses-toolbar > label:not(.pcf-expenses-search) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .points-command-flow .pcf-expenses-situation-filter {
+    overflow-x: auto;
+  }
+
+  .points-command-flow .pcf-expenses-situation-filter button {
+    flex: 0 0 auto;
+    padding-inline: 11px;
+  }
+
+  .points-command-flow .pcf-expenses-point-detail > header {
+    display: grid;
+  }
+
+  .points-command-flow .pcf-expenses-point-detail > header > strong {
+    font-size: 25px;
+  }
+
+  .points-command-flow .pcf-expenses-detail-action {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 @keyframes pcf-dossier-sheet-in {
   from { transform: translateY(18px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }

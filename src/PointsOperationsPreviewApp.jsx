@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AbaPontos } from "./PointsPage.jsx";
+import { AbaPontos, PointExpensesModal } from "./PointsPage.jsx";
 import { OperationIcon } from "./components/operations/OperationsUI.jsx";
 import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
+import { aplicarResumoDespesaMes, valorDespesa } from "./pointsExpenses.js";
 import "./App.css";
 import "./styles/foundations.css";
 import "./styles/command-flow.css";
@@ -9,19 +10,34 @@ import "./styles/command-flow.css";
 const ROTAS_PREVIEW = ["Central/Uibai", "Jussara", "Lapão", "Mirorós", "Ibititá", "América Dourada"];
 const NOMES_PREVIEW = ["Vale Azul", "Posto Central", "Jardim Imperial", "Estação Norte", "Mercado das Flores", "Parque do Sol", "Vila Serena", "Nova Esperança", "Portal do Sertão", "Praça da Matriz"];
 
-const PONTOS_PREVIEW = Object.freeze(Array.from({ length: 42 }, (_, index) => ({
+const PONTOS_BASE_PREVIEW = Object.freeze(Array.from({ length: 42 }, (_, index) => ({
   id: index + 1,
   nomeFantasia: `${NOMES_PREVIEW[index % NOMES_PREVIEW.length]} ${String(Math.floor(index / NOMES_PREVIEW.length) + 1).padStart(2, "0")}`,
   nomeDono: ["Caio Nobre", "Lívia Andrade", "Rafael Lima", "Bruna Moraes"][index % 4],
   telefone: `(74) 9${String(8200 + index).padStart(4, "0")}-${String(1100 + index).padStart(4, "0")}`,
   gerente: ROTAS_PREVIEW[index % ROTAS_PREVIEW.length],
   modalidades: ["Viapix", "90 da Sorte", ...(index % 3 === 0 ? ["Play Bet"] : []), ...(index % 4 === 0 ? ["Lotobanca"] : [])],
-  possuiDespesa: index % 4 === 0 ? "nao" : "sim",
-  valorDespesa: index % 4 === 0 ? 0 : 320 + index * 17,
   observacao: index % 7 === 0 ? "Unidade com acompanhamento operacional reforçado nesta competência." : "",
   situacaoOperacional: index % 13 === 0 ? "desativado" : "ativo",
   versaoOperacional: 1 + (index % 3),
 })));
+
+const DESPESAS_PREVIEW = Object.freeze([
+  ...PONTOS_BASE_PREVIEW.flatMap((ponto, index) => {
+    if (index % 4 === 0) return [];
+    const total = 320 + index * 17 - ([37, 41].includes(index) ? 390 : 0);
+    const operacional = Math.round(total * 0.64);
+    return [
+      { id: `expense-${ponto.id}-1`, pontoId: ponto.id, competencia: "2026-08-01", descricao: "Operação da unidade", tipo: "operacional", valorReal: operacional, valorPrevisto: operacional, observacao: "" },
+      { id: `expense-${ponto.id}-2`, pontoId: ponto.id, competencia: "2026-08-01", descricao: "Apoio local", tipo: "apoio", valorReal: total - operacional, valorPrevisto: total - operacional, observacao: index % 5 === 0 ? "Lançamento conferido no fechamento local." : "" },
+    ];
+  }),
+  { id: "manager-expense-1", pontoId: null, gerente: "Caio Nobre", rota: "Jussara", competencia: "2026-08-01", descricao: "Deslocamento de rota", tipo: "operacional", valorReal: 390, valorPrevisto: 390, observacao: "" },
+  { id: "manager-expense-2", pontoId: null, gerente: "Bruna Moraes", rota: "América Dourada", competencia: "2026-08-01", descricao: "Apoio de operação", tipo: "operacional", valorReal: 390, valorPrevisto: 390, observacao: "" },
+]);
+
+const PONTOS_PREVIEW = Object.freeze(aplicarResumoDespesaMes(PONTOS_BASE_PREVIEW, DESPESAS_PREVIEW, "2026-08"));
+const TOTAL_DESPESAS_PREVIEW = DESPESAS_PREVIEW.reduce((soma, despesa) => soma + valorDespesa(despesa), 0);
 
 const EQUIPAMENTOS_PREVIEW = Object.freeze(PONTOS_PREVIEW.flatMap((ponto, index) => index % 5 === 0 ? [] : Array.from({ length: 1 + (index % 3) }, (_, equipmentIndex) => ({
   id: `point-equipment-${ponto.id}-${equipmentIndex}`,
@@ -57,6 +73,10 @@ async function carregarCicloPreview(pontoId) {
 export default function PointsOperationsPreviewApp() {
   const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
   const [light,setLight]=useState(params.get("theme")!=="dark");
+  const perspectivaInicial=params.get("expenses")==="points"||params.get("expenses")==="pontos"?"pontos":"rotas";
+  const abrirDespesasInicial=Boolean(params.get("expenses"));
+  const [despesasAbertas,setDespesasAbertas]=useState(false);
+  const [perspectivaDespesas,setPerspectivaDespesas]=useState(perspectivaInicial);
   const [busca,setBusca]=useState("");
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
   const [notice,setNotice]=useState("Prévia local segura · nenhuma ação grava dados.");
@@ -68,6 +88,10 @@ export default function PointsOperationsPreviewApp() {
     next.searchParams.set("theme",light?"light":"dark");
     window.history.replaceState(null,"",next);
   },[light]);
+
+  useEffect(()=>{
+    if(abrirDespesasInicial)setDespesasAbertas(true);
+  },[abrirDespesasInicial]);
 
   const simular=mensagem=>setNotice(mensagem);
 
@@ -84,8 +108,9 @@ export default function PointsOperationsPreviewApp() {
           <div className="pcf-command-actions"><span className="pcf-pending-summary"><OperationIcon name="warning" size={15}/>2 na fila administrativa</span><button type="button" className="pcf-button pcf-button--primary" onClick={()=>simular("Cadastro simulado; nenhum dado foi gravado.")}><OperationIcon name="plus"/>Novo ponto</button></div>
         </header>
         <div className="points-preview-notice" role="status">{notice}</div>
-        <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={EQUIPAMENTOS_PREVIEW} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={SOLICITACOES_STATUS_PREVIEW} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>simular("Conferência de despesas simulada.")} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeReativar mostrarDespesas/>
+         <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={EQUIPAMENTOS_PREVIEW} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={SOLICITACOES_STATUS_PREVIEW} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeReativar mostrarDespesas/>
       </div>
     </main>
+    {despesasAbertas&&<PointExpensesModal pontos={PONTOS_BASE_PREVIEW} despesas={DESPESAS_PREVIEW} competenciaInicial="2026-08" permitirSelecionarCompetencia perspectivaInicial={perspectivaDespesas} podeEditar onAbrirDespesaPonto={ponto=>simular(`Lançamentos de ${ponto.nomeFantasia} preservados no fluxo real.`)} onFechar={()=>setDespesasAbertas(false)}/>}
   </div>;
 }

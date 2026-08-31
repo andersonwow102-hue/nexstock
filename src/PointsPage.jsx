@@ -18,6 +18,14 @@ import { EmptyState, FilterBar, Modal as OperationModal, OperationIcon, Paginati
 import { acquireMainScrollLock } from "./components/operations/mainScrollLock.js";
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, isManagerExpense } from "./expenseScope.js";
+import {
+  aplicarResumoDespesaMes,
+  criarAnaliseDespesasRede,
+  filtrarPontosDespesasRede,
+  listarDespesasPonto,
+  pontoTemDespesa,
+  valorDespesa,
+} from "./pointsExpenses.js";
 import "./PointsCommandFlow.css";
 
 const PONTOS_DOSSIE_SHEET_QUERY = "(max-width: 1360px)";
@@ -41,6 +49,39 @@ function PontosDossiePortal({ ativo, children }) {
   return createPortal(<div className="points-command-flow pcf-dossier-portal">{children}</div>, destino);
 }
 
+function ExpensesExplorerPortal({ ativo, children }) {
+  const portalRef = useRef(null);
+
+  useEffect(() => {
+    if (!ativo || !portalRef.current) return undefined;
+    const wrapper = portalRef.current;
+    const siblings = [...(wrapper.parentElement?.children || [])].filter(element => element !== wrapper);
+    const snapshots = siblings.map(element => ({
+      element,
+      inert: element.inert,
+      inertAttribute: element.getAttribute("inert"),
+    }));
+
+    siblings.forEach(element => {
+      element.inert = true;
+      element.setAttribute("inert", "");
+    });
+
+    return () => snapshots.forEach(({ element, inert, inertAttribute }) => {
+      element.inert = inert;
+      if (inertAttribute === null) element.removeAttribute("inert");
+      else element.setAttribute("inert", inertAttribute);
+    });
+  }, [ativo]);
+
+  if (!ativo || typeof document === "undefined") return null;
+  const destino = document.querySelector(".app") || document.body;
+  return createPortal(
+    <div id="pcf-expenses-explorer" ref={portalRef} className="points-command-flow pcf-expenses-portal">{children}</div>,
+    destino
+  );
+}
+
 const partesDataLocal=()=>{
   const d = new Date();
   const ano = d.getFullYear();
@@ -58,7 +99,10 @@ const competenciaAtual=()=>{
 };
 const diaAtual=()=>Number(partesDataLocal().dia);
 const mesLabel=data=>new Date(`${String(data||"").slice(0,7)}-02T00:00:00`).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric"});
-const valorDespesa=d=>Number(d.valorReal || d.valorPrevisto || 0);
+const mesLabelLongo=data=>{
+  const texto = new Date(`${String(data||"").slice(0,7)}-02T00:00:00`).toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  return texto ? `${texto.charAt(0).toLocaleUpperCase("pt-BR")}${texto.slice(1)}` : "Competência não informada";
+};
 const gerentePodeLancarDespesas=()=>diaAtual()>=10;
 const normalizarGerenteExcecao=valor=>String(valor||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLocaleLowerCase("pt-BR");
 const encontrarProrrogacaoAtiva=(prorrogacoes,gerente,competencia)=>(prorrogacoes||[]).find(item=>
@@ -92,17 +136,6 @@ const pontoPossuiPlayBet = ponto =>
 function PlayBetBadge({ ponto }) {
   if (!pontoPossuiPlayBet(ponto)) return null;
   return <span className="playbet-destaque" title="Modalidade Play Bet">PLAY BET</span>;
-}
-
-function resumoDespesaPontoMes(ponto, despesas=[], competencia=competenciaAtual()) {
-  const total = despesas
-    .filter(d => Number(d.pontoId) === Number(ponto.id) && String(d.competencia || "").slice(0, 7) === competencia)
-    .reduce((s, d) => s + valorDespesa(d), 0);
-  return { possuiDespesa: total > 0 ? "sim" : "nao", valorDespesa: total };
-}
-
-function aplicarResumoDespesaMes(pontos=[], despesas=[], competencia=competenciaAtual()) {
-  return pontos.map(p => ({ ...p, ...resumoDespesaPontoMes(p, despesas, competencia) }));
 }
 
 const MODALIDADE_COR = {
@@ -556,159 +589,244 @@ function PointAccessModal({ ponto, acessos=[], onFechar }) {
 }
 
 // ─── Modal Despesas ───────────────────────────────────────────────────────────
-function PointExpensesModal({ pontos, despesas = [], competenciaInicial = competenciaAtual(), permitirSelecionarCompetencia = false, onFechar }) {
+export function PointExpensesModal({
+  pontos,
+  despesas = [],
+  competenciaInicial = competenciaAtual(),
+  permitirSelecionarCompetencia = false,
+  perspectivaInicial = "rotas",
+  podeEditar = false,
+  suspenso = false,
+  onAbrirDespesaPonto,
+  onFechar,
+}) {
   const mesAtual = competenciaAtual();
   const [competencia, setCompetencia] = useState(competenciaInicial);
-  const [pontoSelecionado, setPontoSelecionado] = useState(null);
+  const [perspectiva, setPerspectiva] = useState(perspectivaInicial === "pontos" ? "pontos" : "rotas");
+  const [pontoSelecionadoId, setPontoSelecionadoId] = useState(null);
   const [rotaSelecionada, setRotaSelecionada] = useState("Todas");
-  const [situacaoSelecionada, setSituacaoSelecionada] = useState("com");
-  const pontosCompetencia = aplicarResumoDespesaMes(pontos, despesas, competencia);
-  const pontoTemDespesa = p=>p.possuiDespesa==="sim"&&Number(p.valorDespesa)>0;
-  const despesasPessoais = despesas
-    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competencia);
-  const totalDespesasPontos = pontosCompetencia.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
-  const totalDespesasPessoais = despesasPessoais.reduce((s,d)=>s+valorDespesa(d),0);
-  const resumoRotas = [...pontosCompetencia.reduce((mapa,p)=>{
-    const rota = rotaCanonica(p.gerente) || "Sem rota";
-    const atual = mapa.get(rota) || { rota, totalPontos:0, totalGerente:0, total:0, pontos:0, comDespesa:0, semDespesa:0 };
-    atual.totalPontos += Number(p.valorDespesa) || 0;
-    atual.pontos += 1;
-    if (pontoTemDespesa(p)) atual.comDespesa += 1;
-    else atual.semDespesa += 1;
-    mapa.set(rota, atual);
-    return mapa;
-  },new Map()).values()];
-  despesasPessoais.forEach(d=>{
-    const rota = rotaCanonica(d.rota) || d.rota || "Sem rota";
-    const atual = resumoRotas.find(item=>item.rota===rota) || { rota, totalPontos:0, totalGerente:0, total:0, pontos:0, comDespesa:0, semDespesa:0 };
-    atual.totalGerente += valorDespesa(d);
-    if (!resumoRotas.includes(atual)) resumoRotas.push(atual);
+  const [situacaoSelecionada, setSituacaoSelecionada] = useState("todos");
+  const [busca, setBusca] = useState("");
+  const rotasTabRef = useRef(null);
+  const pontosTabRef = useRef(null);
+  const voltarPontosRef = useRef(null);
+  const ultimoPontoTriggerRef = useRef(null);
+  const ultimoPontoSelecionadoIdRef = useRef(null);
+  const retomarDetalheRef = useRef(null);
+  const focoOrigemExplorerRef = useRef(
+    typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+  );
+  const analise = criarAnaliseDespesasRede({ pontos, despesas, competencia });
+  const pontoSelecionado = analise.pontosCompetencia.find(
+    ponto => Number(ponto.id) === Number(pontoSelecionadoId)
+  ) || null;
+  const pontosDaRota = filtrarPontosDespesasRede({
+    pontos: analise.pontosCompetencia,
+    rota: rotaSelecionada,
+    situacao: "todos",
   });
-  resumoRotas.forEach(item=>{item.total=item.totalPontos+item.totalGerente;});
-  resumoRotas.sort((a,b)=>b.total-a.total||a.rota.localeCompare(b.rota,"pt-BR"));
-  const pontosDaRota = rotaSelecionada==="Todas"
-    ?pontosCompetencia
-    :pontosCompetencia.filter(p=>(rotaCanonica(p.gerente)||"Sem rota")===rotaSelecionada);
-  const pontosFiltrados = pontosDaRota
-    .filter(p=>situacaoSelecionada==="todos"||(situacaoSelecionada==="com"?pontoTemDespesa(p):!pontoTemDespesa(p)))
-    .sort((a,b)=>(Number(b.valorDespesa)||0)-(Number(a.valorDespesa)||0)||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
-  const despesasPessoaisDaRota = rotaSelecionada==="Todas"
-    ? despesasPessoais
-    : despesasPessoais.filter(d=>(rotaCanonica(d.rota)||d.rota||"Sem rota")===rotaSelecionada);
-  const totalPontosFiltrado = pontosDaRota.reduce((s,p)=>s+(Number(p.valorDespesa)||0),0);
-  const totalPessoalFiltrado = despesasPessoaisDaRota.reduce((s,d)=>s+valorDespesa(d),0);
-  const totalFiltrado = totalPontosFiltrado+totalPessoalFiltrado;
+  const pontosFiltrados = filtrarPontosDespesasRede({
+    pontos: analise.pontosCompetencia,
+    rota: rotaSelecionada,
+    situacao: situacaoSelecionada,
+    busca,
+  });
   const totalComDespesa = pontosDaRota.filter(pontoTemDespesa).length;
-  const totalSemDespesa = pontosDaRota.length-totalComDespesa;
+  const totalSemDespesa = pontosDaRota.length - totalComDespesa;
   const despesasDoPonto = pontoSelecionado
-    ? despesas
-      .filter(d=>Number(d.pontoId)===Number(pontoSelecionado.id)&&String(d.competencia||"").slice(0,7)===competencia)
-      .sort((a,b)=>String(a.descricao||"").localeCompare(String(b.descricao||""),"pt-BR"))
+    ? listarDespesasPonto({ despesas, pontoId: pontoSelecionado.id, competencia })
     : [];
+
+  const selecionarPerspectiva = proxima => {
+    setPerspectiva(proxima);
+    if (proxima === "rotas") setPontoSelecionadoId(null);
+  };
+
+  const navegarTabs = event => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const proxima = perspectiva === "rotas" ? "pontos" : "rotas";
+    selecionarPerspectiva(proxima);
+    window.requestAnimationFrame(() => (proxima === "rotas" ? rotasTabRef : pontosTabRef).current?.focus());
+  };
+
+  const selecionarRota = rota => {
+    setRotaSelecionada(rota);
+    setSituacaoSelecionada("todos");
+    setBusca("");
+    setPontoSelecionadoId(null);
+    setPerspectiva("pontos");
+    window.requestAnimationFrame(() => pontosTabRef.current?.focus());
+  };
+
   const alterarCompetencia = valor => {
     setCompetencia(valor || mesAtual);
-    setPontoSelecionado(null);
+    setPerspectiva("rotas");
+    setPontoSelecionadoId(null);
     setRotaSelecionada("Todas");
-    setSituacaoSelecionada("com");
+    setSituacaoSelecionada("todos");
+    setBusca("");
   };
+
+  const abrirPonto = (ponto, trigger) => {
+    ultimoPontoSelecionadoIdRef.current = ponto.id;
+    ultimoPontoTriggerRef.current = trigger;
+    setPontoSelecionadoId(ponto.id);
+    window.requestAnimationFrame(() => voltarPontosRef.current?.focus({ preventScroll: true }));
+  };
+
+  const voltarAosPontos = () => {
+    setPontoSelecionadoId(null);
+    window.requestAnimationFrame(() => {
+      const trigger = ultimoPontoTriggerRef.current;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+      else pontosTabRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  const fecharExplorer = event => {
+    onFechar?.(event);
+    const origem = focoOrigemExplorerRef.current;
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (origem?.isConnected) origem.focus({ preventScroll: true });
+    }));
+  };
+
   return (
-    <OperationModal
-      open
-      title={<><OperationIcon name="money"/>Despesas dos pontos</>}
-      onClose={onFechar}
-      closeLabel="Fechar despesas"
-      size="lg"
-      className="pcf-operation-modal modal-despesas-pontos"
-      overlayClassName="pcf-operation-modal-overlay"
-      footer={<button className="btn-primario" type="button" data-so-autofocus="true" onClick={onFechar}>Fechar</button>}
-    >
-          {permitirSelecionarCompetencia&&(
-            <label className="despesas-competencia-filtro">
-              <span>Mês de referência</span>
-              <input type="month" value={competencia} max={mesAtual} onChange={e=>alterarCompetencia(e.target.value)}/>
+    <ExpensesExplorerPortal ativo={!suspenso}>
+      <OperationModal
+        open={!suspenso}
+        title="Despesas da rede"
+        subtitle={mesLabelLongo(`${competencia}-01`)}
+        onClose={fecharExplorer}
+        closeLabel="Fechar despesas da rede"
+        size="xl"
+        initialFocusRef={retomarDetalheRef}
+        className="pcf-operation-modal pcf-expenses-explorer"
+        overlayClassName="pcf-operation-modal-overlay pcf-expenses-explorer-overlay"
+      >
+        <section className="pcf-expenses-hero" aria-label="Resumo consolidado da competência">
+          <div className="pcf-expenses-total">
+            <span>Despesa consolidada da competência</span>
+            <strong>{formatarReais(analise.totalGeral)}</strong>
+            <small>{mesLabelLongo(`${competencia}-01`)}</small>
+          </div>
+          <dl className="pcf-expenses-breakdown">
+            <div><dt>Pontos</dt><dd>{formatarReais(analise.totalPontos)}</dd></div>
+            <div><dt>Gerentes</dt><dd>{formatarReais(analise.totalGerentes)}</dd></div>
+          </dl>
+          {permitirSelecionarCompetencia ? (
+            <label className="pcf-expenses-competence">
+              <span>Competência</span>
+              <input type="month" value={competencia} max={mesAtual} onChange={event => alterarCompetencia(event.target.value)}/>
             </label>
+          ) : (
+            <div className="pcf-expenses-competence is-static"><span>Competência</span><strong>{mesLabel(`${competencia}-01`)}</strong></div>
           )}
-          <div className="despesas-total-banner">{pontoSelecionado?"Total do ponto":rotaSelecionada==="Todas"?"Total Geral":"Total da rota"}: <strong>{formatarReais(pontoSelecionado?.valorDespesa??totalFiltrado)}</strong></div>
-          {!pontoSelecionado&&(
-            <div className="despesas-origem-resumo">
-              <span><small>Despesas dos pontos</small><strong>{formatarReais(totalPontosFiltrado)}</strong></span>
-              <span><small>Despesas pessoais dos gerentes</small><strong>{formatarReais(totalPessoalFiltrado)}</strong></span>
+        </section>
+
+        <div className="pcf-expenses-tabs" role="tablist" aria-label="Perspectiva da análise de despesas" onKeyDown={navegarTabs}>
+          <button ref={rotasTabRef} type="button" role="tab" aria-selected={perspectiva === "rotas"} aria-controls={perspectiva === "rotas" ? "pcf-expenses-routes-panel" : undefined} tabIndex={perspectiva === "rotas" ? 0 : -1} onClick={() => selecionarPerspectiva("rotas")}>Rotas</button>
+          <button ref={pontosTabRef} type="button" role="tab" aria-selected={perspectiva === "pontos"} aria-controls={perspectiva === "pontos" ? "pcf-expenses-points-panel" : undefined} tabIndex={perspectiva === "pontos" ? 0 : -1} onClick={() => selecionarPerspectiva("pontos")}>Pontos</button>
+        </div>
+
+        {perspectiva === "rotas" ? (
+          <section className="pcf-expenses-panel" id="pcf-expenses-routes-panel" role="tabpanel" aria-label="Despesas por rota">
+            <header className="pcf-expenses-panel-heading"><div><span>Leitura por rota</span><h3>Distribuição da competência</h3></div><small>{analise.resumoRotas.length} rotas no escopo</small></header>
+            <div className="pcf-expenses-route-ledger">
+              <div className="pcf-expenses-route-columns" aria-hidden="true"><span>Posição / rota</span><span>Cobertura</span><span>Gerente</span><span>Valor total</span></div>
+              {analise.resumoRotas.length === 0 ? (
+                <p className="pcf-expenses-empty">Nenhuma rota possui dados nesta competência.</p>
+              ) : analise.resumoRotas.map((item, indice) => (
+                <button
+                  type="button"
+                  className="pcf-expenses-route-row"
+                  key={item.rota}
+                  onClick={() => selecionarRota(item.rota)}
+                  aria-label={`Abrir pontos da rota ${item.rota}. Posição ${indice + 1}. Total ${formatarReais(item.total)}. ${item.comDespesa} com despesa e ${item.semDespesa} sem despesa. ${item.totalGerente > 0 ? `Despesa do gerente ${formatarReais(item.totalGerente)}` : "Sem despesa de gerente"}.`}
+                >
+                  <span className="pcf-expenses-route-identity"><i>{String(indice + 1).padStart(2, "0")}</i><strong>{item.rota}</strong></span>
+                  <span className="pcf-expenses-route-counts"><b>{item.comDespesa} com despesa</b><small>{item.semDespesa} sem despesa</small></span>
+                  <span className="pcf-expenses-route-manager">{item.totalGerente > 0 ? <><small>Gerente</small><b>{formatarReais(item.totalGerente)}</b></> : <small>Sem despesa de gerente</small>}</span>
+                  <span className="pcf-expenses-route-value"><strong>{formatarReais(item.total)}</strong><OperationIcon name="chevronRight" size={15}/></span>
+                </button>
+              ))}
             </div>
-          )}
-          {pontoSelecionado ? (
-            <section className="despesas-ponto-detalhe">
-              <button type="button" className="btn-secundario despesas-voltar" onClick={()=>setPontoSelecionado(null)}><OperationIcon name="chevronLeft"/> Voltar aos pontos</button>
-              <div className="despesas-ponto-detalhe-head">
-                <div><span>Ponto selecionado</span><h4>{pontoSelecionado.nomeFantasia} <PlayBetBadge ponto={pontoSelecionado}/></h4><small>{pontoSelecionado.nomeDono} · {pontoSelecionado.telefone}</small></div>
-                <BadgeGerente gerente={pontoSelecionado.gerente}/>
-              </div>
-              <div className="despesas-lancamentos">
-                {despesasDoPonto.length===0
-                  ?<p className="tabela-vazia">Não há lançamentos detalhados para este ponto em {mesLabel(`${competencia}-01`)}.</p>
-                  :despesasDoPonto.map(d=>(
-                    <article className="despesas-lancamento" key={d.id}>
-                      <div><strong>{d.descricao||"Despesa sem descrição"}</strong>{d.observacao&&<small>{d.observacao}</small>}</div>
-                      <b>{formatarReais(valorDespesa(d))}</b>
+          </section>
+        ) : (
+          <section className="pcf-expenses-panel" id="pcf-expenses-points-panel" role="tabpanel" aria-label="Despesas por ponto">
+            {pontoSelecionado ? (
+              <div className="pcf-expenses-point-detail">
+                <button ref={voltarPontosRef} type="button" className="pcf-expenses-back" onClick={voltarAosPontos}><OperationIcon name="chevronLeft" size={15}/>Voltar aos pontos</button>
+                <header>
+                  <div><span>Detalhe financeiro</span><h3>{pontoSelecionado.nomeFantasia}</h3><p>{pontoSelecionado.nomeDono} · {rotaCanonica(pontoSelecionado.gerente) || "Sem rota"}</p></div>
+                  <strong>{pontoTemDespesa(pontoSelecionado) ? formatarReais(pontoSelecionado.valorDespesa) : "Sem despesa"}</strong>
+                </header>
+                <div className="pcf-expenses-detail-ledger">
+                  {despesasDoPonto.length === 0 ? (
+                    <p className="pcf-expenses-empty">Não há lançamentos detalhados para este ponto em {mesLabel(`${competencia}-01`)}.</p>
+                  ) : despesasDoPonto.map(despesa => (
+                    <article className="pcf-expenses-detail-entry" key={despesa.id}>
+                      <div><strong>{despesa.descricao || "Despesa sem descrição"}</strong>{despesa.observacao && <small>{despesa.observacao}</small>}</div>
+                      <b>{formatarReais(valorDespesa(despesa))}</b>
                     </article>
                   ))}
+                </div>
+                {onAbrirDespesaPonto && (
+                  <button ref={retomarDetalheRef} type="button" className="pcf-expenses-detail-action" onClick={() => onAbrirDespesaPonto(pontoSelecionado, competencia)}>
+                    <OperationIcon name="receipt" size={16}/>{podeEditar ? "Gerenciar lançamentos" : "Consultar lançamentos"}
+                  </button>
+                )}
               </div>
-            </section>
-          ) : (
-            <>
-              <section className="despesas-rotas-filtro">
-                <label>Filtrar por rota
-                  <select value={rotaSelecionada} onChange={e=>setRotaSelecionada(e.target.value)}>
-                    <option value="Todas">Todas as rotas — {formatarReais(totalDespesasPontos+totalDespesasPessoais)}</option>
-                    {resumoRotas.map(item=><option key={item.rota} value={item.rota}>{item.rota} — {formatarReais(item.total)}</option>)}
-                  </select>
-                </label>
-                <div className="despesas-rotas-ranking">
-                  {resumoRotas.map((item,indice)=>(
-                    <button type="button" className={rotaSelecionada===item.rota?"ativo":""} key={item.rota} onClick={()=>setRotaSelecionada(item.rota)}>
-                      <span><i>{indice+1}º</i>{item.rota}</span>
-                      <strong>{formatarReais(item.total)}</strong>
-                      <small><em>{item.comDespesa} com despesa</em><em className="sem-despesa">{item.semDespesa} sem despesa</em></small>
-                      {item.totalGerente>0&&<small className="despesas-gerente-sinal"><OperationIcon name="user" size={13}/>Gerente: {formatarReais(item.totalGerente)}</small>}
+            ) : (
+              <>
+                <div className="pcf-expenses-points-context">
+                  <div><span>Leitura financeira</span><h3>{rotaSelecionada === "Todas" ? "Todos os pontos" : `Rota ${rotaSelecionada}`}</h3></div>
+                  {rotaSelecionada !== "Todas" && <button type="button" onClick={() => setRotaSelecionada("Todas")}><OperationIcon name="close" size={13}/>Todas as rotas</button>}
+                </div>
+                <div className="pcf-expenses-toolbar">
+                  <label className="pcf-expenses-search"><span className="pcf-visually-hidden">Buscar pontos nas despesas</span><OperationIcon name="search" size={16}/><input type="search" value={busca} onChange={event => setBusca(event.target.value)} placeholder="Buscar ponto, responsável ou rota"/></label>
+                  <label><span>Rota</span><select value={rotaSelecionada} onChange={event => setRotaSelecionada(event.target.value)}><option value="Todas">Todas as rotas</option>{analise.resumoRotas.map(item => <option key={item.rota} value={item.rota}>{item.rota}</option>)}</select></label>
+                </div>
+                <div className="pcf-expenses-situation-filter" role="group" aria-label="Filtrar pontos pela situação da despesa">
+                  <button type="button" aria-pressed={situacaoSelecionada === "todos"} onClick={() => setSituacaoSelecionada("todos")}>Todos <b>{pontosDaRota.length}</b></button>
+                  <button type="button" aria-pressed={situacaoSelecionada === "com"} onClick={() => setSituacaoSelecionada("com")}>Com despesas <b>{totalComDespesa}</b></button>
+                  <button type="button" aria-pressed={situacaoSelecionada === "sem"} onClick={() => setSituacaoSelecionada("sem")}>Sem despesas <b>{totalSemDespesa}</b></button>
+                </div>
+                <div className="pcf-expenses-points-ledger">
+                  <div className="pcf-expenses-point-columns" aria-hidden="true"><span>Ponto / responsável</span><span>Rota</span><span>Situação</span><span>Valor</span></div>
+                  {pontosFiltrados.length === 0 ? (
+                    <p className="pcf-expenses-empty">Nenhum ponto encontrado para os filtros atuais.</p>
+                  ) : pontosFiltrados.map(ponto => (
+                    <button
+                      ref={node => {
+                        if (node && String(ultimoPontoSelecionadoIdRef.current) === String(ponto.id)) ultimoPontoTriggerRef.current = node;
+                      }}
+                      type="button"
+                      className="pcf-expenses-point-row"
+                      key={ponto.id}
+                      onClick={event => abrirPonto(ponto, event.currentTarget)}
+                    >
+                      <span className="pcf-expenses-point-identity"><strong>{ponto.nomeFantasia}</strong><small>{ponto.nomeDono}</small></span>
+                      <span className="pcf-expenses-point-route">{rotaCanonica(ponto.gerente) || "Sem rota"}</span>
+                      <span className="pcf-expenses-point-state">{pontoTemDespesa(ponto) ? "Com despesa" : "Sem despesa"}</span>
+                      <span className="pcf-expenses-point-value"><strong>{pontoTemDespesa(ponto) ? formatarReais(ponto.valorDespesa) : "—"}</strong><OperationIcon name="chevronRight" size={15}/></span>
                     </button>
                   ))}
                 </div>
-                {despesasPessoaisDaRota.length>0&&(
-                  <div className="despesas-gerentes-resumo">
-                    <h4><OperationIcon name="user"/>Despesas pessoais dos gerentes</h4>
-                    {despesasPessoaisDaRota.map(d=>(
-                      <article key={d.id}>
-                        <div><strong>{d.gerente||"Gerente"}</strong><small>{d.rota||"Sem rota"} · {d.descricao||"Despesa sem descrição"}</small></div>
-                        <b>{formatarReais(valorDespesa(d))}</b>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                <div className="despesas-situacao-filtro" role="group" aria-label="Filtrar pontos pela situação da despesa">
-                  <button type="button" className={situacaoSelecionada==="todos"?"ativo":""} onClick={()=>setSituacaoSelecionada("todos")}>Todos <b>{pontosDaRota.length}</b></button>
-                  <button type="button" className={situacaoSelecionada==="com"?"ativo":""} onClick={()=>setSituacaoSelecionada("com")}>Com despesas <b>{totalComDespesa}</b></button>
-                  <button type="button" className={`sem-despesa ${situacaoSelecionada==="sem"?"ativo":""}`} onClick={()=>setSituacaoSelecionada("sem")}>Sem despesas <b>{totalSemDespesa}</b></button>
-                </div>
-              </section>
-              <div className="despesas-pontos-lista">
-              {pontosFiltrados.length===0
-                ?<p className="tabela-vazia">Nenhum ponto encontrado neste filtro.</p>
-                :pontosFiltrados.map(p=>(
-                  <button type="button" className="despesas-ponto-linha" key={p.id} onClick={()=>setPontoSelecionado(p)}>
-                    <div><strong>{p.nomeFantasia} <PlayBetBadge ponto={p}/></strong><small>{p.nomeDono}</small></div>
-                    <BadgeGerente gerente={p.gerente}/>
-                    <b className={pontoTemDespesa(p)?"":"sem-despesa"}>{pontoTemDespesa(p)?formatarReais(p.valorDespesa):"Sem despesa"}</b>
-                    <span aria-hidden="true">›</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-    </OperationModal>
+              </>
+            )}
+          </section>
+        )}
+      </OperationModal>
+    </ExpensesExplorerPortal>
   );
 }
 
 // ─── ABA: Visão Geral ─────────────────────────────────────────────────────────
-export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], competencia=competenciaAtual(), mostrarDespesas=true, onMostrarTodos, onFiltrarSituacao, onFiltrarVinculo, onFiltrarDespesa, onVerDespesas }) {
+export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], competencia=competenciaAtual(), mostrarDespesas=true, totalDespesasCompetencia, despesasAbertas=false, onMostrarTodos, onFiltrarSituacao, onFiltrarVinculo, onFiltrarDespesa, onVerDespesas }) {
   const totalPontos=pontos.length;
   const ativos=pontos.filter(p=>p.situacaoOperacional!=="desativado").length;
   const desativados=totalPontos-ativos;
@@ -717,7 +835,8 @@ export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], 
   const semDespesa=pontos.filter(p=>p.possuiDespesa!=="sim").length;
   const idsPontos=new Set(pontos.map(p=>Number(p.id)));
   const pendencias=solicitacoesStatus.filter(s=>s.status==="pendente"&&idsPontos.has(Number(s.pontoId))).length;
-  const totalDespesas=pontos.reduce((s,p)=>s+Number(p.valorDespesa||0),0);
+  const totalDespesasPontos=pontos.reduce((s,p)=>s+Number(p.valorDespesa||0),0);
+  const totalDespesas=Number.isFinite(Number(totalDespesasCompetencia))?Number(totalDespesasCompetencia):totalDespesasPontos;
 
   return <section className="pcf-overview pcf-network-register" aria-label="Leitura atual da rede">
     <div className="pcf-register-context"><span>Rede agora</span><small><OperationIcon name="clock" size={13}/>{mesLabel(`${competencia}-01`)}</small></div>
@@ -728,12 +847,12 @@ export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], 
     <button type="button" onClick={()=>onFiltrarVinculo("sem")}><strong>{semEquipamento}</strong><span>Sem equipamento</span></button>
     {mostrarDespesas&&<button type="button" onClick={()=>onFiltrarDespesa("nao")}><strong>{semDespesa}</strong><span>Sem despesa</span></button>}
     <div className={`pcf-network-stat ${pendencias>0?"is-warning":""}`}><strong>{pendencias}</strong><span>Pendências</span></div>
-    {mostrarDespesas&&<button type="button" className="pcf-register-finance" onClick={onVerDespesas}><strong>{formatarReais(totalDespesas)}</strong><span>Na competência</span></button>}
+    {mostrarDespesas&&<button type="button" className="pcf-register-finance" onClick={onVerDespesas} aria-haspopup="dialog" aria-expanded={despesasAbertas} aria-controls="pcf-expenses-explorer" aria-label={`Abrir despesas da rede de ${mesLabelLongo(`${competencia}-01`)}: ${formatarReais(totalDespesas)}`}><strong>{formatarReais(totalDespesas)}</strong><span>Despesas da rede</span><OperationIcon name="chevronRight" size={14}/></button>}
   </section>;
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], competencia=competenciaAtual(), busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onVerDespesas, onExportExcel, onExportPDF, onCarregarHistoricoFormal=carregarHistoricoStatusPonto, podeVerHistoricoFormal=true, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
+export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], competencia=competenciaAtual(), busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, totalDespesasCompetencia, despesasAbertas=false, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onVerDespesas, onExportExcel, onExportPDF, onCarregarHistoricoFormal=carregarHistoricoStatusPonto, podeVerHistoricoFormal=true, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
   const [filtroGerente,setFiltroGerente]=useState("Todos");
   const [filtroSituacao,setFiltroSituacao]=useState("todos");
   const [filtroVinculo,setFiltroVinculo]=useState("todos");
@@ -907,7 +1026,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
       activeCount={filtrosAtivos} secondaryOpen={filtrosAbertos} onSecondaryToggle={setFiltrosAbertos} secondaryLabel="Filtros" onClear={limparFiltrosSecundarios} clearLabel="Limpar filtros" chips={chipsFiltros}/>
 
     <div aria-hidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined}>
-      <AbaVisaoGeral pontos={pontos} equipamentos={equipamentos} solicitacoesStatus={solicitacoesStatus} competencia={competencia} mostrarDespesas={mostrarDespesas} onMostrarTodos={limparFiltrosSecundarios} onFiltrarSituacao={setFiltroSituacao} onFiltrarVinculo={setFiltroVinculo} onFiltrarDespesa={onFiltroDespesaChange} onVerDespesas={onVerDespesas}/>
+      <AbaVisaoGeral pontos={pontos} equipamentos={equipamentos} solicitacoesStatus={solicitacoesStatus} competencia={competencia} mostrarDespesas={mostrarDespesas} totalDespesasCompetencia={totalDespesasCompetencia} despesasAbertas={despesasAbertas} onMostrarTodos={limparFiltrosSecundarios} onFiltrarSituacao={setFiltroSituacao} onFiltrarVinculo={setFiltroVinculo} onFiltrarDespesa={onFiltroDespesaChange} onVerDespesas={onVerDespesas}/>
     </div>
 
     <header className="pcf-ledger-toolbar" aria-hidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined}>
@@ -1582,6 +1701,9 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const nomesPontosVisiveis = new Set(pontosVisiveis.map(p=>p.nomeFantasia));
   const equipamentosVisiveis = gerenteAtual ? equipamentos.filter(i=>nomesPontosVisiveis.has(i.localizacao)) : equipamentos;
   const despesasVisiveis = despesasEscopo;
+  const totalDespesasCompetencia = despesasVisiveis
+    .filter(despesa=>String(despesa.competencia||"").slice(0,7)===competenciaDespesas)
+    .reduce((soma,despesa)=>soma+valorDespesa(despesa),0);
   const gerentePodeCriarPonto = perfilAtual?.perfil === "gerente";
   const podeCriarPonto = administrador || gerentePodeCriarPonto;
   const podeEditarPonto = administrador || operador || (perfilAtual?.perfil === "gerente" && gerentePodeCriarPonto);
@@ -1832,14 +1954,14 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {!loading&&(<>
         {abaInterna==="pontos"&&<div className="pcf-network-view">
-          <AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} historico={historico} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} solicitacoesStatus={solicitacoesStatus} competencia={competenciaDespesas} busca={buscaPontos} onBuscaChange={setBuscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} podeSolicitarDesativacao={podeSolicitarDesativacao} podeReativar={podeReativar} podeVerHistoricoFormal={!operador} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onSolicitarDesativacao={setPontoDesativacao} onReativar={setPontoReativacao} onVerAcessos={setPontoAcessos} onVerDespesas={()=>setVerDespesas(true)}
+          <AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} historico={historico} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} solicitacoesStatus={solicitacoesStatus} competencia={competenciaDespesas} busca={buscaPontos} onBuscaChange={setBuscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} podeSolicitarDesativacao={podeSolicitarDesativacao} podeReativar={podeReativar} podeVerHistoricoFormal={!operador} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={totalDespesasCompetencia} despesasAbertas={verDespesas} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onSolicitarDesativacao={setPontoDesativacao} onReativar={setPontoReativacao} onVerAcessos={setPontoAcessos} onVerDespesas={()=>setVerDespesas(true)}
             onExportExcel={exportarPontosExcel} onExportPDF={exportarPontosPDF}/>
         </div>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}
 
       {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
-      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveisBase} despesas={despesasVisiveis} competenciaInicial={competenciaDespesas} permitirSelecionarCompetencia={administrador} onFechar={()=>setVerDespesas(false)}/>}
+      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveisBase} despesas={despesasVisiveis} competenciaInicial={competenciaDespesas} permitirSelecionarCompetencia={administrador} podeEditar={podeEditarDespesas} suspenso={Boolean(pontoDespesas)} onAbrirDespesaPonto={(ponto,competencia)=>{setCompetenciaDespesas(competencia);setPontoDespesas(ponto);}} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
       {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
