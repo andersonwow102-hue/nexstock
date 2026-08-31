@@ -593,6 +593,20 @@ export async function carregarSolicitacoesStatusPonto() {
   return (data || []).map(mapSolicitacaoStatusPonto);
 }
 
+export async function carregarHistoricoStatusPonto(pontoId) {
+  const id = Number(pontoId);
+  if (!Number.isFinite(id) || id <= 0) return [];
+
+  const { data, error } = await supabase
+    .from('historico_status_pontos')
+    .select('*')
+    .eq('ponto_id', id)
+    .order('criado_em', { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapHistoricoStatusPonto);
+}
+
 export async function solicitarDesativacaoPonto({ pontoId, motivo }) {
   const { data, error } = await supabase.rpc('solicitar_desativacao_ponto', {
     p_ponto_id: pontoId,
@@ -1145,6 +1159,21 @@ function mapSolicitacaoStatusPonto(row) {
     decididoEm: row.decidido_em || '',
     motivoDecisao: normalizeFreeText(row.motivo_decisao || ''),
     versaoPonto: Number(row.versao_ponto) || 1,
+  };
+}
+
+function mapHistoricoStatusPonto(row) {
+  return {
+    id: row.id,
+    pontoId: row.ponto_id,
+    solicitacaoId: row.solicitacao_id ?? null,
+    acao: row.acao || '',
+    estadoAnterior: row.estado_anterior || '',
+    estadoPosterior: row.estado_posterior || '',
+    motivo: normalizeFreeText(row.motivo || ''),
+    usuarioId: row.usuario_id || '',
+    perfil: row.perfil || '',
+    criadoEm: row.criado_em || '',
   };
 }
 

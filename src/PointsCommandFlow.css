@@ -2101,13 +2101,6 @@
     grid-template-columns: minmax(180px, 2fr) minmax(90px, 0.8fr) minmax(64px, 0.5fr) minmax(105px, 0.8fr);
   }
 
-  .points-command-flow .pcf-ledger-columns > :nth-child(4),
-  .points-command-flow .pcf-record > :nth-child(4),
-  .points-command-flow .pcf-ledger-columns.has-expense > :nth-child(5),
-  .points-command-flow .pcf-record.has-expense > :nth-child(5) {
-    display: none;
-  }
-
   .points-command-flow .historico-despesas-filtros {
     grid-template-columns: minmax(0, 1fr) 160px;
   }
@@ -2232,57 +2225,6 @@
 
   .points-command-flow .pcf-ledger-columns {
     display: none;
-  }
-
-  .points-command-flow .pcf-record,
-  .points-command-flow .pcf-record.has-expense {
-    grid-template-columns: minmax(90px, 1.4fr) minmax(52px, 0.65fr) minmax(52px, 0.65fr) auto;
-    gap: 8px;
-    min-height: 102px;
-    padding: 12px;
-  }
-
-  .points-command-flow .pcf-record > :first-child {
-    grid-column: 1 / 4;
-    grid-row: 1;
-  }
-
-  .points-command-flow .pcf-record > :nth-child(2) {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .points-command-flow .pcf-record > :nth-child(3) {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .points-command-flow .pcf-record > :nth-child(4) {
-    grid-column: 3;
-    grid-row: 2;
-  }
-
-  .points-command-flow .pcf-record.has-expense > :nth-child(5) {
-    grid-column: 4;
-    grid-row: 2;
-  }
-
-  .points-command-flow .pcf-record:not(.has-expense) > :last-child,
-  .points-command-flow .pcf-record.has-expense > :last-child {
-    grid-column: 4;
-    grid-row: 1;
-  }
-
-  .points-command-flow .pcf-record > :nth-child(3),
-  .points-command-flow .pcf-record > :nth-child(4) {
-    display: flex;
-  }
-
-  .points-command-flow .pcf-record.has-expense > :nth-child(5),
-  .points-command-flow .pcf-record-money {
-    display: block;
-    font-size: 9px;
-    white-space: nowrap;
   }
 
   .points-command-flow .pcf-dossier {
@@ -2427,6 +2369,718 @@
   .points-command-flow .pcf-operation-modal :is(.btn-primario, .btn-secundario, .btn-danger, .btn-editar, .btn-excluir) {
     min-height: 44px;
   }
+}
+
+/* ── Operations Ledger · checkpoint visual da Etapa 2 ───────────────────── */
+.points-command-flow .pcf-operations-ledger {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-master-detail {
+  min-width: 0;
+  width: 100%;
+}
+
+.points-command-flow.pcf-dossier-portal {
+  display: contents;
+}
+
+.points-preview-shell .points-preview-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px 3px 8px 3px;
+  color: #17120f;
+  background: var(--brand-accent, #dc9662);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.points-preview-shell .points-preview-notice {
+  padding: 9px 0 12px;
+  color: var(--pcf-dim);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-filter-command {
+  padding: 0 0 10px;
+  border-bottom: 0;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-filter-command .so-filter-bar__primary {
+  grid-template-columns: minmax(300px, 760px) auto;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-filter-command .so-filter-bar__secondary {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-filter-command .so-filter-bar__secondary-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.points-command-flow .pcf-network-register {
+  display: flex;
+  min-height: 60px;
+  align-items: stretch;
+  overflow-x: auto;
+  border-top: 1px solid var(--pcf-border);
+  border-bottom: 1px solid var(--pcf-border);
+  background: color-mix(in srgb, var(--pcf-panel) 62%, transparent);
+  scrollbar-width: thin;
+}
+
+.points-command-flow .pcf-register-context,
+.points-command-flow .pcf-network-register > button,
+.points-command-flow .pcf-network-stat {
+  position: relative;
+  display: flex;
+  min-width: 112px;
+  flex: 1 0 auto;
+  align-items: baseline;
+  align-content: center;
+  gap: 7px;
+  padding: 11px 12px;
+  border: 0;
+  border-right: 1px solid var(--pcf-border);
+  color: var(--pcf-text);
+  background: transparent;
+  text-align: left;
+}
+
+.points-command-flow .pcf-register-context {
+  min-width: 124px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.points-command-flow .pcf-register-context > span {
+  color: var(--pcf-copper-bright);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-register-context small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--pcf-dim);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+}
+
+.points-command-flow .pcf-network-register > button {
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.points-command-flow .pcf-network-register > button:hover {
+  background: var(--pcf-copper-wash);
+}
+
+.points-command-flow .pcf-network-register > button.is-primary::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  content: "";
+  background: var(--pcf-copper);
+}
+
+.points-command-flow .pcf-network-register strong {
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-network-register span {
+  align-self: center;
+  color: var(--pcf-muted);
+  font-size: 10px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-network-stat.is-warning strong,
+.points-command-flow .pcf-network-stat.is-warning span {
+  color: var(--pcf-warning);
+}
+
+.points-command-flow .pcf-network-register .pcf-register-finance {
+  min-width: 164px;
+  border-right: 0;
+}
+
+.points-command-flow .pcf-network-register .pcf-register-finance strong {
+  font-size: 13px;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-ledger-toolbar {
+  min-height: 62px;
+  padding: 12px 0;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-master-detail {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 26vw, 420px);
+  gap: 16px;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-master-pane {
+  border-color: var(--pcf-border);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--pcf-panel) 48%, var(--pcf-subtle));
+}
+
+.points-command-flow .pcf-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 2fr) minmax(84px, 0.64fr) minmax(92px, 0.72fr) minmax(130px, 1fr) minmax(110px, 0.78fr);
+  grid-template-areas: "identity services equipment admin state";
+  align-items: center;
+  gap: 12px;
+}
+
+.points-command-flow .pcf-ledger-col--identity,
+.points-command-flow .pcf-record-identity { grid-area: identity; }
+.points-command-flow .pcf-ledger-col--services,
+.points-command-flow .pcf-record-services { grid-area: services; }
+.points-command-flow .pcf-ledger-col--equipment,
+.points-command-flow .pcf-record-equipment { grid-area: equipment; }
+.points-command-flow .pcf-ledger-col--admin,
+.points-command-flow .pcf-record-admin { grid-area: admin; }
+.points-command-flow .pcf-ledger-col--state,
+.points-command-flow .pcf-record-state { grid-area: state; }
+
+.points-command-flow .pcf-operations-ledger .pcf-ledger-columns {
+  min-height: 36px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--pcf-border);
+  background: var(--pcf-raised);
+  font-size: 8px;
+}
+
+.points-command-flow .pcf-route-chapter {
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-route-chapter:last-child {
+  border-bottom: 0;
+}
+
+.points-command-flow .pcf-route-chapter > header {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, auto) auto;
+  min-height: 46px;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--pcf-border);
+  background: color-mix(in srgb, var(--pcf-raised) 72%, var(--pcf-subtle));
+}
+
+.points-command-flow .pcf-route-chapter > header div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.points-command-flow .pcf-route-chapter > header span {
+  color: var(--pcf-copper-bright);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-route-chapter > header h3 {
+  overflow: hidden;
+  margin: 0;
+  color: var(--pcf-text);
+  font-size: 12px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-route-chapter > header p,
+.points-command-flow .pcf-route-chapter > header > b {
+  margin: 0;
+  color: var(--pcf-dim);
+  font-size: 9px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-route-chapter > header p strong {
+  color: var(--pcf-muted);
+  font-weight: 650;
+}
+
+.points-command-flow .pcf-route-chapter > header > b {
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record {
+  min-height: 80px;
+  padding: 13px 14px;
+  border-bottom-color: color-mix(in srgb, var(--pcf-border) 78%, transparent);
+}
+
+.points-command-flow .pcf-route-chapter > div > .pcf-record:last-child {
+  border-bottom: 0;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record.has-pending {
+  background: color-mix(in srgb, var(--pcf-warning-wash) 45%, transparent);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record.is-disabled {
+  opacity: 1;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record.is-disabled .pcf-record-identity,
+.points-command-flow .pcf-operations-ledger .pcf-record.is-disabled .pcf-record-services,
+.points-command-flow .pcf-operations-ledger .pcf-record.is-disabled .pcf-record-equipment,
+.points-command-flow .pcf-operations-ledger .pcf-record.is-disabled .pcf-record-admin {
+  opacity: 0.62;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record-identity strong {
+  font-size: 13.5px;
+}
+
+.points-command-flow .pcf-record-admin {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.points-command-flow .pcf-record-admin strong {
+  overflow: hidden;
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-record-admin small {
+  color: var(--pcf-warning);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record-state {
+  justify-content: flex-end;
+}
+
+.points-command-flow .pcf-operations-folio {
+  position: sticky;
+  top: 14px;
+  padding: 0 20px 20px 23px;
+  overflow: hidden;
+  border-color: var(--pcf-border-strong);
+  border-radius: 3px;
+  background: var(--pcf-raised);
+}
+
+.points-command-flow .pcf-operations-folio::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: "";
+  background: var(--pcf-copper);
+}
+
+.points-command-flow .pcf-operations-folio[data-folio-state="pending"]::before { background: var(--pcf-warning); }
+.points-command-flow .pcf-operations-folio[data-folio-state="disabled"]::before { background: var(--pcf-dim); }
+
+.points-command-flow .pcf-operations-folio .pcf-dossier-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 94px;
+  padding: 18px 0 14px;
+}
+
+.points-command-flow .pcf-operations-folio .pcf-dossier-header h3 {
+  margin-bottom: 6px;
+  font-size: 19px;
+}
+
+.points-command-flow .pcf-operations-folio .pcf-dossier-header p {
+  margin: 0;
+  color: var(--pcf-muted);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 10px;
+}
+
+.points-command-flow .pcf-folio-identity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-folio-identity > div {
+  min-width: 0;
+  padding: 12px 12px 13px 0;
+}
+
+.points-command-flow .pcf-folio-identity > div + div {
+  padding-left: 12px;
+  border-left: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-folio-identity dt,
+.points-command-flow .pcf-folio-identity dd,
+.points-command-flow .pcf-folio-facts dt,
+.points-command-flow .pcf-folio-facts dd {
+  margin: 0;
+}
+
+.points-command-flow .pcf-folio-identity dt,
+.points-command-flow .pcf-folio-facts dt {
+  margin-bottom: 4px;
+  color: var(--pcf-dim);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-folio-identity dd {
+  overflow: hidden;
+  color: var(--pcf-text);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-folio-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-folio-section > header,
+.points-command-flow .pcf-sensitive-zone > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.points-command-flow .pcf-folio-section > header span,
+.points-command-flow .pcf-sensitive-zone > header span {
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-folio-section > header small {
+  color: var(--pcf-dim);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 9px;
+}
+
+.points-command-flow .pcf-folio-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 0 0 12px;
+}
+
+.points-command-flow .pcf-folio-facts dd {
+  color: var(--pcf-muted);
+  font-size: 11px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.points-command-flow .pcf-folio-section .badge-modalidade {
+  padding: 4px 7px;
+  font-size: 8.5px !important;
+}
+
+.points-command-flow .pcf-folio-section .pcf-dossier-note {
+  margin: 12px 0 0;
+}
+
+.points-command-flow .pcf-linked-equipment > ul {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.points-command-flow .pcf-linked-equipment > ul > li {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-linked-equipment > ul > li:last-child { border-bottom: 0; }
+.points-command-flow .pcf-linked-equipment li span { display: grid; gap: 3px; min-width: 0; }
+.points-command-flow .pcf-linked-equipment li strong { overflow: hidden; color: var(--pcf-text); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.points-command-flow .pcf-linked-equipment li small,
+.points-command-flow .pcf-linked-equipment > p { margin: 0; color: var(--pcf-dim); font-size: 10px; line-height: 1.5; }
+.points-command-flow .pcf-linked-equipment li em { flex: 0 0 auto; color: var(--pcf-muted); font-family: var(--font-data, "JetBrains Mono", monospace); font-size: 9px; font-style: normal; }
+
+.points-command-flow .pcf-equipment-blocker {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 9px;
+  padding: 11px;
+  margin-top: 12px;
+  border-left: 2px solid var(--pcf-warning);
+  color: var(--pcf-warning);
+  background: var(--pcf-warning-wash);
+}
+
+.points-command-flow .pcf-equipment-blocker span { display: grid; gap: 4px; }
+.points-command-flow .pcf-equipment-blocker strong { font-size: 11px; }
+.points-command-flow .pcf-equipment-blocker small { color: var(--pcf-muted); font-size: 10px; line-height: 1.45; }
+
+.points-command-flow .pcf-trace-group + .pcf-trace-group {
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-trace-group h4 {
+  margin: 0 0 8px;
+  color: var(--pcf-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.points-command-flow .pcf-trace-group > p {
+  margin: 0;
+  color: var(--pcf-dim);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.points-command-flow .pcf-trace-group ol {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.points-command-flow .pcf-trace-group li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 9px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-trace-group li:last-child { border-bottom: 0; }
+.points-command-flow .pcf-trace-mark { width: 6px; height: 6px; margin-top: 5px; border: 1px solid var(--pcf-copper); border-radius: 50%; background: transparent; }
+.points-command-flow .pcf-trace-group li.is-desativacao_aprovada .pcf-trace-mark { background: var(--pcf-copper); }
+.points-command-flow .pcf-trace-group li.is-desativacao_rejeitada .pcf-trace-mark { border-color: var(--pcf-warning); background: var(--pcf-warning-wash); }
+.points-command-flow .pcf-trace-group li.is-reativacao .pcf-trace-mark { border-color: var(--pcf-success); background: var(--pcf-success); }
+.points-command-flow .pcf-trace-group li > div { display: grid; gap: 3px; min-width: 0; }
+.points-command-flow .pcf-trace-group li strong { color: var(--pcf-muted); font-size: 10.5px; }
+.points-command-flow .pcf-trace-group li small { color: var(--pcf-dim); font-family: var(--font-data, "JetBrains Mono", monospace); font-size: 8.5px; }
+.points-command-flow .pcf-trace-group li p { margin: 2px 0 0; color: var(--pcf-muted); font-size: 10px; line-height: 1.45; }
+
+.points-command-flow .pcf-trace-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--pcf-danger);
+  font-size: 10px;
+}
+
+.points-command-flow .pcf-trace-error button {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--pcf-border-strong);
+  border-radius: 5px;
+  color: var(--pcf-text);
+  background: var(--pcf-subtle);
+  cursor: pointer;
+}
+
+.points-command-flow .pcf-folio-administration .pcf-dossier-actions {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.points-command-flow .pcf-sensitive-zone {
+  padding: 16px 0 0;
+}
+
+.points-command-flow .pcf-sensitive-zone > header span { color: var(--pcf-warning); }
+.points-command-flow .pcf-sensitive-zone p { margin: 0 0 12px; color: var(--pcf-muted); font-size: 10.5px; line-height: 1.5; }
+.points-command-flow .pcf-sensitive-zone .pcf-button { width: 100%; min-height: 44px; }
+
+@media (max-width: 1360px) {
+  .points-command-flow .pcf-operations-ledger .pcf-master-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .points-command-flow .pcf-master-pane[aria-hidden="true"] {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .points-command-flow .pcf-operations-folio {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 621;
+    width: min(470px, 100vw);
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 0 22px 24px 25px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-block: 0;
+    border-right: 0;
+    border-radius: 10px 0 0 10px;
+    box-shadow: var(--pcf-shadow);
+    animation: pcf-dossier-side-in 180ms ease-out both;
+  }
+
+  .points-command-flow .pcf-operations-folio .pcf-dossier-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--pcf-raised);
+  }
+
+  .points-command-flow .pcf-dossier--empty { display: none; }
+
+  .points-command-flow .pcf-dossier-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 620;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: var(--surface-overlay, rgba(4, 6, 5, 0.68));
+    cursor: default;
+    animation: pcf-dossier-backdrop-in 160ms ease-out both;
+  }
+
+  .points-command-flow .pcf-operations-folio .pcf-dossier-close { display: grid; }
+  .points-command-flow .pcf-operations-folio .pcf-dossier-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .points-command-flow .pcf-operations-ledger .pcf-ledger-columns { display: none; }
+
+  .points-command-flow .pcf-ops-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(90px, 0.55fr) auto;
+    grid-template-areas:
+      "identity identity state"
+      "services equipment admin";
+    row-gap: 9px;
+  }
+
+  .points-command-flow .pcf-operations-ledger .pcf-record { min-height: 104px; }
+  .points-command-flow .pcf-record-admin { align-self: stretch; justify-content: center; }
+}
+
+@media (max-width: 680px) {
+  .points-command-flow .pcf-command-actions > .pcf-pending-summary + .pcf-button--primary {
+    grid-column: 1 / -1;
+  }
+
+  .points-command-flow .pcf-operations-ledger .pcf-filter-command .so-filter-bar__primary {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .points-command-flow .pcf-operations-ledger .pcf-filter-command .so-filter-bar__secondary-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .points-command-flow .pcf-network-register {
+    margin-inline: -10px;
+    padding-left: 10px;
+  }
+
+  .points-command-flow .pcf-network-register > * { min-width: 116px; }
+
+  .points-command-flow .pcf-route-chapter > header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
+    padding: 8px 11px;
+  }
+
+  .points-command-flow .pcf-route-chapter > header p {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .points-command-flow .pcf-ops-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "identity state"
+      "services equipment"
+      "admin admin";
+    gap: 8px 12px;
+  }
+
+  .points-command-flow .pcf-operations-ledger .pcf-record {
+    min-height: 118px;
+    padding: 12px;
+  }
+
+  .points-command-flow .pcf-record-admin {
+    padding-top: 7px;
+    border-top: 1px solid var(--pcf-border);
+  }
+
+  .points-command-flow .pcf-record-admin:empty { display: none; }
+
+  .points-command-flow .pcf-operations-folio {
+    inset: auto 0 0;
+    width: 100%;
+    height: auto;
+    max-height: min(88dvh, 760px);
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom)) 19px;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 12px 12px 0 0;
+    animation: pcf-dossier-sheet-in 180ms ease-out both;
+  }
+
+  .points-command-flow .pcf-operations-folio .pcf-dossier-header { min-height: 82px; }
+  .points-command-flow .pcf-folio-identity,
+  .points-command-flow .pcf-folio-facts,
+  .points-command-flow .pcf-operations-folio .pcf-dossier-actions { grid-template-columns: minmax(0, 1fr); }
+  .points-command-flow .pcf-folio-identity > div + div { padding-left: 0; border-top: 1px solid var(--pcf-border); border-left: 0; }
+  .points-command-flow .pcf-operations-folio .pcf-dossier-actions .pcf-button { justify-content: center; }
 }
 
 @keyframes pcf-dossier-sheet-in {

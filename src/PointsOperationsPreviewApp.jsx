@@ -1,0 +1,91 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AbaPontos } from "./PointsPage.jsx";
+import { OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
+import "./App.css";
+import "./styles/foundations.css";
+import "./styles/command-flow.css";
+
+const ROTAS_PREVIEW = ["Central/Uibai", "Jussara", "Lapão", "Mirorós", "Ibititá", "América Dourada"];
+const NOMES_PREVIEW = ["Vale Azul", "Posto Central", "Jardim Imperial", "Estação Norte", "Mercado das Flores", "Parque do Sol", "Vila Serena", "Nova Esperança", "Portal do Sertão", "Praça da Matriz"];
+
+const PONTOS_PREVIEW = Object.freeze(Array.from({ length: 42 }, (_, index) => ({
+  id: index + 1,
+  nomeFantasia: `${NOMES_PREVIEW[index % NOMES_PREVIEW.length]} ${String(Math.floor(index / NOMES_PREVIEW.length) + 1).padStart(2, "0")}`,
+  nomeDono: ["Caio Nobre", "Lívia Andrade", "Rafael Lima", "Bruna Moraes"][index % 4],
+  telefone: `(74) 9${String(8200 + index).padStart(4, "0")}-${String(1100 + index).padStart(4, "0")}`,
+  gerente: ROTAS_PREVIEW[index % ROTAS_PREVIEW.length],
+  modalidades: ["Viapix", "90 da Sorte", ...(index % 3 === 0 ? ["Play Bet"] : []), ...(index % 4 === 0 ? ["Lotobanca"] : [])],
+  possuiDespesa: index % 4 === 0 ? "nao" : "sim",
+  valorDespesa: index % 4 === 0 ? 0 : 320 + index * 17,
+  observacao: index % 7 === 0 ? "Unidade com acompanhamento operacional reforçado nesta competência." : "",
+  situacaoOperacional: index % 13 === 0 ? "desativado" : "ativo",
+  versaoOperacional: 1 + (index % 3),
+})));
+
+const EQUIPAMENTOS_PREVIEW = Object.freeze(PONTOS_PREVIEW.flatMap((ponto, index) => index % 5 === 0 ? [] : Array.from({ length: 1 + (index % 3) }, (_, equipmentIndex) => ({
+  id: `point-equipment-${ponto.id}-${equipmentIndex}`,
+  nome: ["Terminal Delta", "Impressora Epson", "Tablet Samsung"][equipmentIndex],
+  categoria: ["Terminais", "Impressoras", "Tablets"][equipmentIndex],
+  patrimonio: `NP-${String(ponto.id * 10 + equipmentIndex).padStart(4, "0")}`,
+  status: "Em rota",
+  localizacao: ponto.nomeFantasia,
+}))));
+
+const SOLICITACOES_STATUS_PREVIEW = Object.freeze([
+  { id: "status-local-1", pontoId: 2, pontoNome: PONTOS_PREVIEW[1].nomeFantasia, status: "pendente", solicitadoEm: "2026-08-28T14:20:00-03:00" },
+  { id: "status-local-2", pontoId: 6, pontoNome: PONTOS_PREVIEW[5].nomeFantasia, status: "pendente", solicitadoEm: "2026-08-27T09:40:00-03:00" },
+]);
+
+const HISTORICO_PREVIEW = Object.freeze(PONTOS_PREVIEW.slice(0, 8).map((ponto, index) => ({
+  id: `legacy-${index}`,
+  tipo: index % 2 ? "edicao" : "cadastro",
+  nome: ponto.nomeFantasia,
+  observacao: index % 2 ? "Contato operacional atualizado" : "Ponto cadastrado",
+  data: "28/08/2026 11:30",
+})));
+
+const ACESSOS_PREVIEW = Object.freeze(PONTOS_PREVIEW.slice(0, 9).map((ponto, index) => ({ id: `access-${index}`, pontoId: ponto.id })));
+
+async function carregarCicloPreview(pontoId) {
+  return [
+    { id: `cycle-${pontoId}-1`, pontoId, acao: "desativacao_rejeitada", motivo: "Operação mantida após revisão administrativa da solicitação.", perfil: "administrador", criadoEm: "2026-08-28T16:30:00-03:00" },
+    { id: `cycle-${pontoId}-2`, pontoId, acao: "reativacao", motivo: "Unidade liberada para retornar à rede operacional.", perfil: "administrador", criadoEm: "2026-07-18T10:15:00-03:00" },
+  ];
+}
+
+export default function PointsOperationsPreviewApp() {
+  const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
+  const [light,setLight]=useState(params.get("theme")!=="dark");
+  const [busca,setBusca]=useState("");
+  const [filtroDespesa,setFiltroDespesa]=useState("todos");
+  const [notice,setNotice]=useState("Prévia local segura · nenhuma ação grava dados.");
+  const mainRef=useRef(null);
+
+  useEffect(()=>{
+    const next=new URL(window.location.href);
+    next.searchParams.set("preview","pontos");
+    next.searchParams.set("theme",light?"light":"dark");
+    window.history.replaceState(null,"",next);
+  },[light]);
+
+  const simular=mensagem=>setNotice(mensagem);
+
+  return <div className={`app operations-shell command-flow-shell points-preview-shell${light?" tema-claro":""}`}>
+    <aside className="sidebar points-preview-sidebar">
+      <div className="sidebar-logo"><span className="points-preview-mark">N</span><strong className="sidebar-brand-name">NEPTERA</strong></div>
+      <nav className="sidebar-nav" aria-label="Prévia de Pontos"><span className="nav-section-label">Checkpoint visual</span><button type="button" className="nav-item active" aria-current="page"><OperationIcon name="mapPin"/>Pontos</button></nav>
+      <div className="sidebar-footer"><button type="button" className="sidebar-utility sidebar-utility-theme" onClick={()=>setLight(valor=>!valor)} aria-pressed={light}><span>{light?"Tema claro":"Tema escuro"}</span><span className={`tema-toggle ${light?"ativo":""}`}/></button><small className="sidebar-version">Fixture local · zero escrita</small></div>
+    </aside>
+    <main className="main" ref={mainRef} tabIndex={-1} onKeyDown={handleMainScrollKey}>
+      <div className="points-page points-command-flow operations-theme">
+        <header className="pcf-command-header">
+          <div className="pcf-command-title"><div><h1>Pontos</h1><span className="pcf-command-context">42 na rede · competência 08/2026</span></div></div>
+          <div className="pcf-command-actions"><span className="pcf-pending-summary"><OperationIcon name="warning" size={15}/>2 na fila administrativa</span><button type="button" className="pcf-button pcf-button--primary" onClick={()=>simular("Cadastro simulado; nenhum dado foi gravado.")}><OperationIcon name="plus"/>Novo ponto</button></div>
+        </header>
+        <div className="points-preview-notice" role="status">{notice}</div>
+        <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={EQUIPAMENTOS_PREVIEW} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={SOLICITACOES_STATUS_PREVIEW} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>simular("Conferência de despesas simulada.")} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeReativar mostrarDespesas/>
+      </div>
+    </main>
+  </div>;
+}

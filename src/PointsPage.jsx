@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   GERENTES, MODALIDADES, ROTAS, ROTAS_POR_GERENTE,
   formatarReais, parseMoeda, agoraStr, pontoFormVazio, validarPonto,
@@ -10,6 +11,7 @@ import {
   carregarProrrogacoesDespesas,
   carregarSolicitacoesModalidade, criarSolicitacaoModalidade, concluirSolicitacaoModalidade,
   carregarSolicitacoesStatusPonto, solicitarDesativacaoPonto, decidirDesativacaoPonto, reativarPonto,
+  carregarHistoricoStatusPonto,
   carregarPontoModalidadeAcessos, salvarPontoModalidadeAcessos,
 } from "./db.js";
 import { EmptyState, FilterBar, Modal as OperationModal, OperationIcon, Pagination, StatusBadge } from "./components/operations/OperationsUI.jsx";
@@ -17,6 +19,27 @@ import { acquireMainScrollLock } from "./components/operations/mainScrollLock.js
 import { exportarCsvSeguro } from "./csvExport.js";
 import { expenseBelongsToManager, isManagerExpense } from "./expenseScope.js";
 import "./PointsCommandFlow.css";
+
+const PONTOS_DOSSIE_SHEET_QUERY = "(max-width: 1360px)";
+
+const ROTULOS_CICLO_PONTO = {
+  desativacao_aprovada: "Desativação aprovada",
+  desativacao_rejeitada: "Solicitação rejeitada",
+  reativacao: "Ponto reativado",
+};
+
+function formatarDataOperacional(valor) {
+  if (!valor) return "Data não informada";
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return "Data não informada";
+  return data.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
+
+function PontosDossiePortal({ ativo, children }) {
+  if (!ativo || typeof document === "undefined") return <>{children}</>;
+  const destino = document.querySelector(".app") || document.body;
+  return createPortal(<div className="points-command-flow pcf-dossier-portal">{children}</div>, destino);
+}
 
 const partesDataLocal=()=>{
   const d = new Date();
@@ -685,103 +708,137 @@ function PointExpensesModal({ pontos, despesas = [], competenciaInicial = compet
 }
 
 // ─── ABA: Visão Geral ─────────────────────────────────────────────────────────
-function AbaVisaoGeral({ pontos, despesas = [], competencia = competenciaAtual(), onVerDespesas, onAbrirPontos, mostrarDespesas=true }) {
-  const totalPontos   = pontos.length;
-  const comDespesa    = pontos.filter(p=>p.possuiDespesa==="sim").length;
-  const semDespesa    = pontos.filter(p=>p.possuiDespesa==="nao").length;
-  const ativos        = pontos.filter(p=>p.situacaoOperacional!=="desativado").length;
-  const desativados   = totalPontos-ativos;
-  const totalPontosDespesas = pontos.reduce((s,p)=>s+(p.valorDespesa||0),0);
-  const totalGerentesDespesas = despesas
-    .filter(d=>isManagerExpense(d)&&String(d.competencia||"").slice(0,7)===competencia)
-    .reduce((s,d)=>s+valorDespesa(d),0);
-  const totalDespesas = totalPontosDespesas+totalGerentesDespesas;
+export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], competencia=competenciaAtual(), mostrarDespesas=true, onMostrarTodos, onFiltrarSituacao, onFiltrarVinculo, onFiltrarDespesa, onVerDespesas }) {
+  const totalPontos=pontos.length;
+  const ativos=pontos.filter(p=>p.situacaoOperacional!=="desativado").length;
+  const desativados=totalPontos-ativos;
+  const comEquipamento=pontos.filter(p=>equipamentos.some(i=>i.localizacao===p.nomeFantasia)).length;
+  const semEquipamento=totalPontos-comEquipamento;
+  const semDespesa=pontos.filter(p=>p.possuiDespesa!=="sim").length;
+  const idsPontos=new Set(pontos.map(p=>Number(p.id)));
+  const pendencias=solicitacoesStatus.filter(s=>s.status==="pendente"&&idsPontos.has(Number(s.pontoId))).length;
+  const totalDespesas=pontos.reduce((s,p)=>s+Number(p.valorDespesa||0),0);
 
-  return (
-    <section className="pcf-overview pcf-network-pulse" aria-label="Posição atual da rede">
-      <div className="pcf-pulse-context">
-        <span>Rede agora</span>
-        <small><OperationIcon name="clock" size={13}/>{mesLabel(`${competencia}-01`)}</small>
-      </div>
-      <button type="button" className="is-primary" onClick={()=>onAbrirPontos("todos")}>
-        <strong>{totalPontos}</strong><span>Pontos</span><small>{ativos} ativos · {desativados} desativados</small>
-      </button>
-      {mostrarDespesas&&<>
-        <button type="button" onClick={()=>onAbrirPontos("nao")}>
-          <strong>{semDespesa}</strong><span>Sem despesa</span><small>Exigem conferência</small>
-        </button>
-        <button type="button" onClick={()=>onAbrirPontos("sim")}>
-          <strong>{comDespesa}</strong><span>Com despesa</span><small>{formatarReais(totalPontosDespesas)}</small>
-        </button>
-        <button type="button" className="pcf-pulse-finance" onClick={onVerDespesas}>
-          <strong>{formatarReais(totalDespesas)}</strong><span>Total da competência</span><small>{formatarReais(totalGerentesDespesas)} em gerentes</small>
-        </button>
-      </>}
-    </section>
-  );
+  return <section className="pcf-overview pcf-network-register" aria-label="Leitura atual da rede">
+    <div className="pcf-register-context"><span>Rede agora</span><small><OperationIcon name="clock" size={13}/>{mesLabel(`${competencia}-01`)}</small></div>
+    <button type="button" className="is-primary" onClick={onMostrarTodos}><strong>{totalPontos}</strong><span>Pontos</span></button>
+    <button type="button" onClick={()=>onFiltrarSituacao("ativo")}><strong>{ativos}</strong><span>Ativos</span></button>
+    <button type="button" onClick={()=>onFiltrarSituacao("desativado")}><strong>{desativados}</strong><span>Desativados</span></button>
+    <button type="button" onClick={()=>onFiltrarVinculo("com")}><strong>{comEquipamento}</strong><span>Com equipamento</span></button>
+    <button type="button" onClick={()=>onFiltrarVinculo("sem")}><strong>{semEquipamento}</strong><span>Sem equipamento</span></button>
+    {mostrarDespesas&&<button type="button" onClick={()=>onFiltrarDespesa("nao")}><strong>{semDespesa}</strong><span>Sem despesa</span></button>}
+    <div className={`pcf-network-stat ${pendencias>0?"is-warning":""}`}><strong>{pendencias}</strong><span>Pendências</span></div>
+    {mostrarDespesas&&<button type="button" className="pcf-register-finance" onClick={onVerDespesas}><strong>{formatarReais(totalDespesas)}</strong><span>Na competência</span></button>}
+  </section>;
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onExportExcel, onExportPDF, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
-  const [filtroGerente, setFiltroGerente] = useState("Todos");
-  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
-  const [pagina, setPagina] = useState(1);
-  const [pontoSelecionadoId, setPontoSelecionadoId] = useState(null);
-  const [dossieEmSheet, setDossieEmSheet] = useState(()=>typeof window!=="undefined"&&window.matchMedia?.("(max-width: 1024px)").matches);
-  const dossieRef = useRef(null);
-  const focoAntesDossieRef = useRef(null);
+export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], competencia=competenciaAtual(), busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onVerDespesas, onExportExcel, onExportPDF, onCarregarHistoricoFormal=carregarHistoricoStatusPonto, podeVerHistoricoFormal=true, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
+  const [filtroGerente,setFiltroGerente]=useState("Todos");
+  const [filtroSituacao,setFiltroSituacao]=useState("todos");
+  const [filtroVinculo,setFiltroVinculo]=useState("todos");
+  const [filtrosAbertos,setFiltrosAbertos]=useState(false);
+  const [pagina,setPagina]=useState(1);
+  const [pontoSelecionadoId,setPontoSelecionadoId]=useState(null);
+  const [dossieEmSheet,setDossieEmSheet]=useState(()=>typeof window!=="undefined"&&window.matchMedia?.(PONTOS_DOSSIE_SHEET_QUERY).matches);
+  const [historicoFormal,setHistoricoFormal]=useState({pontoId:null,status:"idle",itens:[],erro:""});
+  const [tentativaHistoricoFormal,setTentativaHistoricoFormal]=useState(0);
+  const dossieRef=useRef(null);
+  const focoAntesDossieRef=useRef(null);
+  const historicoFormalCacheRef=useRef(new Map());
+  const historicoFormalPendentesRef=useRef(new Map());
+  const historicoFormalRequestRef=useRef(0);
   const POR_PAGINA=25;
-  const filtrados = pontos.filter(p=>{
-    const q=busca.toLowerCase();
-    const vinculados=equipamentos.filter(i=>i.localizacao===p.nomeFantasia);
-    const mB=!busca||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),...vinculados.map(i=>i.nome)].some(f=>(f||"").toLowerCase().includes(q));
+
+  const dadosOperacionais=ponto=>{
+    const vinculados=equipamentos.filter(i=>i.localizacao===ponto.nomeFantasia);
+    const bloqueadas=modalidadesBloqueadasDoPonto(ponto,solicitacoes);
+    const totalAcessos=acessosDoPonto(acessos,ponto.id).length;
+    const desativado=ponto.situacaoOperacional==="desativado";
+    const desativacaoPendente=solicitacoesStatus.some(s=>Number(s.pontoId)===Number(ponto.id)&&s.status==="pendente");
+    const nomeNormalizado=String(ponto.nomeFantasia||"").trim().toLocaleLowerCase("pt-BR");
+    const rastros=historico.filter(item=>String(item.nome||"").trim().toLocaleLowerCase("pt-BR")===nomeNormalizado).slice(0,4);
+    return {vinculados,bloqueadas,totalAcessos,desativado,desativacaoPendente,rastros};
+  };
+  const filtrados=pontos.filter(p=>{
+    const q=String(busca||"").toLocaleLowerCase("pt-BR");
+    const dados=dadosOperacionais(p);
+    const mB=!q||[p.nomeFantasia,p.nomeDono,p.telefone,p.gerente,rotaCanonica(p.gerente),gerenteDaRota(p.gerente),...dados.vinculados.map(i=>i.nome)].some(f=>String(f||"").toLocaleLowerCase("pt-BR").includes(q));
     const mD=!mostrarDespesas||filtroDespesa==="todos"||p.possuiDespesa===filtroDespesa;
-    return mB&&mD&&(filtroGerente==="Todos"||rotaCanonica(p.gerente)===filtroGerente);
+    const mR=filtroGerente==="Todos"||rotaCanonica(p.gerente)===filtroGerente;
+    const mS=filtroSituacao==="todos"||(filtroSituacao==="desativado"?dados.desativado:!dados.desativado);
+    const mV=filtroVinculo==="todos"||(filtroVinculo==="com"?dados.vinculados.length>0:dados.vinculados.length===0);
+    return mB&&mD&&mR&&mS&&mV;
   });
   const ordenados=[...filtrados].sort((a,b)=>rotaCanonica(a.gerente).localeCompare(rotaCanonica(b.gerente),"pt-BR")||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
   const totalPaginas=Math.max(1,Math.ceil(ordenados.length/POR_PAGINA));
   const paginaAtual=Math.min(pagina,totalPaginas);
   const visiveis=ordenados.slice((paginaAtual-1)*POR_PAGINA,paginaAtual*POR_PAGINA);
-  useEffect(()=>setPagina(1),[busca,filtroGerente,filtroDespesa]);
+  const capitulos=visiveis.reduce((grupos,ponto)=>{
+    const rota=rotaCanonica(ponto.gerente)||"Sem rota";
+    const atual=grupos[grupos.length-1];
+    if(!atual||atual.rota!==rota)grupos.push({rota,pontos:[ponto]});
+    else atual.pontos.push(ponto);
+    return grupos;
+  },[]);
+  const pontoSelecionado=visiveis.find(p=>Number(p.id)===Number(pontoSelecionadoId))||null;
+  const pontoSelecionadoAtivoId=pontoSelecionado?.id??null;
+  const selecionado=pontoSelecionado?dadosOperacionais(pontoSelecionado):null;
+  const dossieModalAberto=dossieEmSheet&&Boolean(pontoSelecionadoAtivoId);
+  const filtrosAtivos=(filtroGerente!=="Todos"?1:0)+(filtroSituacao!=="todos"?1:0)+(filtroVinculo!=="todos"?1:0)+(mostrarDespesas&&filtroDespesa!=="todos"?1:0);
+  const revisaoHistoricoFormal=pontoSelecionado?[pontoSelecionado.versaoOperacional||0,...solicitacoesStatus.filter(item=>Number(item.pontoId)===Number(pontoSelecionado.id)).map(item=>`${item.id}:${item.status}:${item.decididoEm||""}`).sort()].join("|"):"";
+
+  useEffect(()=>setPagina(1),[busca,filtroGerente,filtroDespesa,filtroSituacao,filtroVinculo]);
   useEffect(()=>{
     if(typeof window==="undefined"||!window.matchMedia)return undefined;
-    const consulta=window.matchMedia("(max-width: 1024px)");
+    const consulta=window.matchMedia(PONTOS_DOSSIE_SHEET_QUERY);
     const atualizar=()=>setDossieEmSheet(consulta.matches);
     atualizar();
     consulta.addEventListener?.("change",atualizar);
     return()=>consulta.removeEventListener?.("change",atualizar);
   },[]);
-  const dadosOperacionais = ponto => {
-    const vinculados=equipamentos.filter(i=>i.localizacao===ponto.nomeFantasia);
-    const bloqueadas=modalidadesBloqueadasDoPonto(ponto, solicitacoes);
-    const totalAcessos=acessosDoPonto(acessos, ponto.id).length;
-    const desativado=ponto.situacaoOperacional==="desativado";
-    const desativacaoPendente=solicitacoesStatus.some(s=>Number(s.pontoId)===Number(ponto.id)&&s.status==="pendente");
-    const nomeNormalizado=String(ponto.nomeFantasia||"").trim().toLocaleLowerCase("pt-BR");
-    const rastros=historico.filter(item=>String(item.nome||"").trim().toLocaleLowerCase("pt-BR")===nomeNormalizado).slice(0,4);
-    return { vinculados, bloqueadas, totalAcessos, desativado, desativacaoPendente, rastros };
-  };
-  const pontoSelecionado=visiveis.find(p=>Number(p.id)===Number(pontoSelecionadoId))||null;
-  const selecionado=pontoSelecionado?dadosOperacionais(pontoSelecionado):null;
-  const filtrosAtivos=(filtroGerente!=="Todos"?1:0)+(mostrarDespesas&&filtroDespesa!=="todos"?1:0);
-  const limparFiltrosSecundarios=()=>{
-    setFiltroGerente("Todos");
-    onLimparFiltro();
-  };
-  const limparTudo=()=>{
-    onLimparBusca();
-    limparFiltrosSecundarios();
-  };
-  const chipsFiltros=filtrosAtivos>0?<>
-    {filtroGerente!=="Todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroGerente("Todos")} aria-label={`Remover filtro de rota ${filtroGerente}`}>Rota: {filtroGerente}<OperationIcon name="close" size={13}/></button>}
-    {mostrarDespesas&&filtroDespesa!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={onLimparFiltro} aria-label="Remover filtro de despesa">{filtroDespesa==="sim"?"Com despesa":"Sem despesa"}<OperationIcon name="close" size={13}/></button>}
-  </>:null;
+  useEffect(()=>{
+    if(pontoSelecionadoId!==null&&pontoSelecionadoAtivoId===null)setPontoSelecionadoId(null);
+  },[pontoSelecionadoId,pontoSelecionadoAtivoId]);
 
   useEffect(()=>{
-    if(!pontoSelecionadoId||!dossieEmSheet)return undefined;
+    if(!pontoSelecionadoAtivoId||!podeVerHistoricoFormal){
+      historicoFormalRequestRef.current+=1;
+      setHistoricoFormal({pontoId:null,status:"idle",itens:[],erro:""});
+      return undefined;
+    }
+    const pontoId=Number(pontoSelecionadoAtivoId);
+    const token=++historicoFormalRequestRef.current;
+    const emCache=historicoFormalCacheRef.current.get(pontoId);
+    if(emCache?.revisao===revisaoHistoricoFormal){
+      setHistoricoFormal({pontoId,status:"ready",itens:emCache.itens,erro:""});
+      return undefined;
+    }
+    setHistoricoFormal({pontoId,status:"loading",itens:[],erro:""});
+    const chave=`${pontoId}:${revisaoHistoricoFormal}`;
+    let pendente=historicoFormalPendentesRef.current.get(chave);
+    if(!pendente){
+      pendente=Promise.resolve(onCarregarHistoricoFormal(pontoId)).then(itens=>{
+        const lista=Array.isArray(itens)?itens:[];
+        historicoFormalCacheRef.current.set(pontoId,{revisao:revisaoHistoricoFormal,itens:lista});
+        return lista;
+      }).finally(()=>historicoFormalPendentesRef.current.delete(chave));
+      historicoFormalPendentesRef.current.set(chave,pendente);
+    }
+    pendente.then(itens=>{
+      if(token===historicoFormalRequestRef.current)setHistoricoFormal({pontoId,status:"ready",itens,erro:""});
+    }).catch(erro=>{
+      console.error("Erro ao carregar ciclo operacional do ponto:",erro);
+      if(token===historicoFormalRequestRef.current)setHistoricoFormal({pontoId,status:"error",itens:[],erro:"Não foi possível carregar o ciclo operacional."});
+    });
+    return()=>{if(token===historicoFormalRequestRef.current)historicoFormalRequestRef.current+=1;};
+  },[pontoSelecionadoAtivoId,podeVerHistoricoFormal,revisaoHistoricoFormal,tentativaHistoricoFormal,onCarregarHistoricoFormal]);
+
+  useEffect(()=>{
+    if(!pontoSelecionadoAtivoId||!dossieEmSheet)return undefined;
     const painel=dossieRef.current;
     if(!painel)return undefined;
-    const trigger=focoAntesDossieRef.current||document.querySelector(`[data-ponto-id="${pontoSelecionadoId}"]`);
+    const trigger=focoAntesDossieRef.current||document.querySelector(`[data-ponto-id="${pontoSelecionadoAtivoId}"]`);
     const seletor='button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const focaveis=()=>Array.from(painel.querySelectorAll(seletor)).filter(elemento=>elemento.getClientRects().length>0);
     const liberarScroll=acquireMainScrollLock();
@@ -811,10 +868,15 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
       document.removeEventListener("keydown",controlarTeclado);
       liberarScroll();
       focoAntesDossieRef.current=null;
-      if(trigger?.isConnected)window.requestAnimationFrame(()=>trigger.focus({preventScroll:true}));
+      const destino=trigger?.isConnected?trigger:document.querySelector("#pcf-point-search-input");
+      if(destino instanceof HTMLElement)window.requestAnimationFrame(()=>destino.focus({preventScroll:true}));
     };
-  },[dossieEmSheet,pontoSelecionadoId]);
+  },[dossieEmSheet,pontoSelecionadoAtivoId]);
+
+  const limparFiltrosSecundarios=()=>{setFiltroGerente("Todos");setFiltroSituacao("todos");setFiltroVinculo("todos");onLimparFiltro();};
+  const limparTudo=()=>{onLimparBusca();limparFiltrosSecundarios();};
   function selecionarPonto(ponto,gatilho){
+    setFiltrosAbertos(false);
     if(dossieEmSheet)focoAntesDossieRef.current=gatilho instanceof HTMLElement?gatilho:document.activeElement;
     setPontoSelecionadoId(ponto.id);
   }
@@ -824,174 +886,76 @@ function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoe
     const gatilho=focoAntesDossieRef.current;
     focoAntesDossieRef.current=null;
     setPontoSelecionadoId(null);
-    window.requestAnimationFrame(()=>{
-      if(gatilho instanceof HTMLElement&&gatilho.isConnected)gatilho.focus({preventScroll:true});
-      acao();
-    });
+    window.requestAnimationFrame(()=>{if(gatilho instanceof HTMLElement&&gatilho.isConnected)gatilho.focus({preventScroll:true});acao();});
   }
+  const chipsFiltros=filtrosAtivos>0?<>
+    {filtroGerente!=="Todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroGerente("Todos")} aria-label={`Remover filtro de rota ${filtroGerente}`}>Rota: {filtroGerente}<OperationIcon name="close" size={13}/></button>}
+    {filtroSituacao!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroSituacao("todos")} aria-label="Remover filtro de situação">{filtroSituacao==="ativo"?"Ativos":"Desativados"}<OperationIcon name="close" size={13}/></button>}
+    {filtroVinculo!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroVinculo("todos")} aria-label="Remover filtro de vínculo">{filtroVinculo==="com"?"Com equipamento":"Sem equipamento"}<OperationIcon name="close" size={13}/></button>}
+    {mostrarDespesas&&filtroDespesa!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={onLimparFiltro} aria-label="Remover filtro de despesa">{filtroDespesa==="sim"?"Com despesa":"Sem despesa"}<OperationIcon name="close" size={13}/></button>}
+  </>:null;
 
-  return (
-    <section className="pcf-workbench" aria-labelledby="pcf-ledger-title">
-      <FilterBar
-        className="pcf-filter-command"
-        ariaHidden={dossieEmSheet&&pontoSelecionado?"true":undefined}
-        inert={dossieEmSheet&&pontoSelecionado?true:undefined}
-        title={null}
-        ariaLabel="Busca e filtros da rede de pontos"
-        primary={<div className="pcf-command-search">
-          <label className="pcf-visually-hidden" htmlFor="pcf-point-search-input">Buscar pontos</label>
-          <OperationIcon name="search" size={17}/>
-          <input
-            id="pcf-point-search-input"
-            type="search"
-            placeholder="Buscar ponto, responsável, telefone, rota ou equipamento"
-            value={busca}
-            onChange={e=>onBuscaChange(e.target.value)}
-          />
-          {busca&&<button type="button" onClick={onLimparBusca} aria-label="Limpar busca"><OperationIcon name="close" size={15}/></button>}
-        </div>}
-        secondary={<>
-          <label className="pcf-select-control">
-            <span>Rota</span>
-            <select value={filtroGerente} onChange={e=>setFiltroGerente(e.target.value)}>
-              <option value="Todos">Todas as rotas</option>
-              {ROTAS.map(r=><option key={r} value={r}>{r}</option>)}
-            </select>
-          </label>
-          {mostrarDespesas&&<label className="pcf-select-control">
-            <span>Despesa na competência</span>
-            <select value={filtroDespesa} onChange={e=>onFiltroDespesaChange(e.target.value)}>
-              <option value="todos">Todas as situações</option>
-              <option value="sim">Com despesa</option>
-              <option value="nao">Sem despesa</option>
-            </select>
-          </label>}
-        </>}
-        activeCount={filtrosAtivos}
-        secondaryOpen={filtrosAbertos}
-        onSecondaryToggle={setFiltrosAbertos}
-        secondaryLabel="Filtros"
-        onClear={limparFiltrosSecundarios}
-        clearLabel="Limpar filtros"
-        chips={chipsFiltros}
-      />
+  return <section className="pcf-workbench pcf-operations-ledger" aria-labelledby="pcf-ledger-title">
+    <FilterBar className="pcf-filter-command" ariaHidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined} title={null} ariaLabel="Busca e filtros da rede de pontos"
+      primary={<div className="pcf-command-search"><label className="pcf-visually-hidden" htmlFor="pcf-point-search-input">Buscar pontos</label><OperationIcon name="search" size={17}/><input id="pcf-point-search-input" type="search" placeholder="Buscar ponto, responsável, telefone, rota ou equipamento" value={busca} onChange={e=>onBuscaChange(e.target.value)}/>{busca&&<button type="button" onClick={onLimparBusca} aria-label="Limpar busca"><OperationIcon name="close" size={15}/></button>}</div>}
+      secondary={<>
+        <label className="pcf-select-control"><span>Rota</span><select value={filtroGerente} onChange={e=>setFiltroGerente(e.target.value)}><option value="Todos">Todas as rotas</option>{ROTAS.map(r=><option key={r} value={r}>{r}</option>)}</select></label>
+        <label className="pcf-select-control"><span>Situação</span><select value={filtroSituacao} onChange={e=>setFiltroSituacao(e.target.value)}><option value="todos">Ativos e desativados</option><option value="ativo">Somente ativos</option><option value="desativado">Somente desativados</option></select></label>
+        <label className="pcf-select-control"><span>Equipamentos</span><select value={filtroVinculo} onChange={e=>setFiltroVinculo(e.target.value)}><option value="todos">Com e sem vínculo</option><option value="com">Com equipamento</option><option value="sem">Sem equipamento</option></select></label>
+        {mostrarDespesas&&<label className="pcf-select-control"><span>Despesa na competência</span><select value={filtroDespesa} onChange={e=>onFiltroDespesaChange(e.target.value)}><option value="todos">Todas as situações</option><option value="sim">Com despesa</option><option value="nao">Sem despesa</option></select></label>}
+      </>}
+      activeCount={filtrosAtivos} secondaryOpen={filtrosAbertos} onSecondaryToggle={setFiltrosAbertos} secondaryLabel="Filtros" onClear={limparFiltrosSecundarios} clearLabel="Limpar filtros" chips={chipsFiltros}/>
 
-      <header className="pcf-ledger-toolbar" aria-hidden={dossieEmSheet&&pontoSelecionado?"true":undefined} inert={dossieEmSheet&&pontoSelecionado?true:undefined}>
-        <div>
-          <span className="pcf-eyebrow">Rede operacional</span>
-          <h2 id="pcf-ledger-title">Pontos encontrados<span>{filtrados.length}</span></h2>
-        </div>
-        <div className="pcf-ledger-tools">
-          <button type="button" className="pcf-icon-action" onClick={onExportExcel} aria-label="Exportar pontos em CSV" title="Exportar CSV"><OperationIcon name="file"/></button>
-          <button type="button" className="pcf-icon-action" onClick={onExportPDF} aria-label="Exportar pontos em PDF" title="Exportar PDF"><OperationIcon name="receipt"/></button>
-        </div>
-      </header>
+    <div aria-hidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined}>
+      <AbaVisaoGeral pontos={pontos} equipamentos={equipamentos} solicitacoesStatus={solicitacoesStatus} competencia={competencia} mostrarDespesas={mostrarDespesas} onMostrarTodos={limparFiltrosSecundarios} onFiltrarSituacao={setFiltroSituacao} onFiltrarVinculo={setFiltroVinculo} onFiltrarDespesa={onFiltroDespesaChange} onVerDespesas={onVerDespesas}/>
+    </div>
 
-      {filtrados.length===0 ? (
-        <EmptyState
-          className="pcf-empty"
-          icon="search"
-          title="Nenhum ponto encontrado"
-          description="Revise a busca ou os filtros para voltar à rede."
-          action={(busca||filtrosAtivos>0)?<button type="button" className="pcf-button pcf-button--secondary" onClick={limparTudo}>Limpar busca e filtros</button>:null}
-        />
-      ) : (
-        <div className="pcf-master-detail">
-          <div className="pcf-master-pane" inert={dossieEmSheet&&pontoSelecionado?true:undefined} aria-hidden={dossieEmSheet&&pontoSelecionado?"true":undefined}>
-            <div className={`pcf-ledger-columns ${mostrarDespesas?"has-expense":""}`} aria-hidden="true">
-              <span>Ponto / responsável</span><span>Rota</span><span>Serviços</span><span>Equip.</span>{mostrarDespesas&&<span>Despesa</span>}<span>Situação</span>
-            </div>
-            <div className="pcf-records" aria-label="Pontos encontrados">
-              {visiveis.map(p=>{
-                const dados=dadosOperacionais(p);
-                const selecionadoAtual=Number(pontoSelecionado?.id)===Number(p.id);
-                const modalidadesAtivas=(p.modalidades||[]).filter(m=>!dados.bloqueadas.includes(m));
-                return <button
-                  type="button"
-                  key={p.id}
-                  data-ponto-id={p.id}
-                  className={`pcf-record ${mostrarDespesas?"has-expense":""} ${selecionadoAtual?"is-selected":""} ${dados.desativado?"is-disabled":""}`}
-                  aria-pressed={selecionadoAtual}
-                  aria-haspopup={dossieEmSheet?"dialog":undefined}
-                  onClick={event=>selecionarPonto(p,event.currentTarget)}
-                >
-                  <span className="pcf-record-identity"><strong>{p.nomeFantasia}<PlayBetBadge ponto={p}/></strong><small>{p.nomeDono} · {p.telefone}</small></span>
-                  <span><BadgeGerente gerente={p.gerente}/></span>
-                  <span className="pcf-record-count"><b>{modalidadesAtivas.length}</b><small>{dados.bloqueadas.length?`${dados.bloqueadas.length} bloqueado${dados.bloqueadas.length!==1?"s":""}`:"operando"}</small></span>
-                  <span className="pcf-record-count"><b>{dados.vinculados.length}</b><small>vinculados</small></span>
-                  {mostrarDespesas&&<span className="pcf-record-money">{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"—"}</span>}
-                  <span className="pcf-record-state">
-                    <StatusBadge className={dados.desativado?"ponto-status-desativado":""} tone={dados.desativado?"neutral":dados.desativacaoPendente?"warning":"success"} label={dados.desativado?"Desativado":dados.desativacaoPendente?"Pendente":"Ativo"}/>
-                    <OperationIcon name="chevronRight" size={15}/>
-                  </span>
-                </button>;
-              })}
-            </div>
-            {filtrados.length>POR_PAGINA&&<Pagination page={paginaAtual} totalPages={totalPaginas} totalItems={filtrados.length} itemLabel="pontos" onPageChange={setPagina} className="pcf-pagination"/>}
+    <header className="pcf-ledger-toolbar" aria-hidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined}>
+      <div><span className="pcf-eyebrow">Operations Ledger</span><h2 id="pcf-ledger-title">Registro operacional<span>{filtrados.length}</span></h2></div>
+      <div className="pcf-ledger-tools"><button type="button" className="pcf-icon-action" onClick={()=>onExportExcel(ordenados)} aria-label="Exportar pontos filtrados em CSV" title="Exportar CSV"><OperationIcon name="file"/></button><button type="button" className="pcf-icon-action" onClick={()=>onExportPDF(ordenados)} aria-label="Exportar pontos filtrados em PDF" title="Exportar PDF"><OperationIcon name="receipt"/></button></div>
+    </header>
+
+    {filtrados.length===0?<EmptyState className="pcf-empty" icon="search" title="Nenhum ponto encontrado" description="Revise a busca ou os filtros para voltar à rede." action={(busca||filtrosAtivos>0)?<button type="button" className="pcf-button pcf-button--secondary" onClick={limparTudo}>Limpar busca e filtros</button>:null}/>:
+      <div className="pcf-master-detail">
+        <div className="pcf-master-pane" inert={dossieModalAberto?true:undefined} aria-hidden={dossieModalAberto?"true":undefined}>
+          <div className="pcf-ledger-columns pcf-ops-grid" aria-hidden="true"><span className="pcf-ledger-col--identity">Unidade / responsável</span><span className="pcf-ledger-col--services">Cobertura</span><span className="pcf-ledger-col--equipment">Equipamentos</span><span className="pcf-ledger-col--admin">Administração</span><span className="pcf-ledger-col--state">Situação</span></div>
+          <div className="pcf-records" aria-label="Pontos encontrados">
+            {capitulos.map((capitulo,indice)=>{const capituloId=`pcf-route-${slugArquivo(capitulo.rota)}-${indice}`;return <section className="pcf-route-chapter" aria-labelledby={capituloId} key={`${capitulo.rota}-${indice}`}><header><div><span>Rota</span><h3 id={capituloId}>{capitulo.rota}</h3></div><p>Responsável <strong>{gerenteDaRota(capitulo.rota)||"Não informado"}</strong></p><b>{capitulo.pontos.length} nesta página</b></header><div>{capitulo.pontos.map(p=>{
+              const dados=dadosOperacionais(p);
+              const selecionadoAtual=Number(pontoSelecionado?.id)===Number(p.id);
+              const modalidadesAtivas=(p.modalidades||[]).filter(m=>!dados.bloqueadas.includes(m));
+              return <button type="button" key={p.id} data-ponto-id={p.id} className={`pcf-record pcf-ops-grid ${selecionadoAtual?"is-selected":""} ${dados.desativado?"is-disabled":""} ${dados.desativacaoPendente?"has-pending":""}`} aria-pressed={selecionadoAtual} aria-haspopup={dossieEmSheet?"dialog":undefined} onClick={event=>selecionarPonto(p,event.currentTarget)}>
+                <span className="pcf-record-identity"><strong>{p.nomeFantasia}<PlayBetBadge ponto={p}/></strong><small>{p.nomeDono} · {p.telefone}</small></span>
+                <span className="pcf-record-services pcf-record-count"><b>{modalidadesAtivas.length}</b><small>{dados.bloqueadas.length?`${dados.bloqueadas.length} bloqueada${dados.bloqueadas.length!==1?"s":""}`:"modalidades ativas"}</small></span>
+                <span className="pcf-record-equipment pcf-record-count"><b>{dados.vinculados.length}</b><small>{dados.vinculados.length?"vinculados":"sem vínculo"}</small></span>
+                <span className="pcf-record-admin">{mostrarDespesas&&<strong>{p.possuiDespesa==="sim"?formatarReais(p.valorDespesa):"Sem despesa"}</strong>}{dados.desativacaoPendente&&<small>{dados.vinculados.length?`${dados.vinculados.length} equip. impedem decisão`:"Decisão administrativa pendente"}</small>}</span>
+                <span className="pcf-record-state"><StatusBadge className={dados.desativado?"ponto-status-desativado":""} tone={dados.desativado?"neutral":dados.desativacaoPendente?"warning":"success"} label={dados.desativado?"Desativado":dados.desativacaoPendente?"Pendente":"Ativo"}/><OperationIcon name="chevronRight" size={15}/></span>
+              </button>;
+            })}</div></section>;})}
           </div>
-
-          {dossieEmSheet&&pontoSelecionado&&selecionado&&<button type="button" className="pcf-dossier-backdrop" tabIndex={-1} aria-label="Fechar dossiê" onClick={fecharDossie}/>}
-          {pontoSelecionado&&selecionado?<aside ref={dossieRef} className="pcf-dossier" role={dossieEmSheet?"dialog":undefined} aria-modal={dossieEmSheet?"true":undefined} aria-labelledby="pcf-dossier-title" tabIndex={dossieEmSheet?-1:undefined}>
-            <header className="pcf-dossier-header">
-              <div className="pcf-dossier-monogram" aria-hidden="true">{String(pontoSelecionado.nomeFantasia||"P").trim().slice(0,2)}</div>
-              <div>
-                <span className="pcf-eyebrow">Dossiê do ponto</span>
-                <h3 id="pcf-dossier-title">{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3>
-                <BadgeGerente gerente={pontoSelecionado.gerente}/>
-              </div>
-              <button type="button" className="pcf-dossier-close" data-pcf-dossier-autofocus="true" onClick={fecharDossie} aria-label="Fechar dossiê"><OperationIcon name="close" size={18}/></button>
-            </header>
-
-            <div className="pcf-dossier-status">
-              <StatusBadge tone={selecionado.desativado?"neutral":"success"} label={selecionado.desativado?"Operação desativada":"Operação ativa"}/>
-              {selecionado.desativacaoPendente&&<StatusBadge tone="warning" label="Desativação pendente"/>}
-              {selecionado.bloqueadas.length>0&&<StatusBadge tone="danger" label={`${selecionado.bloqueadas.length} serviço${selecionado.bloqueadas.length!==1?"s":""} bloqueado${selecionado.bloqueadas.length!==1?"s":""}`}/>}
-            </div>
-
-            <dl className="pcf-contact-strip">
-              <div><dt>Responsável</dt><dd>{pontoSelecionado.nomeDono}</dd></div>
-              <div><dt>Telefone</dt><dd>{pontoSelecionado.telefone}</dd></div>
-            </dl>
-
-            <div className="pcf-operational-spine">
-              <section>
-                <span className="pcf-spine-node"><OperationIcon name="check" size={15}/></span>
-                <div><small>Situação</small><strong>{selecionado.desativado?"Fora dos seletores ativos":"Disponível na operação"}</strong></div>
-              </section>
-              <section>
-                <span className="pcf-spine-node"><OperationIcon name="file" size={15}/></span>
-                <div><small>Serviços</small><strong>{(pontoSelecionado.modalidades||[]).length} cadastrados</strong><div className="modalidades-badges">{(pontoSelecionado.modalidades||[]).map(m=><BadgeModalidade key={m} m={m} bloqueada={selecionado.bloqueadas.includes(m)}/>)}</div></div>
-              </section>
-              <section>
-                <span className="pcf-spine-node"><OperationIcon name="refresh" size={15}/></span>
-                <div><small>Equipamentos</small><strong>{selecionado.vinculados.length?`${selecionado.vinculados.length} no ponto`:"Nenhum vinculado"}</strong>{selecionado.vinculados.length>0&&<ul>{selecionado.vinculados.map(i=><li key={i.id}>{i.nome}</li>)}</ul>}</div>
-              </section>
-              {mostrarDespesas&&<section>
-                <span className="pcf-spine-node"><OperationIcon name="money" size={15}/></span>
-                <div><small>Despesa da competência</small><strong>{pontoSelecionado.possuiDespesa==="sim"?formatarReais(pontoSelecionado.valorDespesa):"Sem lançamento"}</strong></div>
-              </section>}
-            </div>
-
-            {pontoSelecionado.observacao&&<div className="pcf-dossier-note"><span>Observação</span><p>{pontoSelecionado.observacao}</p></div>}
-
-            <section className="pcf-dossier-history" aria-label="Histórico recente do ponto">
-              <header><span>Rastro recente</span><b>{selecionado.rastros.length}</b></header>
-              {selecionado.rastros.length>0?<ol>{selecionado.rastros.map(item=><li key={item.id}><OperationIcon name={item.tipo==="cadastro"?"plus":item.tipo==="edicao"?"edit":"trash"} size={13}/><span><strong>{item.observacao||item.tipo}</strong><small>{item.data||"Data não informada"}</small></span></li>)}</ol>:<p>Nenhuma movimentação registrada para este ponto.</p>}
-            </section>
-
-            <div className="pcf-dossier-actions" aria-label="Ações do ponto">
-              {selecionado.totalAcessos>0&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onVerAcessos?.(pontoSelecionado))}><OperationIcon name="lock"/>Acessos ({selecionado.totalAcessos})</button>}
-              {podeSolicitarModalidade&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onSolicitarModalidade(pontoSelecionado))}><OperationIcon name="warning"/>Bloquear / liberar</button>}
-              {podeEditarDespesas&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onDespesas(pontoSelecionado))}><OperationIcon name="money"/>Despesas</button>}
-              {podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onEditar(pontoSelecionado))}><OperationIcon name="edit"/>Editar</button>}
-              {podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>executarAcaoDossie(()=>onSolicitarDesativacao(pontoSelecionado))}><OperationIcon name="clock"/>Solicitar desativação</button>}
-              {podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>executarAcaoDossie(()=>onReativar(pontoSelecionado))}><OperationIcon name="refresh"/>Reativar ponto</button>}
-            </div>
-          </aside>:<aside className="pcf-dossier pcf-dossier--empty" aria-label="Dossiê do ponto"><OperationIcon name="mapPin" size={20}/><span>Selecione um ponto na rede para abrir o dossiê.</span></aside>}
+          {filtrados.length>POR_PAGINA&&<Pagination page={paginaAtual} totalPages={totalPaginas} totalItems={filtrados.length} itemLabel="pontos" onPageChange={setPagina} className="pcf-pagination"/>}
         </div>
-      )}
-    </section>
-  );
+
+        <PontosDossiePortal ativo={dossieModalAberto}>
+        {dossieModalAberto&&pontoSelecionado&&selecionado&&<button type="button" className="pcf-dossier-backdrop" tabIndex={-1} aria-label="Fechar dossiê" onClick={fecharDossie}/>}
+        {pontoSelecionado&&selecionado?<aside ref={dossieRef} className="pcf-dossier pcf-operations-folio" data-folio-state={selecionado.desativado?"disabled":selecionado.desativacaoPendente?"pending":"active"} role={dossieEmSheet?"dialog":undefined} aria-modal={dossieEmSheet?"true":undefined} aria-labelledby="pcf-dossier-title" tabIndex={dossieEmSheet?-1:undefined}>
+          <header className="pcf-dossier-header"><div><span className="pcf-eyebrow">Registro operacional</span><h3 id="pcf-dossier-title">{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3><p>{rotaCanonica(pontoSelecionado.gerente)||"Sem rota"}</p></div><button type="button" className="pcf-dossier-close" data-pcf-dossier-autofocus="true" onClick={fecharDossie} aria-label="Fechar dossiê"><OperationIcon name="close" size={18}/></button></header>
+          <div className="pcf-dossier-status"><StatusBadge tone={selecionado.desativado?"neutral":"success"} label={selecionado.desativado?"Operação desativada":"Operação ativa"}/>{selecionado.desativacaoPendente&&<StatusBadge tone="warning" label="Desativação pendente"/>}{selecionado.bloqueadas.length>0&&<StatusBadge tone="warning" label={`${selecionado.bloqueadas.length} serviço${selecionado.bloqueadas.length!==1?"s":""} bloqueado${selecionado.bloqueadas.length!==1?"s":""}`}/>}</div>
+          <dl className="pcf-folio-identity"><div><dt>Responsável</dt><dd>{pontoSelecionado.nomeDono}</dd></div><div><dt>Telefone</dt><dd>{pontoSelecionado.telefone}</dd></div></dl>
+
+          <section className="pcf-folio-section"><header><span>Operação</span><small>{(pontoSelecionado.modalidades||[]).length} modalidades</small></header><dl className="pcf-folio-facts"><div><dt>Situação</dt><dd>{selecionado.desativado?"Fora dos seletores operacionais":"Disponível na rede"}</dd></div><div><dt>Acessos</dt><dd>{selecionado.totalAcessos||"Nenhum cadastrado"}</dd></div>{mostrarDespesas&&<div><dt>Despesa da competência</dt><dd>{pontoSelecionado.possuiDespesa==="sim"?formatarReais(pontoSelecionado.valorDespesa):"Sem lançamento"}</dd></div>}</dl><div className="modalidades-badges">{(pontoSelecionado.modalidades||[]).map(m=><BadgeModalidade key={m} m={m} bloqueada={selecionado.bloqueadas.includes(m)}/>)}</div>{pontoSelecionado.observacao&&<div className="pcf-dossier-note"><span>Observação</span><p>{pontoSelecionado.observacao}</p></div>}</section>
+
+          <section className="pcf-folio-section pcf-linked-equipment"><header><span>Equipamentos vinculados</span><small>{selecionado.vinculados.length}</small></header>{selecionado.vinculados.length>0?<ul>{selecionado.vinculados.map(item=><li key={item.id}><span><strong>{item.nome}</strong><small>{[item.categoria,item.patrimonio].filter(Boolean).join(" · ")||"Cadastro operacional"}</small></span><em>{item.status||"Vinculado"}</em></li>)}</ul>:<p>Nenhum equipamento vinculado a esta unidade.</p>}{selecionado.desativacaoPendente&&selecionado.vinculados.length>0&&<div className="pcf-equipment-blocker" role="status"><OperationIcon name="warning" size={16}/><span><strong>Movimentação necessária em Equipamentos</strong><small>{selecionado.vinculados.length} vínculo{selecionado.vinculados.length!==1?"s":""} impede{selecionado.vinculados.length===1?"":"m"} a decisão. Movimente os itens no módulo Equipamentos.</small></span></div>}</section>
+
+          <section className="pcf-folio-section pcf-operational-trace" aria-label="Rastro operacional"><header><span>Rastro operacional</span><small>Por unidade</small></header>{podeVerHistoricoFormal&&<div className="pcf-trace-group"><h4>Ciclo operacional</h4>{historicoFormal.status==="loading"&&<p>Carregando transições formais...</p>}{historicoFormal.status==="error"&&<div className="pcf-trace-error"><span>{historicoFormal.erro}</span><button type="button" onClick={()=>setTentativaHistoricoFormal(valor=>valor+1)}>Tentar novamente</button></div>}{historicoFormal.status==="ready"&&(historicoFormal.itens.length>0?<ol>{historicoFormal.itens.map(item=><li className={`is-${item.acao}`} key={`formal-${item.id}`}><span className="pcf-trace-mark" aria-hidden="true"/><div><strong>{ROTULOS_CICLO_PONTO[item.acao]||"Transição operacional"}</strong><small>{formatarDataOperacional(item.criadoEm)} · Administração</small><p>{item.motivo}</p></div></li>)}</ol>:<p>Nenhuma transição formal registrada.</p>)}</div>}<div className="pcf-trace-group"><h4>Histórico de cadastro</h4>{selecionado.rastros.length>0?<ol>{selecionado.rastros.map(item=><li key={`legado-${item.id}`}><span className="pcf-trace-mark" aria-hidden="true"/><div><strong>{item.observacao||item.tipo}</strong><small>{item.data||"Data não informada"}</small></div></li>)}</ol>:<p>Nenhuma alteração de cadastro registrada para este ponto.</p>}</div></section>
+
+          <section className="pcf-folio-section pcf-folio-administration"><header><span>Administração</span><small>Ações disponíveis</small></header><div className="pcf-dossier-actions" aria-label="Ações do ponto">{selecionado.totalAcessos>0&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onVerAcessos?.(pontoSelecionado))}><OperationIcon name="lock"/>Acessos ({selecionado.totalAcessos})</button>}{podeSolicitarModalidade&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onSolicitarModalidade(pontoSelecionado))}><OperationIcon name="warning"/>Bloquear / liberar</button>}{podeEditarDespesas&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onDespesas(pontoSelecionado))}><OperationIcon name="money"/>Despesas</button>}{podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onEditar(pontoSelecionado))}><OperationIcon name="edit"/>Editar</button>}</div></section>
+
+          {(selecionado.desativacaoPendente||(podeSolicitarDesativacao&&!selecionado.desativado)||(podeReativar&&selecionado.desativado))&&<section className="pcf-sensitive-zone"><header><span>Zona sensível</span></header>{selecionado.desativacaoPendente&&<p>Há uma solicitação de desativação aguardando decisão administrativa.</p>}{podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>executarAcaoDossie(()=>onSolicitarDesativacao(pontoSelecionado))}><OperationIcon name="clock"/>Solicitar desativação</button>}{podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>executarAcaoDossie(()=>onReativar(pontoSelecionado))}><OperationIcon name="refresh"/>Reativar ponto</button>}</section>}
+        </aside>:<aside className="pcf-dossier pcf-dossier--empty" aria-label="Registro operacional do ponto"><OperationIcon name="mapPin" size={20}/><span>Selecione uma unidade no ledger para abrir o registro operacional.</span></aside>}
+        </PontosDossiePortal>
+      </div>}
+  </section>;
 }
 
 function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], prorrogacoes = [], competenciaInicial=competenciaAtual(), onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
@@ -1805,11 +1769,6 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
     {id:"pontos",   label:"Rede", icon:"mapPin"},
     ...(mostrarDespesas ? [{id:"analise", label:"Histórico de despesas", icon:"receipt"}] : []),
   ];
-  function abrirPontosFiltrados(filtro){
-    setFiltroDespesa(filtro);
-    setAbaInterna("pontos");
-  }
-  const pontosParaExportar = pontosVisiveis;
   const pendenciasServicos = solicitacoesAtuais.filter(s=>s.status==="pendente").length;
   const pendenciasCiclo = solicitacoesStatus.filter(s=>s.status==="pendente").length;
 
@@ -1873,9 +1832,8 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
 
       {!loading&&(<>
         {abaInterna==="pontos"&&<div className="pcf-network-view">
-          <AbaVisaoGeral pontos={pontosVisiveis} despesas={despesasVisiveis} competencia={competenciaDespesas} mostrarDespesas={mostrarDespesas} onVerDespesas={()=>setVerDespesas(true)} onAbrirPontos={abrirPontosFiltrados}/>
-          <AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} historico={historico} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} solicitacoesStatus={solicitacoesStatus} busca={buscaPontos} onBuscaChange={setBuscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} podeSolicitarDesativacao={podeSolicitarDesativacao} podeReativar={podeReativar} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onSolicitarDesativacao={setPontoDesativacao} onReativar={setPontoReativacao} onVerAcessos={setPontoAcessos}
-            onExportExcel={()=>exportarPontosExcel(pontosParaExportar)} onExportPDF={()=>exportarPontosPDF(pontosParaExportar)}/>
+          <AbaPontos pontos={pontosVisiveis} equipamentos={equipamentosVisiveis} historico={historico} acessos={acessosModalidades} solicitacoes={solicitacoesAtuais} solicitacoesStatus={solicitacoesStatus} competencia={competenciaDespesas} busca={buscaPontos} onBuscaChange={setBuscaPontos} onLimparBusca={()=>setBuscaPontos("")} podeEditar={podeEditarPonto} podeEditarDespesas={podeEditarDespesas} podeSolicitarModalidade={podeSolicitarModalidade} podeSolicitarDesativacao={podeSolicitarDesativacao} podeReativar={podeReativar} podeVerHistoricoFormal={!operador} mostrarDespesas={mostrarDespesas} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} onEditar={p=>{setPontoEdit(p);setModalForm(true);}} onDespesas={setPontoDespesas} onSolicitarModalidade={setPontoSolicitacao} onSolicitarDesativacao={setPontoDesativacao} onReativar={setPontoReativacao} onVerAcessos={setPontoAcessos} onVerDespesas={()=>setVerDespesas(true)}
+            onExportExcel={exportarPontosExcel} onExportPDF={exportarPontosPDF}/>
         </div>}
         {abaInterna==="analise"  &&<AbaHistoricoDespesas pontos={pontosVisiveis} despesas={despesasVisiveis} administrador={administrador}/>}
       </>)}

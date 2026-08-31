@@ -6,6 +6,7 @@ const migration = fs.readFileSync(new URL('../supabase/migrations/202608241000_p
 const app = fs.readFileSync(new URL('./App.jsx', import.meta.url), 'utf8');
 const page = fs.readFileSync(new URL('./PointsPage.jsx', import.meta.url), 'utf8');
 const db = fs.readFileSync(new URL('./db.js', import.meta.url), 'utf8');
+const css = fs.readFileSync(new URL('./PointsCommandFlow.css', import.meta.url), 'utf8');
 const uxHarness = fs.readFileSync(new URL('./ux-scroll-qa/UxScrollQaApp.jsx', import.meta.url), 'utf8');
 
 test('ciclo de pontos é aditivo e preserva o padrão operacional atual', () => {
@@ -99,4 +100,60 @@ test('ciclo formal mantém decisão bloqueada e encaminha movimentação manual'
   assert.match(ciclo, /decidirDesativacaoPonto/);
   assert.match(ciclo, /reativarPonto/);
   assert.doesNotMatch(ciclo, /salvarEquipamento|onEquipamentosChange|equipamentos\.map/);
+});
+
+test('Operations Ledger preserva paginação e aplica filtros derivados em memória', () => {
+  assert.match(page, /const POR_PAGINA=25/);
+  assert.match(page, /filtroSituacao/);
+  assert.match(page, /filtroVinculo/);
+  assert.match(page, /filtroSituacao==="desativado"\?dados\.desativado:!dados\.desativado/);
+  assert.match(page, /filtroVinculo==="com"\?dados\.vinculados\.length>0:dados\.vinculados\.length===0/);
+  assert.match(page, /pcf-route-chapter/);
+  assert.match(page, /capitulo\.pontos\.length/);
+});
+
+test('exportações recebem todos os resultados filtrados e não somente a página', () => {
+  assert.match(page, /onExportExcel\(ordenados\)/);
+  assert.match(page, /onExportPDF\(ordenados\)/);
+  assert.match(page, /const visiveis=ordenados\.slice/);
+  assert.doesNotMatch(page, /onExportExcel\(visiveis\)|onExportPDF\(visiveis\)/);
+});
+
+test('histórico formal é somente leitura, localizado e falha sem derrubar a página', () => {
+  const inicio = db.indexOf('export async function carregarHistoricoStatusPonto');
+  const fim = db.indexOf('export async function solicitarDesativacaoPonto', inicio);
+  const consulta = db.slice(inicio, fim);
+  assert.ok(inicio >= 0 && fim > inicio, 'consulta do histórico formal não encontrada');
+  assert.match(consulta, /from\('historico_status_pontos'\)/);
+  assert.match(consulta, /eq\('ponto_id', id\)/);
+  assert.match(consulta, /order\('criado_em', \{ ascending: false \}\)/);
+  assert.match(consulta, /limit\(50\)/);
+  assert.doesNotMatch(consulta, /\.insert\(|\.update\(|\.delete\(|\.rpc\(/);
+  assert.match(db, /motivo: normalizeFreeText\(row\.motivo \|\| ''\)/);
+  assert.match(page, /historicoFormalCacheRef/);
+  assert.match(page, /historicoFormalPendentesRef/);
+  assert.match(page, /historicoFormalRequestRef/);
+  assert.match(page, /status:"error"/);
+  assert.match(page, /Tentar novamente/);
+  assert.match(page, /Histórico de cadastro/);
+});
+
+test('sheet de Pontos usa breakpoint único e limpa seleção obsoleta', () => {
+  assert.match(page, /PONTOS_DOSSIE_SHEET_QUERY = "\(max-width: 1360px\)"/);
+  assert.match(page, /pontoSelecionadoId!==null&&pontoSelecionadoAtivoId===null/);
+  assert.match(page, /acquireMainScrollLock\(\)/);
+  assert.match(page, /event\.key==="Escape"/);
+  assert.match(page, /focoAntesDossieRef/);
+  assert.match(page, /PontosDossiePortal/);
+  assert.match(css, /@media \(max-width: 1360px\)/);
+  assert.match(css, /max-height:\s*min\(88dvh, 760px\)/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test('rejeição permanece evento contextual e não recebe semântica destrutiva', () => {
+  assert.match(page, /desativacao_rejeitada: "Solicitação rejeitada"/);
+  assert.match(css, /is-desativacao_rejeitada[\s\S]*?var\(--pcf-warning\)/);
+  const inicioRastro = page.indexOf('className="pcf-folio-section pcf-operational-trace"');
+  const fimRastro = page.indexOf('className="pcf-folio-section pcf-folio-administration"', inicioRastro);
+  assert.doesNotMatch(page.slice(inicioRastro, fimRastro), /tone="danger"|pcf-danger/);
 });
