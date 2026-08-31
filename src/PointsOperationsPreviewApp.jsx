@@ -3,6 +3,7 @@ import { AbaPontos, PointExpensesModal } from "./PointsPage.jsx";
 import { OperationIcon } from "./components/operations/OperationsUI.jsx";
 import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
 import { aplicarResumoDespesaMes, valorDespesa } from "./pointsExpenses.js";
+import { resolverEstadoPreviewPontos } from "./pointsPreviewState.js";
 import "./App.css";
 import "./styles/foundations.css";
 import "./styles/command-flow.css";
@@ -72,11 +73,10 @@ async function carregarCicloPreview(pontoId) {
 
 export default function PointsOperationsPreviewApp() {
   const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
-  const [light,setLight]=useState(params.get("theme")!=="dark");
-  const perspectivaInicial=params.get("expenses")==="points"||params.get("expenses")==="pontos"?"pontos":"rotas";
-  const abrirDespesasInicial=Boolean(params.get("expenses"));
+  const estadoInicial=useMemo(()=>resolverEstadoPreviewPontos(params,PONTOS_PREVIEW.map(ponto=>ponto.id)),[params]);
+  const [light,setLight]=useState(estadoInicial.tema==="light");
   const [despesasAbertas,setDespesasAbertas]=useState(false);
-  const [perspectivaDespesas,setPerspectivaDespesas]=useState(perspectivaInicial);
+  const [perspectivaDespesas,setPerspectivaDespesas]=useState(estadoInicial.perspectivaDespesas);
   const [busca,setBusca]=useState("");
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
   const [notice,setNotice]=useState("Prévia local segura · nenhuma ação grava dados.");
@@ -90,8 +90,8 @@ export default function PointsOperationsPreviewApp() {
   },[light]);
 
   useEffect(()=>{
-    if(abrirDespesasInicial)setDespesasAbertas(true);
-  },[abrirDespesasInicial]);
+    if(estadoInicial.despesasAbertas)setDespesasAbertas(true);
+  },[estadoInicial.despesasAbertas]);
 
   const simular=mensagem=>setNotice(mensagem);
 
@@ -108,9 +108,9 @@ export default function PointsOperationsPreviewApp() {
           <div className="pcf-command-actions"><span className="pcf-pending-summary"><OperationIcon name="warning" size={15}/>2 na fila administrativa</span><button type="button" className="pcf-button pcf-button--primary" onClick={()=>simular("Cadastro simulado; nenhum dado foi gravado.")}><OperationIcon name="plus"/>Novo ponto</button></div>
         </header>
         <div className="points-preview-notice" role="status">{notice}</div>
-         <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={EQUIPAMENTOS_PREVIEW} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={SOLICITACOES_STATUS_PREVIEW} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeReativar mostrarDespesas/>
+         <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={EQUIPAMENTOS_PREVIEW} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={SOLICITACOES_STATUS_PREVIEW} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} pontoSelecionadoInicialId={estadoInicial.pontoSelecionadoId} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeReativar mostrarDespesas/>
       </div>
     </main>
-    {despesasAbertas&&<PointExpensesModal pontos={PONTOS_BASE_PREVIEW} despesas={DESPESAS_PREVIEW} competenciaInicial="2026-08" permitirSelecionarCompetencia perspectivaInicial={perspectivaDespesas} podeEditar onAbrirDespesaPonto={ponto=>simular(`Lançamentos de ${ponto.nomeFantasia} preservados no fluxo real.`)} onFechar={()=>setDespesasAbertas(false)}/>}
+    {despesasAbertas&&<PointExpensesModal pontos={PONTOS_BASE_PREVIEW} despesas={DESPESAS_PREVIEW} competenciaInicial="2026-08" permitirSelecionarCompetencia perspectivaInicial={perspectivaDespesas} pontoSelecionadoInicialId={estadoInicial.pontoDespesasId} podeEditar onAbrirDespesaPonto={ponto=>simular(`Lançamentos de ${ponto.nomeFantasia} preservados no fluxo real.`)} onFechar={()=>setDespesasAbertas(false)}/>}
   </div>;
 }

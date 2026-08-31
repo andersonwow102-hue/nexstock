@@ -10,6 +10,7 @@ const css = fs.readFileSync(new URL('./PointsCommandFlow.css', import.meta.url),
 const uxHarness = fs.readFileSync(new URL('./ux-scroll-qa/UxScrollQaApp.jsx', import.meta.url), 'utf8');
 const expenses = fs.readFileSync(new URL('./pointsExpenses.js', import.meta.url), 'utf8');
 const pointsPreview = fs.readFileSync(new URL('./PointsOperationsPreviewApp.jsx', import.meta.url), 'utf8');
+const pointsPreviewState = fs.readFileSync(new URL('./pointsPreviewState.js', import.meta.url), 'utf8');
 
 test('ciclo de pontos é aditivo e preserva o padrão operacional atual', () => {
   assert.match(migration, /situacao_operacional text not null default 'ativo'/);
@@ -218,8 +219,24 @@ test('Explorer tem workspace responsivo e valores financeiros neutros', () => {
   assert.doesNotMatch(css.slice(inicio, fim), /pcf-success|state-success|verde/);
 });
 
+test('acabamento de Pontos usa profundidade mineral, seleção fria e motion finito', () => {
+  assert.match(css, /--pcf-accent:\s*#3d8f95/);
+  assert.match(css, /--pcf-champagne:\s*#bba883/);
+  assert.match(css, /--pcf-depth-2:/);
+  assert.match(css, /--pcf-motion-hover:\s*140ms/);
+  assert.match(css, /--pcf-motion-overlay:\s*280ms/);
+  assert.match(css, /\.pcf-record\.is-selected[\s\S]*?var\(--pcf-accent-wash\)/);
+  assert.match(css, /\.pcf-expenses-route-share/);
+  assert.match(css, /@keyframes pcf-workspace-in/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
 test('preview local cobre Light, Dark e perspectivas abertas sem backend', () => {
-  assert.match(pointsPreview, /params\.get\("expenses"\)/);
+  assert.match(pointsPreview, /resolverEstadoPreviewPontos/);
+  assert.match(pointsPreview, /pontoSelecionadoInicialId=\{estadoInicial\.pontoSelecionadoId\}/);
+  assert.match(pointsPreview, /pontoSelecionadoInicialId=\{estadoInicial\.pontoDespesasId\}/);
+  assert.match(pointsPreviewState, /new Set\(\["routes", "points", "detail"\]\)/);
+  assert.match(pointsPreviewState, /idsPermitidos\.has\(id\)/);
   assert.match(pointsPreview, /PointExpensesModal/);
   assert.match(pointsPreview, /DESPESAS_PREVIEW/);
   assert.match(pointsPreview, /TOTAL_DESPESAS_PREVIEW/);

@@ -142,7 +142,7 @@ test("shell expõe navegação direta, busca global acessível e utilidades hier
   }
 });
 
-test("tema claro global usa superfícies neutras levemente quentes", () => {
+test("tema claro global preserva base quente e Pontos usa acabamento mineral autorizado", () => {
   assertMarkers(foundations, [
     "--surface-canvas: #f3f3f1",
     "--surface-navigation: #f8f8f6",
@@ -154,7 +154,9 @@ test("tema claro global usa superfícies neutras levemente quentes", () => {
     "--text-disabled: #626963",
   ], "Tema claro intermediário");
   assert.doesNotMatch(foundations, /--surface-canvas:\s*#f2eee7|--surface-panel:\s*#fffdf8/);
-  assert.match(pointsCss, /--pcf-dim:\s*var\(--text-muted,\s*#626963\)/);
+  assert.match(pointsCss, /\.app\.tema-claro \.points-command-flow\s*\{[\s\S]*?--pcf-canvas:\s*#f1f3f0/);
+  assert.match(pointsCss, /\.app\.tema-claro \.points-command-flow\s*\{[\s\S]*?--pcf-accent:\s*#2e747b/);
+  assert.match(pointsCss, /--pcf-dim:\s*#7b8582/);
 });
 
 test("fluxo vertical mantém um único scroll principal e sheets isolados por módulo", () => {

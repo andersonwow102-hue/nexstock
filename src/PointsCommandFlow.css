@@ -1,24 +1,42 @@
 .points-command-flow {
-  --pcf-canvas: #111412;
-  --pcf-panel: #181c1a;
-  --pcf-raised: #222724;
-  --pcf-subtle: #141816;
-  --pcf-hover: #292f2a;
-  --pcf-text: #f0ebe3;
-  --pcf-muted: #aaa298;
-  --pcf-dim: #7d756d;
-  --pcf-border: rgba(231, 224, 214, 0.14);
-  --pcf-border-strong: rgba(231, 224, 214, 0.25);
-  --pcf-copper: #c57b45;
-  --pcf-copper-bright: #dc9662;
-  --pcf-copper-wash: rgba(197, 123, 69, 0.13);
+  --pcf-canvas: #0b100f;
+  --pcf-panel: #121917;
+  --pcf-raised: #1a2321;
+  --pcf-subtle: #0f1614;
+  --pcf-hover: #202c29;
+  --pcf-text: #f0efe8;
+  --pcf-muted: #aab3af;
+  --pcf-dim: #74807b;
+  --pcf-border: rgba(210, 231, 224, 0.12);
+  --pcf-border-strong: rgba(210, 231, 224, 0.21);
+  --pcf-accent: #3d8f95;
+  --pcf-accent-strong: #70c0c4;
+  --pcf-accent-wash: rgba(61, 143, 149, 0.14);
+  --pcf-accent-line: rgba(112, 192, 196, 0.42);
+  --pcf-on-accent: #f7ffff;
+  --pcf-champagne: #bba883;
+  --pcf-depth-0: #0b100f;
+  --pcf-depth-1: #121917;
+  --pcf-depth-1-alt: #18211f;
+  --pcf-depth-2: #1d2825;
+  --pcf-shadow-context: 0 22px 60px rgba(0, 0, 0, 0.28);
+  --pcf-motion-hover: 140ms;
+  --pcf-motion-select: 180ms;
+  --pcf-motion-content: 200ms;
+  --pcf-motion-panel: 240ms;
+  --pcf-motion-overlay: 280ms;
+  --pcf-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --pcf-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --pcf-copper: var(--pcf-accent);
+  --pcf-copper-bright: var(--pcf-accent-strong);
+  --pcf-copper-wash: var(--pcf-accent-wash);
   --pcf-warning: #d5a14c;
   --pcf-warning-wash: rgba(213, 161, 76, 0.12);
   --pcf-danger: #cf7167;
   --pcf-danger-wash: rgba(207, 113, 103, 0.12);
   --pcf-success: #8cae8d;
   --pcf-success-wash: rgba(140, 174, 141, 0.12);
-  --pcf-shadow: 0 24px 70px rgba(4, 6, 5, 0.28);
+  --pcf-shadow: var(--pcf-shadow-context);
   --bg-card: var(--pcf-panel);
   --bg-card-hover: var(--pcf-hover);
   --bg-input: var(--pcf-subtle);
@@ -33,37 +51,41 @@
   min-height: 100%;
   padding: clamp(16px, 2vw, 28px);
   color: var(--pcf-text);
-  background:
-    linear-gradient(90deg, rgba(197, 123, 69, 0.035) 1px, transparent 1px) 0 0 / 64px 64px,
-    var(--pcf-canvas);
+  background: var(--pcf-depth-0);
   font-family: var(--font-sans, Inter, "Segoe UI", sans-serif);
   isolation: isolate;
 }
 
 .app.tema-claro .points-command-flow {
-  --pcf-canvas: var(--surface-canvas, #f3f3f1);
-  --pcf-panel: var(--surface-panel, #fffefb);
-  --pcf-raised: var(--surface-raised, #ebece8);
-  --pcf-subtle: var(--surface-subtle, #f0f0ed);
-  --pcf-hover: var(--surface-hover, #e7e8e4);
-  --pcf-text: var(--text-strong, #242724);
-  --pcf-muted: var(--text-muted, #626963);
-  --pcf-dim: var(--text-muted, #626963);
-  --pcf-border: var(--border-subtle, #d9dad5);
-  --pcf-border-strong: var(--border-strong, #adb1aa);
-  --pcf-copper: var(--brand-action, #a65338);
-  --pcf-copper-bright: var(--brand-action-hover, #884129);
-  --pcf-copper-wash: color-mix(in srgb, var(--brand-action, #a65338) 10%, transparent);
+  --pcf-canvas: #f1f3f0;
+  --pcf-panel: #fbfcf8;
+  --pcf-raised: #edf1ee;
+  --pcf-subtle: #f6f7f4;
+  --pcf-hover: #e9f1ef;
+  --pcf-text: #202725;
+  --pcf-muted: #5f6b68;
+  --pcf-dim: #7b8582;
+  --pcf-border: rgba(43, 66, 62, 0.13);
+  --pcf-border-strong: rgba(43, 66, 62, 0.24);
+  --pcf-accent: #2e747b;
+  --pcf-accent-strong: #1b6068;
+  --pcf-accent-wash: rgba(46, 116, 123, 0.1);
+  --pcf-accent-line: rgba(46, 116, 123, 0.3);
+  --pcf-on-accent: #ffffff;
+  --pcf-champagne: #917b58;
+  --pcf-depth-0: #f1f3f0;
+  --pcf-depth-1: #fbfcf8;
+  --pcf-depth-1-alt: #edf1ee;
+  --pcf-depth-2: #fffefa;
+  --pcf-shadow-context: 0 18px 44px rgba(27, 42, 42, 0.12);
   --pcf-warning: var(--state-warning, #7a5b22);
   --pcf-warning-wash: var(--state-warning-surface, #fff7e8);
   --pcf-danger: var(--state-danger, #a6463b);
   --pcf-danger-wash: var(--state-danger-surface, #fff1ef);
   --pcf-success: var(--state-success, #2f7556);
   --pcf-success-wash: var(--state-success-surface, #eef7f2);
-  --pcf-shadow: var(--shadow-md, 0 18px 50px rgba(32, 38, 34, 0.13));
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--pcf-border) 25%, transparent) 1px, transparent 1px) 0 0 / 64px 64px,
-    var(--pcf-canvas);
+  --pcf-shadow: var(--pcf-shadow-context);
+  background: var(--pcf-depth-0);
 }
 
 .points-command-flow *,
@@ -3918,6 +3940,687 @@
     width: 100%;
     justify-content: center;
   }
+}
+
+/* ── Pontos · acabamento mineral, profundidade e motion finito ─────────── */
+.points-command-flow .pcf-eyebrow,
+.points-command-flow .pcf-command-context,
+.points-command-flow .pcf-register-context > span,
+.points-command-flow .pcf-route-chapter > header span,
+.points-command-flow .pcf-expenses-total > span,
+.points-command-flow .pcf-expenses-competence > span,
+.points-command-flow .pcf-expenses-panel-heading span,
+.points-command-flow .pcf-expenses-points-context span,
+.points-command-flow .pcf-expenses-point-detail > header span {
+  color: var(--pcf-champagne);
+  font-family: var(--font-sans, Inter, "Segoe UI", sans-serif);
+  letter-spacing: 0.045em;
+}
+
+.points-preview-shell .points-preview-mark {
+  color: var(--pcf-on-accent);
+  background: var(--pcf-accent);
+}
+
+.points-command-flow .pcf-button--primary,
+.points-command-flow .pcf-expenses-detail-action {
+  border-color: var(--pcf-accent);
+  color: var(--pcf-on-accent);
+  background: var(--pcf-accent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--pcf-accent) 18%, transparent);
+  transition:
+    border-color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    background var(--pcf-motion-hover) var(--pcf-ease-standard),
+    box-shadow var(--pcf-motion-hover) var(--pcf-ease-standard),
+    transform var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-button--primary:hover:not(:disabled),
+.points-command-flow .pcf-expenses-detail-action:hover {
+  border-color: var(--pcf-accent-strong);
+  background: var(--pcf-accent-strong);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--pcf-accent) 25%, transparent);
+}
+
+.points-command-flow .pcf-command-search,
+.points-command-flow .pcf-expenses-search {
+  transition:
+    border-color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    background var(--pcf-motion-hover) var(--pcf-ease-standard),
+    box-shadow var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-command-search:focus-within,
+.points-command-flow .pcf-expenses-search:focus-within {
+  border-color: var(--pcf-accent-line);
+  background: var(--pcf-depth-1);
+  box-shadow: 0 0 0 3px var(--pcf-accent-wash);
+}
+
+.points-command-flow .pcf-filter-command .so-filter-bar__secondary {
+  border-color: var(--pcf-border-strong);
+  border-radius: 10px;
+  background: var(--pcf-depth-2);
+  box-shadow: var(--pcf-shadow-context);
+  animation: pcf-panel-in var(--pcf-motion-panel) var(--pcf-ease-out) both;
+}
+
+.points-command-flow .pcf-filter-chip {
+  border-color: var(--pcf-accent-line);
+  color: var(--pcf-accent-strong);
+  background: var(--pcf-accent-wash);
+  animation: pcf-chip-in var(--pcf-motion-select) var(--pcf-ease-out) both;
+}
+
+.points-command-flow .pcf-result-count {
+  animation: pcf-result-pulse var(--pcf-motion-content) var(--pcf-ease-out) both;
+}
+
+.points-command-flow .pcf-network-register {
+  min-height: 64px;
+  overflow-y: hidden;
+  border: 1px solid var(--pcf-border);
+  border-radius: 11px;
+  background: var(--pcf-depth-1);
+  box-shadow: 0 7px 20px color-mix(in srgb, var(--pcf-canvas) 32%, transparent);
+}
+
+.points-command-flow .pcf-register-context,
+.points-command-flow .pcf-network-register > button,
+.points-command-flow .pcf-network-stat {
+  padding-block: 12px;
+}
+
+.points-command-flow .pcf-network-register > button {
+  transition:
+    color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    background var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-network-register > button.is-primary::before {
+  inset: 10px auto 10px 0;
+  border-radius: 0 2px 2px 0;
+  background: var(--pcf-accent);
+}
+
+.points-command-flow .pcf-network-register .pcf-register-finance {
+  background: var(--pcf-accent-wash);
+  box-shadow: inset 1px 0 0 var(--pcf-accent-line);
+}
+
+.points-command-flow .pcf-register-finance > .so-icon {
+  color: var(--pcf-accent-strong);
+  transition: transform var(--pcf-motion-hover) var(--pcf-ease-out);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-master-detail {
+  gap: clamp(16px, 1.5vw, 24px);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-master-pane {
+  overflow: hidden;
+  border-color: var(--pcf-border);
+  border-radius: 11px;
+  background: var(--pcf-depth-1);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--pcf-canvas) 28%, transparent);
+}
+
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-master-pane {
+  border-color: var(--pcf-border);
+  background: var(--pcf-depth-1);
+  box-shadow: 0 10px 28px rgba(27, 42, 42, 0.06);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-ledger-columns,
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-ledger-columns {
+  background: var(--pcf-depth-1-alt);
+}
+
+.points-command-flow .pcf-route-chapter {
+  border-bottom-color: color-mix(in srgb, var(--pcf-border) 72%, transparent);
+}
+
+.points-command-flow .pcf-route-chapter > header,
+.app.tema-claro .points-command-flow .pcf-route-chapter > header {
+  position: relative;
+  min-height: 50px;
+  border-bottom-color: var(--pcf-border);
+  background: var(--pcf-depth-1-alt);
+}
+
+.points-command-flow .pcf-route-chapter > header::after {
+  position: absolute;
+  inset: auto auto 0 14px;
+  width: 52px;
+  height: 2px;
+  content: "";
+  background: var(--pcf-accent);
+  opacity: 0.72;
+}
+
+.points-command-flow .pcf-route-chapter > header h3 {
+  font-family: var(--font-sans, Inter, "Segoe UI", sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record,
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-record {
+  isolation: isolate;
+  background: var(--pcf-depth-1);
+  transition:
+    color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    background var(--pcf-motion-hover) var(--pcf-ease-standard),
+    box-shadow var(--pcf-motion-select) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record::before {
+  inset: 10px auto 10px 0;
+  border-radius: 0 2px 2px 0;
+  background: var(--pcf-accent);
+  transform: scaleY(0.28);
+  transform-origin: center;
+  opacity: 0.32;
+  transition:
+    transform var(--pcf-motion-select) var(--pcf-ease-out),
+    opacity var(--pcf-motion-select) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record:hover,
+.points-command-flow .pcf-operations-ledger .pcf-record:focus-visible,
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-record:hover {
+  background: var(--pcf-hover);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record:hover::before,
+.points-command-flow .pcf-operations-ledger .pcf-record:focus-visible::before {
+  transform: scaleY(0.62);
+  opacity: 0.72;
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record.is-selected,
+.app.tema-claro .points-command-flow .pcf-operations-ledger .pcf-record.is-selected,
+.app:not(.tema-claro) .points-command-flow .pcf-operations-ledger .pcf-record.is-selected {
+  background: color-mix(in srgb, var(--pcf-accent-wash) 74%, var(--pcf-depth-1));
+  box-shadow:
+    inset 0 1px 0 var(--pcf-accent-line),
+    inset 0 -1px 0 var(--pcf-accent-line);
+}
+
+.points-command-flow .pcf-operations-ledger .pcf-record.is-selected::before {
+  transform: scaleY(1);
+  opacity: 1;
+}
+
+.points-command-flow .pcf-record-state > .so-icon {
+  color: var(--pcf-dim);
+  opacity: 0.48;
+  transition:
+    color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    opacity var(--pcf-motion-hover) var(--pcf-ease-standard),
+    transform var(--pcf-motion-hover) var(--pcf-ease-out);
+}
+
+.points-command-flow .pcf-record:hover .pcf-record-state > .so-icon,
+.points-command-flow .pcf-record:focus-visible .pcf-record-state > .so-icon,
+.points-command-flow .pcf-record.is-selected .pcf-record-state > .so-icon {
+  color: var(--pcf-accent-strong);
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+.points-command-flow .pcf-operations-folio,
+.app.tema-claro .points-command-flow .pcf-operations-folio {
+  padding-inline: 26px 23px;
+  border-color: var(--pcf-border-strong);
+  border-radius: 11px;
+  background: var(--pcf-depth-2);
+  box-shadow: var(--pcf-shadow-context);
+}
+
+.points-command-flow .pcf-operations-folio::before {
+  width: 3px;
+  background: var(--pcf-accent);
+}
+
+.points-command-flow .pcf-folio-content {
+  animation: pcf-context-in var(--pcf-motion-content) var(--pcf-ease-out) both;
+}
+
+.points-command-flow .pcf-operations-folio .pcf-dossier-header h3 {
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+
+.points-command-flow .pcf-operations-folio .pcf-dossier-header p {
+  font-family: var(--font-sans, Inter, "Segoe UI", sans-serif);
+  font-size: 11px;
+}
+
+.points-command-flow .pcf-folio-section {
+  padding-block: 18px;
+  border-bottom-color: color-mix(in srgb, var(--pcf-border) 78%, transparent);
+}
+
+.points-command-flow .pcf-folio-section > header span,
+.points-command-flow .pcf-sensitive-zone > header span {
+  font-family: var(--font-sans, Inter, "Segoe UI", sans-serif);
+  font-size: 11px;
+  letter-spacing: -0.005em;
+  text-transform: none;
+}
+
+.points-command-flow .pcf-folio-section > header small {
+  font-family: var(--font-sans, Inter, "Segoe UI", sans-serif);
+  font-size: 10px;
+}
+
+.points-command-flow .pcf-linked-equipment > ul > li {
+  position: relative;
+  min-height: 54px;
+  padding: 10px 11px 10px 18px;
+  border-bottom-color: color-mix(in srgb, var(--pcf-border) 74%, transparent);
+  background: color-mix(in srgb, var(--pcf-depth-1) 54%, transparent);
+}
+
+.points-command-flow .pcf-linked-equipment > ul > li::before {
+  position: absolute;
+  inset: 16px auto auto 6px;
+  width: 4px;
+  height: 18px;
+  border-radius: 3px;
+  content: "";
+  background: var(--pcf-accent);
+  opacity: 0.62;
+}
+
+.points-command-flow .pcf-dossier-actions .pcf-button--secondary,
+.points-command-flow .pcf-expenses-points-context > button,
+.points-command-flow .pcf-expenses-back {
+  transition:
+    border-color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    background var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-dossier-actions .pcf-button--secondary:hover,
+.points-command-flow .pcf-expenses-points-context > button:hover,
+.points-command-flow .pcf-expenses-back:hover {
+  border-color: var(--pcf-accent-line);
+  color: var(--pcf-accent-strong);
+  background: var(--pcf-accent-wash);
+}
+
+.points-command-flow .pcf-dossier--empty {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  justify-items: start;
+  gap: 12px;
+  min-height: 112px;
+  padding: 22px;
+  border-color: var(--pcf-border);
+  border-radius: 11px;
+  background: var(--pcf-depth-1);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--pcf-canvas) 24%, transparent);
+  text-align: left;
+}
+
+.points-command-flow .pcf-dossier--empty > .so-icon {
+  color: var(--pcf-accent);
+}
+
+.points-command-flow .pcf-expenses-explorer-overlay {
+  background: rgba(4, 9, 8, 0.74);
+  animation: pcf-overlay-in var(--pcf-motion-overlay) var(--pcf-ease-standard) both;
+}
+
+.points-command-flow .pcf-expenses-explorer,
+.app.tema-claro .points-command-flow .pcf-expenses-explorer {
+  overflow: hidden;
+  border-color: var(--pcf-border-strong);
+  border-radius: 14px;
+  background: var(--pcf-depth-2);
+  box-shadow: 0 32px 90px rgba(2, 7, 6, 0.38);
+  animation: pcf-workspace-in var(--pcf-motion-overlay) var(--pcf-ease-out) both;
+}
+
+.app.tema-claro .points-command-flow .pcf-expenses-explorer {
+  box-shadow: 0 30px 80px rgba(27, 42, 42, 0.2);
+}
+
+.points-command-flow .pcf-expenses-explorer .so-modal__header {
+  min-height: 72px;
+  border-bottom-color: var(--pcf-border);
+  background: var(--pcf-depth-2);
+}
+
+.points-command-flow .pcf-expenses-explorer .so-modal__header h2 {
+  font-family: var(--font-sans, Inter, "Segoe UI", sans-serif);
+  font-size: 17px;
+  letter-spacing: -0.018em;
+  text-transform: none;
+}
+
+.points-command-flow .pcf-expenses-hero,
+.app.tema-claro .points-command-flow .pcf-expenses-hero {
+  grid-template-columns: minmax(280px, 1fr) auto minmax(150px, auto);
+  gap: clamp(22px, 3.5vw, 50px);
+  padding: clamp(22px, 2.6vw, 30px) clamp(20px, 3.3vw, 42px);
+  background: var(--pcf-depth-1-alt);
+}
+
+.points-command-flow .pcf-expenses-total strong {
+  font-size: clamp(34px, 3.5vw, 48px);
+}
+
+.points-command-flow .pcf-expenses-total small,
+.points-command-flow .pcf-expenses-breakdown dt {
+  color: var(--pcf-muted);
+}
+
+.points-command-flow .pcf-expenses-breakdown {
+  padding-left: clamp(18px, 2vw, 28px);
+  border-left: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-expenses-tabs {
+  background: var(--pcf-depth-1);
+}
+
+.points-command-flow .pcf-expenses-tabs button {
+  transition: color var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-expenses-tabs button[aria-selected="true"] {
+  color: var(--pcf-accent-strong);
+}
+
+.points-command-flow .pcf-expenses-tabs button[aria-selected="true"]::after {
+  background: var(--pcf-accent);
+  transform-origin: left center;
+  animation: pcf-tab-line-in var(--pcf-motion-select) var(--pcf-ease-out) both;
+}
+
+.points-command-flow .pcf-expenses-panel {
+  background: var(--pcf-depth-2);
+  animation: pcf-content-in var(--pcf-motion-content) var(--pcf-ease-out) both;
+}
+
+.points-command-flow .pcf-expenses-route-ledger,
+.points-command-flow .pcf-expenses-points-ledger,
+.points-command-flow .pcf-expenses-detail-ledger {
+  overflow: hidden;
+  border: 1px solid var(--pcf-border);
+  border-radius: 10px;
+  background: var(--pcf-depth-1);
+}
+
+.points-command-flow .pcf-expenses-route-columns,
+.points-command-flow .pcf-expenses-point-columns,
+.app.tema-claro .points-command-flow .pcf-expenses-route-columns,
+.app.tema-claro .points-command-flow .pcf-expenses-point-columns {
+  background: var(--pcf-depth-1-alt);
+}
+
+.points-command-flow .pcf-expenses-route-row,
+.points-command-flow .pcf-expenses-point-row {
+  position: relative;
+  min-height: 78px;
+  background: var(--pcf-depth-1);
+  transition:
+    background var(--pcf-motion-hover) var(--pcf-ease-standard),
+    box-shadow var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-expenses-route-row::before,
+.points-command-flow .pcf-expenses-point-row::before {
+  position: absolute;
+  inset: 12px auto 12px 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  content: "";
+  background: var(--pcf-accent);
+  transform: scaleY(0.3);
+  opacity: 0;
+  transition:
+    transform var(--pcf-motion-hover) var(--pcf-ease-out),
+    opacity var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-expenses-route-row:hover,
+.points-command-flow .pcf-expenses-route-row:focus-visible,
+.points-command-flow .pcf-expenses-point-row:hover,
+.points-command-flow .pcf-expenses-point-row:focus-visible {
+  background: var(--pcf-hover);
+  box-shadow: inset 0 1px 0 var(--pcf-accent-line), inset 0 -1px 0 var(--pcf-accent-line);
+}
+
+.points-command-flow .pcf-expenses-route-row:hover::before,
+.points-command-flow .pcf-expenses-route-row:focus-visible::before,
+.points-command-flow .pcf-expenses-point-row:hover::before,
+.points-command-flow .pcf-expenses-point-row:focus-visible::before {
+  transform: scaleY(1);
+  opacity: 0.88;
+}
+
+.points-command-flow .pcf-expenses-route-identity i {
+  color: var(--pcf-champagne);
+}
+
+.points-command-flow .pcf-expenses-route-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "amount arrow"
+    "share share";
+  row-gap: 9px;
+}
+
+.points-command-flow .pcf-expenses-route-value strong { grid-area: amount; }
+.points-command-flow .pcf-expenses-route-value > .so-icon { grid-area: arrow; }
+
+.points-command-flow .pcf-expenses-route-share {
+  grid-area: share;
+  display: block;
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--pcf-border-strong) 68%, transparent);
+  transform-origin: center;
+  transition: transform var(--pcf-motion-hover) var(--pcf-ease-out);
+}
+
+.points-command-flow .pcf-expenses-route-share > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pcf-accent);
+  transition: opacity var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-expenses-route-value > .so-icon,
+.points-command-flow .pcf-expenses-point-value > .so-icon {
+  color: var(--pcf-dim);
+  opacity: 0.54;
+  transition:
+    color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    opacity var(--pcf-motion-hover) var(--pcf-ease-standard),
+    transform var(--pcf-motion-hover) var(--pcf-ease-out);
+}
+
+.points-command-flow .pcf-expenses-route-row:hover .pcf-expenses-route-value > .so-icon,
+.points-command-flow .pcf-expenses-route-row:focus-visible .pcf-expenses-route-value > .so-icon,
+.points-command-flow .pcf-expenses-point-row:hover .pcf-expenses-point-value > .so-icon,
+.points-command-flow .pcf-expenses-point-row:focus-visible .pcf-expenses-point-value > .so-icon {
+  color: var(--pcf-accent-strong);
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+.points-command-flow .pcf-expenses-search {
+  border-color: var(--pcf-border);
+  border-radius: 9px;
+  background: var(--pcf-depth-1);
+}
+
+.points-command-flow .pcf-expenses-situation-filter button {
+  transition:
+    color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    border-color var(--pcf-motion-hover) var(--pcf-ease-standard),
+    background var(--pcf-motion-hover) var(--pcf-ease-standard);
+}
+
+.points-command-flow .pcf-expenses-situation-filter button[aria-pressed="true"] {
+  border-bottom-color: var(--pcf-accent);
+  color: var(--pcf-accent-strong);
+}
+
+.points-command-flow .pcf-expenses-point-detail > header {
+  padding: 8px 0 20px;
+  border-bottom-color: var(--pcf-border);
+}
+
+.points-command-flow .pcf-expenses-detail-entry {
+  min-height: 68px;
+  padding-inline: 16px;
+  border-bottom-color: var(--pcf-border);
+  background: var(--pcf-depth-1);
+}
+
+.points-command-flow .pcf-expenses-empty {
+  min-height: 104px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--pcf-muted);
+  background: var(--pcf-depth-1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .points-command-flow .pcf-network-register > button:hover {
+    background: var(--pcf-accent-wash);
+  }
+
+  .points-command-flow .pcf-expenses-route-row:hover .pcf-expenses-route-share {
+    transform: scaleY(1.7);
+  }
+}
+
+@media (max-width: 1180px) {
+  .points-command-flow .pcf-operations-folio {
+    animation: pcf-dossier-side-in var(--pcf-motion-panel) var(--pcf-ease-out) both;
+  }
+
+  .points-command-flow .pcf-dossier-backdrop {
+    animation: pcf-dossier-backdrop-in var(--pcf-motion-content) var(--pcf-ease-standard) both;
+  }
+}
+
+@media (max-width: 860px) {
+  .points-command-flow .pcf-expenses-hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .points-command-flow .pcf-expenses-breakdown {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding-top: 14px;
+    padding-left: 0;
+    border-top: 1px solid var(--pcf-border);
+    border-left: 0;
+  }
+
+  .points-command-flow .pcf-expenses-route-value {
+    min-width: 132px;
+  }
+}
+
+@media (max-width: 680px) {
+  .points-command-flow .pcf-operations-folio {
+    padding-inline: 20px 17px;
+    animation: pcf-dossier-sheet-in var(--pcf-motion-panel) var(--pcf-ease-out) both;
+  }
+
+  .points-command-flow .pcf-expenses-explorer {
+    border-radius: 16px 16px 0 0;
+    animation: pcf-dossier-sheet-in var(--pcf-motion-overlay) var(--pcf-ease-out) both;
+  }
+
+  .points-command-flow .pcf-expenses-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 20px 16px;
+  }
+
+  .points-command-flow .pcf-expenses-breakdown {
+    grid-column: auto;
+    grid-row: auto;
+    justify-content: space-between;
+  }
+
+  .points-command-flow .pcf-expenses-competence {
+    min-width: 0;
+  }
+
+  .points-command-flow .pcf-expenses-tabs {
+    background: var(--pcf-depth-1);
+  }
+
+  .points-command-flow .pcf-expenses-panel {
+    background: var(--pcf-depth-2);
+  }
+
+  .points-command-flow .pcf-expenses-route-ledger,
+  .points-command-flow .pcf-expenses-points-ledger,
+  .points-command-flow .pcf-expenses-detail-ledger {
+    border-radius: 8px;
+  }
+
+  .points-command-flow .pcf-expenses-route-row,
+  .points-command-flow .pcf-expenses-point-row {
+    padding-inline: 12px;
+  }
+}
+
+@keyframes pcf-chip-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pcf-result-pulse {
+  from { opacity: 0.45; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pcf-context-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pcf-panel-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pcf-content-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pcf-tab-line-in {
+  from { transform: scaleX(0.25); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes pcf-workspace-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pcf-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes pcf-dossier-sheet-in {

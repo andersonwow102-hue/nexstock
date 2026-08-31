@@ -595,6 +595,7 @@ export function PointExpensesModal({
   competenciaInicial = competenciaAtual(),
   permitirSelecionarCompetencia = false,
   perspectivaInicial = "rotas",
+  pontoSelecionadoInicialId = null,
   podeEditar = false,
   suspenso = false,
   onAbrirDespesaPonto,
@@ -603,7 +604,7 @@ export function PointExpensesModal({
   const mesAtual = competenciaAtual();
   const [competencia, setCompetencia] = useState(competenciaInicial);
   const [perspectiva, setPerspectiva] = useState(perspectivaInicial === "pontos" ? "pontos" : "rotas");
-  const [pontoSelecionadoId, setPontoSelecionadoId] = useState(null);
+  const [pontoSelecionadoId, setPontoSelecionadoId] = useState(pontoSelecionadoInicialId);
   const [rotaSelecionada, setRotaSelecionada] = useState("Todas");
   const [situacaoSelecionada, setSituacaoSelecionada] = useState("todos");
   const [busca, setBusca] = useState("");
@@ -619,6 +620,7 @@ export function PointExpensesModal({
       : null
   );
   const analise = criarAnaliseDespesasRede({ pontos, despesas, competencia });
+  const maiorTotalRota = Math.max(0, ...analise.resumoRotas.map(item => item.total));
   const pontoSelecionado = analise.pontosCompetencia.find(
     ponto => Number(ponto.id) === Number(pontoSelecionadoId)
   ) || null;
@@ -750,7 +752,7 @@ export function PointExpensesModal({
                   <span className="pcf-expenses-route-identity"><i>{String(indice + 1).padStart(2, "0")}</i><strong>{item.rota}</strong></span>
                   <span className="pcf-expenses-route-counts"><b>{item.comDespesa} com despesa</b><small>{item.semDespesa} sem despesa</small></span>
                   <span className="pcf-expenses-route-manager">{item.totalGerente > 0 ? <><small>Gerente</small><b>{formatarReais(item.totalGerente)}</b></> : <small>Sem despesa de gerente</small>}</span>
-                  <span className="pcf-expenses-route-value"><strong>{formatarReais(item.total)}</strong><OperationIcon name="chevronRight" size={15}/></span>
+                  <span className="pcf-expenses-route-value"><strong>{formatarReais(item.total)}</strong><OperationIcon name="chevronRight" size={15}/><span className="pcf-expenses-route-share" aria-hidden="true"><span style={{ width: `${maiorTotalRota > 0 ? Math.max(0, Math.min(100, (item.total / maiorTotalRota) * 100)) : 0}%` }}/></span></span>
                 </button>
               ))}
             </div>
@@ -852,13 +854,13 @@ export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], 
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], competencia=competenciaAtual(), busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, totalDespesasCompetencia, despesasAbertas=false, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onVerDespesas, onExportExcel, onExportPDF, onCarregarHistoricoFormal=carregarHistoricoStatusPonto, podeVerHistoricoFormal=true, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
+export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], competencia=competenciaAtual(), busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, totalDespesasCompetencia, despesasAbertas=false, pontoSelecionadoInicialId=null, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onVerDespesas, onExportExcel, onExportPDF, onCarregarHistoricoFormal=carregarHistoricoStatusPonto, podeVerHistoricoFormal=true, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
   const [filtroGerente,setFiltroGerente]=useState("Todos");
   const [filtroSituacao,setFiltroSituacao]=useState("todos");
   const [filtroVinculo,setFiltroVinculo]=useState("todos");
   const [filtrosAbertos,setFiltrosAbertos]=useState(false);
   const [pagina,setPagina]=useState(1);
-  const [pontoSelecionadoId,setPontoSelecionadoId]=useState(null);
+  const [pontoSelecionadoId,setPontoSelecionadoId]=useState(pontoSelecionadoInicialId);
   const [dossieEmSheet,setDossieEmSheet]=useState(()=>typeof window!=="undefined"&&window.matchMedia?.(PONTOS_DOSSIE_SHEET_QUERY).matches);
   const [historicoFormal,setHistoricoFormal]=useState({pontoId:null,status:"idle",itens:[],erro:""});
   const [tentativaHistoricoFormal,setTentativaHistoricoFormal]=useState(0);
@@ -1030,7 +1032,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     </div>
 
     <header className="pcf-ledger-toolbar" aria-hidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined}>
-      <div><span className="pcf-eyebrow">Operations Ledger</span><h2 id="pcf-ledger-title">Registro operacional<span>{filtrados.length}</span></h2></div>
+      <div><span className="pcf-eyebrow">Operations Ledger</span><h2 id="pcf-ledger-title">Registro operacional<span key={filtrados.length} className="pcf-result-count">{filtrados.length}</span></h2></div>
       <div className="pcf-ledger-tools"><button type="button" className="pcf-icon-action" onClick={()=>onExportExcel(ordenados)} aria-label="Exportar pontos filtrados em CSV" title="Exportar CSV"><OperationIcon name="file"/></button><button type="button" className="pcf-icon-action" onClick={()=>onExportPDF(ordenados)} aria-label="Exportar pontos filtrados em PDF" title="Exportar PDF"><OperationIcon name="receipt"/></button></div>
     </header>
 
@@ -1057,7 +1059,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
 
         <PontosDossiePortal ativo={dossieModalAberto}>
         {dossieModalAberto&&pontoSelecionado&&selecionado&&<button type="button" className="pcf-dossier-backdrop" tabIndex={-1} aria-label="Fechar dossiê" onClick={fecharDossie}/>}
-        {pontoSelecionado&&selecionado?<aside ref={dossieRef} className="pcf-dossier pcf-operations-folio" data-folio-state={selecionado.desativado?"disabled":selecionado.desativacaoPendente?"pending":"active"} role={dossieEmSheet?"dialog":undefined} aria-modal={dossieEmSheet?"true":undefined} aria-labelledby="pcf-dossier-title" tabIndex={dossieEmSheet?-1:undefined}>
+        {pontoSelecionado&&selecionado?<aside ref={dossieRef} className="pcf-dossier pcf-operations-folio" data-folio-state={selecionado.desativado?"disabled":selecionado.desativacaoPendente?"pending":"active"} role={dossieEmSheet?"dialog":undefined} aria-modal={dossieEmSheet?"true":undefined} aria-labelledby="pcf-dossier-title" tabIndex={dossieEmSheet?-1:undefined}><div className="pcf-folio-content" key={pontoSelecionado.id}>
           <header className="pcf-dossier-header"><div><span className="pcf-eyebrow">Registro operacional</span><h3 id="pcf-dossier-title">{pontoSelecionado.nomeFantasia}<PlayBetBadge ponto={pontoSelecionado}/></h3><p>{rotaCanonica(pontoSelecionado.gerente)||"Sem rota"}</p></div><button type="button" className="pcf-dossier-close" data-pcf-dossier-autofocus="true" onClick={fecharDossie} aria-label="Fechar dossiê"><OperationIcon name="close" size={18}/></button></header>
           <div className="pcf-dossier-status"><StatusBadge tone={selecionado.desativado?"neutral":"success"} label={selecionado.desativado?"Operação desativada":"Operação ativa"}/>{selecionado.desativacaoPendente&&<StatusBadge tone="warning" label="Desativação pendente"/>}{selecionado.bloqueadas.length>0&&<StatusBadge tone="warning" label={`${selecionado.bloqueadas.length} serviço${selecionado.bloqueadas.length!==1?"s":""} bloqueado${selecionado.bloqueadas.length!==1?"s":""}`}/>}</div>
           <dl className="pcf-folio-identity"><div><dt>Responsável</dt><dd>{pontoSelecionado.nomeDono}</dd></div><div><dt>Telefone</dt><dd>{pontoSelecionado.telefone}</dd></div></dl>
@@ -1071,7 +1073,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
           <section className="pcf-folio-section pcf-folio-administration"><header><span>Administração</span><small>Ações disponíveis</small></header><div className="pcf-dossier-actions" aria-label="Ações do ponto">{selecionado.totalAcessos>0&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onVerAcessos?.(pontoSelecionado))}><OperationIcon name="lock"/>Acessos ({selecionado.totalAcessos})</button>}{podeSolicitarModalidade&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onSolicitarModalidade(pontoSelecionado))}><OperationIcon name="warning"/>Bloquear / liberar</button>}{podeEditarDespesas&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onDespesas(pontoSelecionado))}><OperationIcon name="money"/>Despesas</button>}{podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onEditar(pontoSelecionado))}><OperationIcon name="edit"/>Editar</button>}</div></section>
 
           {(selecionado.desativacaoPendente||(podeSolicitarDesativacao&&!selecionado.desativado)||(podeReativar&&selecionado.desativado))&&<section className="pcf-sensitive-zone"><header><span>Zona sensível</span></header>{selecionado.desativacaoPendente&&<p>Há uma solicitação de desativação aguardando decisão administrativa.</p>}{podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>executarAcaoDossie(()=>onSolicitarDesativacao(pontoSelecionado))}><OperationIcon name="clock"/>Solicitar desativação</button>}{podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>executarAcaoDossie(()=>onReativar(pontoSelecionado))}><OperationIcon name="refresh"/>Reativar ponto</button>}</section>}
-        </aside>:<aside className="pcf-dossier pcf-dossier--empty" aria-label="Registro operacional do ponto"><OperationIcon name="mapPin" size={20}/><span>Selecione uma unidade no ledger para abrir o registro operacional.</span></aside>}
+        </div></aside>:<aside className="pcf-dossier pcf-dossier--empty" aria-label="Registro operacional do ponto"><OperationIcon name="mapPin" size={20}/><span>Selecione uma unidade para consultar seu registro operacional.</span></aside>}
         </PontosDossiePortal>
       </div>}
   </section>;
