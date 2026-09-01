@@ -77,6 +77,16 @@ test('mobile usa cartões verticais e bottom sheet sem reaproveitar a grade desk
   assert.match(css, /pcf-record-equipment::before\s*\{\s*content:\s*"Equipamentos"/);
   assert.match(css, /pcf-record-admin::before\s*\{\s*content:\s*"Administração"/);
   assert.match(css, /Hotfix mobile · Pontos[\s\S]*?pcf-filter-command \.so-filter-bar__primary\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
-  assert.match(css, /Hotfix mobile · Pontos[\s\S]*?scroll-snap-type:\s*inline mandatory/);
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.pcf-operations-folio\s*\{[\s\S]*?inset:\s*auto 0 0/);
+});
+
+test('métricas móveis de Pontos usam grid compacto e preservam ações semânticas', () => {
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?pcf-network-register[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[\s\S]*?overflow-x:\s*visible/);
+  assert.match(css, /@media \(min-width: 600px\) and \(max-width: 820px\)[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /pcf-network-register > button[\s\S]*?min-height:\s*62px/);
+  assert.match(page, /aria-pressed=\{filtroPendencia==="pendente"\}/);
+  assert.match(page, /className="pcf-register-finance"[\s\S]*?aria-haspopup="dialog"/);
+  for (const label of ['Pontos', 'Ativos', 'Desativados', 'Com equip.', 'Sem equip.', 'Sem despesa', 'Pendências', 'Despesas']) {
+    assert.match(page, new RegExp(`data-mobile-label="${label.replace('.', '\\.')}`));
+  }
 });

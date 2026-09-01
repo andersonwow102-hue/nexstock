@@ -151,9 +151,6 @@ const PREVIEW_STYLES = `
     .equipment-preview .equip-cf-view-switch { display: flex; max-width: 100%; gap: 4px; overflow-x: auto; scroll-snap-type: inline proximity; }
     .equipment-preview .equip-cf-view-switch button { flex: 0 0 auto; justify-content: flex-start; padding-inline: 11px; scroll-snap-align: start; }
     .equipment-preview .equip-cf-view-switch button span { overflow: visible; text-overflow: clip; white-space: nowrap; }
-    .equipment-preview .equip-cf-position-strip { display: flex; max-width: calc(100% + 20px); margin-inline: -10px; padding-inline: 10px; overflow-x: auto; scroll-padding-inline: 10px; scroll-snap-type: inline mandatory; }
-    .equipment-preview .equip-cf-position-strip > * { min-width: 154px; flex: 0 0 154px; scroll-snap-align: start; }
-    .equipment-preview .equip-cf-position-strip button > span, .equipment-preview .equip-cf-position-strip button > small { overflow: visible; text-overflow: clip; white-space: normal; }
     .equipment-preview .equip-cf-filterbar .so-filter-bar__primary { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
     .equipment-preview .equip-cf-filterbar .so-filter-bar__toggle { width: 100%; justify-content: center; }
     .equipment-preview__summary { grid-template-columns: 1fr; }
@@ -378,11 +375,11 @@ export default function EquipamentosPreviewApp() {
   });
 
   const scopeOptions = [
-    ["todos", "Base cadastrada", "todos os registros", globalCounts.total],
-    ["interno", "Estoque interno", "prontos na base", globalCounts.interno],
-    ["pontos", "Em pontos", "em operação", globalCounts.pontos],
-    ["gerentes", "Com gerentes", "estoque ou transferência", globalCounts.gerentes],
-    ["conserto", "Conserto", "em assistência", globalCounts.conserto],
+    ["todos", "Base cadastrada", "todos os registros", globalCounts.total, "Base"],
+    ["interno", "Estoque interno", "prontos na base", globalCounts.interno, "Estoque"],
+    ["pontos", "Em pontos", "em operação", globalCounts.pontos, "Em pontos"],
+    ["gerentes", "Com gerentes", "estoque ou transferência", globalCounts.gerentes, "Com gerentes"],
+    ["conserto", "Conserto", "em assistência", globalCounts.conserto, "Conserto"],
   ];
 
   return (
@@ -438,9 +435,9 @@ export default function EquipamentosPreviewApp() {
         </div>
 
         <section className="equip-cf-position-strip" aria-label="Recortes de posição">
-          {scopeOptions.map(([value, label, helper, count]) => (
+          {scopeOptions.map(([value, label, helper, count, mobileLabel]) => (
             <button key={value} type="button" className={`${scope === value ? "is-active" : ""}${value === "conserto" && count ? " is-attention" : ""}`} aria-pressed={scope === value} onClick={() => chooseScope(value)}>
-              <span>{label}</span><strong>{count}</strong><small>{helper}</small>
+              <span data-mobile-label={mobileLabel}>{label}</span><strong>{count}</strong><small>{helper}</small>
             </button>
           ))}
         </section>

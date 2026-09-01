@@ -1992,8 +1992,8 @@
   .equip-cf-control-line { align-items: stretch; flex-direction: column; gap: 5px; }
   .equip-cf-view-switch { overflow-x: auto; }
   .equip-cf-control-context { padding-inline: 9px; }
-  .equip-cf-position-strip { display: flex; overflow-x: auto; scrollbar-width: none; }
-  .equip-cf-position-strip button { min-width: 145px; flex: 1 0 145px; border-top: 0 !important; }
+  .equip-cf-position-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; }
+  .equip-cf-position-strip button { min-width: 0; flex: none; border-top: 0 !important; }
   .equip-cf-filterbar .so-filter-bar__primary,
   .historico-cf-filterbar .so-filter-bar__primary { grid-template-columns: minmax(0, 1fr) auto; }
   .equip-cf-search,
@@ -2187,14 +2187,10 @@
 @media (max-width: 800px) {
   .app.command-flow-shell.module-itens .equip-cf-position-strip,
   .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope {
-    display: flex;
+    display: grid;
   }
 
-  .app.command-flow-shell.module-itens .equip-cf-position-note {
-    min-width: 145px;
-    flex: 1 0 145px;
-    border-top: 0;
-  }
+  .app.command-flow-shell.module-itens .equip-cf-position-note { display: none; }
 
   .app.command-flow-shell.module-itens .equip-cf-position-strip:not(.is-manager-scope) button:nth-child(4)::before {
     display: block;
@@ -2294,32 +2290,6 @@
     padding-inline: 4px;
   }
 
-  .app.command-flow-shell.module-itens .equip-cf-position-strip,
-  .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope {
-    max-width: 100%;
-    margin-inline: -10px;
-    padding-inline: 10px;
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    scroll-padding-inline: 10px;
-    scroll-snap-type: inline mandatory;
-    scrollbar-width: thin;
-  }
-
-  .app.command-flow-shell.module-itens .equip-cf-position-strip button,
-  .app.command-flow-shell.module-itens .equip-cf-position-note {
-    min-width: 154px;
-    flex: 0 0 154px;
-    scroll-snap-align: start;
-  }
-
-  .app.command-flow-shell.module-itens .equip-cf-position-strip button > span,
-  .app.command-flow-shell.module-itens .equip-cf-position-strip button > small {
-    overflow: visible;
-    text-overflow: clip;
-    white-space: normal;
-  }
-
   .app.command-flow-shell.module-itens .equip-cf-filterbar .so-filter-bar__primary {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -2330,6 +2300,99 @@
     width: 100%;
     min-height: 44px;
     justify-content: center;
+  }
+}
+
+@media (max-width: 820px) {
+  .app.command-flow-shell.module-itens .equip-cf-position-strip,
+  .app.command-flow-shell.module-itens .equip-cf-position-strip:not(.is-manager-scope),
+  .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope,
+  .equipment-preview .equip-cf-position-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    height: auto;
+    min-height: 202px;
+    max-width: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
+    overflow-x: visible;
+    border-bottom: 0;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button,
+  .equipment-preview .equip-cf-position-strip button {
+    display: grid;
+    min-width: 0;
+    min-height: 62px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: center;
+    gap: 4px;
+    padding: 9px 11px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--surface-subtle) 76%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 86%, transparent);
+    border-radius: 5px;
+    box-shadow: none;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope {
+    min-height: 132px;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button + button::before,
+  .equipment-preview .equip-cf-position-strip button + button::before {
+    display: none;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button > strong,
+  .equipment-preview .equip-cf-position-strip button > strong {
+    grid-row: 1;
+    grid-column: 1;
+    justify-self: start;
+    font-size: 20px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button > span,
+  .equipment-preview .equip-cf-position-strip button > span {
+    grid-row: 2;
+    grid-column: 1;
+    overflow: visible;
+    font-size: 0;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button > span::after,
+  .equipment-preview .equip-cf-position-strip button > span::after {
+    content: attr(data-mobile-label);
+    color: var(--text-muted);
+    font: 620 10px/1.2 var(--font-sans);
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button > small,
+  .equipment-preview .equip-cf-position-strip button > small,
+  .app.command-flow-shell.module-itens .equip-cf-position-note {
+    display: none;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button.is-active,
+  .equipment-preview .equip-cf-position-strip button.is-active {
+    background: color-mix(in srgb, var(--brand-action) 7%, var(--surface-subtle));
+    border-color: color-mix(in srgb, var(--brand-action) 38%, var(--border-subtle));
+  }
+}
+
+@media (min-width: 600px) and (max-width: 820px) {
+  .app.command-flow-shell.module-itens .equip-cf-position-strip,
+  .app.command-flow-shell.module-itens .equip-cf-position-strip:not(.is-manager-scope),
+  .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope,
+  .equipment-preview .equip-cf-position-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-height: 132px;
   }
 }
 

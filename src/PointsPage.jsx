@@ -841,14 +841,14 @@ export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], 
 
   return <section className="pcf-overview pcf-network-register" aria-label="Leitura atual da rede">
     <div className="pcf-register-context"><span>Rede agora</span><small><OperationIcon name="clock" size={13}/>{mesLabel(`${competencia}-01`)}</small></div>
-    <button type="button" className="is-primary" onClick={onMostrarTodos}><strong>{totalPontos}</strong><span>Pontos</span></button>
-    <button type="button" onClick={()=>onFiltrarSituacao("ativo")}><strong>{ativos}</strong><span>Ativos</span></button>
-    <button type="button" onClick={()=>onFiltrarSituacao("desativado")}><strong>{desativados}</strong><span>Desativados</span></button>
-    <button type="button" onClick={()=>onFiltrarVinculo("com")}><strong>{comEquipamento}</strong><span>Com equipamento</span></button>
-    <button type="button" onClick={()=>onFiltrarVinculo("sem")}><strong>{semEquipamento}</strong><span>Sem equipamento</span></button>
-    {mostrarDespesas&&<button type="button" onClick={()=>onFiltrarDespesa("nao")}><strong>{semDespesa}</strong><span>Sem despesa</span></button>}
-    <button type="button" className={`pcf-network-stat ${pendencias>0?"is-warning":""} ${filtroPendencia==="pendente"?"is-active":""}`} aria-pressed={filtroPendencia==="pendente"} onClick={()=>onFiltrarPendencia?.(filtroPendencia==="pendente"?"todos":"pendente")}><strong>{pendencias}</strong><span>Pendências</span></button>
-    {mostrarDespesas&&<button type="button" className="pcf-register-finance" onClick={onVerDespesas} aria-haspopup="dialog" aria-expanded={despesasAbertas} aria-controls="pcf-expenses-explorer" aria-label={`Abrir despesas da rede de ${mesLabelLongo(`${competencia}-01`)}: ${formatarReais(totalDespesas)}`}><strong>{formatarReais(totalDespesas)}</strong><span>Despesas da rede</span><OperationIcon name="chevronRight" size={14}/></button>}
+    <button type="button" className="is-primary" onClick={onMostrarTodos}><strong>{totalPontos}</strong><span data-mobile-label="Pontos">Pontos</span></button>
+    <button type="button" onClick={()=>onFiltrarSituacao("ativo")}><strong>{ativos}</strong><span data-mobile-label="Ativos">Ativos</span></button>
+    <button type="button" onClick={()=>onFiltrarSituacao("desativado")}><strong>{desativados}</strong><span data-mobile-label="Desativados">Desativados</span></button>
+    <button type="button" onClick={()=>onFiltrarVinculo("com")}><strong>{comEquipamento}</strong><span data-mobile-label="Com equip.">Com equipamento</span></button>
+    <button type="button" onClick={()=>onFiltrarVinculo("sem")}><strong>{semEquipamento}</strong><span data-mobile-label="Sem equip.">Sem equipamento</span></button>
+    {mostrarDespesas&&<button type="button" onClick={()=>onFiltrarDespesa("nao")}><strong>{semDespesa}</strong><span data-mobile-label="Sem despesa">Sem despesa</span></button>}
+    <button type="button" className={`pcf-network-stat ${pendencias>0?"is-warning":""} ${filtroPendencia==="pendente"?"is-active":""}`} aria-pressed={filtroPendencia==="pendente"} onClick={()=>onFiltrarPendencia?.(filtroPendencia==="pendente"?"todos":"pendente")}><strong>{pendencias}</strong><span data-mobile-label="Pendências">Pendências</span></button>
+    {mostrarDespesas&&<button type="button" className="pcf-register-finance" onClick={onVerDespesas} aria-haspopup="dialog" aria-expanded={despesasAbertas} aria-controls="pcf-expenses-explorer" aria-label={`Abrir despesas da rede de ${mesLabelLongo(`${competencia}-01`)}: ${formatarReais(totalDespesas)}`}><strong>{formatarReais(totalDespesas)}</strong><span data-mobile-label="Despesas">Despesas da rede</span><OperationIcon name="chevronRight" size={14}/></button>}
   </section>;
 }
 

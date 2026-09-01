@@ -134,8 +134,21 @@ test("mobile converte o Inventory Ledger em cartões verticais sem girar o regis
   assert.doesNotMatch(css, /writing-mode:\s*vertical/);
   assert.match(css, /@media \(max-width: 780px\)[\s\S]*?"register register"[\s\S]*?"identity state"[\s\S]*?"position position"[\s\S]*?"link link"[\s\S]*?"movement movement"[\s\S]*?"action action"/);
   assert.match(css, /equipment-inventory-ledger__row-action > button\s*\{[\s\S]*?width:\s*100%;[\s\S]*?min-height:\s*48px/);
-  assert.match(shell, /Hotfix mobile · Equipamentos[\s\S]*?scroll-snap-type:\s*inline mandatory/);
   assert.match(shell, /Hotfix mobile · Equipamentos[\s\S]*?equip-cf-filterbar \.so-filter-bar__primary\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
   assert.match(shell, /padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(appCss, /\.chat-flutuante\s*\{[\s\S]*?bottom:\s*max\(18px, calc\(12px \+ env\(safe-area-inset-bottom\)\)\)/);
+});
+
+test("métricas móveis de Equipamentos usam grid compacto sem carrossel", async () => {
+  const app = await read("App.jsx");
+  const preview = await read("EquipamentosPreviewApp.jsx");
+  const shell = await read("styles/command-flow.css");
+
+  for (const label of ["Base", "Estoque", "Em pontos", "Com gerentes", "Conserto"]) {
+    assert.match(app, new RegExp(`data-mobile-label=[^>]*${label}`));
+  }
+  assert.match(shell, /@media \(max-width: 820px\)[\s\S]*?equip-cf-position-strip[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[\s\S]*?overflow-x:\s*visible/);
+  assert.match(shell, /@media \(min-width: 600px\) and \(max-width: 820px\)[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(shell, /equip-cf-position-strip button[\s\S]*?min-height:\s*62px/);
+  assert.doesNotMatch(preview, /equip-cf-position-strip[^}]*overflow-x:\s*auto/);
 });
