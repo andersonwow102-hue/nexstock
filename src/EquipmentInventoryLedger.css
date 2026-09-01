@@ -362,6 +362,7 @@
 }
 
 .equipment-inventory-ledger__row-action > button.is-transfer:not(:disabled) {
+  gap: 8px;
   color: var(--text-default);
   background: color-mix(in srgb, var(--surface-panel) 94%, var(--equipment-transfer));
   border-color: color-mix(in srgb, var(--equipment-transfer-border) 72%, var(--border-subtle));
@@ -679,6 +680,7 @@
 }
 
 .equipment-inventory-ledger__dossier-actions > .is-primary.is-transfer {
+  gap: 9px;
   color: #ffffff;
   background: var(--equipment-transfer);
   border-color: var(--equipment-transfer);

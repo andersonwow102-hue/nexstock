@@ -113,6 +113,10 @@ test("ação Movimentar usa transferência clara sem alterar ícones de posiçã
   assert.match(app, /label:"Movimentar",icon:"transfer",purpose:"move",onClick:\(\)=>abrirMov\(item\)/);
   assert.match(preview, /icon: repair \? "wrench" : pending \? "check" : "transfer"/);
   assert.match(ledger, /primaryAction\.purpose === "move" && "is-transfer"/);
+  assert.match(ledger, /strokeWidth=\{primaryAction\.purpose === "move" \? 1\.55 : 1\.8\}/);
+  assert.match(ledger, /strokeWidth=\{selectedRow\.primaryAction\.purpose === "move" \? 1\.55 : 1\.8\}/);
+  assert.match(css, /button\.is-transfer:not\(:disabled\)\s*\{[\s\S]*?gap: 8px/);
+  assert.match(css, /\.is-primary\.is-transfer\s*\{[\s\S]*?gap: 9px/);
   assert.match(css, /button\.is-transfer:hover:not\(:disabled\)[\s\S]*?var\(--equipment-transfer-surface\)/);
   assert.match(css, /button\.is-transfer:focus-visible:not\(:disabled\)[\s\S]*?outline: 2px solid var\(--equipment-transfer\)/);
   assert.match(css, /\.is-primary\.is-transfer[\s\S]*?background: var\(--equipment-transfer\)/);

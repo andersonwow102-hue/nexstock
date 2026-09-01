@@ -228,7 +228,7 @@ export default function EquipmentInventoryLedger({
                           aria-label={`${display(primaryAction.label)}: ${display(row.name)}`}
                           onClick={primaryAction.onClick}
                         >
-                          {primaryAction.icon ? <OperationIcon name={primaryAction.icon} size={15} /> : null}
+                          {primaryAction.icon ? <OperationIcon name={primaryAction.icon} size={15} strokeWidth={primaryAction.purpose === "move" ? 1.55 : 1.8} /> : null}
                           <span>{display(primaryAction.label)}</span>
                         </button>
                       ) : <span aria-hidden="true">—</span>}
@@ -364,7 +364,7 @@ export default function EquipmentInventoryLedger({
                       onClick={() => executeDossier(selectedRow.primaryAction.onClick)}
                     >
                       {selectedRow.primaryAction.icon ? (
-                        <OperationIcon name={selectedRow.primaryAction.icon} size={17} />
+                        <OperationIcon name={selectedRow.primaryAction.icon} size={17} strokeWidth={selectedRow.primaryAction.purpose === "move" ? 1.55 : 1.8} />
                       ) : null}
                       {display(selectedRow.primaryAction.label)}
                     </button>
