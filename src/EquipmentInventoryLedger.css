@@ -367,13 +367,11 @@
   text-align: center;
 }
 
-.equipment-inventory-ledger__empty strong,
-.equipment-inventory-ledger__dossier-empty strong {
+.equipment-inventory-ledger__empty strong {
   color: var(--text-strong);
 }
 
-.equipment-inventory-ledger__empty span,
-.equipment-inventory-ledger__dossier-empty span {
+.equipment-inventory-ledger__empty span {
   color: var(--text-muted);
   font-size: 11px;
 }
@@ -777,17 +775,6 @@
   padding: 12px 0 4px;
 }
 
-.equipment-inventory-ledger__dossier-empty {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  min-height: 260px;
-  padding: 28px;
-  border: 0;
-  text-align: center;
-}
-
 @media (min-width: 1600px) {
   .equipment-inventory-ledger {
     --equipment-ledger-dossier: 420px;
@@ -1031,6 +1018,69 @@
 @keyframes equipment-ledger-backdrop-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Inspector flutuante: somente no desktop que antes mantinha o dossiê permanente. */
+@media (min-width: 1321px) {
+  .equipment-inventory-ledger .equipment-inventory-ledger__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .equipment-inventory-ledger .equipment-inventory-ledger__dossier {
+    position: fixed;
+    z-index: 600;
+    inset: calc(var(--cf-target, 44px) + clamp(66px, 7.5vh, 84px) + 2px) clamp(18px, 1.7vw, 32px) 18px auto;
+    width: clamp(390px, 29vw, 470px);
+    max-width: calc(100vw - 36px);
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-top-color: var(--brand-action);
+    box-shadow: var(--shadow-lg);
+    animation: equipment-ledger-inspector-in var(--motion-emphasized, 220ms) var(--ease-emphasized, ease) both;
+  }
+
+  .equipment-inventory-ledger__dossier-close {
+    position: absolute;
+    z-index: 6;
+    top: 12px;
+    right: 12px;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    padding: 0;
+    color: var(--text-muted);
+    background: var(--surface-raised, var(--surface-subtle));
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .equipment-inventory-ledger__dossier-head {
+    grid-template-columns: 38px minmax(0, 1fr);
+    padding-right: 68px;
+  }
+
+  .equipment-inventory-ledger__dossier-head > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .equipment-inventory-ledger__dossier-head,
+  .equipment-inventory-ledger__dossier-body {
+    animation: equipment-ledger-content-in 160ms var(--ease-standard, ease-out) both;
+  }
+}
+
+@keyframes equipment-ledger-inspector-in {
+  from { opacity: 0; transform: translateX(22px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes equipment-ledger-content-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

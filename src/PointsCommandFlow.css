@@ -2541,6 +2541,11 @@
   color: var(--pcf-warning);
 }
 
+.points-command-flow .pcf-network-stat.is-active {
+  background: var(--pcf-warning-wash);
+  box-shadow: inset 0 -2px var(--pcf-warning);
+}
+
 .points-command-flow .pcf-network-register .pcf-register-finance {
   min-width: 164px;
   border-right: 0;
@@ -4285,10 +4290,6 @@
 }
 
 .points-command-flow .pcf-operations-folio:not([role="dialog"]) {
-  --pcf-folio-ledger-start: 384px;
-  --pcf-folio-viewport-gap: 14px;
-  top: 14px;
-  max-height: var(--pcf-folio-available-height, calc(100dvh - var(--pcf-folio-ledger-start) - var(--pcf-folio-viewport-gap)));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -4343,13 +4344,6 @@
 .points-command-flow .pcf-operations-folio:not([role="dialog"]) .pcf-folio-context .pcf-dossier-status {
   padding: 0 0 9px;
   border-bottom: 0;
-}
-
-@media (max-width: 1500px) {
-  .points-command-flow .pcf-operations-ledger .pcf-master-detail.is-permanent .pcf-ops-grid {
-    grid-template-columns: minmax(150px, 1.65fr) minmax(62px, 0.58fr) minmax(68px, 0.64fr) minmax(96px, 0.9fr) minmax(82px, 0.72fr);
-    gap: 8px;
-  }
 }
 
 .points-command-flow .pcf-expenses-explorer-overlay {
@@ -4724,6 +4718,39 @@
 @keyframes pcf-dossier-backdrop-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Inspector flutuante: somente no desktop que antes mantinha o fólio permanente. */
+@media (min-width: 1361px) {
+  .points-command-flow .pcf-operations-ledger .pcf-master-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .points-command-flow .pcf-operations-folio:not([role="dialog"]) {
+    position: fixed;
+    z-index: 600;
+    inset: calc(var(--cf-target, 44px) + clamp(66px, 7.5vh, 84px) + 2px) clamp(18px, 1.7vw, 32px) 18px auto;
+    width: clamp(390px, 29vw, 470px);
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-shadow: 0 26px 72px color-mix(in srgb, var(--pcf-canvas) 52%, transparent);
+    animation: pcf-floating-inspector-in var(--pcf-motion-panel) var(--pcf-ease-out) both;
+  }
+
+  .points-command-flow .pcf-operations-folio:not([role="dialog"]) .pcf-dossier-close {
+    display: grid;
+  }
+
+  .points-command-flow .pcf-operations-folio:not([role="dialog"]) .pcf-folio-content {
+    animation-duration: 160ms;
+  }
+}
+
+@keyframes pcf-floating-inspector-in {
+  from { opacity: 0; transform: translateX(22px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -83,3 +83,21 @@ test("preview cobre autoria nova, legado sem autor, recebimento e histórico lon
   assert.match(source, /tipo: "recebimento_gerente"[\s\S]*?executadoPorPerfilSnapshot: "gerente"/);
   assert.ok([...source.matchAll(/itemId: "eq-local-806"/g)].length >= 7, "fixture precisa forçar scroll no dossiê");
 });
+
+test("desktop abre inspector flutuante somente após seleção e mantém sheets responsivos", async () => {
+  const preview = await read("EquipamentosPreviewApp.jsx");
+  const ledger = await read("EquipmentInventoryLedger.jsx");
+  const css = await read("EquipmentInventoryLedger.css");
+  const app = await read("App.jsx");
+
+  assert.match(ledger, /const inspectorOpen = Boolean\(dossierOpen && selectedRow\)/);
+  assert.match(ledger, /\{inspectorOpen \? <aside/);
+  assert.doesNotMatch(ledger, /Selecione um equipamento/);
+  assert.match(css, /@media \(min-width: 1321px\)[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.match(css, /@media \(min-width: 1321px\)[\s\S]*?position:\s*fixed;[\s\S]*?overflow-y:\s*auto/);
+  assert.match(css, /equipment-ledger-inspector-in var\(--motion-emphasized, 220ms\)/);
+  assert.match(css, /@media \(max-width: 1320px\)[\s\S]*?equipment-inventory-ledger__backdrop/);
+  assert.match(preview, /setDossierOpen\(true\)/);
+  assert.match(app, /setEquipamentoFocoId\(null\)/);
+  assert.match(app, /if\(evento\.key!=="Escape"\)return/);
+});

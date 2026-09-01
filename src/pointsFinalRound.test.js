@@ -5,26 +5,22 @@ import fs from 'node:fs';
 const page = fs.readFileSync(new URL('./PointsPage.jsx', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('./PointsCommandFlow.css', import.meta.url), 'utf8');
 
-test('dossiê permanente calcula a altura útil e rola sem eixo horizontal', () => {
-  const inicioDesktop = css.indexOf('.points-command-flow .pcf-operations-folio:not([role="dialog"]) {');
-  const fimDesktop = css.indexOf('.points-command-flow .pcf-expenses-explorer-overlay', inicioDesktop);
-  const desktop = css.slice(inicioDesktop, fimDesktop);
+test('desktop usa inspector flutuante e mantém o ledger em largura integral', () => {
+  assert.match(css, /@media \(min-width: 1361px\)[\s\S]*?\.pcf-master-detail\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.match(css, /@media \(min-width: 1361px\)[\s\S]*?\.pcf-operations-folio:not\(\[role="dialog"\]\)\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*calc\(var\(--cf-target[\s\S]*?overflow-y:\s*auto/);
+  assert.match(css, /pcf-floating-inspector-in var\(--pcf-motion-panel\)/);
+  assert.match(css, /\.pcf-folio-context\s*\{[\s\S]*?position:\s*sticky/);
+  assert.doesNotMatch(page, /Selecione uma unidade para consultar seu registro operacional/);
+  assert.match(page, /const dossieDesktopAberto=!dossieEmSheet&&Boolean\(pontoSelecionadoAtivoId\)/);
+  assert.match(page, /if\(event\.key!=="Escape"\)return/);
+});
 
-  assert.ok(inicioDesktop >= 0 && fimDesktop > inicioDesktop, 'contrato desktop do dossiê não encontrado');
-  assert.match(desktop, /\.pcf-operations-folio:not\(\[role="dialog"\]\)/);
-  assert.match(desktop, /max-height:\s*var\(--pcf-folio-available-height/);
-  assert.match(desktop, /overflow-x:\s*hidden/);
-  assert.match(desktop, /overflow-y:\s*auto/);
-  assert.match(desktop, /overscroll-behavior:\s*contain/);
-  assert.match(desktop, /scrollbar-gutter:\s*stable/);
-  assert.match(desktop, /:focus-within\s*\{\s*scrollbar-color:/);
-  assert.match(page, /closest\("\.main"\)/);
-  assert.match(page, /clientHeight-topoUtil-deslocamentoSticky/);
-  assert.match(page, /if\(alturaUtil!==alturaAnterior\)/);
-  assert.match(page, /new window\.ResizeObserver\(agendarMedicao\)/);
-  assert.match(page, /areaPrincipal\.addEventListener\("scroll",agendarMedicao,\{passive:true\}\)/);
-  assert.match(page, /pcf-master-detail\$\{dossieEmSheet\?"":" is-permanent"\}/);
-  assert.match(css, /pcf-master-detail\.is-permanent \.pcf-ops-grid/);
+test('Pendências usa a condição administrativa real e participa dos filtros', () => {
+  assert.match(page, /solicitacoesStatus\.some\(s=>s\.status==="pendente"&&Number\(s\.pontoId\)===Number\(ponto\.id\)\)/);
+  assert.match(page, /const mP=filtroPendencia==="todos"\|\|dados\.desativacaoPendente/);
+  assert.match(page, /aria-pressed=\{filtroPendencia==="pendente"\}/);
+  assert.match(page, /Somente pendências/);
+  assert.match(page, /Pendências administrativas/);
 });
 
 test('cabeçalho contextual reúne identidade e status e permanece sticky no desktop', () => {

@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { Fragment, useId, useRef } from "react";
 import { OperationIcon } from "./components/operations/OperationsUI.jsx";
 import "./EquipmentInventoryLedger.css";
 
@@ -54,6 +54,7 @@ export default function EquipmentInventoryLedger({
   const rowButtonRefs = useRef([]);
   const dossierTitleId = useId();
   const selectedRow = selectedRowOf(rows, selected);
+  const inspectorOpen = Boolean(dossierOpen && selectedRow);
   const sheetOpen = Boolean(dossierSheet && dossierOpen && selectedRow);
   const resolvedTotal = Number.isFinite(Number(total)) ? Number(total) : rows.length;
   const resolvedPage = Math.max(1, Number(page) || 1);
@@ -276,7 +277,7 @@ export default function EquipmentInventoryLedger({
           />
         ) : null}
 
-        <aside
+        {inspectorOpen ? <aside
           className={classes(
             "equipment-inventory-ledger__dossier",
             sheetOpen && "is-sheet-open",
@@ -291,7 +292,7 @@ export default function EquipmentInventoryLedger({
           tabIndex={dossierSheet ? -1 : undefined}
         >
           {selectedRow ? (
-            <>
+            <Fragment key={selectedRow.id}>
               <header className="equipment-inventory-ledger__dossier-head">
                 <button
                   className="equipment-inventory-ledger__dossier-close"
@@ -430,15 +431,9 @@ export default function EquipmentInventoryLedger({
                   ) : <p className="equipment-inventory-ledger__trace-empty">Nenhuma movimentação registrada.</p>}
                 </section>
               </div>
-            </>
-          ) : (
-            <div className="equipment-inventory-ledger__dossier-empty">
-              <OperationIcon name="package" size={22} />
-              <strong>Selecione um equipamento</strong>
-              <span>Os detalhes aparecem aqui sem tirar você da lista.</span>
-            </div>
-          )}
-        </aside>
+            </Fragment>
+          ) : null}
+        </aside> : null}
       </div>
     </section>
   );

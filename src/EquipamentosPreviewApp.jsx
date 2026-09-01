@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import EquipmentInventoryLedger from "./EquipmentInventoryLedger.jsx";
 import {
   Button,
@@ -208,16 +208,19 @@ function themeFromLocation() {
 }
 
 export default function EquipamentosPreviewApp() {
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const cenario = String(params.get("cenario") || "").toLowerCase();
   const [activeView, setActiveView] = useState("lista");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(cenario === "single" ? "NP-806" : "");
   const [category, setCategory] = useState("Todas");
   const [status, setStatus] = useState("Todos");
   const [scope, setScope] = useState("todos");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState("eq-local-806");
-  const [dossierOpen, setDossierOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState(cenario === "single" ? "eq-local-806" : null);
+  const [dossierOpen, setDossierOpen] = useState(cenario === "single");
   const [notice, setNotice] = useState("Prévia local pronta. Todos os comandos permanecem simulados em memória.");
+  const desktopTriggerRef = useRef(null);
   const theme = themeFromLocation();
   const light = theme === "claro";
 
@@ -237,7 +240,14 @@ export default function EquipamentosPreviewApp() {
   const globalCounts = useMemo(() => countsOf(EQUIPAMENTOS_PREVIEW_FIXTURE), []);
   const activeFilterCount = Number(category !== "Todas") + Number(status !== "Todos") + Number(scope !== "todos");
 
-  const closeDossier = () => setDossierOpen(false);
+  const closeDossier = () => {
+    const trigger = desktopTriggerRef.current;
+    setDossierOpen(false);
+    setSelectedId(null);
+    if (!sheet.isSheet && trigger instanceof HTMLElement && trigger.isConnected) {
+      window.requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
+    }
+  };
   const sheet = useResponsiveSheet({
     open: dossierOpen,
     onClose: closeDossier,
@@ -246,10 +256,21 @@ export default function EquipamentosPreviewApp() {
   });
 
   useEffect(() => {
-    if (selectedItem || filteredItems.length === 0) return;
-    setSelectedId(filteredItems[0].id);
+    if (sheet.isSheet || !dossierOpen || !selectedItem) return undefined;
+    function handleEscape(event) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeDossier();
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [dossierOpen, selectedItem, sheet.isSheet]);
+
+  useEffect(() => {
+    if (!selectedId || selectedItem) return;
+    setSelectedId(null);
     setDossierOpen(false);
-  }, [filteredItems, selectedItem]);
+  }, [selectedId, selectedItem]);
 
   useEffect(() => {
     if (page <= totalPages) return;
@@ -265,18 +286,20 @@ export default function EquipamentosPreviewApp() {
     setScope(nextScope);
     setPage(1);
     setDossierOpen(false);
+    setSelectedId(null);
   }
 
-  function selectItem(item) {
+  function selectItem(item, trigger) {
     setSelectedId(item.id);
     setFiltersOpen(false);
-    if (sheet.isSheet) setDossierOpen(true);
+    desktopTriggerRef.current = trigger instanceof HTMLElement ? trigger : document.activeElement;
+    setDossierOpen(true);
   }
 
   function changePage(nextPage) {
     const safePage = Math.max(1, Math.min(totalPages, nextPage));
     setPage(safePage);
-    setSelectedId(filteredItems[(safePage - 1) * PAGE_SIZE]?.id || null);
+    setSelectedId(null);
     setDossierOpen(false);
   }
 

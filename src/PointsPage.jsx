@@ -828,15 +828,14 @@ export function PointExpensesModal({
 }
 
 // ─── ABA: Visão Geral ─────────────────────────────────────────────────────────
-export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], competencia=competenciaAtual(), mostrarDespesas=true, totalDespesasCompetencia, despesasAbertas=false, onMostrarTodos, onFiltrarSituacao, onFiltrarVinculo, onFiltrarDespesa, onVerDespesas }) {
+export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], competencia=competenciaAtual(), mostrarDespesas=true, totalDespesasCompetencia, despesasAbertas=false, filtroPendencia="todos", onMostrarTodos, onFiltrarSituacao, onFiltrarVinculo, onFiltrarDespesa, onFiltrarPendencia, onVerDespesas }) {
   const totalPontos=pontos.length;
   const ativos=pontos.filter(p=>p.situacaoOperacional!=="desativado").length;
   const desativados=totalPontos-ativos;
   const comEquipamento=pontos.filter(p=>equipamentos.some(i=>i.localizacao===p.nomeFantasia)).length;
   const semEquipamento=totalPontos-comEquipamento;
   const semDespesa=pontos.filter(p=>p.possuiDespesa!=="sim").length;
-  const idsPontos=new Set(pontos.map(p=>Number(p.id)));
-  const pendencias=solicitacoesStatus.filter(s=>s.status==="pendente"&&idsPontos.has(Number(s.pontoId))).length;
+  const pendencias=pontos.filter(ponto=>solicitacoesStatus.some(s=>s.status==="pendente"&&Number(s.pontoId)===Number(ponto.id))).length;
   const totalDespesasPontos=pontos.reduce((s,p)=>s+Number(p.valorDespesa||0),0);
   const totalDespesas=Number.isFinite(Number(totalDespesasCompetencia))?Number(totalDespesasCompetencia):totalDespesasPontos;
 
@@ -848,16 +847,17 @@ export function AbaVisaoGeral({ pontos, equipamentos=[], solicitacoesStatus=[], 
     <button type="button" onClick={()=>onFiltrarVinculo("com")}><strong>{comEquipamento}</strong><span>Com equipamento</span></button>
     <button type="button" onClick={()=>onFiltrarVinculo("sem")}><strong>{semEquipamento}</strong><span>Sem equipamento</span></button>
     {mostrarDespesas&&<button type="button" onClick={()=>onFiltrarDespesa("nao")}><strong>{semDespesa}</strong><span>Sem despesa</span></button>}
-    <div className={`pcf-network-stat ${pendencias>0?"is-warning":""}`}><strong>{pendencias}</strong><span>Pendências</span></div>
+    <button type="button" className={`pcf-network-stat ${pendencias>0?"is-warning":""} ${filtroPendencia==="pendente"?"is-active":""}`} aria-pressed={filtroPendencia==="pendente"} onClick={()=>onFiltrarPendencia?.(filtroPendencia==="pendente"?"todos":"pendente")}><strong>{pendencias}</strong><span>Pendências</span></button>
     {mostrarDespesas&&<button type="button" className="pcf-register-finance" onClick={onVerDespesas} aria-haspopup="dialog" aria-expanded={despesasAbertas} aria-controls="pcf-expenses-explorer" aria-label={`Abrir despesas da rede de ${mesLabelLongo(`${competencia}-01`)}: ${formatarReais(totalDespesas)}`}><strong>{formatarReais(totalDespesas)}</strong><span>Despesas da rede</span><OperationIcon name="chevronRight" size={14}/></button>}
   </section>;
 }
 
 // ─── ABA: Pontos Cadastrados ───────────────────────────────────────────────────
-export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], competencia=competenciaAtual(), busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, totalDespesasCompetencia, despesasAbertas=false, pontoSelecionadoInicialId=null, onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onVerDespesas, onExportExcel, onExportPDF, onCarregarHistoricoFormal=carregarHistoricoStatusPonto, podeVerHistoricoFormal=true, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
+export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], solicitacoes=[], solicitacoesStatus=[], competencia=competenciaAtual(), busca, onBuscaChange, onLimparBusca, filtroDespesa, onFiltroDespesaChange, onLimparFiltro, totalDespesasCompetencia, despesasAbertas=false, pontoSelecionadoInicialId=null, filtroPendenciaInicial="todos", onEditar, onDespesas, onSolicitarModalidade, onSolicitarDesativacao, onReativar, onVerAcessos, onVerDespesas, onExportExcel, onExportPDF, onCarregarHistoricoFormal=carregarHistoricoStatusPonto, podeVerHistoricoFormal=true, podeEditar, podeEditarDespesas, podeSolicitarModalidade, podeSolicitarDesativacao, podeReativar, mostrarDespesas=true }) {
   const [filtroGerente,setFiltroGerente]=useState("Todos");
   const [filtroSituacao,setFiltroSituacao]=useState("todos");
   const [filtroVinculo,setFiltroVinculo]=useState("todos");
+  const [filtroPendencia,setFiltroPendencia]=useState(filtroPendenciaInicial);
   const [filtrosAbertos,setFiltrosAbertos]=useState(false);
   const [pagina,setPagina]=useState(1);
   const [pontoSelecionadoId,setPontoSelecionadoId]=useState(pontoSelecionadoInicialId);
@@ -889,7 +889,8 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     const mR=filtroGerente==="Todos"||rotaCanonica(p.gerente)===filtroGerente;
     const mS=filtroSituacao==="todos"||(filtroSituacao==="desativado"?dados.desativado:!dados.desativado);
     const mV=filtroVinculo==="todos"||(filtroVinculo==="com"?dados.vinculados.length>0:dados.vinculados.length===0);
-    return mB&&mD&&mR&&mS&&mV;
+    const mP=filtroPendencia==="todos"||dados.desativacaoPendente;
+    return mB&&mD&&mR&&mS&&mV&&mP;
   });
   const ordenados=[...filtrados].sort((a,b)=>rotaCanonica(a.gerente).localeCompare(rotaCanonica(b.gerente),"pt-BR")||a.nomeFantasia.localeCompare(b.nomeFantasia,"pt-BR"));
   const totalPaginas=Math.max(1,Math.ceil(ordenados.length/POR_PAGINA));
@@ -906,10 +907,10 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
   const pontoSelecionadoAtivoId=pontoSelecionado?.id??null;
   const selecionado=pontoSelecionado?dadosOperacionais(pontoSelecionado):null;
   const dossieModalAberto=dossieEmSheet&&Boolean(pontoSelecionadoAtivoId);
-  const filtrosAtivos=(filtroGerente!=="Todos"?1:0)+(filtroSituacao!=="todos"?1:0)+(filtroVinculo!=="todos"?1:0)+(mostrarDespesas&&filtroDespesa!=="todos"?1:0);
+  const filtrosAtivos=(filtroGerente!=="Todos"?1:0)+(filtroSituacao!=="todos"?1:0)+(filtroVinculo!=="todos"?1:0)+(filtroPendencia!=="todos"?1:0)+(mostrarDespesas&&filtroDespesa!=="todos"?1:0);
   const revisaoHistoricoFormal=pontoSelecionado?[pontoSelecionado.versaoOperacional||0,...solicitacoesStatus.filter(item=>Number(item.pontoId)===Number(pontoSelecionado.id)).map(item=>`${item.id}:${item.status}:${item.decididoEm||""}`).sort()].join("|"):"";
 
-  useEffect(()=>setPagina(1),[busca,filtroGerente,filtroDespesa,filtroSituacao,filtroVinculo]);
+  useEffect(()=>setPagina(1),[busca,filtroGerente,filtroDespesa,filtroSituacao,filtroVinculo,filtroPendencia]);
   useEffect(()=>{
     if(typeof window==="undefined"||!window.matchMedia)return undefined;
     const consulta=window.matchMedia(PONTOS_DOSSIE_SHEET_QUERY);
@@ -926,45 +927,6 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     if(!pontoSelecionadoAtivoId||dossieEmSheet)return;
     const painel=dossieRef.current;
     if(painel)painel.scrollTop=0;
-  },[pontoSelecionadoAtivoId,dossieEmSheet]);
-
-  useEffect(()=>{
-    if(!pontoSelecionadoAtivoId||dossieEmSheet||typeof window==="undefined")return undefined;
-    const painel=dossieRef.current;
-    const areaPrincipal=painel?.closest(".main");
-    const areaLedger=painel?.closest(".pcf-operations-ledger");
-    if(!painel||!areaPrincipal)return undefined;
-    let frame=0;
-    let alturaAnterior=-1;
-    const medirAlturaUtil=()=>{
-      frame=0;
-      const painelRect=painel.getBoundingClientRect();
-      const principalRect=areaPrincipal.getBoundingClientRect();
-      const deslocamentoSticky=Number.parseFloat(window.getComputedStyle(painel).top)||14;
-      const topoUtil=Math.max(deslocamentoSticky,painelRect.top-principalRect.top);
-      const alturaUtil=Math.max(0,Math.floor(areaPrincipal.clientHeight-topoUtil-deslocamentoSticky));
-      if(alturaUtil!==alturaAnterior){
-        alturaAnterior=alturaUtil;
-        painel.style.setProperty("--pcf-folio-available-height",`${alturaUtil}px`);
-      }
-    };
-    const agendarMedicao=()=>{
-      if(frame)window.cancelAnimationFrame(frame);
-      frame=window.requestAnimationFrame(medirAlturaUtil);
-    };
-    const observador=typeof window.ResizeObserver==="function"?new window.ResizeObserver(agendarMedicao):null;
-    observador?.observe(areaPrincipal);
-    if(areaLedger)observador?.observe(areaLedger);
-    areaPrincipal.addEventListener("scroll",agendarMedicao,{passive:true});
-    window.addEventListener("resize",agendarMedicao);
-    agendarMedicao();
-    return()=>{
-      if(frame)window.cancelAnimationFrame(frame);
-      observador?.disconnect();
-      areaPrincipal.removeEventListener("scroll",agendarMedicao);
-      window.removeEventListener("resize",agendarMedicao);
-      painel.style.removeProperty("--pcf-folio-available-height");
-    };
   },[pontoSelecionadoAtivoId,dossieEmSheet]);
 
   useEffect(()=>{
@@ -1039,14 +1001,30 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     };
   },[dossieEmSheet,pontoSelecionadoAtivoId]);
 
-  const limparFiltrosSecundarios=()=>{setFiltroGerente("Todos");setFiltroSituacao("todos");setFiltroVinculo("todos");onLimparFiltro();};
+  const dossieDesktopAberto=!dossieEmSheet&&Boolean(pontoSelecionadoAtivoId);
+  useEffect(()=>{
+    if(!dossieDesktopAberto)return undefined;
+    function controlarEscape(event){
+      if(event.key!=="Escape")return;
+      event.preventDefault();
+      fecharDossie();
+    }
+    document.addEventListener("keydown",controlarEscape);
+    return()=>document.removeEventListener("keydown",controlarEscape);
+  },[dossieDesktopAberto]);
+
+  const limparFiltrosSecundarios=()=>{setFiltroGerente("Todos");setFiltroSituacao("todos");setFiltroVinculo("todos");setFiltroPendencia("todos");onLimparFiltro();};
   const limparTudo=()=>{onLimparBusca();limparFiltrosSecundarios();};
   function selecionarPonto(ponto,gatilho){
     setFiltrosAbertos(false);
-    if(dossieEmSheet)focoAntesDossieRef.current=gatilho instanceof HTMLElement?gatilho:document.activeElement;
+    focoAntesDossieRef.current=gatilho instanceof HTMLElement?gatilho:document.activeElement;
     setPontoSelecionadoId(ponto.id);
   }
-  function fecharDossie(){setPontoSelecionadoId(null);}
+  function fecharDossie(){
+    const destino=focoAntesDossieRef.current;
+    setPontoSelecionadoId(null);
+    if(!dossieEmSheet&&destino instanceof HTMLElement&&destino.isConnected)window.requestAnimationFrame(()=>destino.focus({preventScroll:true}));
+  }
   function executarAcaoDossie(acao){
     if(!dossieEmSheet){acao();return;}
     const gatilho=focoAntesDossieRef.current;
@@ -1058,6 +1036,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     {filtroGerente!=="Todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroGerente("Todos")} aria-label={`Remover filtro de rota ${filtroGerente}`}>Rota: {filtroGerente}<OperationIcon name="close" size={13}/></button>}
     {filtroSituacao!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroSituacao("todos")} aria-label="Remover filtro de situação">{filtroSituacao==="ativo"?"Ativos":"Desativados"}<OperationIcon name="close" size={13}/></button>}
     {filtroVinculo!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroVinculo("todos")} aria-label="Remover filtro de vínculo">{filtroVinculo==="com"?"Com equipamento":"Sem equipamento"}<OperationIcon name="close" size={13}/></button>}
+    {filtroPendencia!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={()=>setFiltroPendencia("todos")} aria-label="Remover filtro de pendências">Pendências administrativas<OperationIcon name="close" size={13}/></button>}
     {mostrarDespesas&&filtroDespesa!=="todos"&&<button type="button" className="pcf-filter-chip" onClick={onLimparFiltro} aria-label="Remover filtro de despesa">{filtroDespesa==="sim"?"Com despesa":"Sem despesa"}<OperationIcon name="close" size={13}/></button>}
   </>:null;
 
@@ -1068,12 +1047,13 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
         <label className="pcf-select-control"><span>Rota</span><select value={filtroGerente} onChange={e=>setFiltroGerente(e.target.value)}><option value="Todos">Todas as rotas</option>{ROTAS.map(r=><option key={r} value={r}>{r}</option>)}</select></label>
         <label className="pcf-select-control"><span>Situação</span><select value={filtroSituacao} onChange={e=>setFiltroSituacao(e.target.value)}><option value="todos">Ativos e desativados</option><option value="ativo">Somente ativos</option><option value="desativado">Somente desativados</option></select></label>
         <label className="pcf-select-control"><span>Equipamentos</span><select value={filtroVinculo} onChange={e=>setFiltroVinculo(e.target.value)}><option value="todos">Com e sem vínculo</option><option value="com">Com equipamento</option><option value="sem">Sem equipamento</option></select></label>
+        <label className="pcf-select-control"><span>Administração</span><select value={filtroPendencia} onChange={e=>setFiltroPendencia(e.target.value)}><option value="todos">Com e sem pendência</option><option value="pendente">Somente pendências</option></select></label>
         {mostrarDespesas&&<label className="pcf-select-control"><span>Despesa na competência</span><select value={filtroDespesa} onChange={e=>onFiltroDespesaChange(e.target.value)}><option value="todos">Todas as situações</option><option value="sim">Com despesa</option><option value="nao">Sem despesa</option></select></label>}
       </>}
       activeCount={filtrosAtivos} secondaryOpen={filtrosAbertos} onSecondaryToggle={setFiltrosAbertos} secondaryLabel="Filtros" onClear={limparFiltrosSecundarios} clearLabel="Limpar filtros" chips={chipsFiltros}/>
 
     <div aria-hidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined}>
-      <AbaVisaoGeral pontos={pontos} equipamentos={equipamentos} solicitacoesStatus={solicitacoesStatus} competencia={competencia} mostrarDespesas={mostrarDespesas} totalDespesasCompetencia={totalDespesasCompetencia} despesasAbertas={despesasAbertas} onMostrarTodos={limparFiltrosSecundarios} onFiltrarSituacao={setFiltroSituacao} onFiltrarVinculo={setFiltroVinculo} onFiltrarDespesa={onFiltroDespesaChange} onVerDespesas={onVerDespesas}/>
+      <AbaVisaoGeral pontos={pontos} equipamentos={equipamentos} solicitacoesStatus={solicitacoesStatus} competencia={competencia} mostrarDespesas={mostrarDespesas} totalDespesasCompetencia={totalDespesasCompetencia} despesasAbertas={despesasAbertas} filtroPendencia={filtroPendencia} onMostrarTodos={limparFiltrosSecundarios} onFiltrarSituacao={setFiltroSituacao} onFiltrarVinculo={setFiltroVinculo} onFiltrarDespesa={onFiltroDespesaChange} onFiltrarPendencia={setFiltroPendencia} onVerDespesas={onVerDespesas}/>
     </div>
 
     <header className="pcf-ledger-toolbar" aria-hidden={dossieModalAberto?"true":undefined} inert={dossieModalAberto?true:undefined}>
@@ -1082,7 +1062,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     </header>
 
     {filtrados.length===0?<EmptyState className="pcf-empty" icon="search" title="Nenhum ponto encontrado" description="Revise a busca ou os filtros para voltar à rede." action={(busca||filtrosAtivos>0)?<button type="button" className="pcf-button pcf-button--secondary" onClick={limparTudo}>Limpar busca e filtros</button>:null}/>:
-      <div className={`pcf-master-detail${dossieEmSheet?"":" is-permanent"}`}>
+      <div className="pcf-master-detail">
         <div className="pcf-master-pane" inert={dossieModalAberto?true:undefined} aria-hidden={dossieModalAberto?"true":undefined}>
           <div className="pcf-ledger-columns pcf-ops-grid" aria-hidden="true"><span className="pcf-ledger-col--identity">Unidade / responsável</span><span className="pcf-ledger-col--services">Cobertura</span><span className="pcf-ledger-col--equipment">Equipamentos</span><span className="pcf-ledger-col--admin">Administração</span><span className="pcf-ledger-col--state">Situação</span></div>
           <div className="pcf-records" aria-label="Pontos encontrados">
@@ -1120,7 +1100,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
           <section className="pcf-folio-section pcf-folio-administration"><header><span>Administração</span><small>Ações disponíveis</small></header><div className="pcf-dossier-actions" aria-label="Ações do ponto">{selecionado.totalAcessos>0&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onVerAcessos?.(pontoSelecionado))}><OperationIcon name="lock"/>Acessos ({selecionado.totalAcessos})</button>}{podeSolicitarModalidade&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onSolicitarModalidade(pontoSelecionado))}><OperationIcon name="warning"/>Bloquear / liberar</button>}{podeEditarDespesas&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onDespesas(pontoSelecionado))}><OperationIcon name="money"/>Despesas</button>}{podeEditar&&<button type="button" className="pcf-button pcf-button--secondary" onClick={()=>executarAcaoDossie(()=>onEditar(pontoSelecionado))}><OperationIcon name="edit"/>Editar</button>}</div></section>
 
           {(selecionado.desativacaoPendente||(podeSolicitarDesativacao&&!selecionado.desativado)||(podeReativar&&selecionado.desativado))&&<section className="pcf-sensitive-zone"><header><span>Zona sensível</span></header>{selecionado.desativacaoPendente&&<p>Há uma solicitação de desativação aguardando decisão administrativa.</p>}{podeSolicitarDesativacao&&!selecionado.desativado&&!selecionado.desativacaoPendente&&<button type="button" className="pcf-button pcf-button--warning" onClick={()=>executarAcaoDossie(()=>onSolicitarDesativacao(pontoSelecionado))}><OperationIcon name="clock"/>Solicitar desativação</button>}{podeReativar&&selecionado.desativado&&<button type="button" className="pcf-button pcf-button--primary" onClick={()=>executarAcaoDossie(()=>onReativar(pontoSelecionado))}><OperationIcon name="refresh"/>Reativar ponto</button>}</section>}
-        </div></aside>:<aside className="pcf-dossier pcf-dossier--empty" aria-label="Registro operacional do ponto"><OperationIcon name="mapPin" size={20}/><span>Selecione uma unidade para consultar seu registro operacional.</span></aside>}
+        </div></aside>:null}
         </PontosDossiePortal>
       </div>}
   </section>;

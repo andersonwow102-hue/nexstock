@@ -3522,7 +3522,6 @@ function Sistema({onLogout}){
     const consulta=window.matchMedia("(max-width: 1320px)");
     const atualizar=()=>{
       setDossieEquipamentoSheet(consulta.matches);
-      if(!consulta.matches)setDossieEquipamentoAberto(false);
     };
     atualizar();
     consulta.addEventListener?.("change",atualizar);
@@ -3811,7 +3810,7 @@ function Sistema({onLogout}){
   const itensOrdenados=ordenarEquipamentos(itensFiltrados);
   const totalPaginasItens=Math.max(1,Math.ceil(itensOrdenados.length/ITENS_POR_PAGINA));
   const itensPagina=itensOrdenados.slice((paginaItens-1)*ITENS_POR_PAGINA,paginaItens*ITENS_POR_PAGINA);
-  const equipamentoFoco=itensPagina.find(item=>item.id===equipamentoFocoId)||itensPagina[0]||null;
+  const equipamentoFoco=itensPagina.find(item=>item.id===equipamentoFocoId)||null;
   const historicoEquipamentoFoco=equipamentoFoco
     ?historicoOperacional.filter(evento=>evento.itemId===equipamentoFoco.id||evento.itemNome===equipamentoFoco.nome).slice(0,5)
     :[];
@@ -3827,6 +3826,11 @@ function Sistema({onLogout}){
   },[gerenteConsulta,gerentesOperacionais]);
   useEffect(()=>{setConsultaEquipFiltro("todos");},[gerenteConsultaAtivo]);
   useEffect(()=>{if(paginaItens>totalPaginasItens)setPaginaItens(totalPaginasItens);},[paginaItens,totalPaginasItens]);
+  useEffect(()=>{
+    if(!equipamentoFocoId||equipamentoFoco)return;
+    setEquipamentoFocoId(null);
+    setDossieEquipamentoAberto(false);
+  },[equipamentoFoco,equipamentoFocoId]);
   useEffect(()=>{
     if(aba!=="itens"||!dossieEquipamentoSheet||!dossieEquipamentoAberto)return undefined;
     const painel=dossieEquipamentoRef.current;
@@ -3864,14 +3868,28 @@ function Sistema({onLogout}){
       if(alvo instanceof HTMLElement&&alvo.isConnected)window.requestAnimationFrame(()=>alvo.focus({preventScroll:true}));
     };
   },[aba,dossieEquipamentoAberto,dossieEquipamentoSheet,equipamentoFocoId]);
+  useEffect(()=>{
+    if(aba!=="itens"||dossieEquipamentoSheet||!dossieEquipamentoAberto)return undefined;
+    function controlarEscape(evento){
+      if(evento.key!=="Escape")return;
+      evento.preventDefault();
+      fecharDossieEquipamento();
+    }
+    document.addEventListener("keydown",controlarEscape);
+    return()=>document.removeEventListener("keydown",controlarEscape);
+  },[aba,dossieEquipamentoAberto,dossieEquipamentoSheet]);
   function selecionarEquipamentoFoco(item,gatilho){
     setEquipamentoFocoId(item.id);
     setFiltrosEquipAbertos(false);
-    if(!dossieEquipamentoSheet)return;
     focoAntesDossieEquipamentoRef.current=gatilho instanceof HTMLElement?gatilho:document.activeElement;
     setDossieEquipamentoAberto(true);
   }
-  function fecharDossieEquipamento(){setDossieEquipamentoAberto(false);}
+  function fecharDossieEquipamento(){
+    const alvo=focoAntesDossieEquipamentoRef.current;
+    setDossieEquipamentoAberto(false);
+    setEquipamentoFocoId(null);
+    if(!dossieEquipamentoSheet&&alvo instanceof HTMLElement&&alvo.isConnected)window.requestAnimationFrame(()=>alvo.focus({preventScroll:true}));
+  }
   function executarAcaoDossieEquipamento(acao){
     if(!dossieEquipamentoSheet){acao();return;}
     const alvo=focoAntesDossieEquipamentoRef.current;
