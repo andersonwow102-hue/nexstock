@@ -67,6 +67,23 @@ begin
 end;
 $$;
 
+-- A alteracao posterior do perfil nao reescreve o snapshot ja persistido.
+update public.perfis
+set nome = 'Administrador Renomeado'
+where user_id = '21000000-0000-0000-0000-000000000001';
+
+do $$
+begin
+  if not exists (
+    select 1 from public.historico_equipamentos
+    where item_id = current_setting('app.equipamento_autoria_id')::bigint and tipo = 'cadastro'
+      and executado_por_nome_snapshot = 'Anderson Costa'
+  ) then
+    raise exception 'Alteracao do perfil reescreveu o snapshot historico.';
+  end if;
+end;
+$$;
+
 -- Operador: snapshot proprio.
 select set_config('request.jwt.claim.sub', '21000000-0000-0000-0000-000000000002', true);
 set local role authenticated;
@@ -110,6 +127,13 @@ begin
   end;
 end;
 $$;
+
+-- A autoria nova nao interfere no identificador proprio da RPC de conserto.
+select public.comunicar_conserto_gerente(
+  :equip_id,
+  'Falha ficticia para teste local',
+  now()
+);
 reset role;
 
 do $$
@@ -122,6 +146,19 @@ begin
       and executado_por_perfil_snapshot = 'gerente'
   ) then
     raise exception 'Gerente autorizado nao recebeu autoria propria.';
+  end if;
+end;
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from public.consertos_equipamentos
+    where equipamento_id = current_setting('app.equipamento_autoria_id')::bigint
+      and conserto_solicitado_por = '21000000-0000-0000-0000-000000000003'
+      and conserto_defeito = 'Falha ficticia para teste local'
+  ) then
+    raise exception 'RPC comunicar_conserto_gerente perdeu o executor proprio.';
   end if;
 end;
 $$;
