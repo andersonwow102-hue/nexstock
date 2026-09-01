@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AbaPontos, PointExpensesModal } from "./PointsPage.jsx";
-import { OperationIcon } from "./components/operations/OperationsUI.jsx";
+import { Modal as OperationModal, OperationIcon } from "./components/operations/OperationsUI.jsx";
 import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
 import { aplicarResumoDespesaMes, valorDespesa } from "./pointsExpenses.js";
 import { resolverEstadoPreviewPontos } from "./pointsPreviewState.js";
@@ -13,7 +13,7 @@ const NOMES_PREVIEW = ["Vale Azul", "Posto Central", "Jardim Imperial", "Estaç�
 
 const PONTOS_BASE_PREVIEW = Object.freeze(Array.from({ length: 42 }, (_, index) => ({
   id: index + 1,
-  nomeFantasia: `${NOMES_PREVIEW[index % NOMES_PREVIEW.length]} ${String(Math.floor(index / NOMES_PREVIEW.length) + 1).padStart(2, "0")}`,
+  nomeFantasia: index===1?"TABERNA BEER":`${NOMES_PREVIEW[index % NOMES_PREVIEW.length]} ${String(Math.floor(index / NOMES_PREVIEW.length) + 1).padStart(2, "0")}`,
   nomeDono: ["Caio Nobre", "Lívia Andrade", "Rafael Lima", "Bruna Moraes"][index % 4],
   telefone: `(74) 9${String(8200 + index).padStart(4, "0")}-${String(1100 + index).padStart(4, "0")}`,
   gerente: ROTAS_PREVIEW[index % ROTAS_PREVIEW.length],
@@ -42,15 +42,15 @@ const TOTAL_DESPESAS_PREVIEW = DESPESAS_PREVIEW.reduce((soma, despesa) => soma +
 
 const EQUIPAMENTOS_PREVIEW = Object.freeze(PONTOS_PREVIEW.flatMap((ponto, index) => index % 5 === 0 ? [] : Array.from({ length: 1 + (index % 3) }, (_, equipmentIndex) => ({
   id: `point-equipment-${ponto.id}-${equipmentIndex}`,
-  nome: ["Terminal Delta", "Impressora Epson", "Tablet Samsung"][equipmentIndex],
-  categoria: ["Terminais", "Impressoras", "Tablets"][equipmentIndex],
+  nome: ponto.id===2?["TV HQ", "POS AMARELO"][equipmentIndex]:["Terminal Delta", "Impressora Epson", "Tablet Samsung"][equipmentIndex],
+  categoria: ponto.id===2?["Televisões", "Terminais"][equipmentIndex]:["Terminais", "Impressoras", "Tablets"][equipmentIndex],
   patrimonio: `NP-${String(ponto.id * 10 + equipmentIndex).padStart(4, "0")}`,
   status: "Em rota",
   localizacao: ponto.nomeFantasia,
 }))));
 
 const SOLICITACOES_STATUS_PREVIEW = Object.freeze([
-  { id: "status-local-1", pontoId: 2, pontoNome: PONTOS_PREVIEW[1].nomeFantasia, status: "pendente", solicitadoEm: "2026-08-28T14:20:00-03:00" },
+  { id: "status-local-1", pontoId: 2, pontoNome: PONTOS_PREVIEW[1].nomeFantasia, status: "pendente", motivo: "Encerramento das atividades no endereço atual.", solicitante: "Caio Nobre", solicitadoEm: "2026-09-01T09:31:00-03:00" },
   { id: "status-local-2", pontoId: 6, pontoNome: PONTOS_PREVIEW[5].nomeFantasia, status: "pendente", solicitadoEm: "2026-08-27T09:40:00-03:00" },
 ]);
 
@@ -71,6 +71,23 @@ async function carregarCicloPreview(pontoId) {
   ];
 }
 
+function MovementPreviewModal({ contexto, erro, onClose, onConfirmar }) {
+  if(!contexto)return null;
+  const { item, ponto }=contexto;
+  return <OperationModal open title="Movimentar equipamento" subtitle={`${item.nome} · ${item.categoria} · vinculado a ${ponto.nomeFantasia}`} onClose={onClose} size="lg" className="equip-cf-movement-modal" overlayClassName="equip-cf-movement-overlay" footer={<><button className="btn-secundario" type="button" onClick={onClose}>Cancelar</button><button className="btn-primario" type="button" onClick={()=>onConfirmar(item)}>Confirmar movimentação</button></>}>
+    <div className="equip-cf-movement-subject"><span><small>Equipamento selecionado</small><strong>{item.nome}</strong></span><span className="badge-status">{item.status}</span></div>
+    <div className="equip-cf-movement-path" aria-label="Fluxo simulado da movimentação: origem, ação e destino">
+      <div className="equip-cf-movement-step"><span>Origem</span><strong>{ponto.nomeFantasia}</strong><small>Posição atual</small></div>
+      <span className="equip-cf-movement-arrow" aria-hidden="true"><OperationIcon name="arrowRight"/></span>
+      <div className="equip-cf-movement-step is-action"><span>Movimentação</span><strong>Disponibilizar</strong><small>Fluxo local seguro</small></div>
+      <span className="equip-cf-movement-arrow" aria-hidden="true"><OperationIcon name="arrowRight"/></span>
+      <div className="equip-cf-movement-step is-destination"><span>Destino</span><strong>Estoque interno</strong><small>Disponível após confirmar</small></div>
+    </div>
+    {erro&&<div className="erro-msg"><OperationIcon name="warning"/> {erro}</div>}
+    <div className="points-preview-notice" role="note">Simulação DEV isolada. No sistema real, este acionador usa o modal e o handler oficiais de Equipamentos.</div>
+  </OperationModal>;
+}
+
 export default function PointsOperationsPreviewApp() {
   const params=useMemo(()=>new URLSearchParams(window.location.search),[]);
   const estadoInicial=useMemo(()=>resolverEstadoPreviewPontos(params,PONTOS_PREVIEW.map(ponto=>ponto.id)),[params]);
@@ -80,6 +97,10 @@ export default function PointsOperationsPreviewApp() {
   const cenario=String(params.get("cenario")||"").toLowerCase();
   const [busca,setBusca]=useState(cenario==="single"?"Posto Central 01":"");
   const [filtroDespesa,setFiltroDespesa]=useState("todos");
+  const [equipamentosPreview,setEquipamentosPreview]=useState(()=>EQUIPAMENTOS_PREVIEW.map(item=>({...item})));
+  const [solicitacoesPreview,setSolicitacoesPreview]=useState(()=>SOLICITACOES_STATUS_PREVIEW.map(item=>({...item})));
+  const [movimentacaoPreview,setMovimentacaoPreview]=useState(null);
+  const [erroMovPreview,setErroMovPreview]=useState("");
   const [notice,setNotice]=useState("Prévia local segura · nenhuma ação grava dados.");
   const mainRef=useRef(null);
 
@@ -95,6 +116,24 @@ export default function PointsOperationsPreviewApp() {
   },[estadoInicial.despesasAbertas]);
 
   const simular=mensagem=>setNotice(mensagem);
+  const confirmarMovimentacaoPreview=item=>{
+    if(params.get("movimento")==="erro"){
+      setErroMovPreview("Não foi possível confirmar a movimentação simulada. O vínculo e a decisão permanecem inalterados.");
+      return;
+    }
+    setEquipamentosPreview(lista=>lista.map(atual=>atual.id===item.id?{...atual,localizacao:"",status:"Disponível"}:atual));
+    setMovimentacaoPreview(null);
+    setErroMovPreview("");
+    setNotice(`${item.nome} movimentado na simulação local. O vínculo foi removido sem gravar dados.`);
+  };
+  const decidirPreview=(solicitacao,aprovar)=>{
+    if(!aprovar){
+      const motivo=window.prompt("Informe o motivo da rejeição:")||"";
+      if(motivo.trim().length<5){setNotice("A rejeição simulada exige um motivo com pelo menos 5 caracteres.");return;}
+    }
+    setSolicitacoesPreview(lista=>lista.map(item=>item.id===solicitacao.id?{...item,status:aprovar?"aprovada":"rejeitada"}:item));
+    setNotice(aprovar?"Desativação aprovada somente na simulação local.":"Solicitação rejeitada somente na simulação local.");
+  };
 
   return <div className={`app operations-shell command-flow-shell points-preview-shell${light?" tema-claro":""}`}>
     <aside className="sidebar points-preview-sidebar">
@@ -109,9 +148,10 @@ export default function PointsOperationsPreviewApp() {
           <div className="pcf-command-actions"><span className="pcf-pending-summary"><OperationIcon name="warning" size={15}/>2 na fila administrativa</span><button type="button" className="pcf-button pcf-button--primary" onClick={()=>simular("Cadastro simulado; nenhum dado foi gravado.")}><OperationIcon name="plus"/>Novo ponto</button></div>
         </header>
         <div className="points-preview-notice" role="status">{notice}</div>
-         <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={EQUIPAMENTOS_PREVIEW} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={SOLICITACOES_STATUS_PREVIEW} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} pontoSelecionadoInicialId={estadoInicial.pontoSelecionadoId} filtroPendenciaInicial={cenario==="pendencias"?"pendente":"todos"} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeReativar mostrarDespesas/>
+         <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={equipamentosPreview} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={solicitacoesPreview} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} pontoSelecionadoInicialId={estadoInicial.pontoSelecionadoId} filtroPendenciaInicial={cenario==="pendencias"?"pendente":"todos"} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onDecidirDesativacao={decidirPreview} onMovimentarEquipamento={(item,contexto)=>{setErroMovPreview("");setMovimentacaoPreview({item,ponto:contexto.ponto});}} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeDecidirDesativacao podeReativar mostrarDespesas/>
       </div>
     </main>
     {despesasAbertas&&<PointExpensesModal pontos={PONTOS_BASE_PREVIEW} despesas={DESPESAS_PREVIEW} competenciaInicial="2026-08" permitirSelecionarCompetencia perspectivaInicial={perspectivaDespesas} pontoSelecionadoInicialId={estadoInicial.pontoDespesasId} podeEditar onAbrirDespesaPonto={ponto=>simular(`Lançamentos de ${ponto.nomeFantasia} preservados no fluxo real.`)} onFechar={()=>setDespesasAbertas(false)}/>}
+    <MovementPreviewModal contexto={movimentacaoPreview} erro={erroMovPreview} onClose={()=>{setMovimentacaoPreview(null);setErroMovPreview("");}} onConfirmar={confirmarMovimentacaoPreview}/>
   </div>;
 }

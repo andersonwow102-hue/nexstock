@@ -2876,6 +2876,128 @@
 .points-command-flow .pcf-linked-equipment > p { margin: 0; color: var(--pcf-dim); font-size: 10px; line-height: 1.5; }
 .points-command-flow .pcf-linked-equipment li em { flex: 0 0 auto; color: var(--pcf-muted); font-family: var(--font-data, "JetBrains Mono", monospace); font-size: 9px; font-style: normal; }
 
+.points-command-flow .pcf-deactivation-request {
+  background: linear-gradient(90deg, var(--pcf-warning-wash), transparent 72%);
+}
+
+.points-command-flow .pcf-deactivation-request > header .so-status-badge {
+  flex: 0 0 auto;
+}
+
+.points-command-flow .pcf-deactivation-facts .is-wide {
+  grid-column: 1 / -1;
+}
+
+.points-command-flow .pcf-deactivation-facts .is-wide dd {
+  color: var(--pcf-text);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.points-command-flow .pcf-deactivation-equipment > ul > li {
+  align-items: center;
+}
+
+.points-command-flow .pcf-equipment-move {
+  display: inline-flex;
+  min-height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--pcf-copper) 48%, var(--pcf-border));
+  border-radius: 5px;
+  color: var(--pcf-text);
+  background: var(--pcf-subtle);
+  font-size: 10px;
+  font-weight: 680;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.points-command-flow .pcf-equipment-move:hover {
+  border-color: var(--pcf-copper);
+  color: var(--pcf-copper);
+  background: var(--pcf-copper-wash);
+}
+
+.points-command-flow .pcf-deactivation-clear {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 9px;
+  padding: 11px;
+  color: var(--pcf-success);
+  background: var(--pcf-success-wash);
+}
+
+.points-command-flow .pcf-deactivation-clear span {
+  display: grid;
+  gap: 3px;
+}
+
+.points-command-flow .pcf-deactivation-clear strong { font-size: 11px; }
+.points-command-flow .pcf-deactivation-clear small { color: var(--pcf-muted); font-size: 10px; line-height: 1.45; }
+
+.points-command-flow .pcf-deactivation-progress {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.points-command-flow .pcf-deactivation-progress > span {
+  height: 3px;
+  overflow: hidden;
+  background: var(--pcf-border);
+}
+
+.points-command-flow .pcf-deactivation-progress i {
+  display: block;
+  height: 100%;
+  background: var(--pcf-warning);
+  transition: width 180ms ease, background-color 180ms ease;
+}
+
+.points-command-flow .pcf-deactivation-progress.is-clear i { background: var(--pcf-success); }
+.points-command-flow .pcf-deactivation-progress strong { color: var(--pcf-muted); font-size: 10px; font-weight: 650; }
+
+.points-command-flow .pcf-deactivation-decisions > header {
+  align-items: flex-start;
+}
+
+.points-command-flow .pcf-deactivation-decisions > header small {
+  max-width: 150px;
+  text-align: right;
+  line-height: 1.35;
+}
+
+.points-command-flow .pcf-deactivation-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.points-command-flow .pcf-deactivation-actions .pcf-button {
+  min-height: 42px;
+  justify-content: center;
+}
+
+.points-command-flow .pcf-deactivation-actions .pcf-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.points-command-flow .pcf-deactivation-reject {
+  border-color: color-mix(in srgb, var(--pcf-warning) 42%, var(--pcf-border));
+  color: var(--pcf-warning);
+  background: transparent;
+}
+
+.points-command-flow .pcf-deactivation-reject:hover {
+  border-color: var(--pcf-warning);
+  background: var(--pcf-warning-wash);
+}
+
 .points-command-flow .pcf-equipment-blocker {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
@@ -3038,6 +3160,19 @@
 }
 
 @media (max-width: 680px) {
+  .points-command-flow .pcf-deactivation-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .points-command-flow .pcf-deactivation-equipment > ul > li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .points-command-flow .pcf-equipment-move {
+    width: 100%;
+  }
+
   .points-command-flow .pcf-command-actions > .pcf-pending-summary + .pcf-button--primary {
     grid-column: 1 / -1;
   }

@@ -105,6 +105,37 @@ test('ciclo formal mantém decisão bloqueada e encaminha movimentação manual'
   assert.doesNotMatch(ciclo, /salvarEquipamento|onEquipamentosChange|equipamentos\.map/);
 });
 
+test('dossiê pendente reutiliza a movimentação real sem criar lógica paralela em Pontos', () => {
+  const inicioDossie = page.indexOf('podeDecidirDesativacao&&solicitacaoDesativacaoPendente');
+  const fimDossie = page.indexOf('className="pcf-folio-section pcf-operational-trace"', inicioDossie);
+  const resolucao = page.slice(inicioDossie, fimDossie);
+
+  assert.ok(inicioDossie >= 0 && fimDossie > inicioDossie, 'centro de resolução da desativação não encontrado');
+  assert.match(resolucao, /Solicitação de desativação/);
+  assert.match(resolucao, /onMovimentarEquipamento\?\.\(item,\{ponto:pontoSelecionado\}\)/);
+  assert.match(resolucao, /disabled=\{selecionado\.vinculados\.length>0\}/);
+  assert.match(resolucao, /onDecidirDesativacao\?\.\(solicitacaoDesativacaoPendente,true\)/);
+  assert.match(resolucao, /Rejeitar solicitação/);
+  assert.doesNotMatch(resolucao, /salvarEquipamento|adicionarHistoricoEquipamento|carregarEquipamentos|supabase|\.rpc\(/);
+  assert.match(app, /onMovimentarEquipamento=\{abrirMov\}/);
+  assert.match(app, /function abrirMov\(item,contexto=null\)/);
+  assert.match(app, /vinculado a \$\{contextoMovPonto\.nomeFantasia\}/);
+});
+
+test('preview DEV cobre TABERNA BEER e a progressão local de dois vínculos a zero', () => {
+  assert.match(pointsPreview, /TABERNA BEER/);
+  assert.match(pointsPreview, /TV HQ/);
+  assert.match(pointsPreview, /POS AMARELO/);
+  assert.match(pointsPreview, /setEquipamentosPreview\(lista=>lista\.map/);
+  assert.match(pointsPreview, /localizacao:"",status:"Disponível"/);
+  assert.match(pointsPreview, /MovementPreviewModal/);
+  assert.match(pointsPreview, /params\.get\("movimento"\)==="erro"/);
+  assert.match(pointsPreview, /O vínculo e a decisão permanecem inalterados/);
+  assert.match(pointsPreview, /motivo\.trim\(\)\.length<5/);
+  assert.match(pointsPreview, /podeDecidirDesativacao/);
+  assert.doesNotMatch(pointsPreview, /salvarEquipamento|adicionarHistoricoEquipamento|supabase|\.rpc\(/);
+});
+
 test('Operations Ledger preserva paginação e aplica filtros derivados em memória', () => {
   assert.match(page, /const POR_PAGINA=25/);
   assert.match(page, /filtroSituacao/);

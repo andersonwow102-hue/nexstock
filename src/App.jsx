@@ -3423,6 +3423,7 @@ function Sistema({onLogout}){
   const [modalForm,setModalForm]   =useState(false);
   const [modalPontoRapido,setModalPontoRapido]=useState(false);
   const [modalMov,setModalMov]     =useState(null);
+  const [contextoMovPonto,setContextoMovPonto]=useState(null);
   const [itemEdit,setItemEdit]     =useState(null);
   const [form,setForm]             =useState(formVazio);
   const [mov,setMov]               =useState(movVazio);
@@ -3922,10 +3923,11 @@ function Sistema({onLogout}){
   }
   function abrirEditar(i){if(!podeMovimentarEquipamento(i))return;setItemEdit(i);setForm({...i,quantidade:1});setErroForm("");setModalForm(true);}
   function fecharForm(){setModalForm(false);}
-  function abrirMov(item){
+  function abrirMov(item,contexto=null){
     if(!podeMovimentarEquipamento(item))return;
     const inconsistencia=validarItem(item);
     if(inconsistencia){window.alert(`Corrija o cadastro antes de movimentar este equipamento. ${inconsistencia}`);return;}
+    setContextoMovPonto(contexto?.ponto||null);
     setModalMov(item);setMov({...movVazio,ponto:item.localizacao||"",gerente:item.gerenteResponsavel||""});setErroMov("");
   }
   function abrirConsertoOperador(item){
@@ -3953,7 +3955,7 @@ function Sistema({onLogout}){
     });
     setErroMov("");
   }
-  function fecharMov(){setModalMov(null);}
+  function fecharMov(){setModalMov(null);setContextoMovPonto(null);}
 
   function anexarNotaFiscalConserto(arquivo){
     if(!arquivo)return;
@@ -4705,7 +4707,7 @@ function Sistema({onLogout}){
         </>)}
 
         {aba==="pontos"&&(
-          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={lista=>setHistoricoPontos(lista.map(evento=>Object.hasOwn(evento,"createdAt")?evento:{...evento,createdAt:isoAgora()}))} onHistoricoLoadError={failed=>setErrosHistorico(current=>({...current,point:failed}))} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onExcluirEquipamento={setExcluindo} onAbrirMenu={alternarSidebarContextual}/>
+          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={lista=>setHistoricoPontos(lista.map(evento=>Object.hasOwn(evento,"createdAt")?evento:{...evento,createdAt:isoAgora()}))} onHistoricoLoadError={failed=>setErrosHistorico(current=>({...current,point:failed}))} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onMovimentarEquipamento={abrirMov} onExcluirEquipamento={setExcluindo} onAbrirMenu={alternarSidebarContextual}/>
         )}
 
         {aba==="devedores"&&acessoDevedores&&(
@@ -4917,7 +4919,7 @@ function Sistema({onLogout}){
         <OperationModal
           open
           title="Movimentar equipamento"
-          subtitle={`${modalMov.nome} · ${modalMov.categoria}`}
+          subtitle={`${modalMov.nome} · ${modalMov.categoria}${contextoMovPonto?.nomeFantasia?` · vinculado a ${contextoMovPonto.nomeFantasia}`:""}`}
           onClose={fecharMov}
           size="lg"
           className="equip-cf-movement-modal"
