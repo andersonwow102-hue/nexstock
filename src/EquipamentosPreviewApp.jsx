@@ -326,7 +326,8 @@ export default function EquipamentosPreviewApp() {
       selected: selectedId === item.id,
       primaryAction: {
         label: primaryLabel,
-        icon: repair ? "wrench" : pending ? "check" : "route",
+        icon: repair ? "wrench" : pending ? "check" : "transfer",
+        purpose: repair || pending ? undefined : "move",
         onClick: () => announce(primaryLabel, item),
       },
       canEdit: true,

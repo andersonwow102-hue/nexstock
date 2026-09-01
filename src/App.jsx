@@ -4295,7 +4295,7 @@ function Sistema({onLogout}){
       onClick:()=>abrirConsertoOperador(item),
     };
     if(pendente&&gerenteAtual)return{label:"Confirmar",icon:"check",onClick:()=>confirmarRecebimento(item)};
-    if(podeMovimentarEquipamento(item))return{label:"Movimentar",icon:"route",onClick:()=>abrirMov(item)};
+    if(podeMovimentarEquipamento(item))return{label:"Movimentar",icon:"transfer",purpose:"move",onClick:()=>abrirMov(item)};
     return{label:"Consultar",icon:"eye",purpose:"detail",onClick:()=>abrirFichaEquipamento(item)};
   }
 

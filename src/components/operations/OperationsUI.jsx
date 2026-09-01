@@ -31,6 +31,7 @@ const ICON_PATHS = {
   package: <><path d="m21 8-9-5-9 5 9 5 9-5Z" /><path d="m3 8 9 5 9-5M12 13v8M5 10.2v6.6L12 21l7-4.2v-6.6" /></>,
   mapPin: <><path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z" /><circle cx="12" cy="10" r="2.4" /></>,
   route: <><circle cx="6" cy="18" r="2" /><circle cx="18" cy="6" r="2" /><path d="M8 18h2a4 4 0 0 0 4-4v-4a4 4 0 0 1 4-4" /></>,
+  transfer: <><path d="M5 8h14" /><path d="m15 4 4 4-4 4" /><path d="M19 16H5" /><path d="m9 12-4 4 4 4" /></>,
   key: <><circle cx="7.5" cy="14.5" r="3.5" /><path d="m10 12 9-9M15 7l2 2M17 5l2 2" /></>,
   shield: <><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" /></>,
   shieldKey: <><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" /><circle cx="10" cy="12" r="2" /><path d="m12 12 4 4M14 14l1.5-1.5" /></>,

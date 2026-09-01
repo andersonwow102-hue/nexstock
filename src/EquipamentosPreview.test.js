@@ -101,3 +101,21 @@ test("desktop abre inspector flutuante somente após seleção e mantém sheets 
   assert.match(app, /setEquipamentoFocoId\(null\)/);
   assert.match(app, /if\(evento\.key!=="Escape"\)return/);
 });
+
+test("ação Movimentar usa transferência clara sem alterar ícones de posição ou histórico", async () => {
+  const preview = await read("EquipamentosPreviewApp.jsx");
+  const ledger = await read("EquipmentInventoryLedger.jsx");
+  const css = await read("EquipmentInventoryLedger.css");
+  const app = await read("App.jsx");
+  const operations = await read("components/operations/OperationsUI.jsx");
+
+  assert.match(operations, /transfer:\s*<>[\s\S]*?M5 8h14[\s\S]*?M19 16H5/);
+  assert.match(app, /label:"Movimentar",icon:"transfer",purpose:"move",onClick:\(\)=>abrirMov\(item\)/);
+  assert.match(preview, /icon: repair \? "wrench" : pending \? "check" : "transfer"/);
+  assert.match(ledger, /primaryAction\.purpose === "move" && "is-transfer"/);
+  assert.match(css, /button\.is-transfer:hover:not\(:disabled\)[\s\S]*?var\(--equipment-transfer-surface\)/);
+  assert.match(css, /button\.is-transfer:focus-visible:not\(:disabled\)[\s\S]*?outline: 2px solid var\(--equipment-transfer\)/);
+  assert.match(css, /\.is-primary\.is-transfer[\s\S]*?background: var\(--equipment-transfer\)/);
+  assert.match(preview, /icon: "route"/);
+  assert.match(app, /icon:"route"/);
+});

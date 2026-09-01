@@ -222,6 +222,7 @@ export default function EquipmentInventoryLedger({
                       {primaryAction ? (
                         <button
                           type="button"
+                          className={classes(primaryAction.purpose === "move" && "is-transfer")}
                           disabled={primaryAction.disabled}
                           title={primaryAction.title}
                           aria-label={`${display(primaryAction.label)}: ${display(row.name)}`}
@@ -356,7 +357,7 @@ export default function EquipmentInventoryLedger({
                 <div className="equipment-inventory-ledger__dossier-actions">
                   {selectedRow.primaryAction ? (
                     <button
-                      className="is-primary"
+                      className={classes("is-primary", selectedRow.primaryAction.purpose === "move" && "is-transfer")}
                       type="button"
                       disabled={selectedRow.primaryAction.disabled}
                       title={selectedRow.primaryAction.title}

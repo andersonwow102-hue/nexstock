@@ -3,8 +3,19 @@
   --equipment-ledger-rule: color-mix(in srgb, var(--border-subtle) 68%, transparent);
   --equipment-ledger-rule-strong: color-mix(in srgb, var(--border-strong) 52%, var(--border-subtle));
   --equipment-ledger-row: 70px;
+  --equipment-transfer: #3d8f95;
+  --equipment-transfer-strong: #70c0c4;
+  --equipment-transfer-surface: rgba(61, 143, 149, 0.1);
+  --equipment-transfer-border: rgba(112, 192, 196, 0.34);
   min-width: 0;
   color: var(--text-default);
+}
+
+.app.tema-claro .equipment-inventory-ledger {
+  --equipment-transfer: #2e747b;
+  --equipment-transfer-strong: #1b6068;
+  --equipment-transfer-surface: rgba(46, 116, 123, 0.08);
+  --equipment-transfer-border: rgba(46, 116, 123, 0.28);
 }
 
 .equipment-inventory-ledger,
@@ -350,6 +361,44 @@
   border-color: var(--brand-action);
 }
 
+.equipment-inventory-ledger__row-action > button.is-transfer:not(:disabled) {
+  color: var(--text-default);
+  background: color-mix(in srgb, var(--surface-panel) 94%, var(--equipment-transfer));
+  border-color: color-mix(in srgb, var(--equipment-transfer-border) 72%, var(--border-subtle));
+}
+
+.equipment-inventory-ledger__row-action > button.is-transfer .so-icon {
+  color: var(--equipment-transfer);
+  transition:
+    color 160ms var(--ease-standard, ease),
+    transform 160ms var(--ease-standard, ease);
+}
+
+.equipment-inventory-ledger__row:where(:hover, .is-selected, :focus-within) .equipment-inventory-ledger__row-action > button.is-transfer:not(:disabled),
+.equipment-inventory-ledger__row-action > button.is-transfer:hover:not(:disabled) {
+  color: var(--text-strong);
+  background: var(--equipment-transfer-surface);
+  border-color: var(--equipment-transfer-border);
+}
+
+.equipment-inventory-ledger__row-action > button.is-transfer:hover:not(:disabled) .so-icon {
+  color: var(--equipment-transfer-strong);
+  transform: translateX(2px);
+}
+
+.equipment-inventory-ledger__row-action > button.is-transfer:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.equipment-inventory-ledger__row-action > button.is-transfer:focus-visible:not(:disabled) {
+  color: var(--text-strong);
+  background: var(--equipment-transfer-surface);
+  border-color: var(--equipment-transfer);
+  outline: 2px solid var(--equipment-transfer);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--equipment-transfer) 18%, transparent);
+}
+
 .equipment-inventory-ledger button:disabled {
   cursor: not-allowed;
   opacity: .52;
@@ -627,6 +676,36 @@
   color: var(--text-inverse);
   background: var(--brand-action-hover);
   border-color: var(--brand-action-hover);
+}
+
+.equipment-inventory-ledger__dossier-actions > .is-primary.is-transfer {
+  color: #ffffff;
+  background: var(--equipment-transfer);
+  border-color: var(--equipment-transfer);
+}
+
+.equipment-inventory-ledger__dossier-actions > .is-primary.is-transfer .so-icon {
+  transition: transform 160ms var(--ease-standard, ease);
+}
+
+.equipment-inventory-ledger__dossier-actions > .is-primary.is-transfer:hover:not(:disabled) {
+  color: #ffffff;
+  background: var(--equipment-transfer-strong);
+  border-color: var(--equipment-transfer-strong);
+}
+
+.equipment-inventory-ledger__dossier-actions > .is-primary.is-transfer:hover:not(:disabled) .so-icon {
+  transform: translateX(2px);
+}
+
+.equipment-inventory-ledger__dossier-actions > .is-primary.is-transfer:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.equipment-inventory-ledger__dossier-actions > .is-primary.is-transfer:focus-visible:not(:disabled) {
+  outline: 2px solid var(--equipment-transfer-strong);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--equipment-transfer) 22%, transparent);
 }
 
 .equipment-inventory-ledger__utilities {
