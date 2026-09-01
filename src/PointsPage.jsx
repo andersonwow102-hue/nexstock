@@ -1062,7 +1062,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
     </header>
 
     {filtrados.length===0?<EmptyState className="pcf-empty" icon="search" title="Nenhum ponto encontrado" description="Revise a busca ou os filtros para voltar à rede." action={(busca||filtrosAtivos>0)?<button type="button" className="pcf-button pcf-button--secondary" onClick={limparTudo}>Limpar busca e filtros</button>:null}/>:
-      <div className="pcf-master-detail">
+      <div className={`pcf-master-detail${dossieDesktopAberto?" has-floating-inspector":""}`}>
         <div className="pcf-master-pane" inert={dossieModalAberto?true:undefined} aria-hidden={dossieModalAberto?"true":undefined}>
           <div className="pcf-ledger-columns pcf-ops-grid" aria-hidden="true"><span className="pcf-ledger-col--identity">Unidade / responsável</span><span className="pcf-ledger-col--services">Cobertura</span><span className="pcf-ledger-col--equipment">Equipamentos</span><span className="pcf-ledger-col--admin">Administração</span><span className="pcf-ledger-col--state">Situação</span></div>
           <div className="pcf-records" aria-label="Pontos encontrados">

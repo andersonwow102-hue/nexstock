@@ -8,10 +8,16 @@ const css = fs.readFileSync(new URL('./PointsCommandFlow.css', import.meta.url),
 test('desktop usa inspector flutuante e mantém o ledger em largura integral', () => {
   assert.match(css, /@media \(min-width: 1361px\)[\s\S]*?\.pcf-master-detail\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
   assert.match(css, /@media \(min-width: 1361px\)[\s\S]*?\.pcf-operations-folio:not\(\[role="dialog"\]\)\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*calc\(var\(--cf-target[\s\S]*?overflow-y:\s*auto/);
+  assert.match(css, /width:\s*clamp\(390px, 27\.5vw, 440px\)/);
+  assert.match(css, /border-color:\s*color-mix\(in srgb, var\(--pcf-border-strong\) 88%, var\(--pcf-accent-line\)\)/);
+  assert.match(css, /box-shadow:\s*var\(--pcf-shadow-context\),\s*0 10px 28px/);
   assert.match(css, /pcf-floating-inspector-in var\(--pcf-motion-panel\)/);
   assert.match(css, /\.pcf-folio-context\s*\{[\s\S]*?position:\s*sticky/);
   assert.doesNotMatch(page, /Selecione uma unidade para consultar seu registro operacional/);
   assert.match(page, /const dossieDesktopAberto=!dossieEmSheet&&Boolean\(pontoSelecionadoAtivoId\)/);
+  assert.match(page, /pcf-master-detail\$\{dossieDesktopAberto\?" has-floating-inspector":""\}/);
+  assert.match(css, /\.pcf-master-detail\.has-floating-inspector \.pcf-record\.is-selected[\s\S]*?var\(--pcf-accent-wash\) 52%/);
+  assert.match(css, /\.tema-claro[\s\S]*?\.pcf-master-detail\.has-floating-inspector \.pcf-record\.is-selected[\s\S]*?var\(--pcf-accent-wash\) 45%/);
   assert.match(page, /if\(event\.key!=="Escape"\)return/);
 });
 
