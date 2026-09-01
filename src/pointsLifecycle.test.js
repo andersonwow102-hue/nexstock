@@ -112,8 +112,9 @@ test('dossiê pendente reutiliza a movimentação real sem criar lógica paralel
 
   assert.ok(inicioDossie >= 0 && fimDossie > inicioDossie, 'centro de resolução da desativação não encontrado');
   assert.match(resolucao, /Solicitação de desativação/);
-  assert.match(resolucao, /retornoMovimentacaoRef\.current=true;onMovimentarEquipamento\?\.\(item,\{ponto:pontoSelecionado\}\)/);
-  assert.match(page, /pcf-equipment-move, \.pcf-deactivation-actions \.pcf-button--primary:not\(\[disabled\]\), \.pcf-deactivation-reject/);
+  assert.match(resolucao, /LinkedEquipmentOperationalList/);
+  assert.match(page, /function iniciarMovimentacaoVinculada\(item,gatilho\)[\s\S]*?onMovimentarEquipamento\(item,\{ponto:pontoSelecionado\}\)/);
+  assert.match(page, /botoesMovimentacao\.find\(botao=>botao\.dataset\.equipmentId===equipamentoId/);
   assert.match(resolucao, /disabled=\{selecionado\.vinculados\.length>0\}/);
   assert.match(resolucao, /pcf-deactivation-approval-help/);
   assert.match(resolucao, /textoVinculosRestantes/);
@@ -124,6 +125,66 @@ test('dossiê pendente reutiliza a movimentação real sem criar lógica paralel
   assert.match(app, /onMovimentarEquipamento=\{abrirMov\}/);
   assert.match(app, /function abrirMov\(item,contexto=null\)/);
   assert.match(app, /vinculado a \$\{contextoMovPonto\.nomeFantasia\}/);
+});
+
+test('dossiê normal e pendente compartilham a mesma lista operacional de equipamentos', () => {
+  const inicioLista = page.indexOf('function LinkedEquipmentOperationalList');
+  const fimLista = page.indexOf('function acessosDoPonto', inicioLista);
+  const lista = page.slice(inicioLista, fimLista);
+  const usos = page.match(/<LinkedEquipmentOperationalList /g) || [];
+
+  assert.ok(inicioLista >= 0 && fimLista > inicioLista, 'lista operacional compartilhada não encontrada');
+  assert.equal(usos.length, 2, 'a mesma lista deve atender os contextos normal e pendente');
+  assert.match(lista, /type="button"/);
+  assert.match(lista, /data-equipment-id=\{String\(item\.id\)\}/);
+  assert.match(lista, /aria-label=\{`Movimentar \$\{item\.nome\}`\}/);
+  assert.match(lista, /OperationIcon name="transfer"/);
+  assert.match(lista, /onClick=\{event=>onMovimentar\?\.\(item,event\.currentTarget\)\}/);
+  assert.match(lista, /item\.categoria,item\.status\|\|"Vinculado"/);
+  assert.match(lista, /disabled=\{!permitido\}/);
+  assert.match(page, /pcf-folio-linked-equipment/);
+  assert.doesNotMatch(lista, /salvarEquipamento|setEquipamentos|supabase|\.rpc\(/);
+});
+
+test('movimentação iniciada em Pontos usa item, contexto e permissão reais sem fechar o dossiê', () => {
+  const inicio = page.indexOf('function iniciarMovimentacaoVinculada');
+  const fim = page.indexOf('function registrarRetornoFocoEquipamento', inicio);
+  const inicioExecutor = page.indexOf('function executarAcaoDossie');
+  const fluxo = page.slice(inicio, fim);
+
+  assert.ok(inicio >= 0 && fim > inicio, 'iniciador compartilhado não encontrado');
+  assert.match(fluxo, /equipamentoId:String\(item\.id\)/);
+  assert.match(fluxo, /onMovimentarEquipamento\(item,\{ponto:pontoSelecionado\}\)/);
+  assert.doesNotMatch(fluxo, /executarAcaoDossie|setPontoSelecionadoId/);
+  assert.ok(inicio > inicioExecutor, 'movimentação deve permanecer fora do executor que fecha o sheet');
+  assert.match(app, /onMovimentarEquipamento=\{abrirMov\} podeMovimentarEquipamento=\{podeMovimentarEquipamento\}/);
+  assert.match(page, /podeMovimentarEquipamento=\{podeMovimentarEquipamento\}/);
+});
+
+test('sucesso real persiste antes de atualizar e erro não remove equipamento nem fecha modal', () => {
+  const inicio = app.indexOf('async function confirmarMov()');
+  const fim = app.indexOf('async function confirmarPagamentoConserto', inicio);
+  const fluxo = app.slice(inicio, fim);
+  const indicePersistencia = fluxo.indexOf('await salvarEquipamento(equipamentoAtualizado)');
+  const indiceAtualizacao = fluxo.indexOf('setItens(prev=>prev.map(i=>i.id===modalMov.id?equipamentoAtualizado:i))');
+  const indiceFechamento = fluxo.indexOf('fecharMov()');
+  const indiceErro = fluxo.indexOf('} catch (err)');
+  const erro = fluxo.slice(indiceErro);
+
+  assert.ok(inicio >= 0 && fim > inicio, 'handler real de movimentação não encontrado');
+  assert.ok(indicePersistencia >= 0 && indicePersistencia < indiceAtualizacao, 'persistência deve preceder atualização local');
+  assert.ok(indiceAtualizacao < indiceFechamento, 'modal só deve fechar depois da atualização confirmada');
+  assert.match(erro, /setErroMov/);
+  assert.doesNotMatch(erro, /setItens|fecharMov/);
+});
+
+test('retorno de foco aguarda a camada superior e prioriza o equipamento correspondente', () => {
+  assert.match(page, /revisaoVinculos=selecionado\?\.vinculados\.map/);
+  assert.match(page, /camadaSuperior=[\s\S]*?data-so-modal-layer='true'[\s\S]*?if\(camadaSuperior\)return false/);
+  assert.match(page, /MutationObserver/);
+  assert.match(page, /alvoExato=botoesMovimentacao\.find/);
+  assert.match(page, /pcf-deactivation-actions \.pcf-button--primary:not\(\[disabled\]\)/);
+  assert.match(page, /onFocus=\{\(\)=>onRetornoFoco\?\.\(item\)\}/);
 });
 
 test('gatilho móvel compacto abre diretamente o dossiê da pendência e preserva o desktop', () => {

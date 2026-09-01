@@ -87,6 +87,27 @@ test('mobile usa cartões verticais e bottom sheet sem reaproveitar a grade desk
   assert.match(css, /:has\(\.pcf-dossier\[role="dialog"\], \.equip-cf-movement-overlay\) \.chat-flutuante/);
 });
 
+test('mobile antecipa Administração no ponto normal e prioriza a decisão quando pendente', () => {
+  assert.match(page, /data-deactivation-workflow=\{podeDecidirDesativacao&&solicitacaoDesativacaoPendente\?"decision":"standard"\}/);
+  assert.match(page, /pcf-folio-operation/);
+  assert.match(page, /pcf-folio-linked-equipment/);
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.pcf-folio-content\s*\{[\s\S]*?display:\s*flex;[\s\S]*?flex-direction:\s*column/);
+  assert.match(css, /\.pcf-folio-content > \.pcf-folio-administration\s*\{\s*order:\s*2/);
+  assert.match(css, /\.pcf-folio-content > \.pcf-folio-operation\s*\{\s*order:\s*4/);
+  assert.match(css, /\.pcf-folio-content > \.pcf-folio-linked-equipment\s*\{\s*order:\s*5/);
+  assert.match(css, /data-deactivation-workflow="decision"\] \.pcf-deactivation-request\s*\{\s*order:\s*2/);
+  assert.match(css, /data-deactivation-workflow="decision"\] \.pcf-deactivation-equipment\s*\{\s*order:\s*3/);
+  assert.match(css, /data-deactivation-workflow="decision"\] \.pcf-deactivation-decisions\s*\{\s*order:\s*4/);
+  assert.match(css, /data-deactivation-workflow="decision"\] \.pcf-folio-administration\s*\{\s*order:\s*6/);
+});
+
+test('equipamentos vinculados viram cartões operacionais touch apenas no mobile', () => {
+  assert.match(css, /\.pcf-linked-equipment > \.pcf-linked-equipment-list > li\s*\{[\s\S]*?flex-direction:\s*column;[\s\S]*?padding:\s*12px 11px 13px 18px/);
+  assert.match(css, /\.pcf-linked-equipment \.pcf-equipment-move\s*\{[\s\S]*?width:\s*100%;[\s\S]*?min-height:\s*44px/);
+  assert.match(css, /\.pcf-linked-equipment-copy strong\s*\{[\s\S]*?white-space:\s*normal/);
+  assert.match(css, /\.pcf-equipment-move:disabled/);
+});
+
 test('métricas móveis de Pontos usam grid compacto e preservam ações semânticas', () => {
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?pcf-network-register[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[\s\S]*?overflow-x:\s*visible/);
   assert.match(css, /@media \(min-width: 600px\) and \(max-width: 820px\)[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);

@@ -2880,6 +2880,13 @@
 .points-command-flow .pcf-linked-equipment > p { margin: 0; color: var(--pcf-dim); font-size: 10px; line-height: 1.5; }
 .points-command-flow .pcf-linked-equipment li em { flex: 0 0 auto; color: var(--pcf-muted); font-family: var(--font-data, "JetBrains Mono", monospace); font-size: 9px; font-style: normal; }
 
+.points-command-flow .pcf-linked-equipment .pcf-linked-equipment-id {
+  color: var(--pcf-muted);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  font-size: 8.5px;
+  letter-spacing: 0.025em;
+}
+
 .points-command-flow .pcf-deactivation-request {
   background: linear-gradient(90deg, var(--pcf-warning-wash), transparent 72%);
 }
@@ -2924,6 +2931,14 @@
   border-color: var(--pcf-copper);
   color: var(--pcf-copper);
   background: var(--pcf-copper-wash);
+}
+
+.points-command-flow .pcf-equipment-move:disabled {
+  border-color: var(--pcf-border);
+  color: var(--pcf-dim);
+  background: transparent;
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .points-command-flow .pcf-deactivation-clear {
@@ -5273,5 +5288,58 @@
   .app.module-pontos:has(.pcf-dossier[role="dialog"], .equip-cf-movement-overlay) .chat-flutuante {
     visibility: hidden;
     pointer-events: none;
+  }
+
+  .points-command-flow .pcf-folio-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .points-command-flow .pcf-folio-content > .pcf-folio-context > .pcf-dossier-header,
+  .points-command-flow .pcf-folio-content > .pcf-folio-context > .pcf-dossier-status {
+    order: 0;
+  }
+
+  .points-command-flow .pcf-folio-content > .pcf-folio-identity { order: 1; }
+  .points-command-flow .pcf-folio-content > .pcf-folio-administration { order: 2; }
+  .points-command-flow .pcf-folio-content > .pcf-sensitive-zone { order: 3; }
+  .points-command-flow .pcf-folio-content > .pcf-folio-operation { order: 4; }
+  .points-command-flow .pcf-folio-content > .pcf-folio-linked-equipment { order: 5; }
+  .points-command-flow .pcf-folio-content > .pcf-operational-trace { order: 6; }
+
+  .points-command-flow .pcf-operations-folio[data-deactivation-workflow="decision"] .pcf-deactivation-request { order: 2; }
+  .points-command-flow .pcf-operations-folio[data-deactivation-workflow="decision"] .pcf-deactivation-equipment { order: 3; }
+  .points-command-flow .pcf-operations-folio[data-deactivation-workflow="decision"] .pcf-deactivation-decisions { order: 4; }
+  .points-command-flow .pcf-operations-folio[data-deactivation-workflow="decision"] .pcf-folio-operation { order: 5; }
+  .points-command-flow .pcf-operations-folio[data-deactivation-workflow="decision"] .pcf-folio-administration { order: 6; }
+  .points-command-flow .pcf-operations-folio[data-deactivation-workflow="decision"] .pcf-operational-trace { order: 7; }
+
+  .points-command-flow .pcf-linked-equipment > .pcf-linked-equipment-list > li {
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 11px;
+    padding: 12px 11px 13px 18px;
+  }
+
+  .points-command-flow .pcf-linked-equipment .pcf-linked-equipment-copy {
+    gap: 4px;
+  }
+
+  .points-command-flow .pcf-linked-equipment .pcf-linked-equipment-copy strong {
+    overflow: visible;
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .points-command-flow .pcf-linked-equipment .pcf-linked-equipment-copy small {
+    font-size: 10.5px;
+  }
+
+  .points-command-flow .pcf-linked-equipment .pcf-equipment-move {
+    width: 100%;
+    min-height: 44px;
   }
 }

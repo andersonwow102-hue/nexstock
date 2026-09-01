@@ -4706,7 +4706,7 @@ function Sistema({onLogout}){
         </>)}
 
         {aba==="pontos"&&(
-          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={lista=>setHistoricoPontos(lista.map(evento=>Object.hasOwn(evento,"createdAt")?evento:{...evento,createdAt:isoAgora()}))} onHistoricoLoadError={failed=>setErrosHistorico(current=>({...current,point:failed}))} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onMovimentarEquipamento={abrirMov} onExcluirEquipamento={setExcluindo} onAbrirMenu={alternarSidebarContextual}/>
+          <PointsPage equipamentos={itensOperacionais} podeEditar={podeEditar} perfilAtual={perfilAtual} onPontosChange={setPontos} onEquipamentosChange={setItens} onHistoricoChange={lista=>setHistoricoPontos(lista.map(evento=>Object.hasOwn(evento,"createdAt")?evento:{...evento,createdAt:isoAgora()}))} onHistoricoLoadError={failed=>setErrosHistorico(current=>({...current,point:failed}))} onDespesasChange={setDespesasBackup} onEditarEquipamento={abrirEditar} onMovimentarEquipamento={abrirMov} podeMovimentarEquipamento={podeMovimentarEquipamento} onExcluirEquipamento={setExcluindo} onAbrirMenu={alternarSidebarContextual}/>
         )}
 
         {aba==="devedores"&&acessoDevedores&&(
