@@ -5165,6 +5165,10 @@
     box-shadow: none;
   }
 
+  .points-command-flow .pcf-network-register .pcf-register-finance strong {
+    font-size: 17px;
+  }
+
   .points-command-flow .pcf-register-finance > .so-icon {
     display: none;
   }

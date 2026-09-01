@@ -150,5 +150,6 @@ test("métricas móveis de Equipamentos usam grid compacto sem carrossel", async
   assert.match(shell, /@media \(max-width: 820px\)[\s\S]*?equip-cf-position-strip[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[\s\S]*?overflow-x:\s*visible/);
   assert.match(shell, /@media \(min-width: 600px\) and \(max-width: 820px\)[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(shell, /equip-cf-position-strip button[\s\S]*?min-height:\s*62px/);
+  assert.match(shell, /@media \(max-width: 599px\)[\s\S]*?button:nth-of-type\(5\):last-of-type[\s\S]*?grid-column:\s*1 \/ -1[\s\S]*?justify-self:\s*center/);
   assert.doesNotMatch(preview, /equip-cf-position-strip[^}]*overflow-x:\s*auto/);
 });

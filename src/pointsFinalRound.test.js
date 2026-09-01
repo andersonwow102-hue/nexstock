@@ -84,6 +84,7 @@ test('métricas móveis de Pontos usam grid compacto e preservam ações semânt
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?pcf-network-register[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)[\s\S]*?overflow-x:\s*visible/);
   assert.match(css, /@media \(min-width: 600px\) and \(max-width: 820px\)[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /pcf-network-register > button[\s\S]*?min-height:\s*62px/);
+  assert.match(css, /pcf-register-finance strong\s*\{\s*font-size:\s*17px/);
   assert.match(page, /aria-pressed=\{filtroPendencia==="pendente"\}/);
   assert.match(page, /className="pcf-register-finance"[\s\S]*?aria-haspopup="dialog"/);
   for (const label of ['Pontos', 'Ativos', 'Desativados', 'Com equip.', 'Sem equip.', 'Sem despesa', 'Pendências', 'Despesas']) {
