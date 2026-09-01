@@ -217,6 +217,21 @@ function quantityDetail(before, after) {
   return { key: "quantity", label: "Quantidade", value: `${numericBefore} → ${numericAfter}` };
 }
 
+function trustedEquipmentActor(record) {
+  const name = cleanText(
+    record?.executadoPorNomeSnapshot ?? record?.executado_por_nome_snapshot,
+    160,
+  );
+  if (!name) return null;
+  const profile = cleanText(
+    record?.executadoPorPerfilSnapshot ?? record?.executado_por_perfil_snapshot,
+    80,
+  );
+  if (!profile) return name;
+  const profileLabel = profile.charAt(0).toLocaleUpperCase("pt-BR") + profile.slice(1).toLocaleLowerCase("pt-BR");
+  return `${name} · ${profileLabel}`;
+}
+
 function normalizeEquipmentRecord(record, index) {
   const moduleMeta = HISTORY_MODULE_META.equipment;
   const sourceId = record?.id ?? null;
@@ -249,7 +264,7 @@ function normalizeEquipmentRecord(record, index) {
       kind: "equipment",
       ...(category ? { category } : {}),
     },
-    actor: null,
+    actor: trustedEquipmentActor(record),
     responsible,
     origin,
     destination,

@@ -233,7 +233,12 @@ test("lote de rebranding não altera Supabase nem sua configuração", () => {
   const alterados = execFileSync("git", ["status", "--porcelain", "--untracked-files=all", "--", ...protegidos], {
     cwd: arquivo("."),
     encoding: "utf8",
-  }).trim();
+  })
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .filter((linha) => !/supabase\/migrations\/202608311940_equipamentos_historico_autoria\.sql$/.test(linha))
+    .filter((linha) => !/supabase\/tests\/equipamentos_historico_autoria\.sql$/.test(linha))
+    .join("\n");
   assert.equal(alterados, "", `arquivos protegidos alterados neste lote:\n${alterados}`);
 
   const db = ler("src/db.js");

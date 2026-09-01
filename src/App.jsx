@@ -2658,6 +2658,64 @@ function solicitacaoConsertoPendente(item){
   return statusPagamentoConserto(item)==="comunicado";
 }
 
+function rotuloPerfilHistorico(perfil){
+  const valor=String(perfil||"").trim();
+  return valor?valor.charAt(0).toLocaleUpperCase("pt-BR")+valor.slice(1).toLocaleLowerCase("pt-BR"):"";
+}
+
+function dataLegivelHistoricoEquipamento(evento){
+  const data=String(evento?.data||"").trim();
+  if(data)return data.replace(/,\s*/," às ");
+  const instante=new Date(evento?.createdAt||"");
+  return Number.isNaN(instante.getTime())?"Data não informada":instante.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}).replace(/,\s*/," às ");
+}
+
+function apresentacaoHistoricoEquipamento(evento){
+  const observacao=String(evento?.observacao||"").trim();
+  const autorNome=String(evento?.executadoPorNomeSnapshot||"").trim();
+  const autorPerfil=rotuloPerfilHistorico(evento?.executadoPorPerfilSnapshot);
+  const titulos={
+    cadastro:"Equipamento cadastrado",
+    edicao:"Equipamento atualizado",
+    exclusao:"Equipamento excluído",
+    ponto:"Enviado para ponto",
+    envio_gerente:"Enviado para gerente",
+    recebimento_gerente:"Recebido pelo gerente",
+    conserto:"Movimentação de conserto",
+    disponivel:"Equipamento disponibilizado",
+    retorno:"Retornado do conserto",
+    entrada:"Entrada registrada",
+    saida:"Saída registrada",
+    defeito:"Defeito registrado",
+    baixa:"Baixa registrada",
+  };
+  let contextoLabel="";
+  let contextoValor="";
+  if(evento?.tipo==="envio_gerente"){
+    contextoLabel="Destino";
+    contextoValor=observacao.match(/enviado para gerente:\s*([^|]+)/i)?.[1]?.trim()||"";
+  }else if(evento?.tipo==="recebimento_gerente"){
+    contextoLabel="Recebido por";
+    contextoValor=String(evento?.responsavel||"").trim();
+  }else if(evento?.tipo==="ponto"){
+    contextoLabel="Destino";
+    contextoValor=observacao.match(/destino:\s*([^|]+)/i)?.[1]?.trim()||"";
+  }
+  const observacaoNormalizada=observacao.toLocaleLowerCase("pt-BR");
+  const detalheRedundante=(contextoValor&&observacaoNormalizada.includes(contextoValor.toLocaleLowerCase("pt-BR")))
+    ||(evento?.tipo==="cadastro"&&/equipamento (cadastrado|incluído)/i.test(observacao));
+  return{
+    titulo:titulos[evento?.tipo]||HIST_CFG[evento?.tipo]?.label||evento?.tipo||"Movimentação registrada",
+    contextoLabel,
+    contextoValor,
+    autorNome,
+    autorPerfil,
+    autorTexto:autorNome?`${autorNome}${autorPerfil?` · ${autorPerfil}`:""}`:"Autor não registrado",
+    data:dataLegivelHistoricoEquipamento(evento),
+    detalhe:detalheRedundante?"":observacao,
+  };
+}
+
 function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, onCompletarConserto, onConfirmarPagamento, podeEditar, somenteLeitura=false, perfilAtual }) {
   const [notaAberta,setNotaAberta]=useState(false);
   const movimentos=historico.filter(h=>h.itemId===item.id);
@@ -2723,7 +2781,19 @@ function FichaEquipamento({ item, historico, onFechar, onEditar, onMovimentar, o
           )}
           <h4 className="ficha-subtitulo">Linha do tempo</h4>
           <div className="ficha-historico">
-            {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação registrada.</p>:movimentos.map(h=><div className="ficha-evento" key={h.id}><span className={`badge-hist ${HIST_CFG[h.tipo]?.cor||""}`}>{HIST_CFG[h.tipo]?.label||h.tipo}</span><div><strong>{h.observacao||"Sem detalhe"}</strong><small>{h.data} · {h.responsavel||"-"}</small></div></div>)}
+            {movimentos.length===0?<p className="dash-vazio">Nenhuma movimentação registrada.</p>:movimentos.map(h=>{
+              const evento=apresentacaoHistoricoEquipamento(h);
+              return <article className="ficha-evento" key={h.id}>
+                <span className={`badge-hist ${HIST_CFG[h.tipo]?.cor||""}`}>{HIST_CFG[h.tipo]?.label||h.tipo}</span>
+                <div className="ficha-evento-conteudo">
+                  <strong className="ficha-evento-titulo">{evento.titulo}</strong>
+                  {evento.contextoValor&&<dl className="ficha-evento-contexto"><div><dt>{evento.contextoLabel}</dt><dd>{evento.contextoValor}</dd></div></dl>}
+                  <div className={`ficha-evento-autoria${evento.autorNome?"":" is-unknown"}`}><small>{evento.autorNome?"Realizado por":"Autoria"}</small><b>{evento.autorTexto}</b></div>
+                  <time>{evento.data}</time>
+                  {evento.detalhe&&<p>{evento.detalhe}</p>}
+                </div>
+              </article>;
+            })}
           </div>
         </div>
       </OperationModal>
@@ -3913,7 +3983,7 @@ function Sistema({onLogout}){
       const d=[];
       if(itemEdit.status!==ff.status)d.push(`Status: ${itemEdit.status}→${ff.status}`);
       const h={id:Date.now(),tipo:"edicao",itemId:itemEdit.id,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:itemEdit.quantidade,qtdDepois:ff.quantidade,responsavel:"—",observacao:d.length?d.join(" | "):"Dados atualizados",data:agora(),createdAt:isoAgora()};
-      await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
+      const registrado=await adicionarHistoricoEquipamento(h);setHistorico(prev=>[registrado||h,...prev]);
     }else{
       const novos=[];
       const historicos=[];
@@ -3925,8 +3995,9 @@ function Sistema({onLogout}){
         historicos.push({id:Date.now()+idx,tipo:"cadastro",itemId:novoId,itemNome:ff.nome,categoria:ff.categoria,qtdAntes:0,qtdDepois:1,responsavel:"—",observacao:"Equipamento cadastrado",data:agora(),createdAt:isoAgora()});
       }
       setItens(prev=>[...prev,...novos]);
-      for(const h of historicos)await adicionarHistoricoEquipamento(h);
-      setHistorico(prev=>[...historicos,...prev]);
+      const historicosRegistrados=[];
+      for(const h of historicos)historicosRegistrados.push(await adicionarHistoricoEquipamento(h)||h);
+      setHistorico(prev=>[...historicosRegistrados,...prev]);
     }
     fecharForm();
   }
@@ -3937,7 +4008,7 @@ function Sistema({onLogout}){
     await salvarEquipamento(upd);
     setItens(prev=>prev.map(i=>i.id===item.id?upd:i));
     const h={id:Date.now(),tipo:"recebimento_gerente",itemId:item.id,itemNome:item.nome,categoria:item.categoria,qtdAntes:1,qtdDepois:1,responsavel:gerenteAtual,observacao:`Equipamento recebido por ${gerenteAtual}`,data:agora(),createdAt:isoAgora()};
-    await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
+    const registrado=await adicionarHistoricoEquipamento(h);setHistorico(prev=>[registrado||h,...prev]);
   }
 
   async function salvarPontoRapido(ponto){
@@ -3974,7 +4045,7 @@ function Sistema({onLogout}){
     await excluirEquipamento(id);
     setItens(prev=>prev.filter(i=>i.id!==id));
     const h={id:Date.now(),tipo:"exclusao",itemId:id,itemNome:item.nome,categoria:item.categoria,qtdAntes:item.quantidade,qtdDepois:0,responsavel:"—",observacao:"Item removido",data:agora(),createdAt:isoAgora()};
-    await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
+    const registrado=await adicionarHistoricoEquipamento(h);setHistorico(prev=>[registrado||h,...prev]);
     setExcluindo(null);
   }
 
@@ -4052,7 +4123,7 @@ function Sistema({onLogout}){
         mov.notaFiscalNome&&!gerenteAtual&&`Nota fiscal: ${mov.notaFiscalNome}`,
       ]:[];
       const h={id:Date.now(),tipo:tipo.id==="gerente"?"envio_gerente":tipo.id,itemId:modalMov.id,itemNome:modalMov.nome,categoria:modalMov.categoria,qtdAntes:1,qtdDepois:1,responsavel:mov.responsavel||mov.gerente||"—",observacao:[detalhe,...informacoesConserto,mov.observacao].filter(Boolean).join(" | "),data:agora(),createdAt:isoAgora()};
-      await adicionarHistoricoEquipamento(h);setHistorico(prev=>[h,...prev]);
+      const registrado=await adicionarHistoricoEquipamento(h);setHistorico(prev=>[registrado||h,...prev]);
       if(tipo.id==="conserto"&&apenasSolicitarConserto) window.alert("Solicitação enviada ao operador. O equipamento só entrará em conserto após a aprovação dele.");
       if(tipo.id==="conserto"&&perfilAtual.perfil==="operador") window.alert("Solicitação de pagamento enviada ao financeiro. A administração já pode conferir e confirmar o pagamento.");
       fecharMov();
@@ -4087,8 +4158,8 @@ function Sistema({onLogout}){
       data:agora(),
       createdAt:isoAgora(),
     };
-    await adicionarHistoricoEquipamento(h);
-    setHistorico(prev=>[h,...prev]);
+    const registrado=await adicionarHistoricoEquipamento(h);
+    setHistorico(prev=>[registrado||h,...prev]);
     window.alert("Pagamento confirmado e registrado na linha do tempo do equipamento.");
   }
 
@@ -4239,13 +4310,20 @@ function Sistema({onLogout}){
 
   const linhasEquipamentosLedger=itensPagina.map(modeloLedgerEquipamento);
   const equipamentoFocoLedger=linhasEquipamentosLedger.find(linha=>linha.id===equipamentoFoco?.id)||null;
-  const historicoEquipamentoLedger=historicoEquipamentoFoco.map(evento=>({
-    id:evento.id,
-    icon:(HIST_CFG[evento.tipo]||{icone:"file"}).icone,
-    label:(HIST_CFG[evento.tipo]||{label:evento.tipo}).label,
-    detail:evento.observacao||"",
-    date:evento.data||"—",
-  }));
+  const historicoEquipamentoLedger=historicoEquipamentoFoco.map(evento=>{
+    const apresentacao=apresentacaoHistoricoEquipamento(evento);
+    return{
+      id:evento.id,
+      icon:(HIST_CFG[evento.tipo]||{icone:"file"}).icone,
+      label:apresentacao.titulo,
+      detail:apresentacao.detalhe,
+      contextLabel:apresentacao.contextoLabel,
+      contextValue:apresentacao.contextoValor,
+      actor:apresentacao.autorTexto,
+      actorKnown:Boolean(apresentacao.autorNome),
+      date:apresentacao.data,
+    };
+  });
 
   const tipoMovSel=TIPOS_MOV.find(t=>t.id===mov.tipoId);
   const acaoMovimentacao=tipoMovSel?.id==="conserto"&&perfilAtual.perfil!=="operador"?"Solicitar conserto":tipoMovSel?.label||"Definir ação";
@@ -4260,8 +4338,8 @@ function Sistema({onLogout}){
           :"A definir";
   const ABAS_EQUIP=[
     {id:"lista",label:`Equipamentos (${itensOperacionais.length})`,icone:"package"},
-    {id:"resumo",label:"Posição por status",icone:"activity"},
-    {id:"historico",label:`Rastro (${historicoOperacional.length})`,icone:"history"},
+    {id:"resumo",label:"Resumo por situação",icone:"activity"},
+    {id:"historico",label:`Movimentações (${historicoOperacional.length})`,icone:"history"},
   ];
 
   if(carregando){
@@ -4400,7 +4478,7 @@ function Sistema({onLogout}){
           <header className="cf-page-head equip-cf-head">
             <div className="cf-page-head__identity">
               <button className="btn-hamburguer" onClick={alternarSidebarContextual} type="button" aria-label={sidebarAberta?"Fechar navegação":"Abrir navegação"} aria-controls="stock-on-primary-navigation" aria-expanded={sidebarAberta}><Icon name="menu" /></button>
-              <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">Inventário operacional</span><h1>Equipamentos</h1><p>Livro de posição, vínculos e movimentações da operação.</p></div>
+              <div className="cf-page-head__copy"><span className="cf-page-head__eyebrow">Controle de equipamentos</span><h1>Equipamentos</h1><p>Veja onde cada equipamento está, com quem está e o que aconteceu por último.</p></div>
             </div>
             <div className="cf-page-head__actions">
               <button className="btn-secundario equip-cf-export-utility" onClick={()=>exportarEquipamentosExcel(itensOperacionais)}><Icon name="spreadsheet" /> Excel</button>
@@ -4417,7 +4495,7 @@ function Sistema({onLogout}){
             <span className="equip-cf-control-context"><strong>{totalGeral}</strong> registros na base</span>
           </div>
 
-          <nav className={`equip-cf-position-strip${gerenteAtual?" is-manager-scope":""}`} aria-label="Posição atual dos equipamentos">
+          <nav className={`equip-cf-position-strip${gerenteAtual?" is-manager-scope":""}`} aria-label="Onde os equipamentos estão agora">
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="todos"} className={abaEquip==="lista"&&filtroEscopoEquip==="todos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("todos");setAbaEquip("lista");}}><span>Base</span><strong>{totalGeral}</strong><small>todos os registros</small></button>
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="interno"} className={abaEquip==="lista"&&filtroEscopoEquip==="interno"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("interno");setAbaEquip("lista");}}><span>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>prontos para alocação</small></button>
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="pontos"} className={abaEquip==="lista"&&filtroEscopoEquip==="pontos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("pontos");setAbaEquip("lista");}}><span>Em pontos</span><strong>{totalEmRota}</strong><small>em operação</small></button>
@@ -4444,7 +4522,7 @@ function Sistema({onLogout}){
                 secondary={<>
                   <label><span>Escopo operacional</span><select value={filtroEscopoEquip} onChange={e=>setFiltroEscopoEquip(e.target.value)}><option value="todos">Todos</option><option value="interno">{gerenteAtual?"Disponíveis":"Estoque interno"}</option><option value="pontos">Em pontos</option>{!gerenteAtual&&<option value="gerentes">Com gerentes</option>}<option value="conserto">Conserto</option></select></label>
                   <label><span>Categoria</span><select value={filtroCatEquip} onChange={e=>setFiltroCatEquip(e.target.value)}><option value="Todas">Todas as categorias</option>{CATEGORIAS.map(c=><option key={c}>{c}</option>)}</select></label>
-                  <label><span>Estado</span><select value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}><option value="Todos">Todos os status</option>{statusListaVisivel.map(s=><option key={s}>{s}</option>)}</select></label>
+                  <label><span>Situação</span><select value={filtroSt} onChange={e=>setFiltroSt(e.target.value)}><option value="Todos">Todas as situações</option>{statusListaVisivel.map(s=><option key={s}>{s}</option>)}</select></label>
                 </>}
                 chips={filtrosEquipAtivos>0?<>
                   {filtroEscopoEquip!=="todos"&&<button type="button" onClick={()=>setFiltroEscopoEquip("todos")}>{rotuloEscopoEquip}<Icon name="close"/></button>}
@@ -4566,7 +4644,7 @@ function Sistema({onLogout}){
 
           {abaEquip==="resumo"&&(
             <section className="equip-cf-summary" aria-labelledby="equip-summary-title">
-              <header className="equip-cf-section-head"><div><span className="cf-kicker">Composição da base</span><h2 id="equip-summary-title">Posição por categoria</h2></div><span>Selecione uma linha para abrir o recorte correspondente.</span></header>
+              <header className="equip-cf-section-head"><div><span className="cf-kicker">Composição da base</span><h2 id="equip-summary-title">Resumo por categoria</h2></div><span>Selecione uma linha para ver os equipamentos correspondentes.</span></header>
               <div className="cf-ledger equip-cf-category-ledger">
                 <div className="cf-ledger__head equip-cf-category-grid" aria-hidden="true"><span>Categoria</span><span>Registros</span><span>Disponíveis</span><span>Em rota</span>{!gerenteAtual&&<span>Conserto</span>}<span>Abrir</span></div>
                 {porCategoria.map(c=>(
@@ -4586,7 +4664,7 @@ function Sistema({onLogout}){
           {abaEquip==="historico"&&(
             <section className="equip-cf-history" aria-labelledby="equip-history-title">
               <header className="equip-cf-section-head">
-                <div><span className="cf-kicker">Rastro operacional</span><h2 id="equip-history-title">Movimentações dos equipamentos</h2><small>{historicoOperacional.length} evento{historicoOperacional.length!==1?"s":""}</small></div>
+                <div><span className="cf-kicker">Movimentações</span><h2 id="equip-history-title">Histórico dos equipamentos</h2><small>{historicoOperacional.length} evento{historicoOperacional.length!==1?"s":""}</small></div>
                 <div className="equip-cf-section-actions">
                   <button className="btn-secundario" onClick={()=>exportarHistoricoExcel(historicoOperacional)}><Icon name="spreadsheet" /> Excel</button>
                   <button className="btn-secundario" onClick={()=>exportarHistoricoPDF(historicoOperacional)}><Icon name="pdf" /> PDF</button>
@@ -4596,11 +4674,11 @@ function Sistema({onLogout}){
                 ?<div className="cf-empty equip-cf-history-empty"><Icon name="history"/><span>Nenhuma movimentação registrada.</span></div>
                 :<div className="cf-ledger equip-cf-history-ledger">
                   <div className="cf-ledger__head equip-cf-history-grid" aria-hidden="true"><span>Evento</span><span>Equipamento</span><span>Variação</span><span>Registro</span></div>
-                  {historicoOperacional.map(h=>{const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"file",label:h.tipo};return <article className="cf-ledger__row equip-cf-history-grid" key={h.id}>
+                  {historicoOperacional.map(h=>{const cfg=HIST_CFG[h.tipo]||{cor:"",icone:"file",label:h.tipo};const evento=apresentacaoHistoricoEquipamento(h);return <article className="cf-ledger__row equip-cf-history-grid" key={h.id}>
                     <span className={`badge-hist ${cfg.cor}`}><Icon name={cfg.icone}/>{cfg.label}</span>
                     <span className="equip-cf-history-subject"><span className="equip-cf-category-icon"><Icon name={ICONES[h.categoria]}/></span><span><strong>{h.itemNome}</strong><small>{h.categoria}</small></span></span>
                     <span className="equip-cf-history-delta"><b>{h.qtdAntes}</b><Icon name="arrowRight"/><b>{h.qtdDepois}</b></span>
-                    <div className="equip-cf-history-record"><HistoricoDetalhes texto={h.observacao}/><time>{h.data}</time></div>
+                    <div className="equip-cf-history-record"><HistoricoDetalhes texto={h.observacao}/><small>{evento.autorNome?`Realizado por ${evento.autorTexto}`:"Autor não registrado"}</small><time>{evento.data}</time></div>
                   </article>;})}
                 </div>
               }

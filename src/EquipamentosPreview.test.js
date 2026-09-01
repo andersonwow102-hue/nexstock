@@ -62,7 +62,7 @@ test("preview expõe temas, rota, filtros, posições, ações e navegação ace
   assert.match(source, /useResponsiveSheet\(\{/);
   assert.match(source, /mediaQuery: "\(max-width: 1320px\)"/);
   assert.match(source, /onKeyDown=\{handleMainScrollKey\}/);
-  for (const marker of ["Estoque interno", "Em pontos", "Com gerentes", "Conserto", "Lista", "Resumo", "Rastro"]) {
+  for (const marker of ["Estoque interno", "Em pontos", "Com gerentes", "Conserto", "Lista", "Resumo por situação", "Movimentações"]) {
     assert.match(source, new RegExp(marker));
   }
   for (const action of ["Excel", "PDF", "Novo equipamento", "Movimentar", "Ficha consultada", "Edição aberta", "Exclusão revisada"]) {
@@ -71,4 +71,15 @@ test("preview expõe temas, rota, filtros, posições, ações e navegação ace
   assert.match(main, /import\.meta\.env\.DEV && parametros\.get\("preview"\) === "equipamentos"/);
   assert.match(main, /import\("\.\/EquipamentosPreviewApp\.jsx"\)/);
   assert.match(main, /previewEquipamentos \? iniciarPreviewEquipamentos\(\)/);
+});
+
+test("preview cobre autoria nova, legado sem autor, recebimento e histórico longo", async () => {
+  const source = await read("EquipamentosPreviewApp.jsx");
+
+  assert.match(source, /Enviado para gerente: Alex/);
+  assert.match(source, /executadoPorNomeSnapshot: "Anderson Costa"/);
+  assert.match(source, /executadoPorPerfilSnapshot: "administrador"/);
+  assert.match(source, /Autor não registrado/);
+  assert.match(source, /tipo: "recebimento_gerente"[\s\S]*?executadoPorPerfilSnapshot: "gerente"/);
+  assert.ok([...source.matchAll(/itemId: "eq-local-806"/g)].length >= 7, "fixture precisa forçar scroll no dossiê");
 });

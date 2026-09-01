@@ -257,6 +257,9 @@ test("Equipamentos mantém comando compacto, posição, ledger, progressão e do
     "@media (max-width: 1320px)",
     "@media (max-width: 780px)",
     "@media (prefers-reduced-motion: reduce)",
+    "max-height: calc(100dvh - 28px)",
+    "overscroll-behavior: contain",
+    "scrollbar-gutter: stable",
   ], "Inventory Ledger CSS");
   assert.equal(importPaths(equipmentInventoryLedger).some(isBackendPath), false, "Inventory Ledger visual não deve importar backend");
 

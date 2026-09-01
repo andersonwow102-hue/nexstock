@@ -46,6 +46,34 @@ test("normaliza Equipamentos com ID namespaced, timestamp canônico e sem invent
   assert.deepEqual(event.rawRef, { source: "historico_equipamentos", id: 17 });
 });
 
+test("usa somente snapshot confiável como ator de Equipamentos", () => {
+  const [known, legacy] = normalizeEquipmentHistory([
+    {
+      id: 21,
+      tipo: "envio_gerente",
+      itemNome: "Terminal 0201",
+      responsavel: "Alex",
+      observacao: "Enviado para gerente: Alex",
+      executadoPorNomeSnapshot: "Anderson Costa",
+      executadoPorPerfilSnapshot: "administrador",
+      createdAt: "2026-09-01T12:00:00.000Z",
+    },
+    {
+      id: 20,
+      tipo: "envio_gerente",
+      itemNome: "Terminal 0200",
+      responsavel: "Alex",
+      observacao: "Enviado para gerente: Alex",
+      createdAt: "2026-08-31T12:00:00.000Z",
+    },
+  ]);
+
+  assert.equal(known.actor, "Anderson Costa · Administrador");
+  assert.equal(known.responsible, "Alex");
+  assert.equal(legacy.actor, null);
+  assert.equal(legacy.responsible, "Alex");
+});
+
 test("normaliza Pontos sem tratar gerente como executor", () => {
   const [event] = normalizePointHistory({
     id: 17,

@@ -423,14 +423,45 @@
   position: sticky;
   top: 14px;
   min-width: 0;
-  max-height: none;
-  overflow: hidden;
+  max-height: calc(100dvh - 28px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 34%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
   color: var(--text-default);
   background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
   border-top-color: var(--brand-action);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
+}
+
+.equipment-inventory-ledger .equipment-inventory-ledger__dossier::-webkit-scrollbar {
+  width: 8px;
+}
+
+.equipment-inventory-ledger .equipment-inventory-ledger__dossier::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.equipment-inventory-ledger .equipment-inventory-ledger__dossier::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 34%, transparent);
+  background-clip: padding-box;
+}
+
+.equipment-inventory-ledger .equipment-inventory-ledger__dossier:hover,
+.equipment-inventory-ledger .equipment-inventory-ledger__dossier:focus-within {
+  scrollbar-color: color-mix(in srgb, var(--brand-action) 56%, var(--text-muted)) transparent;
+}
+
+.equipment-inventory-ledger .equipment-inventory-ledger__dossier:hover::-webkit-scrollbar-thumb,
+.equipment-inventory-ledger .equipment-inventory-ledger__dossier:focus-within::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--brand-action) 56%, var(--text-muted));
+  background-clip: padding-box;
 }
 
 .equipment-inventory-ledger__dossier::before {
@@ -445,7 +476,9 @@
 }
 
 .equipment-inventory-ledger__dossier-head {
-  position: relative;
+  position: sticky;
+  z-index: 4;
+  top: 0;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
@@ -704,6 +737,33 @@
   color: var(--text-muted);
   font-size: 10px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.equipment-inventory-ledger__trace-context,
+.equipment-inventory-ledger__trace-actor {
+  display: grid;
+  gap: 1px;
+  margin-top: 3px;
+}
+
+.equipment-inventory-ledger__trace-context b,
+.equipment-inventory-ledger__trace-actor b {
+  color: var(--text-default);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.equipment-inventory-ledger__trace-actor.is-unknown b {
+  color: var(--text-muted);
+  font-weight: 550;
+}
+
+.equipment-inventory-ledger__trace time {
+  color: var(--text-disabled);
+  font: 500 9px/1.35 var(--font-mono);
   overflow-wrap: anywhere;
 }
 

@@ -89,7 +89,7 @@ export default function EquipmentInventoryLedger({
   }
 
   return (
-    <section className="equipment-inventory-ledger" aria-label="Inventário operacional de equipamentos">
+    <section className="equipment-inventory-ledger" aria-label="Lista de equipamentos">
       <div className={classes(
         "equipment-inventory-ledger__workspace",
         sheetOpen && "is-detail-open",
@@ -97,7 +97,7 @@ export default function EquipmentInventoryLedger({
         <div
           className="equipment-inventory-ledger__ledger"
           role="region"
-          aria-label="Livro operacional de equipamentos"
+          aria-label="Equipamentos cadastrados"
           aria-hidden={sheetOpen ? "true" : undefined}
           inert={sheetOpen ? true : undefined}
         >
@@ -106,12 +106,12 @@ export default function EquipmentInventoryLedger({
               className="equipment-inventory-ledger__grid equipment-inventory-ledger__head"
               aria-hidden="true"
             >
-              <span>Linha</span>
+              <span>Nº</span>
               <span>Equipamento</span>
               <span>Categoria</span>
-              <span>Posição</span>
-              <span>Vínculo</span>
-              <span>Estado</span>
+              <span>Onde está</span>
+              <span>Com quem</span>
+              <span>Situação</span>
               <span>Última movimentação</span>
               <span>Ação</span>
             </div>
@@ -177,8 +177,8 @@ export default function EquipmentInventoryLedger({
 
                     <span
                       className="equipment-inventory-ledger__position"
-                      data-label="Posição"
-                      aria-label={`Posição: ${display(position.label)}${position.detail ? `, ${position.detail}` : ""}`}
+                      data-label="Onde está"
+                      aria-label={`Onde está: ${display(position.label)}${position.detail ? `, ${position.detail}` : ""}`}
                     >
                       <span className="equipment-inventory-ledger__position-icon" aria-hidden="true">
                         <OperationIcon name={position.icon || "package"} size={15} />
@@ -191,16 +191,16 @@ export default function EquipmentInventoryLedger({
 
                     <span
                       className="equipment-inventory-ledger__link"
-                      data-label="Vínculo"
-                      aria-label={`Vínculo: ${display(row.link)}`}
+                      data-label="Com quem"
+                      aria-label={`Com quem: ${display(row.link)}`}
                     >
                       {display(row.link)}
                     </span>
 
                     <span
                       className="equipment-inventory-ledger__state"
-                      data-label="Estado"
-                      aria-label={`Estado: ${display(state.label)}${state.detail ? `, ${state.detail}` : ""}`}
+                      data-label="Situação"
+                      aria-label={`Situação: ${display(state.label)}${state.detail ? `, ${state.detail}` : ""}`}
                     >
                       <span className={classes("equipment-inventory-ledger__state-badge", state.className)}>
                         {display(state.label)}
@@ -285,7 +285,7 @@ export default function EquipmentInventoryLedger({
           role={dossierSheet ? "dialog" : undefined}
           aria-modal={sheetOpen ? "true" : undefined}
           aria-labelledby={selectedRow ? dossierTitleId : undefined}
-          aria-label={selectedRow ? undefined : "Dossiê do equipamento selecionado"}
+          aria-label={selectedRow ? undefined : "Detalhes do equipamento selecionado"}
           aria-hidden={dossierSheet && !sheetOpen ? "true" : undefined}
           inert={dossierSheet && !sheetOpen ? true : undefined}
           tabIndex={dossierSheet ? -1 : undefined}
@@ -306,7 +306,7 @@ export default function EquipmentInventoryLedger({
                   <OperationIcon name={categoryIconOf(iconByCategory, selectedRow)} size={20} />
                 </span>
                 <div>
-                  <span>Dossiê operacional</span>
+                  <span>Detalhes do equipamento</span>
                   <h2 id={dossierTitleId}>{display(selectedRow.name)}</h2>
                   <p>{display(selectedRow.identifier)} · {display(selectedRow.category)}</p>
                 </div>
@@ -319,20 +319,20 @@ export default function EquipmentInventoryLedger({
               </header>
 
               <div className="equipment-inventory-ledger__dossier-body">
-                <section className="equipment-inventory-ledger__current" aria-label="Posição atual">
-                  <span>Posição atual</span>
+                <section className="equipment-inventory-ledger__current" aria-label="Onde está agora">
+                  <span>Onde está agora</span>
                   <strong>{display(selectedRow.position?.label)}</strong>
                   <small>{display(selectedRow.position?.detail)}</small>
                 </section>
 
                 <dl className="equipment-inventory-ledger__facts">
                   <div>
-                    <dt>Estado</dt>
+                    <dt>Situação</dt>
                     <dd>{display(selectedRow.state?.label)}</dd>
                   </div>
                   {!selectedRow.manager ? (
                     <div>
-                      <dt>Vínculo</dt>
+                      <dt>Com quem</dt>
                       <dd>{display(selectedRow.link)}</dd>
                     </div>
                   ) : null}
@@ -372,7 +372,7 @@ export default function EquipmentInventoryLedger({
                     {typeof onOpenDetail === "function" && selectedRow.primaryAction?.purpose !== "detail" ? (
                       <button type="button" onClick={() => executeDossier(() => onOpenDetail(selectedRow.source))}>
                         <OperationIcon name="fileText" size={15} />
-                        Abrir ficha
+                        Ver detalhes
                       </button>
                     ) : null}
                     {selectedRow.canEdit && typeof onEdit === "function" ? (
@@ -397,8 +397,8 @@ export default function EquipmentInventoryLedger({
                 <section className="equipment-inventory-ledger__trace" aria-labelledby={`${dossierTitleId}-trace`}>
                   <header>
                     <div>
-                      <span>Rastro recente</span>
-                      <h3 id={`${dossierTitleId}-trace`}>Movimentações</h3>
+                      <span>Últimas movimentações</span>
+                      <h3 id={`${dossierTitleId}-trace`}>Histórico recente</h3>
                     </div>
                     {typeof onOpenHistory === "function" ? (
                       <button
@@ -419,8 +419,10 @@ export default function EquipmentInventoryLedger({
                           </span>
                           <span>
                             <strong>{display(event.label)}</strong>
+                            {event.contextValue ? <span className="equipment-inventory-ledger__trace-context"><small>{display(event.contextLabel)}</small><b>{event.contextValue}</b></span> : null}
+                            <span className={classes("equipment-inventory-ledger__trace-actor", !event.actorKnown && "is-unknown")}><small>{event.actorKnown ? "Realizado por" : "Autoria"}</small><b>{event.actorKnown ? display(event.actor) : "Autor não registrado"}</b></span>
                             {event.detail ? <p>{event.detail}</p> : null}
-                            <small>{display(event.date)}</small>
+                            <time>{display(event.date)}</time>
                           </span>
                         </li>
                       ))}
@@ -433,7 +435,7 @@ export default function EquipmentInventoryLedger({
             <div className="equipment-inventory-ledger__dossier-empty">
               <OperationIcon name="package" size={22} />
               <strong>Selecione um equipamento</strong>
-              <span>O dossiê acompanha o registro escolhido no ledger.</span>
+              <span>Os detalhes aparecem aqui sem tirar você da lista.</span>
             </div>
           )}
         </aside>

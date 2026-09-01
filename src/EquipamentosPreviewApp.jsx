@@ -44,7 +44,7 @@ const EQUIPAMENTOS_PREVIEW_FIXTURE = Object.freeze([
   { id: "eq-local-803", nome: "IMPRESSORA CUPOM 07", categoria: "Impressoras", status: "Em conserto", localizacao: "", responsavel: "Oficina Técnica", patrimonio: "NP-803", dataCadastro: "17/05/2026", gerenteResponsavel: "", transferenciaStatus: "", consertoAssistencia: "Oficina Técnica Horizonte", consertoDefeito: "Falha intermitente no corte", observacao: "Diagnóstico em andamento." },
   { id: "eq-local-804", nome: "TABLET ROTA 12", categoria: "Tablets", status: "Disponível", localizacao: "", responsavel: "Bruna Moraes", patrimonio: "NP-804", dataCadastro: "19/05/2026", gerenteResponsavel: "Bruna Moraes", transferenciaStatus: "recebido", observacao: "Sob custódia da gerente." },
   { id: "eq-local-805", nome: "CARREGADOR USB-C 21", categoria: "Carregadores", status: "Em rota", localizacao: "Ponto Jardim Imperial", responsavel: "Equipe de Campo", patrimonio: "NP-805", dataCadastro: "22/05/2026", gerenteResponsavel: "", transferenciaStatus: "", observacao: "Kit de apoio do caixa." },
-  { id: "eq-local-806", nome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", status: "Em rota", localizacao: "", responsavel: "Base Central", patrimonio: "NP-806", dataCadastro: "24/05/2026", gerenteResponsavel: "Diego Farias", transferenciaStatus: "aguardando_confirmacao", transferenciaEnviadaEm: "28/08/2026 16:20", observacao: "Envio aguardando aceite." },
+  { id: "eq-local-806", nome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", status: "Em rota", localizacao: "", responsavel: "Alex", patrimonio: "NP-806", dataCadastro: "24/05/2026", gerenteResponsavel: "Alex", transferenciaStatus: "aguardando_confirmacao", transferenciaEnviadaEm: "28/08/2026 16:20", observacao: "Envio aguardando aceite." },
   { id: "eq-local-807", nome: "TOTEM ATENDIMENTO 05", categoria: "Totens", status: "Em rota", localizacao: "Ponto Estação Norte", responsavel: "Equipe de Campo", patrimonio: "NP-807", dataCadastro: "26/05/2026", gerenteResponsavel: "", transferenciaStatus: "", observacao: "Autoatendimento em operação." },
   { id: "eq-local-808", nome: "NOTEIRO CAIXA 03", categoria: "Noteiro", status: "Disponível", localizacao: "", responsavel: "Base Central", patrimonio: "NP-808", dataCadastro: "29/05/2026", gerenteResponsavel: "", transferenciaStatus: "", observacao: "Revisado e disponível." },
   { id: "eq-local-809", nome: "PDV TOUCHSCREEN 09", categoria: "PDV Touchscreen", status: "Disponível", localizacao: "", responsavel: "Helena Prado", patrimonio: "NP-809", dataCadastro: "02/06/2026", gerenteResponsavel: "Helena Prado", transferenciaStatus: "recebido", observacao: "Estoque de contingência da rota." },
@@ -58,10 +58,10 @@ const EQUIPAMENTOS_PREVIEW_FIXTURE = Object.freeze([
 ]);
 
 const HISTORICO_PREVIEW_FIXTURE = Object.freeze([
-  { id: "hist-local-901", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "envio_gerente", responsavel: "Administração", observacao: "Enviado para Diego Farias", data: "28/08/2026 16:20" },
+  { id: "hist-local-901", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "envio_gerente", responsavel: "Alex", observacao: "Enviado para gerente: Alex", data: "28/08/2026 às 16:20", executadoPorNomeSnapshot: "Anderson Costa", executadoPorPerfilSnapshot: "administrador" },
   { id: "hist-local-902", itemId: "eq-local-803", itemNome: "IMPRESSORA CUPOM 07", categoria: "Impressoras", tipo: "conserto", responsavel: "Operação", observacao: "Encaminhado à Oficina Técnica Horizonte", data: "28/08/2026 14:05" },
   { id: "hist-local-903", itemId: "eq-local-815", itemNome: "TOTEM AUTOATENDIMENTO 02", categoria: "Totens", tipo: "ponto", responsavel: "Equipe de Campo", observacao: "Vinculado ao Ponto Parque do Sol", data: "28/08/2026 11:42" },
-  { id: "hist-local-904", itemId: "eq-local-804", itemNome: "TABLET ROTA 12", categoria: "Tablets", tipo: "recebimento_gerente", responsavel: "Bruna Moraes", observacao: "Recebimento confirmado", data: "27/08/2026 18:10" },
+  { id: "hist-local-904", itemId: "eq-local-804", itemNome: "TABLET ROTA 12", categoria: "Tablets", tipo: "recebimento_gerente", responsavel: "Bruna Moraes", observacao: "Equipamento recebido por Bruna Moraes", data: "27/08/2026 às 18:10", executadoPorNomeSnapshot: "Bruna Moraes", executadoPorPerfilSnapshot: "gerente" },
   { id: "hist-local-905", itemId: "eq-local-811", itemNome: "TERMINAL GUICHÊ 08", categoria: "Terminais", tipo: "ponto", responsavel: "Equipe de Campo", observacao: "Vinculado ao Ponto Mercado das Flores", data: "27/08/2026 15:26" },
   { id: "hist-local-906", itemId: "eq-local-813", itemNome: "TABLET CONFERÊNCIA 06", categoria: "Tablets", tipo: "conserto", responsavel: "Operação", observacao: "Encaminhado ao Laboratório Nova Era", data: "27/08/2026 10:18" },
   { id: "hist-local-907", itemId: "eq-local-809", itemNome: "PDV TOUCHSCREEN 09", categoria: "PDV Touchscreen", tipo: "recebimento_gerente", responsavel: "Helena Prado", observacao: "Recebimento confirmado", data: "26/08/2026 17:03" },
@@ -74,10 +74,17 @@ const HISTORICO_PREVIEW_FIXTURE = Object.freeze([
   { id: "hist-local-914", itemId: "eq-local-810", itemNome: "TV PAINEL 11", categoria: "Televisões", tipo: "cadastro", responsavel: "Administração", observacao: "Equipamento incluído na base", data: "21/08/2026 10:04" },
   { id: "hist-local-915", itemId: "eq-local-812", itemNome: "IMPRESSORA TÉRMICA 15", categoria: "Impressoras", tipo: "retorno", responsavel: "Base Central", observacao: "Retorno conferido", data: "20/08/2026 16:55" },
   { id: "hist-local-916", itemId: "eq-local-816", itemNome: "PDV BALCÃO 13", categoria: "PDV Touchscreen", tipo: "cadastro", responsavel: "Administração", observacao: "Equipamento homologado", data: "19/08/2026 11:12" },
+  { id: "hist-local-917", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "envio_gerente", responsavel: "Alex", observacao: "Enviado para gerente: Alex", data: "14/08/2026 às 10:15" },
+  { id: "hist-local-918", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "retorno", responsavel: "Base Central", observacao: "Retornado ao estoque interno", data: "12/08/2026 às 17:40", executadoPorNomeSnapshot: "Operador Local", executadoPorPerfilSnapshot: "operador" },
+  { id: "hist-local-919", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "conserto", responsavel: "Assistência Técnica", observacao: "Encaminhado para avaliação técnica", data: "11/08/2026 às 14:22", executadoPorNomeSnapshot: "Operador Local", executadoPorPerfilSnapshot: "operador" },
+  { id: "hist-local-920", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "ponto", responsavel: "Equipe de Campo", observacao: "Destino: Ponto Vila Serena", data: "08/08/2026 às 09:06", executadoPorNomeSnapshot: "Anderson Costa", executadoPorPerfilSnapshot: "administrador" },
+  { id: "hist-local-921", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "edicao", responsavel: "—", observacao: "Dados atualizados", data: "07/08/2026 às 16:48", executadoPorNomeSnapshot: "Anderson Costa", executadoPorPerfilSnapshot: "administrador" },
+  { id: "hist-local-922", itemId: "eq-local-806", itemNome: "MÁQUINA DE BRINDES SUL", categoria: "Máquina de Brindes", tipo: "cadastro", responsavel: "—", observacao: "Equipamento cadastrado", data: "05/08/2026 às 08:30", executadoPorNomeSnapshot: "Anderson Costa", executadoPorPerfilSnapshot: "administrador" },
 ]);
 
 const HISTORY_META = {
   cadastro: { label: "Cadastro", icon: "plus" },
+  edicao: { label: "Equipamento atualizado", icon: "edit" },
   conserto: { label: "Conserto", icon: "wrench" },
   disponivel: { label: "Disponível", icon: "check" },
   envio_gerente: { label: "Envio a gerente", icon: "route" },
@@ -126,6 +133,8 @@ const PREVIEW_STYLES = `
   .equipment-preview__trace-icon { display: grid; width: 28px; height: 28px; place-items: center; color: var(--brand-action-vivid); background: var(--surface-subtle); }
   .equipment-preview__trace strong { color: var(--text-strong); font-size: 11px; }
   .equipment-preview__trace span, .equipment-preview__trace time { color: var(--text-muted); font-size: 10px; }
+  .equipment-preview__trace-detail { display: grid; gap: 4px; }
+  .equipment-preview__trace-detail small { color: var(--text-disabled); font-size: 9px; }
   .equipment-preview__trace time { font-family: var(--font-mono); }
   @media (max-width: 760px) {
     .equipment-preview__topbar, .equipment-preview__heading { align-items: flex-start; }
@@ -206,7 +215,7 @@ export default function EquipamentosPreviewApp() {
   const [scope, setScope] = useState("todos");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState(EQUIPAMENTOS_PREVIEW_FIXTURE[0].id);
+  const [selectedId, setSelectedId] = useState("eq-local-806");
   const [dossierOpen, setDossierOpen] = useState(false);
   const [notice, setNotice] = useState("Prévia local pronta. Todos os comandos permanecem simulados em memória.");
   const theme = themeFromLocation();
@@ -304,11 +313,19 @@ export default function EquipamentosPreviewApp() {
 
   const selectedRow = rows.find((row) => row.id === selectedId) || null;
   const selectedHistory = selectedItem
-    ? HISTORICO_PREVIEW_FIXTURE.filter((event) => event.itemId === selectedItem.id).slice(0, 5).map((event) => ({
+    ? HISTORICO_PREVIEW_FIXTURE.filter((event) => event.itemId === selectedItem.id).map((event) => ({
         id: event.id,
         icon: HISTORY_META[event.tipo]?.icon || "file",
         label: HISTORY_META[event.tipo]?.label || event.tipo,
         detail: event.observacao,
+        contextLabel: event.tipo === "recebimento_gerente" ? "Recebido por" : event.tipo === "envio_gerente" || event.tipo === "ponto" ? "Destino" : "",
+        contextValue: event.tipo === "recebimento_gerente"
+          ? event.responsavel
+          : event.observacao.match(/(?:gerente|destino):\s*([^|]+)/i)?.[1]?.trim() || "",
+        actor: event.executadoPorNomeSnapshot
+          ? `${event.executadoPorNomeSnapshot} · ${event.executadoPorPerfilSnapshot === "administrador" ? "Administrador" : event.executadoPorPerfilSnapshot === "operador" ? "Operador" : "Gerente"}`
+          : "Autor não registrado",
+        actorKnown: Boolean(event.executadoPorNomeSnapshot),
         date: event.data,
       }))
     : [];
@@ -359,9 +376,9 @@ export default function EquipamentosPreviewApp() {
       <main className="main equipment-preview__main" onKeyDown={handleMainScrollKey} tabIndex={-1}>
         <section className="equipment-preview__heading" aria-labelledby="equipment-preview-title">
           <div className="equipment-preview__heading-copy">
-            <span>Base operacional / posição atual</span>
+            <span>Equipamentos / situação atual</span>
             <h1 id="equipment-preview-title">Equipamentos</h1>
-            <p>Inventário, custódia e rastro reunidos em uma leitura contínua.</p>
+            <p>Veja onde cada equipamento está, com quem está e o que aconteceu por último.</p>
           </div>
           <div className="equipment-preview__actions">
             <Button className="equip-cf-export-utility" size="sm" leadingIcon="spreadsheet" onClick={() => announce("Excel preparado localmente")}>Excel</Button>
@@ -377,7 +394,7 @@ export default function EquipamentosPreviewApp() {
 
         <div className="equip-cf-control-line">
           <nav className="equip-cf-view-switch" aria-label="Visualização de equipamentos">
-            {[["lista", "Lista"], ["resumo", "Resumo"], ["rastro", "Rastro"]].map(([value, label]) => (
+            {[["lista", "Lista"], ["resumo", "Resumo por situação"], ["rastro", "Movimentações"]].map(([value, label]) => (
               <button key={value} type="button" className={activeView === value ? "is-active" : ""} onClick={() => setActiveView(value)} aria-current={activeView === value ? "page" : undefined}>{label}</button>
             ))}
           </nav>
@@ -416,7 +433,7 @@ export default function EquipamentosPreviewApp() {
               secondary={<>
                 <label><span>Escopo operacional</span><select value={scope} onChange={(event) => chooseScope(event.target.value)}><option value="todos">Todos</option><option value="interno">Estoque interno</option><option value="pontos">Em pontos</option><option value="gerentes">Com gerentes</option><option value="conserto">Conserto</option></select></label>
                 <label><span>Categoria</span><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="Todas">Todas as categorias</option>{CATEGORIES.map((name) => <option key={name}>{name}</option>)}</select></label>
-                <label><span>Estado</span><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="Todos">Todos os status</option>{STATUSES.map((name) => <option key={name}>{name}</option>)}</select></label>
+                <label><span>Situação</span><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="Todos">Todas as situações</option>{STATUSES.map((name) => <option key={name}>{name}</option>)}</select></label>
               </>}
               chips={activeFilterCount ? <>
                 {scope !== "todos" ? <button type="button" onClick={() => chooseScope("todos")}>{scopeOptions.find(([value]) => value === scope)?.[1]}<OperationIcon name="close" size={12} /></button> : null}
@@ -440,7 +457,7 @@ export default function EquipamentosPreviewApp() {
               onOpenDetail={(item) => announce("Ficha consultada", item)}
               onEdit={(item) => announce("Edição aberta", item)}
               onDelete={(item) => announce("Exclusão revisada", item)}
-              onOpenHistory={(item) => { announce("Rastro consultado", item); setActiveView("rastro"); closeDossier(); }}
+              onOpenHistory={(item) => { announce("Movimentações consultadas", item); setActiveView("rastro"); closeDossier(); }}
               dossierSheet={sheet.isSheet}
               dossierOpen={dossierOpen}
               dossierRef={sheet.panelRef}
@@ -452,7 +469,7 @@ export default function EquipamentosPreviewApp() {
 
         {activeView === "resumo" ? (
           <section className="equipment-preview__tab-panel" aria-labelledby="equipment-preview-summary">
-            <header className="equip-cf-section-head"><div><span className="cf-kicker">Composição da base</span><h2 id="equipment-preview-summary">Posição por categoria</h2></div><span>Dados locais do mesmo cenário.</span></header>
+            <header className="equip-cf-section-head"><div><span className="cf-kicker">Composição da base</span><h2 id="equipment-preview-summary">Resumo por categoria</h2></div><span>Dados locais do mesmo cenário.</span></header>
             <div className="equipment-preview__summary">
               {categorySummary.map((item) => <article key={item.name}><span>{item.name}</span><strong>{item.total}</strong><small>{item.available} disponíveis · {item.route} em rota · {item.repair} em conserto</small></article>)}
             </div>
@@ -461,9 +478,9 @@ export default function EquipamentosPreviewApp() {
 
         {activeView === "rastro" ? (
           <section className="equipment-preview__tab-panel" aria-labelledby="equipment-preview-trace">
-            <header className="equip-cf-section-head"><div><span className="cf-kicker">Rastro operacional</span><h2 id="equipment-preview-trace">Movimentações dos equipamentos</h2></div><span>{HISTORICO_PREVIEW_FIXTURE.length} eventos simulados</span></header>
+            <header className="equip-cf-section-head"><div><span className="cf-kicker">Movimentações</span><h2 id="equipment-preview-trace">Histórico dos equipamentos</h2></div><span>{HISTORICO_PREVIEW_FIXTURE.length} eventos simulados</span></header>
             <ol className="equipment-preview__trace">
-              {HISTORICO_PREVIEW_FIXTURE.map((event) => <li key={event.id}><span className="equipment-preview__trace-icon"><OperationIcon name={HISTORY_META[event.tipo]?.icon || "file"} size={15} /></span><strong>{HISTORY_META[event.tipo]?.label || event.tipo}<br /><span>{event.itemNome}</span></strong><span>{event.observacao}</span><time>{event.data}</time></li>)}
+              {HISTORICO_PREVIEW_FIXTURE.map((event) => <li key={event.id}><span className="equipment-preview__trace-icon"><OperationIcon name={HISTORY_META[event.tipo]?.icon || "file"} size={15} /></span><strong>{HISTORY_META[event.tipo]?.label || event.tipo}<br /><span>{event.itemNome}</span></strong><span className="equipment-preview__trace-detail">{event.observacao}<small>{event.executadoPorNomeSnapshot?`Realizado por ${event.executadoPorNomeSnapshot}`:"Autor não registrado"}</small></span><time>{event.data}</time></li>)}
             </ol>
           </section>
         ) : null}

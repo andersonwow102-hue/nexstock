@@ -291,6 +291,18 @@ export async function salvarPontoModalidadeAcessos(pontoId, acessos = []) {
 }
 
 // ── Histórico Equipamentos ────────────────────────────────────────────────────
+function mapHistoricoEquipamento(h) {
+  return {
+    id: h.id, tipo: h.tipo, itemId: h.item_id, itemNome: h.item_nome,
+    categoria: h.categoria, qtdAntes: h.qtd_antes, qtdDepois: h.qtd_depois,
+    responsavel: h.responsavel, observacao: normalizeFreeText(h.observacao || ''), data: h.data,
+    createdAt: h.created_at || null,
+    executadoPorUserId: h.executado_por_user_id || null,
+    executadoPorNomeSnapshot: h.executado_por_nome_snapshot || null,
+    executadoPorPerfilSnapshot: h.executado_por_perfil_snapshot || null,
+  };
+}
+
 export async function carregarHistoricoEquipamentos({ strict = false } = {}) {
   const { data, error } = await supabase
     .from('historico_equipamentos')
@@ -302,21 +314,20 @@ export async function carregarHistoricoEquipamentos({ strict = false } = {}) {
     if (strict) throw new Error('Não foi possível carregar o histórico de equipamentos.');
     return [];
   }
-  return data.map(h => ({
-    id: h.id, tipo: h.tipo, itemId: h.item_id, itemNome: h.item_nome,
-    categoria: h.categoria, qtdAntes: h.qtd_antes, qtdDepois: h.qtd_depois,
-    responsavel: h.responsavel, observacao: normalizeFreeText(h.observacao || ''), data: h.data,
-    createdAt: h.created_at || null,
-  }));
+  return data.map(mapHistoricoEquipamento);
 }
 
 export async function adicionarHistoricoEquipamento(h) {
-  const { error } = await supabase.from('historico_equipamentos').insert([{
+  const { data, error } = await supabase.from('historico_equipamentos').insert([{
     tipo: h.tipo, item_id: h.itemId, item_nome: h.itemNome,
     categoria: h.categoria, qtd_antes: h.qtdAntes, qtd_depois: h.qtdDepois,
     responsavel: h.responsavel, observacao: h.observacao, data: h.data,
-  }]);
-  if (error) console.error('Erro ao inserir histórico equipamento:', error);
+  }]).select().single();
+  if (error) {
+    console.error('Erro ao inserir histórico equipamento:', error);
+    return null;
+  }
+  return mapHistoricoEquipamento(data);
 }
 
 export async function limparHistoricoEquipamentos() {
