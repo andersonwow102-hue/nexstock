@@ -123,3 +123,19 @@ test("ação Movimentar usa transferência clara sem alterar ícones de posiçã
   assert.match(preview, /icon: "route"/);
   assert.match(app, /icon:"route"/);
 });
+
+test("mobile converte o Inventory Ledger em cartões verticais sem girar o registro", async () => {
+  const ledger = await read("EquipmentInventoryLedger.jsx");
+  const css = await read("EquipmentInventoryLedger.css");
+  const shell = await read("styles/command-flow.css");
+  const appCss = await read("App.css");
+
+  assert.match(ledger, /equipment-inventory-ledger__mobile-category/);
+  assert.doesNotMatch(css, /writing-mode:\s*vertical/);
+  assert.match(css, /@media \(max-width: 780px\)[\s\S]*?"register register"[\s\S]*?"identity state"[\s\S]*?"position position"[\s\S]*?"link link"[\s\S]*?"movement movement"[\s\S]*?"action action"/);
+  assert.match(css, /equipment-inventory-ledger__row-action > button\s*\{[\s\S]*?width:\s*100%;[\s\S]*?min-height:\s*48px/);
+  assert.match(shell, /Hotfix mobile · Equipamentos[\s\S]*?scroll-snap-type:\s*inline mandatory/);
+  assert.match(shell, /Hotfix mobile · Equipamentos[\s\S]*?equip-cf-filterbar \.so-filter-bar__primary\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.match(shell, /padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(appCss, /\.chat-flutuante\s*\{[\s\S]*?bottom:\s*max\(18px, calc\(12px \+ env\(safe-area-inset-bottom\)\)\)/);
+});

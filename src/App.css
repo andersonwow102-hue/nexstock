@@ -6865,7 +6865,10 @@ body {
   .relatorio-destaque, .relatorio-gerente { grid-column: auto; }
   .ficha-dados { grid-template-columns: repeat(2, 1fr); }
   .paginacao { justify-content: center; flex-wrap: wrap; }
-  .chat-flutuante { right: 14px; bottom: 14px; }
+  .chat-flutuante {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(18px, calc(12px + env(safe-area-inset-bottom)));
+  }
   .chat-flutuante.aberto {
     inset: 0 !important;
     display: flex;

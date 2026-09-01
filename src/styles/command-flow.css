@@ -2210,3 +2210,132 @@
     flex: 0 1 auto;
   }
 }
+
+/* Hotfix mobile · Equipamentos preserva o Inventory Ledger no desktop. */
+@media (max-width: 800px) {
+  .app.command-flow-shell.module-itens > .main {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-head {
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+    padding-block: 10px 14px;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-head .cf-page-head__identity {
+    align-items: flex-start;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-head .cf-page-head__copy {
+    gap: 3px;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-head .cf-page-head__copy p {
+    max-width: 42ch;
+    margin-top: 3px;
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-head .cf-page-head__actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-head .cf-page-head__actions .btn-primario {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-head .equip-cf-export-utility {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    border-color: var(--border-subtle);
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-control-line {
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-view-switch {
+    display: flex;
+    max-width: 100%;
+    gap: 4px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: thin;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-view-switch button {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    padding-inline: 11px;
+    scroll-snap-align: start;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-view-switch button span {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-control-context {
+    padding-inline: 4px;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip,
+  .app.command-flow-shell.module-itens .equip-cf-position-strip.is-manager-scope {
+    max-width: 100%;
+    margin-inline: -10px;
+    padding-inline: 10px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: 10px;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: thin;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button,
+  .app.command-flow-shell.module-itens .equip-cf-position-note {
+    min-width: 154px;
+    flex: 0 0 154px;
+    scroll-snap-align: start;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button > span,
+  .app.command-flow-shell.module-itens .equip-cf-position-strip button > small {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-filterbar .so-filter-bar__primary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .app.command-flow-shell.module-itens .equip-cf-filterbar .so-filter-bar__toggle {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .app.command-flow-shell.module-itens .equip-cf-view-switch {
+    display: flex;
+    grid-template-columns: none;
+  }
+}

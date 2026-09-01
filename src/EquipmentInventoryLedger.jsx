@@ -164,7 +164,10 @@ export default function EquipmentInventoryLedger({
                       </span>
                       <span>
                         <strong>{display(row.name)}</strong>
-                        <small>{display(row.identifier)}</small>
+                        <small>
+                          {display(row.identifier)}
+                          <span className="equipment-inventory-ledger__mobile-category"> · {display(row.category)}</span>
+                        </small>
                       </span>
                     </button>
 

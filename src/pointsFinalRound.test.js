@@ -69,3 +69,14 @@ test('polimento final reduz peso no Light e compacta o hero financeiro', () => {
   assert.match(css, /\.pcf-expenses-hero,[\s\S]*?align-items:\s*center;[\s\S]*?padding:\s*clamp\(18px, 2vw, 24px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
+
+test('mobile usa cartões verticais e bottom sheet sem reaproveitar a grade desktop', () => {
+  assert.match(css, /Hotfix mobile · Pontos[\s\S]*?\.points-command-flow > \*\s*\{\s*flex-shrink:\s*0/);
+  assert.match(css, /Hotfix mobile · Pontos[\s\S]*?grid-template-areas:\s*"identity state"\s*"services services"\s*"equipment equipment"\s*"admin admin"/);
+  assert.match(css, /pcf-record-services::before\s*\{\s*content:\s*"Modalidades"/);
+  assert.match(css, /pcf-record-equipment::before\s*\{\s*content:\s*"Equipamentos"/);
+  assert.match(css, /pcf-record-admin::before\s*\{\s*content:\s*"Administração"/);
+  assert.match(css, /Hotfix mobile · Pontos[\s\S]*?pcf-filter-command \.so-filter-bar__primary\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.match(css, /Hotfix mobile · Pontos[\s\S]*?scroll-snap-type:\s*inline mandatory/);
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.pcf-operations-folio\s*\{[\s\S]*?inset:\s*auto 0 0/);
+});
