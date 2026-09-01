@@ -27,6 +27,8 @@ test('Pendências usa a condição administrativa real e participa dos filtros',
   assert.match(page, /aria-pressed=\{filtroPendencia==="pendente"\}/);
   assert.match(page, /Somente pendências/);
   assert.match(page, /Pendências administrativas/);
+  assert.match(page, /className="pcf-pending-cycle-trigger" onClick=\{abrirDossiePendencia\}/);
+  assert.match(page, /pedidoDossie=\{pedidoDossiePendencia\}/);
 });
 
 test('cabeçalho contextual reúne identidade e status e permanece sticky no desktop', () => {
@@ -58,6 +60,8 @@ test('side sheet e bottom sheet preservam os contratos responsivos existentes', 
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*?inset:\s*auto 0 0;[\s\S]*?max-height:\s*min\(88dvh, 760px\)/);
   assert.match(page, /acquireMainScrollLock\(\)/);
   assert.match(page, /event\.key==="Escape"/);
+  assert.match(page, /pcf-dossier-portal" data-so-modal-layer="true"/);
+  assert.match(page, /querySelectorAll\("\[data-so-modal-layer='true'\]:not\(\[aria-hidden='true'\]\)"\)/);
   assert.match(page, /focoAntesDossieRef/);
 });
 
@@ -78,6 +82,9 @@ test('mobile usa cartões verticais e bottom sheet sem reaproveitar a grade desk
   assert.match(css, /pcf-record-admin::before\s*\{\s*content:\s*"Administração"/);
   assert.match(css, /Hotfix mobile · Pontos[\s\S]*?pcf-filter-command \.so-filter-bar__primary\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.pcf-operations-folio\s*\{[\s\S]*?inset:\s*auto 0 0/);
+  assert.match(css, /Hotfix mobile · resolução direta das pendências[\s\S]*?\.solicitacoes-status-ponto-panel\s*\{\s*display:\s*none/);
+  assert.match(css, /\.pcf-pending-cycle-trigger\s*\{[\s\S]*?height:\s*52px/);
+  assert.match(css, /:has\(\.pcf-dossier\[role="dialog"\], \.equip-cf-movement-overlay\) \.chat-flutuante/);
 });
 
 test('métricas móveis de Pontos usam grid compacto e preservam ações semânticas', () => {

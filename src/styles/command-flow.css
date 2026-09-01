@@ -2214,6 +2214,7 @@
   }
 
   .app.command-flow-shell.module-itens .equip-cf-head {
+    flex: 0 0 auto;
     min-height: 0;
     align-items: stretch;
     flex-direction: column;
@@ -2287,7 +2288,7 @@
   }
 
   .app.command-flow-shell.module-itens .equip-cf-control-context {
-    padding-inline: 4px;
+    display: none;
   }
 
   .app.command-flow-shell.module-itens .equip-cf-filterbar .so-filter-bar__primary {

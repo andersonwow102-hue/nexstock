@@ -101,6 +101,7 @@ export default function PointsOperationsPreviewApp() {
   const [solicitacoesPreview,setSolicitacoesPreview]=useState(()=>SOLICITACOES_STATUS_PREVIEW.map(item=>({...item})));
   const [movimentacaoPreview,setMovimentacaoPreview]=useState(null);
   const [erroMovPreview,setErroMovPreview]=useState("");
+  const [pedidoDossiePreview,setPedidoDossiePreview]=useState(null);
   const [notice,setNotice]=useState("Prévia local segura · nenhuma ação grava dados.");
   const mainRef=useRef(null);
 
@@ -126,6 +127,13 @@ export default function PointsOperationsPreviewApp() {
     setErroMovPreview("");
     setNotice(`${item.nome} movimentado na simulação local. O vínculo foi removido sem gravar dados.`);
   };
+  const pendenciasPreview=solicitacoesPreview.filter(item=>item.status==="pendente");
+  const abrirDossiePendenciaPreview=()=>{
+    const solicitacao=pendenciasPreview[0];
+    if(!solicitacao)return;
+    setPedidoDossiePreview(atual=>({pontoId:solicitacao.pontoId,revisao:(atual?.revisao||0)+1}));
+    setNotice(`Dossiê local de ${solicitacao.pontoNome} aberto. Nenhum dado real foi acessado.`);
+  };
   const decidirPreview=(solicitacao,aprovar)=>{
     if(!aprovar){
       const motivo=window.prompt("Informe o motivo da rejeição:")||"";
@@ -144,11 +152,11 @@ export default function PointsOperationsPreviewApp() {
     <main className="main" ref={mainRef} tabIndex={-1} onKeyDown={handleMainScrollKey}>
       <div className="points-page points-command-flow operations-theme">
         <header className="pcf-command-header">
-          <div className="pcf-command-title"><div><h1>Pontos</h1><span className="pcf-command-context">42 na rede · competência 08/2026</span></div></div>
-          <div className="pcf-command-actions"><span className="pcf-pending-summary"><OperationIcon name="warning" size={15}/>2 na fila administrativa</span><button type="button" className="pcf-button pcf-button--primary" onClick={()=>simular("Cadastro simulado; nenhum dado foi gravado.")}><OperationIcon name="plus"/>Novo ponto</button></div>
+          <div className="pcf-command-title"><button className="pcf-menu-button" type="button" aria-label="Abrir navegação simulada" onClick={()=>simular("Navegação mobile preservada no shell real.")}><OperationIcon name="menu"/></button><div><h1>Pontos</h1><span className="pcf-command-context">42 na rede · competência 08/2026</span></div></div>
+          <div className="pcf-command-actions"><span className="pcf-pending-summary pcf-pending-summary--desktop"><OperationIcon name="warning" size={15}/>{pendenciasPreview.length} na fila administrativa</span>{pendenciasPreview.length>0&&<button type="button" className="pcf-pending-cycle-trigger" onClick={abrirDossiePendenciaPreview} aria-haspopup="dialog" aria-label={`Abrir ${pendenciasPreview.length} ${pendenciasPreview.length===1?"pendência":"pendências"} de desativação`}><OperationIcon name="warning" size={16}/><span>Pendências</span><strong>{pendenciasPreview.length}</strong><OperationIcon name="chevronRight" size={16}/></button>}<button type="button" className="pcf-button pcf-button--primary" onClick={()=>simular("Cadastro simulado; nenhum dado foi gravado.")}><OperationIcon name="plus"/>Novo ponto</button></div>
         </header>
         <div className="points-preview-notice" role="status">{notice}</div>
-         <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={equipamentosPreview} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={solicitacoesPreview} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} pontoSelecionadoInicialId={estadoInicial.pontoSelecionadoId} filtroPendenciaInicial={cenario==="pendencias"?"pendente":"todos"} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onDecidirDesativacao={decidirPreview} onMovimentarEquipamento={(item,contexto)=>{setErroMovPreview("");setMovimentacaoPreview({item,ponto:contexto.ponto});}} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeDecidirDesativacao podeReativar mostrarDespesas/>
+         <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={equipamentosPreview} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={solicitacoesPreview} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} pontoSelecionadoInicialId={estadoInicial.pontoSelecionadoId} pedidoDossie={pedidoDossiePreview} filtroPendenciaInicial={cenario==="pendencias"?"pendente":"todos"} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onDecidirDesativacao={decidirPreview} onMovimentarEquipamento={(item,contexto)=>{setErroMovPreview("");setMovimentacaoPreview({item,ponto:contexto.ponto});}} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeDecidirDesativacao podeReativar mostrarDespesas/>
       </div>
     </main>
     {despesasAbertas&&<PointExpensesModal pontos={PONTOS_BASE_PREVIEW} despesas={DESPESAS_PREVIEW} competenciaInicial="2026-08" permitirSelecionarCompetencia perspectivaInicial={perspectivaDespesas} pontoSelecionadoInicialId={estadoInicial.pontoDespesasId} podeEditar onAbrirDespesaPonto={ponto=>simular(`Lançamentos de ${ponto.nomeFantasia} preservados no fluxo real.`)} onFechar={()=>setDespesasAbertas(false)}/>}

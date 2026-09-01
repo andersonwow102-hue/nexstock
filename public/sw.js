@@ -1,4 +1,5 @@
-const CACHE_NAME = 'neptera-shell-v1';
+const CACHE_NAME = 'neptera-shell-v2';
+const MANAGED_CACHE_PREFIXES = ['neptera-shell-', 'stock-on-shell-'];
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -11,18 +12,58 @@ const APP_SHELL = [
   '/brand/neptera/icons/neptera-app-icon-maskable-512.png'
 ];
 
+async function putSuccessfulResponse(request, response) {
+  if (!response.ok || response.status !== 200) return;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response.clone());
+}
+
+async function networkFirst(request, fallbackRequest = request) {
+  try {
+    const response = await fetch(request);
+    try {
+      await putSuccessfulResponse(fallbackRequest, response);
+    } catch {
+      // A resposta da rede continua válida mesmo se o dispositivo não puder atualizar o cache.
+    }
+    return response;
+  } catch {
+    return (await caches.match(fallbackRequest)) || Response.error();
+  }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  try {
+    await putSuccessfulResponse(request, response);
+  } catch {
+    // Cache é melhoria progressiva; nunca bloqueia uma resposta de rede válida.
+  }
+  return response;
+}
+
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    ))
+    Promise.all([
+      caches.keys().then(keys => Promise.all(
+        keys
+          .filter(key => key !== CACHE_NAME && MANAGED_CACHE_PREFIXES.some(prefix => key.startsWith(prefix)))
+          .map(key => caches.delete(key))
+      )),
+      self.clients.claim(),
+    ])
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
@@ -32,25 +73,13 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put('/', copy));
-          return response;
-        })
-        .catch(() => caches.match('/'))
-    );
+    event.respondWith(networkFirst(event.request, '/'));
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      if (response.ok) {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-      }
-      return response;
-    }))
-  );
+  const needsFreshIdentity = url.pathname === '/manifest.webmanifest'
+    || url.pathname.startsWith('/brand/neptera/')
+    || url.pathname.startsWith('/downloads/');
+
+  event.respondWith(needsFreshIdentity ? networkFirst(event.request) : cacheFirst(event.request));
 });

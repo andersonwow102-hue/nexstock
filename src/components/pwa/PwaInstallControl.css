@@ -1,0 +1,36 @@
+.pwa-install-control {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+}
+
+.pwa-install-control .sidebar-app-install {
+  width: 100%;
+}
+
+.pwa-install-control .sidebar-app-install:disabled {
+  cursor: default;
+  opacity: 0.78;
+}
+
+.pwa-install-help {
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 0 6px 5px 8px;
+  opacity: 0.72;
+}
+
+.pwa-install-control[data-pwa-install-state="available"] .pwa-install-help,
+.pwa-install-control[data-pwa-install-state="installed"] .pwa-install-help {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}

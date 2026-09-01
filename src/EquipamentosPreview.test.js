@@ -55,8 +55,11 @@ test("preview expõe temas, rota, filtros, posições, ações e navegação ace
 
   assert.match(source, /data-preview-route="\/equipamentos"/);
   assert.match(source, /command-flow-shell module-itens equipment-preview/);
-  assert.match(source, /className="equip-cf-export-utility"/);
-  assert.match(source, /\.equipment-preview__actions \.equip-cf-export-utility/);
+  assert.match(source, /className="cf-page-head equip-cf-head equipment-preview__heading"/);
+  assert.match(source, /className="cf-page-head__identity"/);
+  assert.match(source, /className="cf-page-head__actions equipment-preview__actions"/);
+  assert.match(source, /className="btn-secundario equip-cf-export-utility"/);
+  assert.match(source, /className="btn-primario"/);
   assert.match(source, /\?preview=equipamentos&tema=claro/);
   assert.match(source, /\?preview=equipamentos&tema=escuro/);
   assert.match(source, /useResponsiveSheet\(\{/);
@@ -152,4 +155,23 @@ test("métricas móveis de Equipamentos usam grid compacto sem carrossel", async
   assert.match(shell, /equip-cf-position-strip button[\s\S]*?min-height:\s*62px/);
   assert.match(shell, /@media \(max-width: 599px\)[\s\S]*?button:nth-of-type\(5\):last-of-type[\s\S]*?grid-column:\s*1 \/ -1[\s\S]*?justify-self:\s*center/);
   assert.doesNotMatch(preview, /equip-cf-position-strip[^}]*overflow-x:\s*auto/);
+});
+
+test("header móvel real não encolhe e o preview exercita a mesma composição", async () => {
+  const app = await read("App.jsx");
+  const preview = await read("EquipamentosPreviewApp.jsx");
+  const shell = await read("styles/command-flow.css");
+
+  assert.match(shell, /@media \(max-width: 800px\)[\s\S]*?\.app\.command-flow-shell\.module-itens \.equip-cf-head\s*\{[\s\S]*?flex:\s*0 0 auto;[\s\S]*?min-height:\s*0;/);
+  assert.match(shell, /\.app\.command-flow-shell\.module-itens \.equip-cf-control-context\s*\{\s*display:\s*none;/);
+  assert.match(preview, /\.equipment-preview__main\s*\{[^}]*display:\s*flex;[^}]*min-height:\s*0;[^}]*flex:\s*1 1 auto;[^}]*flex-direction:\s*column;/);
+  assert.match(preview, /className="cf-page-head equip-cf-head equipment-preview__heading"[\s\S]*?className="cf-page-head__identity"[\s\S]*?className="btn-hamburguer"[\s\S]*?className="cf-page-head__copy equipment-preview__heading-copy"[\s\S]*?className="cf-page-head__actions equipment-preview__actions"/);
+
+  for (const source of [app, preview]) {
+    const header = source.indexOf("equip-cf-head");
+    const tabs = source.indexOf("equip-cf-control-line", header);
+    const metrics = source.indexOf("equip-cf-position-strip", tabs);
+    const filters = source.indexOf("equip-cf-filterbar", metrics);
+    assert.ok(header >= 0 && header < tabs && tabs < metrics && metrics < filters, "ordem operacional de Equipamentos foi alterada");
+  }
 });

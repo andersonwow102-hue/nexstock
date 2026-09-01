@@ -19,6 +19,7 @@ import { expenseBelongsToManager, expenseBelongsToRoute, isManagerExpense } from
 import { FilterBar, Modal as OperationModal, OperationIcon } from "./components/operations/OperationsUI.jsx";
 import { acquireMainScrollLock } from "./components/operations/mainScrollLock.js";
 import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
+import PwaInstallControl from "./components/pwa/PwaInstallControl.jsx";
 import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento,
@@ -4446,9 +4447,7 @@ function Sistema({onLogout}){
             {["administrador","operador","gerente"].includes(perfilAtual.perfil)&&(
               <button className="sidebar-utility sidebar-utility-backup" onClick={baixarBackupObrigatorio} type="button"><Icon name="database" /><span>Baixar backup</span></button>
             )}
-            <a className="sidebar-utility sidebar-app-download" href="/downloads/stock-on.apk" download="Stock-ON.apk">
-              <Icon name="download" /> <span>Baixar aplicativo</span>
-            </a>
+            <PwaInstallControl icon={<Icon name="download" />} />
             <button className="sidebar-utility sidebar-utility-password" onClick={()=>abrirForaDoDrawer(()=>setModalSenha(true))} type="button"><Icon name="lock" /><span>Alterar minha senha</span></button>
             <button className="sidebar-utility sidebar-utility-danger" onClick={()=>abrirForaDoDrawer(()=>setConfirmLogout(true))} type="button"><Icon name="logOut" /><span>Sair do sistema</span></button>
           </div>

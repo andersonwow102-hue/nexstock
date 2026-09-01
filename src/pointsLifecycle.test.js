@@ -112,14 +112,38 @@ test('dossiê pendente reutiliza a movimentação real sem criar lógica paralel
 
   assert.ok(inicioDossie >= 0 && fimDossie > inicioDossie, 'centro de resolução da desativação não encontrado');
   assert.match(resolucao, /Solicitação de desativação/);
-  assert.match(resolucao, /onMovimentarEquipamento\?\.\(item,\{ponto:pontoSelecionado\}\)/);
+  assert.match(resolucao, /retornoMovimentacaoRef\.current=true;onMovimentarEquipamento\?\.\(item,\{ponto:pontoSelecionado\}\)/);
+  assert.match(page, /pcf-equipment-move, \.pcf-deactivation-actions \.pcf-button--primary:not\(\[disabled\]\), \.pcf-deactivation-reject/);
   assert.match(resolucao, /disabled=\{selecionado\.vinculados\.length>0\}/);
+  assert.match(resolucao, /pcf-deactivation-approval-help/);
+  assert.match(resolucao, /textoVinculosRestantes/);
+  assert.match(resolucao, /progressoVinculos/);
   assert.match(resolucao, /onDecidirDesativacao\?\.\(solicitacaoDesativacaoPendente,true\)/);
   assert.match(resolucao, /Rejeitar solicitação/);
   assert.doesNotMatch(resolucao, /salvarEquipamento|adicionarHistoricoEquipamento|carregarEquipamentos|supabase|\.rpc\(/);
   assert.match(app, /onMovimentarEquipamento=\{abrirMov\}/);
   assert.match(app, /function abrirMov\(item,contexto=null\)/);
   assert.match(app, /vinculado a \$\{contextoMovPonto\.nomeFantasia\}/);
+});
+
+test('gatilho móvel compacto abre diretamente o dossiê da pendência e preserva o desktop', () => {
+  assert.match(page, /className="pcf-pending-summary pcf-pending-summary--desktop"/);
+  assert.match(page, /className="pcf-pending-cycle-trigger" onClick=\{abrirDossiePendencia\}/);
+  assert.match(page, /setPedidoDossiePendencia\(atual=>\(\{pontoId:solicitacao\.pontoId,revisao:/);
+  assert.match(page, /pedidoDossie=\{pedidoDossiePendencia\}/);
+  assert.match(page, /const pontoSelecionado=visiveis\.find[\s\S]*?pedidoDossie\?\.pontoId[\s\S]*?pontos\.find/);
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*?\.solicitacoes-status-ponto-panel\s*\{\s*display:\s*none/);
+  assert.match(css, /\.pcf-pending-cycle-trigger\s*\{[\s\S]*?height:\s*52px;[\s\S]*?max-height:\s*56px/);
+});
+
+test('vínculos do dossiê são normalizados e a pilha móvel cede ao modal real', () => {
+  assert.match(page, /function normalizarLocalizacaoPonto\(valor\)/);
+  assert.match(page, /\.trim\(\)\.toLocaleLowerCase\("pt-BR"\)/);
+  assert.match(page, /equipamentos\.filter\(i=>equipamentoVinculadoAoPonto\(i,ponto\.nomeFantasia\)\)/);
+  assert.match(page, /pcf-dossier-portal" data-so-modal-layer="true"/);
+  assert.match(page, /querySelectorAll\("\[data-so-modal-layer='true'\]:not\(\[aria-hidden='true'\]\)"\)[\s\S]*?find\(camada=>!camada\.contains\(painel\)\)/);
+  assert.match(page, /solicitanteConfiavel\|\|"Não informado no registro"/);
+  assert.match(css, /:has\(\.pcf-dossier\[role="dialog"\], \.equip-cf-movement-overlay\) \.chat-flutuante\s*\{[\s\S]*?visibility:\s*hidden;[\s\S]*?pointer-events:\s*none/);
 });
 
 test('preview DEV cobre TABERNA BEER e a progressão local de dois vínculos a zero', () => {
@@ -133,6 +157,10 @@ test('preview DEV cobre TABERNA BEER e a progressão local de dois vínculos a z
   assert.match(pointsPreview, /O vínculo e a decisão permanecem inalterados/);
   assert.match(pointsPreview, /motivo\.trim\(\)\.length<5/);
   assert.match(pointsPreview, /podeDecidirDesativacao/);
+  assert.match(pointsPreview, /className="pcf-pending-cycle-trigger" onClick=\{abrirDossiePendenciaPreview\}/);
+  assert.match(pointsPreview, /className="pcf-menu-button"[\s\S]*?aria-label="Abrir navegação simulada"/);
+  assert.match(pointsPreview, /setPedidoDossiePreview/);
+  assert.match(pointsPreview, /pedidoDossie=\{pedidoDossiePreview\}/);
   assert.doesNotMatch(pointsPreview, /salvarEquipamento|adicionarHistoricoEquipamento|supabase|\.rpc\(/);
 });
 

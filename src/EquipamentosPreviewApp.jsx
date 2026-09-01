@@ -94,8 +94,9 @@ const HISTORY_META = {
 };
 
 const PREVIEW_STYLES = `
-  .equipment-preview { min-height: 100vh; color: var(--text-default); background: var(--surface-canvas); }
-  .equipment-preview__topbar { position: sticky; z-index: 120; top: 0; display: flex; min-height: 66px; align-items: center; justify-content: space-between; gap: 24px; padding: 10px clamp(16px, 3vw, 42px); background: color-mix(in srgb, var(--surface-navigation) 94%, transparent); border-bottom: 1px solid var(--border-subtle); backdrop-filter: blur(16px); }
+  .equipment-preview, .equipment-preview *, .equipment-preview *::before, .equipment-preview *::after { box-sizing: border-box; }
+  .equipment-preview { display: flex; height: 100dvh; min-height: 0; flex-direction: column; color: var(--text-default); background: var(--surface-canvas); }
+  .equipment-preview__topbar { position: sticky; z-index: 120; top: 0; display: flex; min-height: 66px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 24px; padding: 10px clamp(16px, 3vw, 42px); background: color-mix(in srgb, var(--surface-navigation) 94%, transparent); border-bottom: 1px solid var(--border-subtle); backdrop-filter: blur(16px); }
   .equipment-preview__brand { display: flex; min-width: 0; align-items: center; gap: 12px; }
   .equipment-preview__mark { display: block; width: 36px; height: 36px; object-fit: contain; }
   .equipment-preview__brand div { display: grid; gap: 2px; }
@@ -104,17 +105,8 @@ const PREVIEW_STYLES = `
   .equipment-preview__theme { display: flex; align-items: center; gap: 4px; padding: 3px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
   .equipment-preview__theme a { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 8px 12px; color: var(--text-muted); border-radius: 3px; font-size: 10px; text-decoration: none; }
   .equipment-preview__theme a[aria-current='true'] { color: var(--text-strong); background: var(--surface-panel); box-shadow: var(--shadow-xs); }
-  .equipment-preview__main { display: grid; width: 100%; max-width: 1760px; min-height: calc(100vh - 66px); align-content: start; gap: 14px; margin: 0 auto; padding: 22px clamp(16px, 3vw, 42px) 48px; overflow: auto; }
-  .equipment-preview__heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); }
-  .equipment-preview__heading-copy { display: grid; gap: 4px; }
-  .equipment-preview__heading-copy span { color: var(--brand-action-vivid); font: 650 9px/1.25 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
-  .equipment-preview__heading h1 { margin: 0; color: var(--text-strong); font: 720 clamp(24px, 2.3vw, 34px)/1 var(--font-sans); letter-spacing: -.025em; }
-  .equipment-preview__heading p { margin: 2px 0 0; color: var(--text-muted); font-size: 11px; }
-  .equipment-preview__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
-  .equipment-preview__actions .so-button { min-height: 44px; }
-  .equipment-preview__actions .equip-cf-export-utility { padding-inline: 10px; color: var(--text-muted); background: transparent; border-color: transparent; box-shadow: none; font-size: 10.5px; font-weight: 600; }
-  .equipment-preview__actions .equip-cf-export-utility:hover, .equipment-preview__actions .equip-cf-export-utility:focus-visible { color: var(--text-strong); background: var(--surface-hover); border-color: var(--border-subtle); }
-  .equipment-preview__notice { display: flex; min-height: 40px; align-items: center; gap: 9px; padding: 9px 12px; color: var(--text-default); background: var(--state-info-surface); border-left: 3px solid var(--brand-action); font-size: 11px; }
+  .equipment-preview__main { display: flex; width: 100%; max-width: 1760px; min-height: 0; flex: 1 1 auto; flex-direction: column; gap: 14px; margin: 0 auto; padding: 22px clamp(16px, 3vw, 42px) 48px; overflow: auto; }
+  .equipment-preview__notice { display: flex; min-height: 40px; flex: 0 0 auto; align-items: center; gap: 9px; padding: 9px clamp(16px, 3vw, 42px); color: var(--text-default); background: var(--state-info-surface); border-left: 3px solid var(--brand-action); font-size: 11px; }
   .equipment-preview__notice strong { color: var(--text-strong); }
   .equipment-preview__tab-panel { display: grid; min-width: 0; gap: 12px; }
   .equipment-preview > .equipment-preview__main { animation: none; }
@@ -137,17 +129,11 @@ const PREVIEW_STYLES = `
   .equipment-preview__trace-detail small { color: var(--text-disabled); font-size: 9px; }
   .equipment-preview__trace time { font-family: var(--font-mono); }
   @media (max-width: 760px) {
-    .equipment-preview__topbar, .equipment-preview__heading { align-items: stretch; }
+    .equipment-preview__topbar { align-items: stretch; }
     .equipment-preview__topbar { position: relative; flex-direction: column; gap: 10px; }
     .equipment-preview__theme { align-self: stretch; }
     .equipment-preview__theme a { flex: 1; text-align: center; }
     .equipment-preview__main { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
-    .equipment-preview__heading { flex-direction: column; gap: 14px; }
-    .equipment-preview__heading p { max-width: 42ch; line-height: 1.45; }
-    .equipment-preview__actions { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; gap: 8px; }
-    .equipment-preview__actions .so-button { width: 100%; justify-content: center; }
-    .equipment-preview__actions .so-button:not(.equip-cf-export-utility) { grid-column: 1 / -1; grid-row: 1; min-height: 48px; }
-    .equipment-preview__actions .equip-cf-export-utility { min-height: 44px; border-color: var(--border-subtle); }
     .equipment-preview .equip-cf-view-switch { display: flex; max-width: 100%; gap: 4px; overflow-x: auto; scroll-snap-type: inline proximity; }
     .equipment-preview .equip-cf-view-switch button { flex: 0 0 auto; justify-content: flex-start; padding-inline: 11px; scroll-snap-align: start; }
     .equipment-preview .equip-cf-view-switch button span { overflow: visible; text-overflow: clip; white-space: nowrap; }
@@ -406,24 +392,27 @@ export default function EquipamentosPreviewApp() {
         </nav>
       </header>
 
-      <main className="main equipment-preview__main" onKeyDown={handleMainScrollKey} tabIndex={-1}>
-        <section className="equipment-preview__heading" aria-labelledby="equipment-preview-title">
-          <div className="equipment-preview__heading-copy">
-            <span>Equipamentos / situação atual</span>
-            <h1 id="equipment-preview-title">Equipamentos</h1>
-            <p>Veja onde cada equipamento está, com quem está e o que aconteceu por último.</p>
-          </div>
-          <div className="equipment-preview__actions">
-            <Button className="equip-cf-export-utility" size="sm" leadingIcon="spreadsheet" onClick={() => announce("Excel preparado localmente")}>Excel</Button>
-            <Button className="equip-cf-export-utility" size="sm" leadingIcon="pdf" onClick={() => announce("PDF preparado localmente")}>PDF</Button>
-            <Button size="sm" variant="primary" leadingIcon="plus" onClick={() => announce("Novo equipamento aberto")}>Novo equipamento</Button>
-          </div>
-        </section>
+      <div className="equipment-preview__notice" role="status" aria-live="polite">
+        <OperationIcon name="shield" size={16} />
+        <span><strong>Ambiente isolado.</strong> {notice}</span>
+      </div>
 
-        <div className="equipment-preview__notice" role="status" aria-live="polite">
-          <OperationIcon name="shield" size={16} />
-          <span><strong>Ambiente isolado.</strong> {notice}</span>
-        </div>
+      <main className="main equipment-preview__main" onKeyDown={handleMainScrollKey} tabIndex={-1}>
+        <header className="cf-page-head equip-cf-head equipment-preview__heading" aria-labelledby="equipment-preview-title">
+          <div className="cf-page-head__identity">
+            <button className="btn-hamburguer" type="button" aria-label="Abrir navegação simulada" onClick={() => announce("Navegação aberta") }><OperationIcon name="menu" /></button>
+            <div className="cf-page-head__copy equipment-preview__heading-copy">
+              <span className="cf-page-head__eyebrow">Controle de equipamentos</span>
+              <h1 id="equipment-preview-title">Equipamentos</h1>
+              <p>Veja onde cada equipamento está, com quem está e o que aconteceu por último.</p>
+            </div>
+          </div>
+          <div className="cf-page-head__actions equipment-preview__actions">
+            <Button className="btn-secundario equip-cf-export-utility" size="sm" leadingIcon="spreadsheet" onClick={() => announce("Excel preparado localmente")}>Excel</Button>
+            <Button className="btn-secundario equip-cf-export-utility" size="sm" leadingIcon="pdf" onClick={() => announce("PDF preparado localmente")}>PDF</Button>
+            <Button className="btn-primario" size="sm" variant="primary" leadingIcon="plus" onClick={() => announce("Novo equipamento aberto")}>Novo equipamento</Button>
+          </div>
+        </header>
 
         <div className="equip-cf-control-line">
           <nav className="equip-cf-view-switch" aria-label="Visualização de equipamentos">

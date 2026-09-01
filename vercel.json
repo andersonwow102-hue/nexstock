@@ -18,9 +18,21 @@
       ]
     },
     {
-      "source": "/downloads/stock-on.apk",
+      "source": "/manifest.webmanifest",
       "headers": [
-        { "key": "Content-Disposition", "value": "attachment; filename=Stock-ON.apk" }
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/brand/neptera/icons/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/downloads/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     }
   ]

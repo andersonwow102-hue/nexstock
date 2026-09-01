@@ -1,8 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { initializePwaInstallCoordinator } from "./components/pwa/pwaInstallCoordinator.js";
 import "./index.css";
 
+initializePwaInstallCoordinator();
+
 const parametros = new URLSearchParams(window.location.search);
+const previewPwa = import.meta.env.DEV && parametros.get("preview") === "pwa";
 const previewFechamento = import.meta.env.DEV && parametros.get("preview") === "fechamento";
 const previewEquipamentos = import.meta.env.DEV && parametros.get("preview") === "equipamentos";
 const previewPontos = import.meta.env.DEV && parametros.get("preview") === "pontos";
@@ -11,6 +15,11 @@ const raiz = createRoot(document.getElementById("root"));
 
 function renderizar(conteudo) {
   raiz.render(<StrictMode>{conteudo}</StrictMode>);
+}
+
+async function iniciarPreviewPwa() {
+  const { default: PwaInstallPreviewApp } = await import("./PwaInstallPreviewApp.jsx");
+  renderizar(<PwaInstallPreviewApp />);
 }
 
 async function iniciarPreviewFechamento() {
@@ -69,13 +78,19 @@ async function iniciarAplicacao() {
   );
 
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    });
+    const registrarServiceWorker = () => {
+      navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .then((registration) => registration.update())
+        .catch(() => {});
+    };
+
+    if (document.readyState === "complete") registrarServiceWorker();
+    else window.addEventListener("load", registrarServiceWorker, { once: true });
   }
 }
 
-(previewHistorico ? iniciarPreviewHistorico() : previewPontos ? iniciarPreviewPontos() : previewEquipamentos ? iniciarPreviewEquipamentos() : previewFechamento ? iniciarPreviewFechamento() : iniciarAplicacao()).catch((erro) => {
+(previewPwa ? iniciarPreviewPwa() : previewHistorico ? iniciarPreviewHistorico() : previewPontos ? iniciarPreviewPontos() : previewEquipamentos ? iniciarPreviewEquipamentos() : previewFechamento ? iniciarPreviewFechamento() : iniciarAplicacao()).catch((erro) => {
   console.error("Falha ao iniciar o NEPTERA:", erro);
   renderizar(<div className="app-fallback-error">Não foi possível iniciar o NEPTERA. Atualize a página e tente novamente.</div>);
 });
