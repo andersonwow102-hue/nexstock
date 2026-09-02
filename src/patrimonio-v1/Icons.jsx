@@ -19,6 +19,14 @@ const PATHS = {
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></>,
   keyboard: <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M6 10h2M10 10h2M14 10h2M18 10h.1M6 14h8M16 14h2" /></>,
   qr: <><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v4h-2zM14 18h4v2h-4z" /></>,
+  campaign: <><path d="M5 4v16M5 5h11l-2 4 2 4H5" /></>,
+  route: <><circle cx="6" cy="18" r="2" /><circle cx="18" cy="6" r="2" /><path d="M8 18h3a3 3 0 0 0 3-3V9a3 3 0 0 1 3-3" /></>,
+  pin: <><path d="M12 21s7-5.4 7-12a7 7 0 1 0-14 0c0 6.6 7 12 7 12Z" /><circle cx="12" cy="9" r="2" /></>,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" /></>,
+  wrench: <><path d="M14.5 6.5a4 4 0 0 0-5-5l2.2 2.2-3 3-2.2-2.2a4 4 0 0 0 5 5L20 18l-2 2-8.5-8.5" /></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  document: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>,
 };
 
 export default function Icon({ name, size = 18, strokeWidth = 1.7, className = "" }) {
@@ -39,4 +47,3 @@ export default function Icon({ name, size = 18, strokeWidth = 1.7, className = "
     </svg>
   );
 }
-

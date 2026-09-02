@@ -76,7 +76,10 @@ create table public.equipamentos (
   observacao text default '',
   responsavel text default '',
   data_cadastro text default '',
-  gerente_responsavel text default ''
+  gerente_responsavel text default '',
+  transferencia_status text default '',
+  transferencia_enviada_em timestamptz,
+  transferencia_recebida_em timestamptz
 );
 
 alter table public.perfis enable row level security;

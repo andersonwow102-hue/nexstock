@@ -11,6 +11,8 @@ import DashboardPage from "./DashboardPage.jsx";
 import FechamentoWorkbench from "./FechamentoWorkbench.jsx";
 import EquipmentInventoryLedger from "./EquipmentInventoryLedger.jsx";
 import HistoricoTimelinePage from "./HistoricoTimelinePage.jsx";
+import PatrimonioDeepLinkPage from "./PatrimonioDeepLinkPage.jsx";
+import { parsePatrimonioRoute } from "./patrimonioDeepLink.js";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
 import { limparRecuperacao, recuperacaoIniciada, supabase } from "./supabase.js";
@@ -3161,7 +3163,7 @@ function MarcaLogin(){
   );
 }
 
-function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
+function TelaLogin({onLogin, avisoInicial="", mensagemInicial="", destinoProtegido=false}){
   const [identificador,setIdentificador]=useState("");
   const [senha,setSenha]=useState("");
   const [erro,setErro]=useState(avisoInicial);
@@ -3222,6 +3224,7 @@ function TelaLogin({onLogin, avisoInicial="", mensagemInicial=""}){
           <div className="login-access-label">Ambiente protegido</div>
           <div className="login-titulo">Acesso à plataforma</div>
           <div className="login-subtitulo">Entre com suas credenciais para continuar.</div>
+          {destinoProtegido&&<div className="login-destino-protegido" role="status"><Icon name="lock" className="login-status-icon"/><span>Após entrar, você continuará para o destino protegido solicitado.</span></div>}
           <form className="login-form" onSubmit={tentar}>
             {erro&&<div className="login-erro"><Icon name="lock" className="login-status-icon"/><span>{erro}</span></div>}
             {mensagem&&<div className="login-sucesso"><Icon name="checkCircle" className="login-status-icon"/><span>{mensagem}</span></div>}
@@ -3367,6 +3370,11 @@ export default function App(){
   const [erroSessao,setErroSessao]=useState("");
   const [mensagemLogin,setMensagemLogin]=useState("");
   const [recuperandoSenha,setRecuperandoSenha]=useState(()=>recuperacaoIniciada());
+  const [revisaoLocalizacao,setRevisaoLocalizacao]=useState(0);
+  const rotaPatrimonio=useMemo(
+    ()=>parsePatrimonioRoute(typeof window==="undefined"?"/":window.location.pathname),
+    [revisaoLocalizacao],
+  );
 
   useEffect(()=>{
     let ativo=true;
@@ -3392,6 +3400,12 @@ export default function App(){
     return()=>{ativo=false;subscription.unsubscribe();};
   },[]);
 
+  useEffect(()=>{
+    const atualizarRota=()=>setRevisaoLocalizacao(valor=>valor+1);
+    window.addEventListener("popstate",atualizarRota);
+    return()=>window.removeEventListener("popstate",atualizarRota);
+  },[]);
+
   if(verificando)return(
     <div className="login-page sessao-verificando">
       <img src={NEPTERA.simbolo} alt="NEPTERA"/>
@@ -3400,8 +3414,10 @@ export default function App(){
     </div>
   );
   if(recuperandoSenha)return<TelaNovaSenha onConcluir={()=>{limparRecuperacao();setRecuperandoSenha(false);setLogado(false);setMensagemLogin("Senha alterada com sucesso. Entre com sua nova senha.");}}/>;
-  if(!logado)return<TelaLogin avisoInicial={erroSessao} mensagemInicial={mensagemLogin} onLogin={()=>{setMensagemLogin("");setLogado(true);}}/>;
-  return<Sistema onLogout={async()=>{await Auth.deslogar();setLogado(false);}}/>;
+  if(!logado)return<TelaLogin avisoInicial={erroSessao} mensagemInicial={mensagemLogin} destinoProtegido={Boolean(rotaPatrimonio)} onLogin={()=>{setMensagemLogin("");setLogado(true);}}/>;
+  const sair=async()=>{await Auth.deslogar();setLogado(false);};
+  if(rotaPatrimonio)return<PatrimonioDeepLinkPage route={rotaPatrimonio} onLogout={sair}/>;
+  return<Sistema onLogout={sair}/>;
 }
 
 // ── Sistema ───────────────────────────────────────────────────────────────────

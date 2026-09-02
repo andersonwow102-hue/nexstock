@@ -1,22 +1,47 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import PatrimonioHarnessApp from "./PatrimonioHarnessApp.jsx";
-import { createLabelDocument, savePdfDocument } from "./patrimonioPdf.js";
-import "./patrimonio-v1.css";
+const rootElement = document.getElementById("patrimonio-v1-root");
 
-async function downloadLabels(request) {
-  const labels = request.labels.map((label) => ({
-    code: label.patrimonyCode,
-    publicId: label.publicId,
-  }));
-  const document = await createLabelDocument(labels);
-  savePdfDocument(document, `${request.batchId}-etiquetas-ficticias.pdf`);
+async function bootstrapDevelopmentHarness() {
+  const [reactModule, reactDomModule, appModule, pdfModule, qrModule] = await Promise.all([
+    import("react"),
+    import("react-dom/client"),
+    import("./PatrimonioHarnessApp.jsx"),
+    import("./patrimonioPdf.js"),
+    import("qrcode"),
+    import("./patrimonio-v1.css"),
+  ]);
+  const qrApi = qrModule.default || qrModule;
+
+  async function downloadArtifact(type, payload) {
+    const document = await pdfModule.createArtifactDocument(type, payload);
+    const filename = pdfModule.artifactFilename(type, payload);
+    pdfModule.savePdfDocument(document, filename);
+  }
+
+  async function prepareQr(_label, payload) {
+    const dataUrl = await qrApi.toDataURL(payload, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 360,
+    });
+    return { dataUrl };
+  }
+
+  reactDomModule.createRoot(rootElement).render(
+    reactModule.createElement(
+      reactModule.StrictMode,
+      null,
+      reactModule.createElement(appModule.default, {
+        onArtifactRequest: downloadArtifact,
+        onQrRequest: prepareQr,
+      }),
+    ),
+  );
 }
 
-const harness = import.meta.env.DEV ? (
-  <StrictMode>
-    <PatrimonioHarnessApp onPdfRequest={downloadLabels} />
-  </StrictMode>
-) : null;
-
-createRoot(document.getElementById("patrimonio-v1-root")).render(harness);
+if (import.meta.env.DEV && rootElement) {
+  bootstrapDevelopmentHarness().catch(() => {
+    rootElement.textContent = "Não foi possível iniciar o harness local de Patrimônio.";
+  });
+} else if (rootElement) {
+  rootElement.replaceChildren();
+}

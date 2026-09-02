@@ -3,11 +3,19 @@
 import { supabase } from './supabase.js';
 import { normalizeFreeText } from './textNormalization.js';
 import { registrarAcaoCritica, registrarErroOperacional } from './monitoring.js';
+import { resolvePatrimonioWithClient } from './patrimonioDeepLink.js';
 
 async function reportarErroDados(error, contexto = {}) {
   const erro = error instanceof Error ? error : new Error(error?.message || String(error || 'Erro desconhecido'));
   await registrarErroOperacional(erro, { categoria: 'dados', ...contexto });
   return erro;
+}
+
+// ── Patrimônio · deep link protegido ─────────────────────────────────────────
+// O RPC faz lookup autenticado e fail-closed; inexistente ou fora do escopo devolve vazio.
+// O frontend não faz fallback por SELECT, evitando transformar o QR em bypass de RLS.
+export async function resolverPatrimonioPorPublicId(publicId) {
+  return resolvePatrimonioWithClient(supabase, publicId);
 }
 
 // ── Equipamentos ──────────────────────────────────────────────────────────────

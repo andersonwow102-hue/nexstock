@@ -1,85 +1,49 @@
-# Patrimônio Fase 1 — roteiro local de concorrência
+# Patrimônio Fase 1 — concorrência local
 
-Este roteiro complementa `patrimonio_fase1_rls.sql`. Um único bloco SQL não
-consegue provar espera entre transações independentes. Execute apenas em um
-Supabase local descartável, nunca no remoto. Use dois terminais `psql` com
-`ON_ERROR_STOP=1` e dados fictícios. Recrie o banco ao terminar, porque
-`nextval()` não volta com `ROLLBACK`.
+`patrimonio_fase1_concorrencia.sql` é o teste executável complementar à suíte
+RLS. Ele usa `dblink` para manter duas transações independentes e deve rodar
+somente em PostgreSQL local descartável, nunca no Supabase remoto.
 
 ## Pré-condições
 
-1. Aplique `bootstrap_patrimonio_local.sql` se o banco local estiver vazio.
-2. Aplique as migrations `202609010900` a `202609011010`.
-3. Crie um administrador fictício, um ponto válido e um equipamento fictício
-   de categoria `Terminais`, sem `patrimonio`.
-4. Como administrador autenticado, prepare dois lotes diferentes contendo o
-   mesmo `equipamento_id`; não gere nenhum deles ainda.
+1. Crie um banco local vazio.
+2. Aplique `bootstrap_patrimonio_local.sql`.
+3. Aplique, em ordem, as migrations `202609010900` a `202609011010`.
+4. Execute o script com a trava explícita:
 
-Guarde os UUIDs como `LOTE_A` e `LOTE_B`. Use chaves de idempotência distintas.
-
-## Disputa pelo mesmo equipamento
-
-Sessão A:
-
-```sql
-begin;
-select set_config('request.jwt.claim.sub', 'UUID_ADMIN_FICTICIO', true);
-set local role authenticated;
-select public.patrimonio_gerar_lote('LOTE_A', 'UUID_IDEMPOTENCIA_A');
--- Mantenha a transação aberta antes do COMMIT.
+```powershell
+psql -v ON_ERROR_STOP=1 -v patrimonio_local_confirmado=1 `
+  -d patrimonio_concurrency `
+  -f supabase/tests/patrimonio_fase1_concorrencia.sql
 ```
 
-Sessão B, enquanto A permanece aberta:
+O teste grava somente usuários, equipamentos e operações fictícias no banco
+local e remove os helpers temporários ao final. Descarte o banco depois da
+execução, pois sequências PostgreSQL não revertem `nextval()`.
 
-```sql
-begin;
-select set_config('request.jwt.claim.sub', 'UUID_ADMIN_FICTICIO', true);
-set local role authenticated;
-select public.patrimonio_gerar_lote('LOTE_B', 'UUID_IDEMPOTENCIA_B');
+## Garantias exercitadas
+
+- dois preparos concorrentes não podem reservar quantidade superior à meta do
+  snapshot da campanha;
+- o corte da campanha bloqueia cadastro concorrente durante contagem e
+  materialização, mantendo `quantidade_snapshot` igual ao número de membros;
+- o perdedor da reserva falha antes de consumir número de lote;
+- duas gerações com a mesma chave aguardam o advisory lock, retornam o mesmo
+  JSON e não duplicam NPs nem eventos;
+- duas etiquetas livres não podem ser vinculadas ao mesmo equipamento ativo;
+- a etiqueta perdedora permanece `disponivel` e nenhum número NP adicional é
+  consumido;
+- o mesmo NP livre não pode ser vinculado simultaneamente a dois equipamentos;
+- dois cadastros patrimoniáveis simultâneos criam equipamento + NP de forma
+  atômica, sem colisão de número, código ou `public_id`;
+- geração de lote e cadastro futuro concorrentes compartilham a mesma sequência
+  NP global, sem namespace paralelo nem reutilização;
+- cancelamento e geração do mesmo lote são serializados pelo lock da linha;
+- após o cancelamento vencer, a geração falha sem criar etiqueta nem avançar a
+  sequência NP.
+
+O resultado final esperado é:
+
+```text
+OK: reservas, idempotencia, vinculos, cadastros, sequencia e cancelamento concorrentes validados.
 ```
-
-Resultado esperado: B aguarda o lock da linha de `equipamentos`. Faça `commit`
-em A. B então falha com `23505` antes de chamar `nextval()`, porque passa a ver
-o patrimônio ativo criado por A. Finalize B com `rollback`.
-
-Confirme em uma terceira sessão:
-
-```sql
-select equipamento_id, count(*) filter (
-  where situacao not in ('baixado', 'anulado')
-) as ativos
-from public.equipamentos_patrimonio
-group by equipamento_id
-having count(*) filter (
-  where situacao not in ('baixado', 'anulado')
-) > 1;
-```
-
-A consulta deve retornar zero linhas. A sequência deve ter avançado somente
-pela geração vencedora.
-
-## Mesma chave de idempotência em paralelo
-
-Prepare um terceiro lote fictício. Nas duas sessões, chame
-`patrimonio_gerar_lote` para esse mesmo lote, pelo mesmo usuário e com a mesma
-chave. A segunda sessão deve aguardar o advisory lock e depois retornar o mesmo
-`lote_id`, sem novo evento, novo registro canônico ou novo número.
-
-Repita usando a mesma chave mas payload/alvo diferente. Depois da espera, a
-segunda chamada deve falhar com `22023`.
-
-## Falha após reserva e lacunas
-
-A atomicidade de linhas e espelhos é transacional; a sequência PostgreSQL não
-é. Para testar uma falha posterior a `nextval()` sem alterar código de produção,
-use um clone local instrumentado com um trigger de teste que lance exceção no
-segundo `UPDATE public.equipamentos` da geração. Resultado esperado:
-
-- zero linhas do lote em `equipamentos_patrimonio`;
-- nenhum espelho alterado em `equipamentos.patrimonio`;
-- lote ainda `preparado`;
-- números eventualmente consumidos viram lacunas e nunca são reutilizados.
-
-Remova o trigger de teste descartando/recriando o banco local; não transforme
-essa instrumentação em migration.
-

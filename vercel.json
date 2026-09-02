@@ -1,4 +1,8 @@
 {
+  "rewrites": [
+    { "source": "/patrimonio", "destination": "/index.html" },
+    { "source": "/patrimonio/:publicId", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

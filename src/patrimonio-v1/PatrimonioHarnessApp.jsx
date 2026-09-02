@@ -1,104 +1,147 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "./Icons.jsx";
-import { buildLabelPrintJob, buildQrPayload } from "./integrationPoints.js";
-import { createAssetQr } from "./patrimonioPdf.js";
+import {
+  buildFinalReportJob,
+  buildLabelPrintJob,
+  buildQrPayload,
+  buildRegistrationLabelPrintJob,
+  buildRouteReportJob,
+} from "./integrationPoints.js";
 import {
   CATEGORIES,
-  PATRIMONY_FILTERS,
-  batchItems,
+  INVENTORY_FILTERS,
+  LABEL_STATES,
+  OPERATING_CONTEXTS,
+  activeLabelForEquipment,
+  batchLabels,
   batchProgress,
+  bindFreeLabel,
+  campaignProgress,
+  candidateEquipments,
+  confirmLabel,
   createPatrimonyFixture,
+  equipmentPatrimonyState,
   filterInventory,
   formatNp,
-  generateSimulatedBatch,
+  generateFreeLabelBatch,
   inventorySummary,
-  markDeployment,
-  nextNpNumber,
-  patrimonyClass,
+  labelForEquipment,
+  markBatchPrinted,
+  markLabelApplied,
   prepareBatchPreview,
-  resolveAssetByCode,
-  updateBatchStatus,
+  resolveLabelByCode,
+  simulateEquipmentRegistration,
 } from "./model.js";
 
 const MODES = Object.freeze([
-  { value: "overview", label: "Visão geral", icon: "ledger" },
+  { value: "overview", label: "Visão geral", icon: "campaign" },
   { value: "batches", label: "Lotes", icon: "layers" },
   { value: "deployment", label: "Implantação", icon: "deploy" },
 ]);
 
-const EMPTY_FILTERS = Object.freeze({ category: "", patrimony: "all", readiness: "all" });
-const READINESS_LABELS = Object.freeze({
-  ready: "Apto",
-  review: "Em revisão",
-  coded: "Codificado",
-  legacy: "Legado",
-  non_asset: "Fora de escopo",
-});
-const DEPLOYMENT_LABELS = Object.freeze({
-  pendente: "Sem código",
-  etiqueta_pendente: "Etiqueta pendente",
-  aplicado: "Aplicado",
-  conferido: "Conferido",
-  legado: "Legado",
-  fora_escopo: "Não patrimoniável",
-});
-const BATCH_STATUS_LABELS = Object.freeze({
-  labels_pending: "Etiquetas pendentes",
-  labels_ready: "Etiquetas prontas",
-  in_progress: "Em implantação",
-  complete: "Concluído",
+const SCENARIOS = Object.freeze([
+  { value: "campanha", label: "Campanha inicial", mode: "overview" },
+  { value: "ledger", label: "Inventory Ledger", mode: "overview" },
+  { value: "dossie", label: "Dossiê", mode: "overview", equipmentId: "eq-0001" },
+  { value: "legado", label: "Legado + NP", mode: "overview", equipmentId: "eq-0001" },
+  { value: "maquina", label: "Máquina de Brindes", mode: "overview", equipmentId: "eq-0455" },
+  { value: "novo", label: "Cadastro novo", mode: "overview" },
+  { value: "multiplo", label: "Cadastro múltiplo", mode: "overview" },
+  { value: "lotes", label: "Lotes", mode: "batches" },
+  { value: "lote_aberto", label: "Lote aberto", mode: "batches" },
+  { value: "ativacao", label: "Ativação mobile", mode: "deployment", step: "scan", labelId: "pat-000001" },
+  { value: "bar_savio", label: "Bar do Sávio", mode: "deployment", step: "equipment", labelId: "pat-000001", contextId: "bar-savio" },
+  { value: "aplicacao", label: "Aplicação", mode: "deployment", step: "apply", labelId: "pat-000004" },
+  { value: "conferencia", label: "Conferência", mode: "deployment", step: "verify", labelId: "pat-000006" },
+  { value: "concluido", label: "Concluído", mode: "deployment", step: "complete", labelId: "pat-000008" },
+  { value: "divergencia", label: "Divergência", mode: "deployment", step: "divergence", labelId: "pat-000004" },
+  { value: "vazio", label: "Estado vazio", mode: "overview" },
+  { value: "erro", label: "Estado de erro", mode: "overview" },
+]);
+
+const BATCH_STATUS = Object.freeze({
+  preparado: "Preparado",
+  gerado: "Etiquetas geradas",
+  em_uso: "Em implantação",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
 });
 
-function readInitialParams() {
+const STEP_LABELS = Object.freeze([
+  ["scan", "Etiqueta"],
+  ["context", "Contexto"],
+  ["equipment", "Equipamento"],
+  ["apply", "Aplicação"],
+  ["verify", "Conferência"],
+  ["complete", "Concluído"],
+]);
+
+const DIALOG_FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex='-1'])";
+
+function keepDialogFocus(event, root) {
+  if (event.key !== "Tab" || !root) return;
+  const focusable = [...root.querySelectorAll(DIALOG_FOCUSABLE)].filter((element) => !element.hidden);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function initialParams() {
   const params = new URLSearchParams(window.location.search);
   const mode = params.get("modo");
-  const theme = params.get("tema");
-  const demoState = params.get("estado");
+  const scenario = params.get("cenario");
   return {
     mode: MODES.some((item) => item.value === mode) ? mode : "overview",
-    theme: theme === "escuro" ? "escuro" : "claro",
-    demoState: ["dados", "vazio", "erro"].includes(demoState) ? demoState : "dados",
+    theme: params.get("tema") === "escuro" ? "escuro" : "claro",
+    scenario: SCENARIOS.some((item) => item.value === scenario) ? scenario : "campanha",
   };
 }
 
-function syncParams({ mode, theme, demoState }) {
+function syncParams({ mode, theme, scenario }) {
   const params = new URLSearchParams(window.location.search);
   params.set("modo", mode);
   params.set("tema", theme);
-  if (demoState === "dados") params.delete("estado");
-  else params.set("estado", demoState);
+  params.set("cenario", scenario);
   window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
 }
 
-function RovingTabs({ label, value, options, onChange, className = "" }) {
+function RovingTabs({ label, value, options, onChange }) {
   const refs = useRef([]);
-  function handleKeyDown(event, index) {
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+  function onKeyDown(event, index) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const previous = event.key === "ArrowLeft" || event.key === "ArrowUp";
-    const nextIndex = event.key === "Home"
+    const target = event.key === "Home"
       ? 0
       : event.key === "End"
         ? options.length - 1
-        : (index + (previous ? -1 : 1) + options.length) % options.length;
-    onChange(options[nextIndex].value);
-    refs.current[nextIndex]?.focus();
+        : (index + (event.key === "ArrowLeft" ? -1 : 1) + options.length) % options.length;
+    onChange(options[target].value);
+    refs.current[target]?.focus();
   }
   return (
-    <div aria-label={label} className={`pv-roving-tabs ${className}`} role="tablist">
+    <div aria-label={label} className="pv-roving-tabs" role="tablist">
       {options.map((option, index) => (
         <button
+          aria-controls={`pv-panel-${option.value}`}
           aria-selected={value === option.value}
           className={value === option.value ? "is-active" : ""}
+          id={`pv-tab-${option.value}`}
           key={option.value}
           onClick={() => onChange(option.value)}
-          onKeyDown={(event) => handleKeyDown(event, index)}
+          onKeyDown={(event) => onKeyDown(event, index)}
           ref={(node) => { refs.current[index] = node; }}
           role="tab"
           tabIndex={value === option.value ? 0 : -1}
           type="button"
         >
-          {option.icon ? <Icon name={option.icon} size={17} /> : null}
+          <Icon name={option.icon} size={17} />
           <span>{option.label}</span>
         </button>
       ))}
@@ -106,16 +149,16 @@ function RovingTabs({ label, value, options, onChange, className = "" }) {
   );
 }
 
-function DevBar({ theme, onTheme, demoState, onDemoState }) {
+function DevBar({ scenario, onScenario, theme, onTheme }) {
   return (
     <header className="pv-devbar">
       <div className="pv-brand">
         <img alt="" src="/brand/neptera/icons/neptera-favicon-48.png" />
-        <span><strong>NEPTERA</strong><small>EQUIPAMENTOS · PATRIMÔNIO</small></span>
+        <span><strong>NEPTERA</strong><small>CONTROLE PATRIMONIAL · MARCO A</small></span>
       </div>
-      <div className="pv-local-seal"><Icon name="shield" size={15} /><span>DEV LOCAL · MEMÓRIA DA SESSÃO</span></div>
+      <div className="pv-local-seal"><Icon name="shield" size={15} /><span>DEV-ONLY · FIXTURES · SEM BACKEND</span></div>
       <div className="pv-lab-controls">
-        <label><span>Estado</span><select onChange={(event) => onDemoState(event.target.value)} value={demoState}><option value="dados">Dados</option><option value="vazio">Vazio</option><option value="erro">Erro</option></select></label>
+        <label><span>Cenário</span><select aria-label="Cenário do harness" onChange={(event) => onScenario(event.target.value)} value={scenario}>{SCENARIOS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
         <div aria-label="Tema" className="pv-theme-switch" role="group">
           <button aria-pressed={theme === "claro"} onClick={() => onTheme("claro")} title="Tema claro" type="button"><Icon name="sun" size={15} /><span>Claro</span></button>
           <button aria-pressed={theme === "escuro"} onClick={() => onTheme("escuro")} title="Tema escuro" type="button"><Icon name="moon" size={15} /><span>Escuro</span></button>
@@ -129,389 +172,473 @@ function PageHead({ onPrepare }) {
   return (
     <section className="pv-page-head">
       <div>
-        <p>EQUIPAMENTOS <span>/</span> PATRIMÔNIO</p>
+        <p>EQUIPAMENTOS <span>/</span> CONTROLE PATRIMONIAL</p>
         <h1>Patrimônio</h1>
-        <span>Numere, implante e confira etiquetas sem perder o vínculo técnico.</span>
+        <span>Geração, impressão, implantação e conferência da identidade física.</span>
       </div>
-      <button className="pv-button pv-button--primary" onClick={onPrepare} type="button"><Icon name="tag" />Preparar lote</button>
+      <button className="pv-button pv-button--primary" onClick={onPrepare} type="button"><Icon name="tag" />Gerar etiquetas livres</button>
     </section>
   );
 }
 
-function DeploymentRange({ summary, items, activeBatch }) {
-  const progress = batchProgress(items, activeBatch);
-  const next = nextNpNumber(items);
-  const totalScope = Math.max(1, summary.ready + summary.npEmitted + summary.npApplied + summary.npVerified);
-  const segments = [
-    { key: "ready", label: "Candidatos", value: summary.ready, tone: "ready" },
-    { key: "emitted", label: "Emitidos", value: summary.npEmitted, tone: "emitted" },
-    { key: "applied", label: "Aplicados", value: summary.npApplied, tone: "applied" },
-    { key: "verified", label: "Conferidos", value: summary.npVerified, tone: "verified" },
+function SummaryStrip({ state }) {
+  const summary = inventorySummary(state);
+  const metrics = [
+    [summary.campaignEquipment, "Campanha", "snapshot histórico"],
+    [summary.withoutNp, "Sem NP", "equipamentos"],
+    [summary.withNp, "Com NP", "vinculados"],
+    [summary.availableLabels, "Disponíveis", "etiquetas livres"],
+    [summary.bound, "Pendentes", "para aplicar"],
+    [summary.applied, "Aplicados", "para conferir"],
+    [summary.verified, "Conferidos", "implantados"],
+    [summary.legacyReferences, "Legados", `${summary.nonPatrimonial} não patrim.`],
   ];
+  return <section aria-label="Resumo patrimonial" className="pv-summary-strip">{metrics.map(([value, label, detail]) => <div key={label}><strong>{value}</strong><span>{label}</span><small>{detail}</small></div>)}</section>;
+}
+
+function CampaignBoard({ state, onScenario }) {
+  const progress = campaignProgress(state);
+  const summary = inventorySummary(state);
   return (
-    <section className="pv-range" aria-label="Faixa de implantação patrimonial">
-      <header>
-        <div><small>PRÓXIMA FAIXA NP</small><strong>{formatNp(next)}</strong><span>sequência local disponível</span></div>
-        <div className="pv-range__contract"><span>{summary.eligible} patrimoniáveis</span><span>{summary.withPatrimony} com patrimônio</span></div>
-      </header>
-      <div className="pv-range__rail" aria-hidden="true">
-        {segments.map((segment) => <i className={`is-${segment.tone}`} key={segment.key} style={{ flexGrow: segment.value / totalScope }} />)}
-      </div>
-      <div className="pv-range__legend">
-        {segments.map((segment) => <span key={segment.key}><i className={`is-${segment.tone}`} /><strong>{segment.value}</strong>{segment.label}</span>)}
-      </div>
-      <div className="pv-range__exclusions"><span>FORA DA FAIXA NP</span><strong>{summary.legacy} legados preservados</strong><strong>{summary.review} em revisão</strong><strong>{summary.nonPatrimonial} não patrimoniáveis</strong></div>
-      {activeBatch ? (
-        <div className="pv-range__batch">
-          <span><small>LOTE EM TRABALHO</small><strong>{activeBatch.id}</strong><em>{activeBatch.rangeLabel}</em></span>
-          <div>
-            <span><b>{progress.applied}</b> aplicados · <b>{progress.verified}</b> conferidos de {progress.total}</span>
-            <i aria-label={`${progress.verifiedPercent}% conferido`} style={{ "--pv-applied": `${progress.appliedPercent}%`, "--pv-verified": `${progress.verifiedPercent}%` }} />
-          </div>
+    <div className="pv-campaign-layout">
+      <section className="pv-campaign-board" aria-labelledby="campaign-title">
+        <header><div><small>CAMPANHA ATIVA · {state.campaign.code}</small><h2 id="campaign-title">{state.campaign.name}</h2><p>{state.campaign.note}</p></div><span className="pv-status is-active">Em implantação</span></header>
+        <div className="pv-campaign-spine" aria-label="Progressão da campanha">
+          <article><span>01</span><div><small>SNAPSHOT</small><strong>{progress.total}</strong><p>equipamentos patrimoniáveis</p></div></article>
+          <article><span>02</span><div><small>IDENTIDADE</small><strong>{progress.withNp}</strong><p>com NP vinculado</p></div><i style={{ "--progress": `${progress.withNpPercent}%` }} /></article>
+          <article><span>03</span><div><small>APLICAÇÃO</small><strong>{progress.applied}</strong><p>etiquetas no equipamento</p></div><i style={{ "--progress": `${progress.appliedPercent}%` }} /></article>
+          <article><span>04</span><div><small>CONFERÊNCIA</small><strong>{progress.verified}</strong><p>implantados</p></div><i style={{ "--progress": `${progress.verifiedPercent}%` }} /></article>
         </div>
-      ) : null}
-    </section>
-  );
-}
-
-function PatrimonyBadge({ item }) {
-  const kind = patrimonyClass(item);
-  const label = kind === "np" ? item.patrimonyCode : kind === "legacy" ? item.patrimonyCode : kind === "non_asset" ? "Não patrimoniável" : "Sem patrimônio";
-  return <span className={`pv-code-badge is-${kind}`}>{label}</span>;
-}
-
-function Ledger({ items, query, onQuery, filters, onFilter, limit, onLimit, onSelect, searchRef }) {
-  const filtered = useMemo(() => filterInventory(items, filters, query), [items, filters, query]);
-  const rendered = filtered.slice(0, limit);
-  return (
-    <section className="pv-ledger" aria-labelledby="ledger-title">
-      <header className="pv-ledger__toolbar">
-        <div className="pv-search"><Icon name="search" /><input aria-label="Buscar no patrimônio" onChange={(event) => onQuery(event.target.value)} placeholder="Buscar patrimônio, equipamento ou ID técnico" ref={searchRef} value={query} /><kbd>/</kbd></div>
-        <label><span>Patrimônio</span><select onChange={(event) => onFilter("patrimony", event.target.value)} value={filters.patrimony}>{PATRIMONY_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label><span>Categoria</span><select onChange={(event) => onFilter("category", event.target.value)} value={filters.category}><option value="">Todas</option>{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
-        <label><span>Situação</span><select onChange={(event) => onFilter("readiness", event.target.value)} value={filters.readiness}><option value="all">Todas</option><option value="ready">Aptos</option><option value="review">Em revisão</option><option value="coded">Codificados</option></select></label>
-        <label className="pv-limit"><span>Lote</span><select onChange={(event) => onLimit(Number(event.target.value))} value={limit}><option value="12">12</option><option value="24">24</option><option value="50">50</option></select></label>
-      </header>
-      <div className="pv-ledger__meta"><h2 id="ledger-title">Inventory Ledger</h2><span><strong>{filtered.length}</strong> registros no recorte · exibindo {rendered.length}</span></div>
-      <div className="pv-ledger__scroll">
-        <table>
-          <thead><tr><th>Reg.</th><th>Equipamento</th><th>Categoria</th><th>Patrimônio</th><th>Posição</th><th>Estado / lote</th><th><span className="pv-sr-only">Ação</span></th></tr></thead>
-          <tbody>
-            {rendered.map((item, index) => (
-              <tr key={item.id}>
-                <td data-label="Registro"><span className="pv-register">{String(index + 1).padStart(3, "0")}</span></td>
-                <td data-label="Equipamento"><strong>{item.name}</strong><small>{item.technicalId}</small></td>
-                <td data-label="Categoria"><span>{item.category}</span></td>
-                <td data-label="Patrimônio"><PatrimonyBadge item={item} /></td>
-                <td data-label="Posição"><strong>{item.location}</strong><small>{item.eligibility === "eligible" ? "Escopo de implantação" : "Referência de inventário"}</small></td>
-                <td data-label="Estado / lote"><span className={`pv-state is-${item.readiness}`}>{READINESS_LABELS[item.readiness]}</span><small>{item.batchId || DEPLOYMENT_LABELS[item.deploymentState]}</small></td>
-                <td><button aria-label={`Abrir dossiê de ${item.name}`} className="pv-row-action" onClick={() => onSelect(item.id)} type="button">Dossiê <Icon name="chevron" size={15} /></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!rendered.length ? <div className="pv-inline-empty"><Icon name="search" size={24} /><strong>Nenhum registro neste recorte</strong><span>Revise a busca ou os filtros de patrimônio.</span></div> : null}
-    </section>
-  );
-}
-
-function Dossier({ item, onClose, onQrRequest }) {
-  const closeRef = useRef(null);
-  useEffect(() => {
-    if (!item) return undefined;
-    closeRef.current?.focus();
-    function handleEscape(event) { if (event.key === "Escape") onClose(); }
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [item, onClose]);
-  if (!item) return null;
-  return (
-    <div className="pv-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()} role="presentation">
-      <aside aria-labelledby="dossier-title" aria-modal="true" className="pv-dossier" role="dialog">
-        <header><span><small>DOSSIÊ PATRIMONIAL</small><h2 id="dossier-title">{item.name}</h2><p>{item.technicalId}</p></span><button aria-label="Fechar dossiê" onClick={onClose} ref={closeRef} type="button"><Icon name="close" /></button></header>
-        <div className="pv-dossier__identity"><PatrimonyBadge item={item} /><span>{DEPLOYMENT_LABELS[item.deploymentState]}</span></div>
-        <dl>
-          <div><dt>ID técnico</dt><dd>{item.technicalId}</dd></div>
-          <div><dt>Categoria</dt><dd>{item.category}</dd></div>
-          <div><dt>Posição atual</dt><dd>{item.location}</dd></div>
-          <div><dt>Elegibilidade</dt><dd>{item.eligibility === "eligible" ? "Elegível" : item.eligibility === "legacy" ? "Máquina legado" : "Não patrimoniável"}</dd></div>
-          <div><dt>Estado</dt><dd>{READINESS_LABELS[item.readiness]}</dd></div>
-          <div><dt>Lote</dt><dd>{item.batchId || "Ainda sem lote"}</dd></div>
-        </dl>
-        <section><small>NOTA DE CONTROLE</small><p>{item.note}</p></section>
-        <footer>
-          <button className="pv-button pv-button--quiet" disabled={!item.patrimonyCode} onClick={() => onQrRequest(item)} type="button"><Icon name="qr" />Abrir QR fictício</button>
-          <button className="pv-button pv-button--primary" onClick={onClose} type="button">Concluir leitura</button>
-        </footer>
+        <footer><span><Icon name="info" size={16} />A campanha mede equipamentos. Os {summary.emitted} patrimônios emitidos são controlados separadamente.</span><button onClick={() => onScenario("lotes")} type="button">Abrir lotes <Icon name="chevron" size={14} /></button></footer>
+      </section>
+      <aside className="pv-decision-queue" aria-labelledby="queue-title">
+        <header><small>PRÓXIMA AÇÃO</small><h2 id="queue-title">Fila operacional</h2></header>
+        <button onClick={() => onScenario("ativacao")} type="button"><span className="is-teal"><Icon name="qr" /></span><div><strong>{summary.availableLabels} etiquetas livres</strong><small>Vincular por QR ou código</small></div><Icon name="chevron" /></button>
+        <button onClick={() => onScenario("aplicacao")} type="button"><span><Icon name="tag" /></span><div><strong>{summary.bound} aguardam aplicação</strong><small>Vínculo concluído; falta o físico</small></div><Icon name="chevron" /></button>
+        <button onClick={() => onScenario("conferencia")} type="button"><span className="is-green"><Icon name="check" /></span><div><strong>{summary.applied} aguardam conferência</strong><small>Segunda leitura independente</small></div><Icon name="chevron" /></button>
+        <button onClick={() => onScenario("divergencia")} type="button"><span className="is-amber"><Icon name="alert" /></span><div><strong>{summary.review} revisões logísticas</strong><small>Corrigir pela movimentação oficial</small></div><Icon name="chevron" /></button>
       </aside>
     </div>
   );
 }
 
-function QrPreviewDialog({ preview, onClose }) {
+function PatrimonyMark({ equipment, label }) {
+  if (!equipment.eligible) return <span className="pv-code-badge is-non_asset">Não patrimoniável</span>;
+  if (!label) return <span className="pv-code-badge is-missing">Patrimônio pendente</span>;
+  return <span className={`pv-code-badge is-${label.state}`}><strong>{label.code}</strong><small>{LABEL_STATES[label.state]}</small></span>;
+}
+
+function InventoryLedger({ state, onSelect, focusMode = "all" }) {
+  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState({ patrimony: focusMode === "legacy" ? "legacy" : "all", category: "", position: "" });
+  const [page, setPage] = useState(1);
+  const searchRef = useRef(null);
+  const filtered = useMemo(() => filterInventory(state, filters, query), [state, filters, query]);
+  const pageSize = 12;
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => setPage(1), [query, filters]);
+  useEffect(() => {
+    setFilters((current) => ({ ...current, patrimony: focusMode === "legacy" ? "legacy" : "all" }));
+  }, [focusMode]);
+  useEffect(() => {
+    function focusSearch(event) {
+      const tagName = event.target?.tagName;
+      if (event.key !== "/" || ["INPUT", "SELECT", "TEXTAREA"].includes(tagName)) return;
+      event.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener("keydown", focusSearch);
+    return () => window.removeEventListener("keydown", focusSearch);
+  }, []);
+  function changeFilter(key, value) { setFilters((current) => ({ ...current, [key]: value })); }
+  return (
+    <section className="pv-ledger" aria-labelledby="inventory-ledger-title">
+      <header className="pv-ledger-head"><div><small>FONTE OPERACIONAL · EQUIPAMENTOS</small><h2 id="inventory-ledger-title">Inventory Ledger</h2></div><span><strong>{filtered.length}</strong> no recorte</span></header>
+      <div className="pv-ledger-toolbar">
+        <label className="pv-search"><span className="pv-sr-only">Buscar</span><Icon name="search" /><input onChange={(event) => setQuery(event.target.value)} placeholder="Buscar NP, equipamento, ID ou referência anterior" ref={searchRef} value={query} /><kbd>/</kbd></label>
+        <label><span>Patrimônio</span><select onChange={(event) => changeFilter("patrimony", event.target.value)} value={filters.patrimony}>{INVENTORY_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        <label><span>Categoria</span><select onChange={(event) => changeFilter("category", event.target.value)} value={filters.category}><option value="">Todas</option>{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
+        <label><span>Posição</span><select onChange={(event) => changeFilter("position", event.target.value)} value={filters.position}><option value="">Todas</option><option value="stock">Estoque</option><option value="point">Ponto</option><option value="manager">Gerente</option><option value="repair">Conserto</option><option value="transfer">Transferência</option><option value="review">Revisão</option></select></label>
+      </div>
+      <div className="pv-ledger-scroll">
+        <table>
+          <thead><tr><th>Equipamento</th><th>Patrimônio NEPTERA</th><th>Referência anterior</th><th>Posição atual</th><th>Situação</th><th><span className="pv-sr-only">Ação</span></th></tr></thead>
+          <tbody>{rows.map((equipment) => {
+            const label = labelForEquipment(state.labels, equipment.id);
+            const situation = equipmentPatrimonyState(equipment, state.labels);
+            return <tr key={equipment.id}><td data-label="Equipamento"><strong>{equipment.name}</strong><small>{equipment.technicalId} · {equipment.category}</small></td><td data-label="Patrimônio"><PatrimonyMark equipment={equipment} label={label} /></td><td data-label="Referência anterior"><strong>{equipment.legacyCode || "—"}</strong><small>{equipment.legacyCode ? "Histórico preservado" : "Sem referência"}</small></td><td data-label="Posição atual"><strong>{equipment.position.label}</strong><small>{equipment.position.route}{equipment.position.manager ? ` · ${equipment.position.manager}` : ""}</small></td><td data-label="Situação"><span className={`pv-state is-${situation}`}>{situation === "review" ? "Revisão logística" : equipment.status}</span><small>{situation === "missing" ? "Sem NP" : situation === "pendente" ? "Trabalho físico pendente" : situation === "conferido" ? "Identidade conferida" : "Catálogo"}</small></td><td><button aria-label={`Abrir dossiê de ${equipment.name}`} className="pv-row-action" onClick={() => onSelect(equipment.id)} type="button">Dossiê <Icon name="chevron" size={15} /></button></td></tr>;
+          })}</tbody>
+        </table>
+      </div>
+      <footer className="pv-pagination"><span>Página {page} de {pages}</span><div><button disabled={page === 1} onClick={() => setPage((value) => value - 1)} type="button">Anterior</button><button disabled={page === pages} onClick={() => setPage((value) => value + 1)} type="button">Próxima</button></div></footer>
+    </section>
+  );
+}
+
+function Dossier({ state, equipmentId, onClose, onQr }) {
   const closeRef = useRef(null);
+  const dialogRef = useRef(null);
+  const equipment = state.equipments.find((item) => item.id === equipmentId);
+  const label = equipment ? labelForEquipment(state.labels, equipment.id) : null;
+  const events = label ? state.events.filter((event) => event.labelId === label.id).slice(-4).reverse() : [];
   useEffect(() => {
+    if (!equipment) return undefined;
+    const previousFocus = document.activeElement;
     closeRef.current?.focus();
-    function handleEscape(event) { if (event.key === "Escape") onClose(); }
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
+    function handleKey(event) {
+      if (event.key === "Escape") onClose();
+      else keepDialogFocus(event, dialogRef.current);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      previousFocus?.focus?.();
+    };
+  }, [equipment, onClose]);
+  if (!equipment) return null;
   return (
     <div className="pv-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()} role="presentation">
-      <section aria-labelledby="qr-preview-title" aria-modal="true" className="pv-qr-preview" role="dialog">
-        <header><span><small>QR FICTÍCIO · PUBLIC_ID</small><h2 id="qr-preview-title">{preview.item.patrimonyCode}</h2></span><button aria-label="Fechar QR fictício" onClick={onClose} ref={closeRef} type="button"><Icon name="close" /></button></header>
-        <img alt={`QR fictício de ${preview.item.patrimonyCode}`} src={preview.dataUrl} />
-        <p>{preview.item.name}</p>
-        <code>{preview.payload}</code>
-        <footer><button className="pv-button pv-button--primary" onClick={onClose} type="button">Concluir leitura</button></footer>
-      </section>
+      <aside aria-labelledby="pv-dossier-title" aria-modal="true" className="pv-dossier" ref={dialogRef} role="dialog">
+        <header><div><small>DOSSIÊ DO EQUIPAMENTO</small><h2 id="pv-dossier-title">{equipment.name}</h2><p>{equipment.technicalId} · {equipment.category}</p></div><button aria-label="Fechar dossiê" onClick={onClose} ref={closeRef} type="button"><Icon name="close" /></button></header>
+        <section className="pv-dossier-identity"><small>IDENTIDADE PATRIMONIAL</small><PatrimonyMark equipment={equipment} label={label} /><dl><div><dt>Origem</dt><dd>{label ? label.origin === "cadastro" ? "Cadastro" : "Implantação inicial" : "—"}</dd></div><div><dt>Etiqueta</dt><dd>{label ? LABEL_STATES[label.state] : "Não emitida"}</dd></div><div><dt>Lote</dt><dd>{label?.batchId || "—"}</dd></div><div><dt>Referência anterior</dt><dd>{equipment.legacyCode || "—"}</dd></div></dl></section>
+        <section className="pv-dossier-position"><small>POSIÇÃO OPERACIONAL · FONTE EQUIPAMENTOS</small><h3>{equipment.position.label}</h3><p>{equipment.position.route}{equipment.position.manager ? ` · ${equipment.position.manager}` : ""}</p><span><Icon name="route" />Movimentações não alteram NP ou QR.</span></section>
+        <section className="pv-dossier-history"><small>HISTÓRICO PATRIMONIAL</small>{events.length ? <ol>{events.map((event) => <li key={event.id}><i /><span><strong>{event.title}</strong><small>{event.actor} · {new Date(event.createdAt).toLocaleDateString("pt-BR")}</small></span></li>)}</ol> : <p>Nenhum evento patrimonial para este equipamento.</p>}</section>
+        <footer><button className="pv-button" disabled={!label} onClick={() => label && onQr(label)} type="button"><Icon name="qr" />Abrir QR</button><button className="pv-button pv-button--primary" onClick={onClose} type="button">Concluir leitura</button></footer>
+      </aside>
     </div>
   );
 }
 
-function ExclusionLine({ label, value }) {
-  return <li><span>{label}</span><strong>{value}</strong></li>;
-}
-
-function BatchPreviewDialog({ preview, confirmed, onConfirmed, onClose, onGenerate }) {
-  const headingRef = useRef(null);
+function BatchPreview({ preview, confirmed, onConfirmed, onGenerate, onClose }) {
+  const titleRef = useRef(null);
+  const dialogRef = useRef(null);
   useEffect(() => {
-    headingRef.current?.focus();
-    function handleEscape(event) { if (event.key === "Escape") onClose(); }
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
+    const previousFocus = document.activeElement;
+    titleRef.current?.focus();
+    function handleKey(event) {
+      if (event.key === "Escape") onClose();
+      else keepDialogFocus(event, dialogRef.current);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      previousFocus?.focus?.();
+    };
   }, [onClose]);
   return (
     <div className="pv-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()} role="presentation">
-      <section aria-labelledby="batch-preview-title" aria-modal="true" className="pv-batch-preview" role="dialog">
-        <header><span><small>PREVIEW DO LOTE · SEM GRAVAÇÃO</small><h2 id="batch-preview-title" ref={headingRef} tabIndex="-1">Confirme a faixa antes de gerar</h2></span><button aria-label="Fechar preview" onClick={onClose} type="button"><Icon name="close" /></button></header>
-        <div className="pv-preview-range"><span>FAIXA ESTIMADA</span><strong>{preview.rangeLabel}</strong><small>{preview.included.length} códigos previstos · sequência ainda não consumida</small></div>
-        <div className="pv-preview-ledger">
-          <section><header><span>Incluídos</span><strong>{preview.included.length}</strong></header><p>Elegíveis, sem código e aptos no recorte atual.</p><ol>{preview.included.slice(0, 6).map((item, index) => <li key={item.id}><code>{formatNp(preview.rangeStart + index)}</code><span>{item.name}<small>{item.technicalId}</small></span></li>)}</ol>{preview.included.length > 6 ? <em>+ {preview.included.length - 6} itens na mesma regra</em> : null}</section>
-          <section><header><span>Excluídos</span><strong>{preview.excluded.length}</strong></header><p>Nenhum destes registros receberá código neste lote.</p><ul><ExclusionLine label="Patrimoniáveis com legado" value={preview.excludedCounts.alreadyCoded} /><ExclusionLine label="Em revisão" value={preview.excludedCounts.review} /><ExclusionLine label="Não patrimoniáveis" value={preview.excludedCounts.nonPatrimonial} /><ExclusionLine label="Além do limite" value={preview.excludedCounts.beyondLimit} /></ul></section>
-        </div>
-        <label className="pv-explicit-confirm"><input checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} type="checkbox" /><span><strong>Confirmo a geração simulada desta faixa</strong><small>O resultado existe somente em memória e repetir esta confirmação não duplica o lote.</small></span></label>
-        <footer><button className="pv-button pv-button--quiet" onClick={onClose} type="button">Cancelar</button><button className="pv-button pv-button--primary" disabled={!confirmed || !preview.included.length} onClick={onGenerate} type="button"><Icon name="tag" />Gerar lote simulado</button></footer>
+      <section aria-labelledby="pv-preview-title" aria-modal="true" className="pv-batch-preview" ref={dialogRef} role="dialog">
+        <header><div><small>CONFIRMAÇÃO IRREVERSÍVEL DE IDENTIDADE</small><h2 id="pv-preview-title" ref={titleRef} tabIndex="-1">Gerar {preview.quantity} patrimônios?</h2></div><button aria-label="Fechar" onClick={onClose} type="button"><Icon name="close" /></button></header>
+        <div className="pv-preview-identity"><span><small>CAMPANHA</small><strong>{preview.campaignName}</strong></span><span><small>LOTE</small><strong>{preview.batchId}</strong></span><span><small>CONTEXTO PLANEJADO</small><strong>{preview.context.label}</strong></span></div>
+        <div className="pv-preview-estimate"><small>FAIXA ESTIMADA · NÃO RESERVADA</small><strong>{preview.estimateLabel}</strong><p>Concorrência pode intercalar números. O PDF definitivo usará somente a lista persistida após a geração.</p></div>
+        {preview.excess ? <div className="pv-preview-excess" role="alert"><Icon name="alert" /><span><strong>Excesso sob confirmação</strong><small>Você está gerando {preview.excess} etiqueta{preview.excess > 1 ? "s" : ""} a mais que a demanda atual deste recorte ({preview.demand}).</small></span></div> : null}
+        <div className="pv-preview-rule"><Icon name="alert" /><span><strong>Os códigos gerados serão permanentes e não serão reutilizados.</strong><small>Cancelar depois da geração não apaga identidades; cada etiqueta deverá ser usada, transferida ou anulada com motivo.</small></span></div>
+        <label className="pv-explicit-confirm"><input checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} type="checkbox" /><span><strong>Confirmo a geração local de {preview.quantity} identidades fictícias{preview.excess ? `, incluindo o excesso de ${preview.excess}` : ""}</strong><small>Esta ação existe somente na memória do harness.</small></span></label>
+        <footer><button className="pv-button" onClick={onClose} type="button">Cancelar</button><button className="pv-button pv-button--primary" disabled={!confirmed} onClick={onGenerate} type="button"><Icon name="tag" />Gerar {preview.quantity} patrimônios</button></footer>
       </section>
     </div>
   );
 }
 
-function EmptyBatches({ onPrepare }) {
-  return <section className="pv-empty-panel"><span><Icon name="layers" size={28} /></span><small>FILA DE IMPLANTAÇÃO</small><h2>Nenhum lote foi preparado</h2><p>Monte um recorte na visão geral e confira incluídos, excluídos e faixa estimada antes de gerar.</p><button className="pv-button pv-button--primary" onClick={onPrepare} type="button">Preparar primeiro lote</button></section>;
+function LabelState({ state }) {
+  return <span className={`pv-label-state is-${state}`}>{LABEL_STATES[state]}</span>;
 }
 
-function BatchesView({ batches, items, activeBatchId, onPrepare, onLabels, onWork }) {
-  if (!batches.length) return <EmptyBatches onPrepare={onPrepare} />;
+function BatchesView({ state, onState, selectedBatchId, onSelectedBatch, onPrepare, onArtifact, onDeploy }) {
+  const batch = state.batches.find((item) => item.id === selectedBatchId) || state.batches[0];
+  const labels = batchLabels(state, batch);
+  async function artifact(type) {
+    if (!batch) return;
+    if (type === "labels") {
+      const marked = markBatchPrinted(state, batch.id);
+      onState(marked.state);
+      await onArtifact(type, buildLabelPrintJob(marked.state, batch));
+      return;
+    }
+    if (type === "route") await onArtifact(type, buildRouteReportJob(state, batch));
+    if (type === "final") await onArtifact(type, buildFinalReportJob(state, batch));
+    if (type === "calibration") await onArtifact(type, { sample: true, batchId: batch.id });
+  }
   return (
-    <section className="pv-batches" aria-labelledby="batches-title">
-      <header><div><small>FILA LOCAL</small><h2 id="batches-title">Lotes de implantação</h2><p>Etiquetas e trabalho de campo avançam pela mesma faixa.</p></div><button className="pv-button pv-button--quiet" onClick={onPrepare} type="button"><Icon name="tag" />Novo lote</button></header>
-      <div className="pv-batch-lines">
-        {batches.map((batch) => {
-          const progress = batchProgress(items, batch);
-          return (
-            <article className={activeBatchId === batch.id ? "is-active" : ""} key={batch.id}>
-              <span className="pv-batch-register">{batch.id}</span>
-              <div className="pv-batch-main"><small>{batch.createdLabel}</small><strong>{batch.rangeLabel}</strong><span>{batch.itemIds.length} etiquetas · {BATCH_STATUS_LABELS[batch.status]}</span></div>
-              <div className="pv-batch-progress"><span><b>{progress.applied}</b> aplicados <i /> <b>{progress.verified}</b> conferidos</span><div><i style={{ width: `${progress.appliedPercent}%` }} /><b style={{ width: `${progress.verifiedPercent}%` }} /></div></div>
-              <div className="pv-batch-actions"><button onClick={() => onLabels(batch)} type="button"><Icon name="printer" />{batch.status === "labels_pending" ? "Preparar etiquetas" : "Reabrir etiquetas"}</button><button className="is-primary" onClick={() => onWork(batch)} type="button"><Icon name="play" />Abrir trabalho</button></div>
-            </article>
-          );
-        })}
+    <section className="pv-batches-layout" aria-label="Lotes patrimoniais">
+      <div className="pv-batches-main">
+        <header><div><small>CONTROLE DE ETIQUETAS</small><h2>Lotes da campanha</h2><p>O lote mede identidades físicas; a campanha mede equipamentos.</p></div><button className="pv-button pv-button--primary" onClick={onPrepare} type="button"><Icon name="plus" />Novo lote</button></header>
+        <div className="pv-batch-list">{state.batches.map((item) => {
+          const progress = batchProgress(state, item);
+          return <button aria-pressed={item.id === batch?.id} className={item.id === batch?.id ? "is-selected" : ""} key={item.id} onClick={() => onSelectedBatch(item.id)} type="button"><code>{item.id}</code><span><strong>{item.context.label}</strong><small>{item.plannedQuantity} planejados · {BATCH_STATUS[item.status]}</small></span><div><b>{progress.total}</b><small>gerados</small></div><div><b>{progress.available}</b><small>disponíveis</small></div><div><b>{progress.bound}</b><small>vinculados</small></div><div><b>{progress.applied}</b><small>aplicados</small></div><div><b>{progress.verified}</b><small>conferidos</small></div><i><span style={{ width: `${progress.percent}%` }} /></i></button>;
+        })}</div>
+        {batch ? <section className="pv-label-ledger"><header><div><small>LOTE ABERTO</small><h3>{batch.id}</h3></div><span>{labels.length || batch.plannedQuantity} {labels.length ? "identidades persistidas" : "planejadas"}</span></header>{labels.length ? <div className="pv-label-table"><div className="pv-label-table-head"><span>Patrimônio</span><span>Estado</span><span>Equipamento</span><span>Impressões</span></div>{labels.map((label) => { const equipment = state.equipments.find((item) => item.id === label.equipmentId); return <button key={label.id} onClick={() => onDeploy(label.id)} type="button"><code>{label.code}</code><LabelState state={label.state} /><span>{equipment?.name || "Sem vínculo"}<small>{equipment?.position.label || "Etiqueta livre"}</small></span><b>{label.printCount}</b><Icon name="chevron" size={15} /></button>; })}</div> : <div className="pv-batch-empty"><Icon name="tag" size={26} /><strong>Lote preparado; nenhuma identidade emitida</strong><span>Gerar é a única ação que consome a sequência NP.</span><button className="pv-button pv-button--primary" onClick={onPrepare} type="button">Gerar {batch.plannedQuantity} patrimônios</button></div>}</section> : null}
       </div>
+        {batch ? <aside className="pv-batch-inspector"><header><small>DOSSIÊ DO LOTE</small><h2>{batch.id}</h2><span className={`pv-status is-${batch.status}`}>{BATCH_STATUS[batch.status]}</span></header><dl><div><dt>Campanha</dt><dd>{state.campaign.name}</dd></div><div><dt>Contexto</dt><dd>{batch.context.label}</dd></div><div><dt>Quantidade planejada</dt><dd>{batch.plannedQuantity}</dd></div><div><dt>Identidades reais</dt><dd>{labels.length}</dd></div><div><dt>Impressões</dt><dd>{batch.printCount}</dd></div></dl><section><small>DOCUMENTOS FICTÍCIOS</small><button disabled={!labels.length} onClick={() => artifact("labels")} type="button"><Icon name="printer" />Etiquetas livres</button><button onClick={() => artifact("route")} type="button"><Icon name="route" />Roteiro sem associação</button><button onClick={() => artifact("calibration")} type="button"><Icon name="document" />Folha de calibração</button><button disabled={batch.status !== "concluido"} onClick={() => artifact("final")} type="button"><Icon name="check" />Relatório pós-implantação</button></section><footer><button className="pv-button pv-button--primary" disabled={!labels.length} onClick={() => onDeploy(labels.find((label) => label.state === "disponivel")?.id || labels[0]?.id)} type="button"><Icon name="play" />Continuar implantação</button></footer></aside> : null}
     </section>
   );
 }
 
-function DeploymentResult({ result, onQr }) {
-  if (!result) return null;
-  const tone = result.tone || "info";
-  return (
-    <div className={`pv-work-result is-${tone}`} role="status">
-      <Icon name={tone === "success" ? "check" : tone === "warning" ? "alert" : "info"} />
-      <span><strong>{result.title}</strong><small>{result.detail}</small></span>
-      {result.item?.patrimonyCode ? <button onClick={() => onQr(result.item)} type="button"><Icon name="qr" size={15} />QR</button> : null}
-    </div>
-  );
+function ActivationStepper({ step }) {
+  const normalizedStep = step === "confirm" ? "equipment" : step === "manual" ? "scan" : step;
+  const current = Math.max(0, STEP_LABELS.findIndex(([id]) => id === normalizedStep));
+  return <ol className="pv-activation-steps" aria-label="Etapas da implantação">{STEP_LABELS.map(([id, label], index) => <li className={index < current ? "is-done" : index === current ? "is-current" : ""} key={id}><i>{index < current ? <Icon name="check" size={12} /> : index + 1}</i><span>{label}</span></li>)}</ol>;
 }
 
-function DeploymentView({ batches, items, activeBatch, onActiveBatch, onItems, onQrRequest }) {
-  const [workMode, setWorkMode] = useState("apply");
+function ActivationFlow({ state, onState, initialStep, initialLabelId, initialContextId, onOpenDossier }) {
+  const [step, setStep] = useState(initialStep || "scan");
+  const [labelId, setLabelId] = useState(initialLabelId || "pat-000001");
+  const [contextId, setContextId] = useState(initialContextId || "");
+  const [equipmentId, setEquipmentId] = useState("");
+  const [equipmentQuery, setEquipmentQuery] = useState("");
+  const [globalEquipmentSearch, setGlobalEquipmentSearch] = useState(false);
+  const [manualCode, setManualCode] = useState("");
   const [code, setCode] = useState("");
-  const [result, setResult] = useState(null);
-  const inputRef = useRef(null);
-  const progress = batchProgress(items, activeBatch);
-  const rows = batchItems(items, activeBatch);
+  const [message, setMessage] = useState("");
+  const label = state.labels.find((item) => item.id === labelId) || state.labels.find((item) => item.state === "disponivel");
+  const boundEquipment = state.equipments.find((item) => item.id === label?.equipmentId) || null;
+  const candidates = candidateEquipments(state, globalEquipmentSearch ? "" : contextId, equipmentQuery);
+  const visibleCandidates = globalEquipmentSearch && equipmentQuery.trim().length < 2
+    ? []
+    : contextId === "bar-savio" && !globalEquipmentSearch
+    ? candidates.filter((item) => item.category === "Terminais").slice(0, 2)
+    : candidates.slice(0, 6);
+  const selectedEquipment = state.equipments.find((item) => item.id === equipmentId) || visibleCandidates[0] || boundEquipment;
 
-  useEffect(() => { setResult(null); setCode(""); }, [activeBatch?.id, workMode]);
-
-  function submit(event) {
-    event.preventDefault();
-    const resolution = resolveAssetByCode(items, code, activeBatch?.itemIds || []);
-    if (resolution.status !== "found") {
-      const messages = {
-        invalid: ["Formato incompleto", "Digite o código completo ou exatamente os últimos 4 ou 6 dígitos."],
-        not_found: ["Código fora deste lote", "Confira a faixa ativa e tente novamente."],
-        ambiguous: ["Código ambíguo", "Use o patrimônio completo para escolher um único equipamento."],
-      };
-      const [title, detail] = messages[resolution.status] || messages.not_found;
-      setResult({ tone: "warning", title, detail });
-      return;
-    }
-    const item = resolution.item;
-    if (workMode === "verify" && item.deploymentState === "etiqueta_pendente") {
-      setResult({ tone: "warning", title: "Aplicação ainda pendente", detail: `${item.patrimonyCode} precisa passar primeiro pelo modo Aplicar.`, item });
-      return;
-    }
-    const marked = markDeployment(items, item.id, workMode);
-    onItems(marked.items);
-    setResult({
-      tone: marked.changed ? "success" : "info",
-      title: marked.changed ? (workMode === "apply" ? "Etiqueta aplicada" : "Etiqueta conferida") : "Leitura já registrada",
-      detail: marked.changed ? `${item.patrimonyCode} · ${item.name}` : "A operação é idempotente; nenhum registro foi duplicado.",
-      item: { ...item, deploymentState: workMode === "apply" ? "aplicado" : "conferido" },
-    });
+  useEffect(() => {
+    setStep(initialStep || "scan");
+    setLabelId(initialLabelId || "pat-000001");
+    setContextId(initialContextId || "");
+    setEquipmentId("");
+    setEquipmentQuery("");
+    setGlobalEquipmentSearch(false);
+    setManualCode("");
     setCode("");
-    inputRef.current?.focus();
+    setMessage("");
+  }, [initialStep, initialLabelId, initialContextId]);
+
+  function chooseContext(context) {
+    setContextId(context.id);
+    setEquipmentId("");
+    setEquipmentQuery("");
+    setGlobalEquipmentSearch(false);
+    setStep("equipment");
   }
 
-  if (!batches.length || !activeBatch) {
-    return <section className="pv-empty-panel"><span><Icon name="deploy" size={28} /></span><small>TRABALHO DE CAMPO</small><h2>Prepare um lote para começar</h2><p>Aplicação e conferência ficam separadas assim que uma faixa for gerada.</p></section>;
+  function resolveManualCode(event) {
+    event.preventDefault();
+    const result = resolveLabelByCode(state.labels, manualCode);
+    if (result.status !== "found") {
+      setMessage(result.status === "ambiguous"
+        ? "Mais de uma etiqueta corresponde aos dígitos informados. Digite o código completo."
+        : "Patrimônio não encontrado neste cenário local.");
+      return;
+    }
+    setLabelId(result.label.id);
+    setMessage("");
+    setStep(result.label.state === "disponivel"
+      ? "context"
+      : result.label.state === "vinculado"
+        ? "apply"
+        : result.label.state === "aplicado"
+          ? "verify"
+          : result.label.state === "conferido"
+            ? "complete"
+            : "scan");
   }
+
+  function bind() {
+    const result = bindFreeLabel(state, {
+      labelId: label.id,
+      equipmentId: selectedEquipment.id,
+      expectedLocation: selectedEquipment.position.label,
+      idempotencyKey: `bind-${label.id}-${selectedEquipment.id}`,
+    });
+    if (!result.ok) { setMessage("Não foi possível concluir o vínculo neste estado."); return; }
+    onState(result.state);
+    setStep("apply");
+    setMessage("");
+  }
+
+  function apply() {
+    const result = markLabelApplied(state, label.id);
+    if (!result.ok) { setMessage("A etiqueta precisa estar vinculada antes da aplicação."); return; }
+    onState(result.state);
+    setStep("verify");
+    setMessage("");
+  }
+
+  function verify(event) {
+    event.preventDefault();
+    const result = confirmLabel(state, { labelId: label.id, input: code, method: "codigo" });
+    if (!result.ok) { setMessage(result.code === "CODE_MISMATCH" ? `Código diferente do esperado: ${label.code}.` : "A aplicação precisa ser registrada primeiro."); return; }
+    onState(result.state);
+    setStep("complete");
+    setMessage("");
+  }
+
+  const equipment = boundEquipment || selectedEquipment;
   return (
-    <section className="pv-deployment" aria-labelledby="deployment-title">
-      <header className="pv-work-head">
-        <div><small>TRABALHO ATIVO</small><h2 id="deployment-title">{activeBatch.id}</h2><p>{activeBatch.rangeLabel}</p></div>
-        <label><span>Selecionar lote</span><select onChange={(event) => onActiveBatch(event.target.value)} value={activeBatch.id}>{batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.id} · {batch.rangeLabel}</option>)}</select></label>
-      </header>
-      <div className="pv-work-progress"><span><small>PROGRESSÃO DO LOTE</small><strong>{progress.verified} / {progress.total}</strong><em>conferidos</em></span><div><i style={{ width: `${progress.appliedPercent}%` }} /><b style={{ width: `${progress.verifiedPercent}%` }} /></div><p><span><i className="is-applied" />{progress.applied} aplicados</span><span><i className="is-verified" />{progress.verified} conferidos</span><span>{progress.pending} por aplicar</span></p></div>
-      <div className="pv-workspace">
-        <section className="pv-code-station" data-work-mode={workMode}>
-          <RovingTabs className="pv-work-tabs" label="Etapa do trabalho" onChange={setWorkMode} options={[{ value: "apply", label: "Aplicar etiqueta", icon: "tag" }, { value: "verify", label: "Conferir etiqueta", icon: "check" }]} value={workMode} />
-          <div className="pv-station-copy"><small>{workMode === "apply" ? "ETAPA 1 · APLICAÇÃO" : "ETAPA 2 · CONFERÊNCIA"}</small><h3>{workMode === "apply" ? "Registrar etiqueta aplicada" : "Confirmar etiqueta no equipamento"}</h3><p>{workMode === "apply" ? "Cole a etiqueta física e registre o código." : "Faça uma leitura independente depois da aplicação."}</p></div>
-          <form onSubmit={submit}><label><span>Código patrimonial</span><div><input autoComplete="off" inputMode="text" onChange={(event) => setCode(event.target.value)} placeholder="NP-000059 ou últimos 4/6" ref={inputRef} value={code} /><button className="pv-button pv-button--primary" type="submit">{workMode === "apply" ? "Registrar aplicação" : "Confirmar leitura"}<Icon name="arrow" /></button></div><small>Código completo ou finais com exatamente 4 ou 6 dígitos.</small></label></form>
-          <DeploymentResult onQr={onQrRequest} result={result} />
-        </section>
-        <aside className="pv-work-queue"><header><span><small>FILA DO LOTE</small><strong>{rows.length} etiquetas</strong></span><em>{workMode === "apply" ? "Aplicação" : "Conferência"}</em></header><ol>{rows.slice(0, 12).map((item) => <li className={`is-${item.deploymentState}`} key={item.id}><button onClick={() => { setCode(item.patrimonyCode); inputRef.current?.focus(); }} type="button"><code>{item.patrimonyCode}</code><span>{item.name}<small>{DEPLOYMENT_LABELS[item.deploymentState]}</small></span><i>{item.deploymentState === "conferido" ? <Icon name="check" size={14} /> : item.deploymentState === "aplicado" ? "A" : "·"}</i></button></li>)}</ol>{rows.length > 12 ? <p>+ {rows.length - 12} registros no lote</p> : null}</aside>
+    <section className="pv-activation-shell" aria-labelledby="activation-title">
+      <header className="pv-activation-head"><div><small>TRABALHO DE CAMPO · MOBILE-FIRST</small><h2 id="activation-title">Ativação patrimonial</h2><p>{label?.batchId || "Cadastro futuro"} · sem leitura de câmera interna</p></div><span><Icon name="shield" />Backend obrigatório para mutações</span></header>
+      <ActivationStepper step={step === "divergence" ? "verify" : step} />
+      <div className="pv-activation-workspace">
+        <article className="pv-mobile-workcard">
+          {step === "scan" ? <><small>ETIQUETA LIVRE</small><div className="pv-mobile-code"><Icon name="qr" size={42} /><span><strong>{label.code}</strong><em>Disponível para vinculação</em></span></div><p>O QR contém somente um identificador público aleatório. Equipamento e posição são resolvidos após autenticação.</p><button className="pv-button pv-button--primary" onClick={() => setStep("context")} type="button">Ativar patrimônio <Icon name="arrow" /></button><button className="pv-link-button" onClick={() => { setManualCode(""); setMessage(""); setStep("manual"); }} type="button">Usar código digitado</button></> : null}
+          {step === "manual" ? <><small>LOCALIZAÇÃO MANUAL</small><h3>Digite o patrimônio</h3><p>Use o código completo ou os últimos 4/6 dígitos. Entradas ambíguas nunca são presumidas.</p><form onSubmit={resolveManualCode}><label><span>Código da etiqueta</span><input autoComplete="off" autoFocus onChange={(event) => setManualCode(event.target.value)} placeholder="NP-000001" value={manualCode} /></label><button className="pv-button pv-button--primary" type="submit">Continuar</button></form><button className="pv-link-button" onClick={() => { setMessage(""); setStep("scan"); }} type="button">Voltar ao QR</button></> : null}
+          {step === "context" ? <><small>ONDE VOCÊ ESTÁ TRABALHANDO?</small><h3>Escolha o contexto atual</h3><p>A escolha reduz a lista; ela não muda a localização do equipamento.</p><div className="pv-context-grid">{OPERATING_CONTEXTS.map((context) => <button key={context.id} onClick={() => chooseContext(context)} type="button"><Icon name={context.type === "stock" ? "box" : context.type === "point" ? "pin" : context.type === "manager" ? "user" : context.type === "transfer" ? "route" : "wrench"} /><span><strong>{context.label}</strong><small>{context.route}</small></span><Icon name="chevron" size={15} /></button>)}</div></> : null}
+          {step === "equipment" ? <><small>{contextId === "bar-savio" && !globalEquipmentSearch ? "BAR DO SÁVIO · CENÁRIO FICTÍCIO" : "EQUIPAMENTOS ELEGÍVEIS"}</small><h3>Qual equipamento receberá {label.code}?</h3><p>{globalEquipmentSearch ? "Busca direta em toda a base elegível; confira a posição antes de selecionar." : "Somente patrimoniáveis, sem NP e dentro do contexto atual."}</p><label className="pv-candidate-search"><span>{globalEquipmentSearch ? "Buscar em toda a base" : "Buscar neste contexto"}</span><div><Icon name="search" /><input onChange={(event) => { setEquipmentQuery(event.target.value); setEquipmentId(""); }} placeholder="Nome, ponto, ID ou referência anterior" value={equipmentQuery} /></div></label><button className="pv-search-scope" aria-pressed={globalEquipmentSearch} onClick={() => { setGlobalEquipmentSearch((value) => !value); setEquipmentId(""); setEquipmentQuery(""); }} type="button">{globalEquipmentSearch ? "Voltar ao contexto atual" : "Buscar em toda a base"}</button>{visibleCandidates.length ? <div className="pv-candidate-list">{visibleCandidates.map((candidate) => <button aria-pressed={selectedEquipment?.id === candidate.id} className={selectedEquipment?.id === candidate.id ? "is-selected" : ""} key={candidate.id} onClick={() => setEquipmentId(candidate.id)} type="button"><span><strong>{candidate.name}</strong><small>{candidate.category} · {candidate.technicalId} · {candidate.position.label}</small></span><em>{candidate.legacyCode || "Sem referência anterior"}</em><Icon name="check" /></button>)}</div> : <div className="pv-candidate-empty"><Icon name="search" /><span><strong>{globalEquipmentSearch && equipmentQuery.trim().length < 2 ? "Digite para buscar na base" : "Nenhum equipamento elegível"}</strong><small>{globalEquipmentSearch && equipmentQuery.trim().length < 2 ? "Informe ao menos 2 caracteres; nenhum resultado global é presumido." : "Revise a busca ou escolha outro contexto."}</small></span></div>}<button className="pv-button pv-button--primary" disabled={!selectedEquipment} onClick={() => setStep("confirm")} type="button">Revisar vínculo <Icon name="arrow" /></button><button className="pv-link-button" onClick={() => setStep("context")} type="button">Trocar local</button></> : null}
+          {step === "confirm" ? <><small>CONFIRMAÇÃO FORTE</small><h3>Vincular {label.code}</h3><div className="pv-binding-card"><span><Icon name="box" /><strong>{selectedEquipment.name}</strong><small>{selectedEquipment.category} · {selectedEquipment.technicalId}</small></span><dl><div><dt>Onde está</dt><dd>{selectedEquipment.position.label}</dd></div><div><dt>Referência anterior</dt><dd>{selectedEquipment.legacyCode || "Nenhuma"}</dd></div><div><dt>Patrimônio atual</dt><dd>Nenhum</dd></div></dl></div><button className="pv-button pv-button--primary" onClick={bind} type="button">Vincular {label.code}</button><button className="pv-link-button" onClick={() => setStep("equipment")} type="button">Voltar à seleção</button></> : null}
+          {step === "apply" ? <><small>APLICAÇÃO FÍSICA</small><h3>Etiqueta aplicada?</h3><div className="pv-physical-pair"><span><Icon name="tag" /><strong>{label.code}</strong><small>{LABEL_STATES[label.state]}</small></span><Icon name="arrow" /><span><Icon name="box" /><strong>{equipment?.name}</strong><small>{equipment?.position.label}</small></span></div><p>Confirme somente depois de colar a etiqueta no equipamento indicado.</p><button className="pv-button pv-button--primary" onClick={apply} type="button">Confirmar aplicação</button><button className="pv-link-button" onClick={() => setMessage("Vínculo preservado; a aplicação continua pendente para retomada.")} type="button">Fazer depois</button></> : null}
+          {step === "verify" ? <><small>SEGUNDA LEITURA</small><h3>Conferir patrimônio</h3><div className="pv-expected-code"><span>ESPERADO</span><strong>{label.code}</strong><small>{equipment?.name}</small></div><form onSubmit={verify}><label><span>Código da etiqueta aplicada</span><input autoComplete="off" onChange={(event) => setCode(event.target.value)} placeholder={label.code} value={code} /></label><button className="pv-button pv-button--primary" type="submit">Conferir patrimônio</button></form><p>O código completo ou os últimos 4/6 dígitos são aceitos somente porque existe um patrimônio esperado específico.</p></> : null}
+          {step === "complete" ? <><span className="pv-complete-mark"><Icon name="check" size={30} /></span><small>IMPLANTAÇÃO CONCLUÍDA</small><h3>{label.code}</h3><p>Identidade física conferida. Movimentações futuras alteram apenas a posição do equipamento.</p><div className="pv-complete-equipment"><strong>{equipment?.name}</strong><span>{equipment?.category}</span><small><Icon name="pin" size={14} />{equipment?.position.label}</small></div><button className="pv-button pv-button--primary" onClick={() => equipment && onOpenDossier(equipment.id)} type="button">Abrir equipamento</button><button className="pv-link-button" onClick={() => { const next = state.labels.find((item) => item.state === "disponivel"); if (next) setLabelId(next.id); setStep("scan"); }} type="button">Próxima etiqueta</button></> : null}
+          {step === "divergence" ? <><span className="pv-divergence-mark"><Icon name="alert" size={28} /></span><small>DIVERGÊNCIA OPERACIONAL</small><h3>Localização divergente</h3><p>O equipamento foi encontrado em outro ponto. O patrimônio não pode corrigir esse dado silenciosamente.</p><dl className="pv-divergence-pair"><div><dt>Sistema</dt><dd>{equipment?.position.label || "Estoque interno"}</dd></div><Icon name="arrow" /><div><dt>Encontrado</dt><dd>Ponto Horizonte</dd></div></dl><button className="pv-button pv-button--primary" onClick={() => setMessage("No app real, esta ação encaminha ao fluxo oficial de movimentação de Equipamentos.")} type="button"><Icon name="route" />Corrigir movimentação</button><small className="pv-operation-note">Ação demonstrativa: reutiliza o fluxo real de Equipamentos.</small></> : null}
+          {message ? <div className="pv-inline-warning" role="alert"><Icon name="alert" />{message}</div> : null}
+        </article>
+        <aside className="pv-field-context"><small>CONTEXTO DA OPERAÇÃO</small><dl><div><dt>Patrimônio</dt><dd>{label?.code}</dd></div><div><dt>Estado</dt><dd>{label ? LABEL_STATES[label.state] : "—"}</dd></div><div><dt>Contexto</dt><dd>{OPERATING_CONTEXTS.find((item) => item.id === contextId)?.label || "Ainda não escolhido"}</dd></div><div><dt>Equipamento</dt><dd>{equipment?.name || "Ainda não escolhido"}</dd></div><div><dt>Referência anterior</dt><dd>{equipment?.legacyCode || "—"}</dd></div></dl><section><Icon name="info" /><p>Vínculo, aplicação e conferência são eventos separados e idempotentes.</p></section></aside>
       </div>
     </section>
   );
 }
 
-function DemoState({ kind, onReset }) {
-  if (kind === "erro") return <section className="pv-demo-state is-error" role="alert"><span><Icon name="alert" size={28} /></span><small>EXCEÇÃO VISUAL DO HARNESS</small><h2>A leitura local não foi montada</h2><p>Nenhuma fonte real foi consultada e nenhum dado foi alterado.</p><button className="pv-button pv-button--primary" onClick={onReset} type="button">Voltar aos dados fictícios</button></section>;
-  return <section className="pv-demo-state"><span><Icon name="ledger" size={28} /></span><small>ESTADO VAZIO DO HARNESS</small><h2>Sem registros para exibir</h2><p>Use o seletor de estado para restaurar a fixture local.</p><button className="pv-button pv-button--primary" onClick={onReset} type="button">Restaurar leitura</button></section>;
+function RegistrationContract({ state, onState, onQr, onArtifact, multiple = false }) {
+  const [result, setResult] = useState(null);
+  const quantity = multiple ? 3 : 1;
+  const category = multiple ? "Terminais" : "Televisões";
+  function register() {
+    const next = simulateEquipmentRegistration(state, {
+      name: multiple ? "Terminal novo" : "TV nova",
+      category,
+      quantity,
+      idempotencyKey: `cadastro-${multiple ? "multiplo" : "unitario"}-${category}-${quantity}`,
+    });
+    if (next.ok) { onState(next.state); setResult(next); }
+  }
+  return (
+    <section className="pv-registration-contract">
+      <header><div><small>CONTRATO FUTURO · NÃO INTEGRADO AO APP REAL</small><h2>{multiple ? "Cadastro em quantidade" : "Novo equipamento"}</h2><p>Equipamento e identidade patrimonial nascem na mesma transação.</p></div><span className="pv-status">DEV-only</span></header>
+      <div className="pv-registration-grid"><section><label><span>Nome</span><input readOnly value={multiple ? "Terminal novo" : "TV nova"} /></label><label><span>Categoria</span><select disabled value={category}><option>{category}</option></select></label><label><span>Quantidade</span><input readOnly value={quantity} /></label><div className="pv-registration-preview"><span><Icon name="box" /><strong>{quantity} equipamento{quantity > 1 ? "s" : ""}</strong></span><Icon name="arrow" /><span><Icon name="tag" /><strong>{quantity} patrimônio{quantity > 1 ? "s" : ""}</strong></span></div><p>Os números são apenas estimados antes do commit. Máquina de Brindes criaria equipamentos sem consumir a sequência.</p><button className="pv-button pv-button--primary" onClick={register} type="button">Cadastrar {multiple ? quantity : "equipamento"}</button></section><aside><small>RESULTADO ATÔMICO</small>{result ? <><span className="pv-complete-mark"><Icon name="check" /></span><h3>{result.equipments.length} cadastrado{result.equipments.length > 1 ? "s" : ""}</h3><ol>{result.equipments.map((equipment, index) => { const label = result.labels[index]; return <li key={equipment.id}><span><strong>{equipment.name}</strong><small>{equipment.technicalId}</small></span><code>{label?.code || "Sem NP"}</code>{label ? <button aria-label={`Abrir QR de ${label.code}`} className="pv-registration-qr" onClick={() => onQr(label)} type="button"><Icon name="qr" size={15} /></button> : null}</li>; })}</ol><button className="pv-button" disabled={!result.labels.length} onClick={() => onArtifact("labels", buildRegistrationLabelPrintJob(result.labels))} type="button"><Icon name="printer" />Imprimir etiquetas</button></> : <><Icon name="layers" size={32} /><h3>Aguardando confirmação</h3><p>Nenhum sucesso parcial é apresentado se a transação falhar.</p></>}</aside></div>
+    </section>
+  );
 }
 
-export default function PatrimonioHarnessApp({ onPdfRequest, onQrRequest } = {}) {
-  const initial = useMemo(() => readInitialParams(), []);
+function DemoState({ error }) {
+  return <section className={`pv-demo-state${error ? " is-error" : ""}`} role={error ? "alert" : undefined}><span><Icon name={error ? "alert" : "ledger"} size={28} /></span><small>HARNESS LOCAL</small><h2>{error ? "Não foi possível montar a leitura" : "Sem registros neste estado"}</h2><p>{error ? "Falha explícita; o sistema não apresenta erro como vazio." : "A estrutura permanece disponível sem inventar dados."}</p></section>;
+}
+
+function QrDialog({ data, onClose }) {
+  const closeRef = useRef(null);
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    if (!data) return undefined;
+    const previousFocus = document.activeElement;
+    closeRef.current?.focus();
+    function handleKey(event) {
+      if (event.key === "Escape") onClose();
+      else keepDialogFocus(event, dialogRef.current);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      previousFocus?.focus?.();
+    };
+  }, [data, onClose]);
+  if (!data) return null;
+  return <div className="pv-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()} role="presentation"><section aria-labelledby="pv-qr-title" aria-modal="true" className="pv-qr-preview" ref={dialogRef} role="dialog"><header><div><small>QR FICTÍCIO · NÃO OPERACIONAL</small><h2 id="pv-qr-title">{data.label.code}</h2></div><button aria-label="Fechar QR" onClick={onClose} ref={closeRef} type="button"><Icon name="close" /></button></header>{data.dataUrl ? <img alt={`QR fictício de ${data.label.code}`} src={data.dataUrl} /> : <div className="pv-qr-placeholder"><Icon name="qr" size={90} /></div>}<code>{data.payload}</code><p>O payload não contém NP, equipamento, posição ou credencial.</p><footer><button className="pv-button pv-button--primary" onClick={onClose} type="button">Concluir leitura</button></footer></section></div>;
+}
+
+export default function PatrimonioHarnessApp({ onArtifactRequest, onQrRequest } = {}) {
+  const initial = useMemo(() => initialParams(), []);
+  const [state, setState] = useState(() => createPatrimonyFixture());
   const [mode, setMode] = useState(initial.mode);
   const [theme, setTheme] = useState(initial.theme);
-  const [demoState, setDemoState] = useState(initial.demoState);
-  const [items, setItems] = useState(() => createPatrimonyFixture());
-  const [batches, setBatches] = useState([]);
-  const [activeBatchId, setActiveBatchId] = useState("");
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [limit, setLimit] = useState(24);
-  const [selectedId, setSelectedId] = useState("");
+  const [scenario, setScenario] = useState(initial.scenario);
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState("");
+  const [selectedBatchId, setSelectedBatchId] = useState(state.activeBatchId);
+  const [deploymentLabelId, setDeploymentLabelId] = useState("");
   const [preview, setPreview] = useState(null);
   const [previewConfirmed, setPreviewConfirmed] = useState(false);
   const [toast, setToast] = useState("");
-  const [qrPreview, setQrPreview] = useState(null);
-  const searchRef = useRef(null);
+  const [qr, setQr] = useState(null);
+  const scenarioConfig = SCENARIOS.find((item) => item.value === scenario) || SCENARIOS[0];
 
-  const summary = useMemo(() => inventorySummary(items), [items]);
-  const selectedItem = items.find((item) => item.id === selectedId) || null;
-  const activeBatch = batches.find((batch) => batch.id === activeBatchId) || batches[0] || null;
-
-  useEffect(() => syncParams({ mode, theme, demoState }), [mode, theme, demoState]);
+  useEffect(() => syncParams({ mode, theme, scenario }), [mode, theme, scenario]);
+  useEffect(() => {
+    setMode(scenarioConfig.mode);
+    if (scenarioConfig.equipmentId) setSelectedEquipmentId(scenarioConfig.equipmentId);
+    if (scenarioConfig.batchId) setSelectedBatchId(scenarioConfig.batchId);
+  }, [scenarioConfig]);
   useEffect(() => {
     if (!toast) return undefined;
-    const timeout = window.setTimeout(() => setToast(""), 3400);
+    const timeout = window.setTimeout(() => setToast(""), 3200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
-  useEffect(() => {
-    function handleShortcut(event) {
-      if (event.key !== "/" || ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
-      event.preventDefault();
-      setMode("overview");
-      window.requestAnimationFrame(() => searchRef.current?.focus());
-    }
-    window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
-  }, []);
-
-  function changeFilter(key, value) {
-    setFilters((current) => ({ ...current, [key]: value }));
-  }
 
   function openPreview() {
-    setPreview(prepareBatchPreview(items, filters, query, limit));
+    const prepared = state.batches.find((batch) => batch.status === "preparado");
+    setPreview(prepareBatchPreview(state, { quantity: prepared?.plannedQuantity || 18, contextId: prepared?.context.id, batchId: prepared?.id }));
     setPreviewConfirmed(false);
   }
 
-  function generateBatch() {
-    const generated = generateSimulatedBatch({ items, batches }, preview);
-    if (!generated.batch) return;
-    setItems(generated.items);
-    setBatches(generated.batches);
-    setActiveBatchId(generated.batch.id);
+  function generate() {
+    const result = generateFreeLabelBatch(state, preview);
+    setState(result.state);
+    setSelectedBatchId(result.batch.id);
     setPreview(null);
     setPreviewConfirmed(false);
-    setMode("batches");
-    setToast(generated.reused ? `${generated.batch.id} já existia; nenhuma duplicação criada.` : `${generated.batch.id} gerado em memória.`);
+    setScenario("lote_aberto");
+    setToast(result.replayed ? "Requisição repetida: nenhum patrimônio duplicado." : `${result.batch.labelIds.length} patrimônios fictícios gerados.`);
   }
 
-  async function prepareLabels(batch) {
-    const request = buildLabelPrintJob(batch, items);
+  async function artifact(type, payload) {
     try {
-      await onPdfRequest?.(request);
-      setBatches((current) => updateBatchStatus(current, batch.id, "labels_ready"));
-      setToast(`PDF fictício de ${request.labels.length} etiquetas preparado localmente.`);
+      await onArtifactRequest?.(type, payload);
+      setToast(`Documento fictício preparado: ${type}.`);
     } catch {
-      setToast("Não foi possível preparar o PDF fictício desta faixa.");
+      setToast("Não foi possível preparar o documento fictício.");
     }
   }
 
-  function openWork(batch) {
-    setBatches((current) => updateBatchStatus(current, batch.id, "in_progress"));
-    setActiveBatchId(batch.id);
-    setMode("deployment");
+  function deploy(labelId) {
+    const label = state.labels.find((item) => item.id === labelId);
+    setDeploymentLabelId(labelId);
+    setScenario(label?.state === "aplicado" ? "conferencia" : label?.state === "conferido" ? "concluido" : label?.state === "vinculado" ? "aplicacao" : "ativacao");
   }
 
-  async function requestQr(item) {
-    const payload = buildQrPayload(item);
+  function chooseScenario(value) {
+    setDeploymentLabelId("");
+    setSelectedEquipmentId("");
+    setScenario(value);
+  }
+
+  async function openQr(label) {
+    const payload = buildQrPayload(label);
+    setSelectedEquipmentId("");
     try {
-      const qr = await createAssetQr(item.publicId);
-      const result = { ...qr, item };
-      await onQrRequest?.(result);
-      setQrPreview(result);
-      setToast(`${item.patrimonyCode}: QR fictício preparado localmente.`);
+      const result = await onQrRequest?.(label, payload);
+      setQr({ label, payload, dataUrl: result?.dataUrl });
     } catch {
-      setToast("Não foi possível preparar o QR fictício.");
+      setQr({ label, payload, dataUrl: "" });
     }
   }
+
+  const showRegistration = scenario === "novo" || scenario === "multiplo";
+  const showDemo = scenario === "vazio" || scenario === "erro";
 
   return (
-    <div className="patrimonio-v1-app" data-demo-state={demoState} data-harness="safe-local" data-theme={theme}>
+    <div className="patrimonio-v1-app" data-harness="safe-local" data-theme={theme}>
       <a className="pv-skip-link" href="#pv-main">Ir para o conteúdo</a>
-      <DevBar demoState={demoState} onDemoState={setDemoState} onTheme={setTheme} theme={theme} />
+      <DevBar onScenario={chooseScenario} onTheme={setTheme} scenario={scenario} theme={theme} />
       <main id="pv-main">
         <PageHead onPrepare={openPreview} />
-        <div className="pv-safety-note"><Icon name="shield" size={17} /><span><strong>Ambiente isolado.</strong> Fixtures fictícias, ações em memória e nenhum backend conectado.</span></div>
-        <RovingTabs className="pv-mode-tabs" label="Modos de Patrimônio" onChange={setMode} options={MODES} value={mode} />
-        <DeploymentRange activeBatch={activeBatch} items={items} summary={summary} />
-        <div className="pv-content" role="tabpanel">
-          {demoState !== "dados" ? <DemoState kind={demoState} onReset={() => setDemoState("dados")} /> : mode === "overview" ? <Ledger filters={filters} items={items} limit={limit} onFilter={changeFilter} onLimit={setLimit} onQuery={setQuery} onSelect={setSelectedId} query={query} searchRef={searchRef} /> : mode === "batches" ? <BatchesView activeBatchId={activeBatch?.id} batches={batches} items={items} onLabels={prepareLabels} onPrepare={openPreview} onWork={openWork} /> : <DeploymentView activeBatch={activeBatch} batches={batches} items={items} onActiveBatch={setActiveBatchId} onItems={setItems} onQrRequest={requestQr} />}
+        <div className="pv-safety-note"><Icon name="shield" /><span><strong>Marco A isolado.</strong> Nenhum Supabase remoto, dado real, migration remota ou NP operacional.</span></div>
+        <RovingTabs label="Áreas do controle patrimonial" onChange={(value) => { setMode(value); chooseScenario(value === "overview" ? "campanha" : value === "batches" ? "lotes" : "ativacao"); }} options={MODES} value={mode} />
+        {!showDemo ? <SummaryStrip state={state} /> : null}
+        <div aria-labelledby={`pv-tab-${mode}`} className="pv-content" id={`pv-panel-${mode}`} role="tabpanel">
+          {showDemo ? <DemoState error={scenario === "erro"} /> : mode === "overview" ? <>{showRegistration ? <RegistrationContract multiple={scenario === "multiplo"} onArtifact={artifact} onQr={openQr} onState={setState} state={state} /> : <><CampaignBoard onScenario={chooseScenario} state={state} /><InventoryLedger focusMode={scenario === "legado" ? "legacy" : "all"} onSelect={setSelectedEquipmentId} state={state} /></>}</> : mode === "batches" ? <BatchesView onArtifact={artifact} onDeploy={deploy} onPrepare={openPreview} onSelectedBatch={setSelectedBatchId} onState={setState} selectedBatchId={selectedBatchId} state={state} /> : <ActivationFlow initialContextId={scenarioConfig.contextId} initialLabelId={deploymentLabelId || scenarioConfig.labelId} initialStep={scenarioConfig.step} onOpenDossier={setSelectedEquipmentId} onState={setState} state={state} />}
         </div>
       </main>
-      <footer className="pv-footer"><span><Icon name="keyboard" size={15} />Setas alternam abas · / abre a busca · Esc fecha painéis</span><strong>HARNESS DEV · PATRIMÔNIO V1</strong></footer>
-      {selectedItem ? <Dossier item={selectedItem} onClose={() => setSelectedId("")} onQrRequest={requestQr} /> : null}
-      {preview ? <BatchPreviewDialog confirmed={previewConfirmed} onClose={() => setPreview(null)} onConfirmed={setPreviewConfirmed} onGenerate={generateBatch} preview={preview} /> : null}
-      {qrPreview ? <QrPreviewDialog onClose={() => setQrPreview(null)} preview={qrPreview} /> : null}
-      {toast ? <div aria-live="polite" className="pv-toast"><Icon name="check" size={17} />{toast}</div> : null}
+      <footer className="pv-footer"><span><Icon name="keyboard" />Setas alternam áreas · Esc fecha painéis · ações vivem só na memória</span><strong>HARNESS DEV · PATRIMÔNIO FASE 1</strong></footer>
+      {selectedEquipmentId ? <Dossier equipmentId={selectedEquipmentId} onClose={() => setSelectedEquipmentId("")} onQr={openQr} state={state} /> : null}
+      {preview ? <BatchPreview confirmed={previewConfirmed} onClose={() => setPreview(null)} onConfirmed={setPreviewConfirmed} onGenerate={generate} preview={preview} /> : null}
+      <QrDialog data={qr} onClose={() => setQr(null)} />
+      {toast ? <div aria-live="polite" className="pv-toast"><Icon name="check" />{toast}</div> : null}
     </div>
   );
 }
