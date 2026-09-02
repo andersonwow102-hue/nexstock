@@ -12,6 +12,7 @@ import FechamentoWorkbench from "./FechamentoWorkbench.jsx";
 import EquipmentInventoryLedger from "./EquipmentInventoryLedger.jsx";
 import HistoricoTimelinePage from "./HistoricoTimelinePage.jsx";
 import PatrimonioDeepLinkPage from "./PatrimonioDeepLinkPage.jsx";
+import PatrimonioPage from "./PatrimonioPage.jsx";
 import { parsePatrimonioRoute } from "./patrimonioDeepLink.js";
 import { permissoesDevedores } from "./devedoresUtils.js";
 import { GERENTES, MODALIDADES, ROTAS_POR_GERENTE, GERENTE_CORES, gerenteDaRota, rotaCanonica, rotaPermitidaAoPerfil, rotaPertenceAoGerente } from "./pointsData.js";
@@ -34,6 +35,7 @@ import {
   registrarVisualizacaoFechamento, confirmarFechamentoGerente,
   carregarGerenteModalidadeAcessos, salvarGerenteModalidadeAcesso, excluirGerenteModalidadeAcesso,
   carregarModalidadeApps, enviarModalidadeApp, obterLinkDownloadModalidadeApp,
+  carregarPatrimonioLeitura,
 } from "./db.js";
 import "./styles/foundations.css";
 import "./styles/command-flow.css";
@@ -4377,6 +4379,7 @@ function Sistema({onLogout}){
     {id:"lista",label:`Equipamentos (${itensOperacionais.length})`,icone:"package"},
     {id:"resumo",label:"Resumo por situação",icone:"activity"},
     {id:"historico",label:`Movimentações (${historicoOperacional.length})`,icone:"history"},
+    {id:"patrimonio",label:"Patrimônio",icone:"tag"},
   ];
 
   if(carregando){
@@ -4530,14 +4533,14 @@ function Sistema({onLogout}){
             <span className="equip-cf-control-context"><strong>{totalGeral}</strong> registros na base</span>
           </div>
 
-          <nav className={`equip-cf-position-strip${gerenteAtual?" is-manager-scope":""}`} aria-label="Onde os equipamentos estão agora">
+          {abaEquip!=="patrimonio"&&<nav className={`equip-cf-position-strip${gerenteAtual?" is-manager-scope":""}`} aria-label="Onde os equipamentos estão agora">
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="todos"} className={abaEquip==="lista"&&filtroEscopoEquip==="todos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("todos");setAbaEquip("lista");}}><span data-mobile-label="Base">Base</span><strong>{totalGeral}</strong><small>todos os registros</small></button>
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="interno"} className={abaEquip==="lista"&&filtroEscopoEquip==="interno"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("interno");setAbaEquip("lista");}}><span data-mobile-label={gerenteAtual?"Disponíveis":"Estoque"}>{gerenteAtual?"Disponíveis":"Estoque interno"}</span><strong>{totalDisponivel}</strong><small>prontos para alocação</small></button>
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="pontos"} className={abaEquip==="lista"&&filtroEscopoEquip==="pontos"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("pontos");setAbaEquip("lista");}}><span data-mobile-label="Em pontos">Em pontos</span><strong>{totalEmRota}</strong><small>em operação</small></button>
             {!gerenteAtual&&<button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="gerentes"} className={abaEquip==="lista"&&filtroEscopoEquip==="gerentes"?"is-active":""} onClick={()=>{setFiltroEscopoEquip("gerentes");setAbaEquip("lista");}}><span data-mobile-label="Com gerentes">Com gerentes</span><strong>{totalComGerentes}</strong><small>sob responsabilidade</small></button>}
             <button type="button" aria-pressed={abaEquip==="lista"&&filtroEscopoEquip==="conserto"} className={`is-attention ${abaEquip==="lista"&&filtroEscopoEquip==="conserto"?"is-active":""}`} onClick={()=>{setFiltroEscopoEquip("conserto");setAbaEquip("lista");}}><span data-mobile-label="Conserto">Conserto</span><strong>{totalConserto}</strong><small>{solicitacoesConsertoPendentes.length?`${solicitacoesConsertoPendentes.length} aguardando análise`:"fila operacional"}</small></button>
             <span className="equip-cf-position-note"><small>Leitura atual</small><strong>{itensFiltrados.length} no recorte</strong></span>
-          </nav>
+          </nav>}
 
           {abaEquip==="lista"&&(
             <section className="equip-lista equip-cf-list">
@@ -4718,6 +4721,10 @@ function Sistema({onLogout}){
                 </div>
               }
             </section>
+          )}
+
+          {abaEquip==="patrimonio"&&(
+            <PatrimonioPage loadData={carregarPatrimonioLeitura} perfilAtual={perfilAtual} theme={temaClaro?"claro":"escuro"}/>
           )}
         </>)}
 

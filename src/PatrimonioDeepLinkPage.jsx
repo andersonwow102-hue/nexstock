@@ -119,7 +119,7 @@ export default function PatrimonioDeepLinkPage({ route, onLogout }) {
                 <h2>Ativar patrimônio</h2>
                 <p>A identidade está disponível para um perfil operacional autorizado. A mutação permanecerá bloqueada até a implantação controlada do backend patrimonial.</p>
                 <button type="button" disabled aria-describedby="patrimonio-activation-gate">Ativar patrimônio</button>
-                <small id="patrimonio-activation-gate">Marco A local · nenhuma operação real será executada.</small>
+                <small id="patrimonio-activation-gate">Implantação ainda não liberada · nenhuma operação real será executada.</small>
               </section>
             ) : null}
 

@@ -18,6 +18,25 @@ export async function resolverPatrimonioPorPublicId(publicId) {
   return resolvePatrimonioWithClient(supabase, publicId);
 }
 
+export async function carregarPatrimonioLeitura() {
+  const consultas = await Promise.all([
+    supabase.from('equipamento_categorias').select('codigo,nome,patrimoniavel,ordem').order('ordem'),
+    supabase.from('patrimonio_campanhas_resumo_v').select('*').order('criado_em', { ascending: false }),
+    supabase.from('patrimonio_lotes_resumo_v').select('*').order('preparado_em', { ascending: false }),
+    supabase.from('patrimonio_operacional_v').select('*').order('criado_em', { ascending: false }),
+    supabase.from('patrimonio_eventos').select('id,evento_public_id,evento,campanha_id,lote_id,patrimonio_id,equipamento_id,equipamento_id_snapshot,estado_anterior,estado_posterior,motivo,detalhes,autor_nome_snapshot,autor_perfil_snapshot,criado_em').order('criado_em', { ascending: false }).limit(100),
+  ]);
+  const erro = consultas.find((resultado) => resultado.error)?.error;
+  if (erro) throw erro;
+  return {
+    catalogo: consultas[0].data || [],
+    campanhas: consultas[1].data || [],
+    lotes: consultas[2].data || [],
+    patrimonios: consultas[3].data || [],
+    eventos: consultas[4].data || [],
+  };
+}
+
 // ── Equipamentos ──────────────────────────────────────────────────────────────
 export async function carregarEquipamentos() {
   const { data, error } = await supabase
