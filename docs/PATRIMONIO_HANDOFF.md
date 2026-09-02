@@ -7,7 +7,7 @@ Atualizado em 2026-09-02. Este documento é a fonte autossuficiente para retomad
 - Branch de trabalho: `codex/refinar-pix-fechamento`.
 - Marco alcançado: **A — arquitetura local**, visualmente aprovado e formalizado tecnicamente neste handoff.
 - Não houve migration patrimonial remota, campanha real, lote real, NP real, importação real de legado ou correção real de localização.
-- Não avançar ao Marco B antes de resolver o P0 da seção 12 e repetir todas as provas locais.
+- O P0 da seção 12 foi corrigido e provado localmente em 2026-09-02; ainda é obrigatória aprovação explícita antes de discutir ou executar o Marco B.
 - Proibido sem nova autorização explícita: push, deploy, escrita no Supabase, migration remota, alteração de produção, criação de campanha/NP real ou importação de legado.
 
 Arquivos normativos complementares: `docs/patrimonio-fase1.md`, `docs/patrimonio-fase1-matrizes.md` e `docs/patrimonio-fase1-runbooks.md`. Em divergência, o SQL atual e os testes prevalecem; este handoff registra as decisões posteriores de produto e o bloqueio conhecido.
@@ -153,7 +153,7 @@ Antes deste documento, HEAD local era `ca46749` (`backup automatico antes de edi
 
 O hash final pode mudar ao incorporar este handoff ao mesmo checkpoint local. Não houve push.
 
-## 12. BLOQUEADOR P0 — reconstrução histórica
+## 12. P0 — reconstrução histórica (corrigido localmente)
 
 O diretório `supabase/migrations` não contém a migration de fundação do schema legado que já existia quando o histórico versionado começou. A primeira migration, `202606130900_fechamentos_rotas.sql`, cria uma policy que chama `public.perfil_atual()`, mas nenhuma migration anterior cria essa função (nem a base completa, como `perfis`). Em banco vazio, a execução falha nessa referência e interrompe a cadeia.
 
@@ -161,11 +161,19 @@ Há uma segunda prova do mesmo buraco: `202606211630_private_rls_helpers.sql` te
 
 Consequência: o repositório não prova `banco vazio → todas as migrations históricas → Patrimônio`. Ficam bloqueados o reset/rebuild histórico completo, a prova de upgrade reproduzível a partir da cadeia versionada e, por consequência, a certificação integral de testes SQL/RLS/concorrência no schema completo. O bootstrap patrimonial prova apenas o subsistema isolado.
 
-Isso impede o Marco B porque aplicar oito migrations novas sobre produção sem conseguir reconstruir e comparar a base histórica deixa dependências implícitas, ordem, grants e RLS sem prova repetível. Não corrigir improvisando SQL manual; a próxima sessão deve inventariar o schema fundador real, criar uma estratégia versionada e segura, e provar rebuild + upgrade em bancos descartáveis. Não alterar migrations já publicadas sem confirmar o histórico remoto e a estratégia aprovada.
+Correção local: `202606130800_legacy_schema_baseline.sql` foi adicionada antes da primeira migration histórica. Ela materializa somente a fundação legada ausente, não contém DML operacional, é idempotente e não modifica migrations publicadas. Em base já evoluída, preserva os helpers privados e não recria `public.perfil_atual()`/`public.gerente_atual()`; grants são explícitos e limitados às sete tabelas legadas.
+
+Provas locais em bancos PostgreSQL descartáveis:
+
+- rebuild vazio: 71 migrations aplicadas em ordem; zero campanha, lote ou patrimônio; `patrimonio_np_seq = 1, is_called = false`; somente os dois helpers privados ao final;
+- upgrade equivalente: hashes de `private.perfil_atual()` e `private.gerente_atual()` permaneceram idênticos, dados sentinela ficaram 1/1/1, nenhum helper público foi recriado, oito migrations patrimoniais aplicadas e sequência NP permaneceu virgem;
+- SQL RLS e concorrência patrimonial passaram após adaptar suas fixtures ao trigger histórico de criação automática de perfil.
+
+Riscos remanescentes: a equivalência foi construída com `bootstrap_patrimonio_local.sql`, não com dump remoto; nenhuma consulta remota foi feita. Antes do Marco B, comparar a baseline com um schema dump/read-only formalmente autorizado, validar a tabela de histórico de migrations remota e decidir como registrar a baseline retroativa sem reaplicação indesejada. A baseline não deve ser enviada remotamente por simples `db push` sem esse plano.
 
 ## 13. Marcos
 
-- **A — arquitetura local:** concluída visualmente; formalização técnica registrada; P0 externo ao subsistema isolado permanece.
+- **A — arquitetura local:** concluída visualmente; formalização técnica registrada; P0 corrigido e provado somente localmente.
 - **B — migrations patrimoniais em produção:** não iniciado.
 - **C — campanha real/snapshot:** não iniciado.
 - **D — primeiro lote e primeiro NP real:** não iniciado.
@@ -179,9 +187,9 @@ Não avançamos além do Marco A.
 1. Ler este arquivo integralmente.
 2. Auditar Git, branch, HEAD, ahead/behind e working tree.
 3. Não tocar produção.
-4. Investigar e corrigir o P0 das migrations históricas em ambiente local/descartável.
-5. Provar reconstrução do banco do zero usando a cadeia versionada.
-6. Provar upgrade a partir de schema equivalente ao estado atual de produção, sem DML real.
+4. Auditar a correção local do P0 e suas provas de reconstrução/upgrade.
+5. Sob autorização específica e somente leitura, comparar a baseline com o schema e o histórico de migrations remotos antes de qualquer Marco B.
+6. Definir o tratamento seguro da migration retroativa; não executar remotamente nesta etapa.
 7. Reexecutar testes patrimoniais SQL e frontend.
 8. Reexecutar suíte completa, lint, build e `git diff --check`.
 9. Apresentar evidências, riscos e diff.

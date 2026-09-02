@@ -45,7 +45,12 @@ insert into public.perfis (user_id, nome, perfil, gerente_nome, rotas_permitidas
 values (
   '91000000-0000-0000-0000-000000000001',
   'Administrador Concorrencia', 'administrador', '', '{}'
-);
+)
+on conflict (user_id) do update set
+  nome = excluded.nome,
+  perfil = excluded.perfil,
+  gerente_nome = excluded.gerente_nome,
+  rotas_permitidas = excluded.rotas_permitidas;
 
 select set_config('stockon.patrimonio_rpc', 'permitido', false);
 insert into public.equipamentos (

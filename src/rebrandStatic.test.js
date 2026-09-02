@@ -239,6 +239,7 @@ test("lote de rebranding não altera Supabase nem sua configuração", () => {
     .filter(Boolean)
     .filter((linha) => !/supabase\/migrations\/202608311940_equipamentos_historico_autoria\.sql$/.test(linha))
     .filter((linha) => !/supabase\/tests\/equipamentos_historico_autoria\.sql$/.test(linha))
+    .filter((linha) => !/supabase\/migrations\/202606130800_legacy_schema_baseline\.sql$/.test(linha))
     .filter((linha) => !/supabase\/migrations\/20260901(?:09|10)\d+_(?:patrimonio|equipamentos_patrimonio).*\.sql$/.test(linha))
     .filter((linha) => !/supabase\/tests\/(?:bootstrap_patrimonio_local\.sql|patrimonio_fase1_(?:rls\.sql|concorrencia\.(?:md|sql)))$/.test(linha))
     .join("\n");

@@ -51,12 +51,23 @@ insert into auth.users (id, email) values
   ('10000000-0000-0000-0000-000000000005', 'semperfil@local.invalid'),
   ('10000000-0000-0000-0000-000000000006', 'gerente-sem-identidade@local.invalid');
 
+-- A baseline historica reproduz o trigger real de criacao de perfil. Remove-se
+-- deliberadamente esta linha para manter o caso de teste "usuario sem perfil".
+delete from public.perfis
+where user_id = '10000000-0000-0000-0000-000000000005';
+
 insert into public.perfis (user_id, nome, perfil, gerente_nome, login_nome, rotas_permitidas) values
   ('10000000-0000-0000-0000-000000000001', 'Admin Local', 'administrador', '', 'admin.local', '{}'),
   ('10000000-0000-0000-0000-000000000002', 'Operador Local', 'operador', '', 'operador.local', '{}'),
   ('10000000-0000-0000-0000-000000000003', 'Gerente Local', 'gerente', 'Gerente Rota A', 'gerente.local', array['Gerente Rota A']),
   ('10000000-0000-0000-0000-000000000004', 'Consulta Local', 'consulta', '', 'consulta.local', '{}'),
-  ('10000000-0000-0000-0000-000000000006', null, 'gerente', '', null, array['Gerente Rota A']);
+  ('10000000-0000-0000-0000-000000000006', null, 'gerente', '', null, array['Gerente Rota A'])
+on conflict (user_id) do update set
+  nome = excluded.nome,
+  perfil = excluded.perfil,
+  gerente_nome = excluded.gerente_nome,
+  login_nome = excluded.login_nome,
+  rotas_permitidas = excluded.rotas_permitidas;
 
 insert into public.pontos (id, nome_fantasia, gerente) overriding system value values
   (501, 'Ponto Rota A', 'Gerente Rota A'),
