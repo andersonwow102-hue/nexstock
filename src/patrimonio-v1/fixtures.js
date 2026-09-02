@@ -21,7 +21,36 @@ export const OPERATING_CONTEXTS = Object.freeze([
   { id: "gerente-caio", label: "Com Caio Nobre", type: "manager", route: "Rota Norte", manager: "Caio Nobre" },
   { id: "conserto", label: "Em conserto", type: "repair", route: "Oficina" },
   { id: "transferencia", label: "Em transferência", type: "transfer", route: "Em trânsito" },
+  { id: "rota-queixo", label: "Rota Queixo", type: "route", route: "Queixo" },
 ]);
+
+export const BATCH_CREATION_SCENARIOS = Object.freeze({
+  total: Object.freeze({
+    id: "total",
+    label: "Demanda total",
+    contextId: "estoque",
+    friendlyName: "Estoque interno — Piloto",
+    demand: 18,
+    quantity: 18,
+  }),
+  partial: Object.freeze({
+    id: "partial",
+    label: "Lote parcial",
+    contextId: "rota-queixo",
+    friendlyName: "Queixo — Etapa 1",
+    demand: 100,
+    quantity: 25,
+  }),
+  excess: Object.freeze({
+    id: "excess",
+    label: "Excesso sob confirmação",
+    contextId: "bar-savio",
+    friendlyName: "Bar do Sávio — Etapa 1",
+    demand: 2,
+    quantity: 5,
+    excess: 3,
+  }),
+});
 
 const CATEGORY_NAMES = Object.freeze({
   Televisões: "TV Operacional",
@@ -66,13 +95,15 @@ function contextFor(index) {
       route: "Revisão logística",
     };
   }
-  if (index < 16) return OPERATING_CONTEXTS[0];
-  if (index < 92) return OPERATING_CONTEXTS[1];
-  if (index < 184) return OPERATING_CONTEXTS[2];
+  const ordinal = index + 1;
+  if (ordinal <= 19) return OPERATING_CONTEXTS[0];
+  if ((ordinal >= 59 && ordinal <= 62) || (ordinal >= 64 && ordinal <= 74)) return OPERATING_CONTEXTS[1];
+  if (ordinal >= 100 && ordinal <= 199) return OPERATING_CONTEXTS[6];
+  if (index < 199) return OPERATING_CONTEXTS[2];
   if (index < 230) return OPERATING_CONTEXTS[3];
   if (index < 244) return OPERATING_CONTEXTS[4];
   if (index < 254) return OPERATING_CONTEXTS[5];
-  return index % 2 ? OPERATING_CONTEXTS[1] : OPERATING_CONTEXTS[2];
+  return index % 2 ? OPERATING_CONTEXTS[2] : OPERATING_CONTEXTS[3];
 }
 
 function makeEquipment(index, overrides = {}) {
@@ -192,9 +223,12 @@ export function createPatrimonyFixture() {
   const batches = [
     {
       id: "PAT-202609-0001",
+      name: "Estoque interno — Piloto",
+      friendlyName: "Estoque interno — Piloto",
       campaignId: campaign.id,
       status: "em_uso",
       plannedQuantity: 12,
+      demandSnapshot: 18,
       labelIds: labels.filter((label) => label.batchId === "PAT-202609-0001").map((label) => label.id),
       context: { ...OPERATING_CONTEXTS[0] },
       createdAt: "2026-09-01T08:30:00.000Z",
@@ -202,19 +236,25 @@ export function createPatrimonyFixture() {
     },
     {
       id: "PAT-202609-0002",
+      name: "Queixo — Etapa 1",
+      friendlyName: "Queixo — Etapa 1",
       campaignId: campaign.id,
       status: "preparado",
-      plannedQuantity: 18,
+      plannedQuantity: 25,
+      demandSnapshot: 100,
       labelIds: [],
-      context: { ...OPERATING_CONTEXTS[1] },
+      context: { ...OPERATING_CONTEXTS[6] },
       createdAt: "2026-09-01T09:10:00.000Z",
       printCount: 0,
     },
     {
       id: "PAT-202609-0003",
+      name: "Bar do Sávio — Concluído",
+      friendlyName: "Bar do Sávio — Concluído",
       campaignId: campaign.id,
       status: "concluido",
       plannedQuantity: 6,
+      demandSnapshot: 8,
       labelIds: labels.filter((label) => label.batchId === "PAT-202609-0003").map((label) => label.id),
       context: { ...OPERATING_CONTEXTS[1] },
       createdAt: "2026-09-01T10:00:00.000Z",
@@ -230,5 +270,70 @@ export function createPatrimonyFixture() {
     idempotency: {},
     activeBatchId: "PAT-202609-0001",
     nextBatchNumber: 4,
+  };
+}
+
+const BATCH_SCENARIO_ALIASES = Object.freeze({
+  "demanda-total": "total",
+  estoque: "total",
+  parcial: "partial",
+  queixo: "partial",
+  excesso: "excess",
+  "bar-savio": "excess",
+});
+
+export function createBatchCreationScenario(kind = "partial") {
+  const key = BATCH_SCENARIO_ALIASES[kind] || kind;
+  const scenario = BATCH_CREATION_SCENARIOS[key];
+  if (!scenario) throw new RangeError(`Cenário de criação de lote desconhecido: ${kind}`);
+  return {
+    state: createPatrimonyFixture(),
+    scenario: { ...scenario },
+    options: {
+      contextId: scenario.contextId,
+      quantity: scenario.quantity,
+      friendlyName: scenario.friendlyName,
+      demandAtCreation: scenario.demand,
+      idempotencyKey: `fixture-batch-${scenario.id}-001`,
+    },
+  };
+}
+
+export function createQueixoBatchFixture() {
+  const state = createPatrimonyFixture();
+  const scenario = BATCH_CREATION_SCENARIOS.partial;
+  const batchId = "PAT-202609-0004";
+  const candidateIds = state.equipments
+    .filter((equipment) => equipment.position.id === scenario.contextId)
+    .slice(0, 7)
+    .map((equipment) => equipment.id);
+  const showcaseLabels = Array.from({ length: scenario.quantity }, (_, offset) => {
+    const number = 19 + offset;
+    if (offset < 18) return makeLabel(number, "disponivel", null, { batchId, printCount: 1 });
+    if (offset < 22) return makeLabel(number, "vinculado", candidateIds[offset - 18], { batchId, printCount: 1 });
+    if (offset < 24) return makeLabel(number, "aplicado", candidateIds[offset - 18], { batchId, printCount: 1 });
+    return makeLabel(number, "conferido", candidateIds[offset - 18], { batchId, printCount: 1 });
+  });
+  const batch = {
+    id: batchId,
+    name: scenario.friendlyName,
+    friendlyName: scenario.friendlyName,
+    campaignId: state.campaign.id,
+    status: "em_uso",
+    plannedQuantity: scenario.quantity,
+    demandSnapshot: scenario.demand,
+    labelIds: showcaseLabels.map((label) => label.id),
+    context: { ...OPERATING_CONTEXTS[6] },
+    createdAt: "2026-09-01T11:00:00.000Z",
+    printCount: 1,
+    generationKey: "fixture-batch-partial-showcase-001",
+  };
+  return {
+    ...state,
+    labels: [...state.labels, ...showcaseLabels],
+    batches: [...state.batches.filter((item) => item.id !== "PAT-202609-0002"), batch],
+    events: [...state.events, ...createEvents(showcaseLabels)],
+    activeBatchId: batch.id,
+    nextBatchNumber: 5,
   };
 }

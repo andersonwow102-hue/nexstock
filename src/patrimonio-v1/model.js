@@ -1,13 +1,25 @@
 import {
+  BATCH_CREATION_SCENARIOS,
   CATEGORIES,
   ELIGIBLE_CATEGORIES,
   OPERATING_CONTEXTS,
   compactPublicId,
+  createBatchCreationScenario,
   createPatrimonyFixture,
+  createQueixoBatchFixture,
   formatNp,
 } from "./fixtures.js";
 
-export { CATEGORIES, ELIGIBLE_CATEGORIES, OPERATING_CONTEXTS, createPatrimonyFixture, formatNp };
+export {
+  BATCH_CREATION_SCENARIOS,
+  CATEGORIES,
+  ELIGIBLE_CATEGORIES,
+  OPERATING_CONTEXTS,
+  createBatchCreationScenario,
+  createPatrimonyFixture,
+  createQueixoBatchFixture,
+  formatNp,
+};
 
 export const LABEL_STATES = Object.freeze({
   disponivel: "Disponível",
@@ -27,6 +39,14 @@ export const INVENTORY_FILTERS = Object.freeze([
   { value: "non_asset", label: "Não patrimoniável" },
   { value: "review", label: "Revisão logística" },
 ]);
+
+export const BATCH_GENERATION_ERRORS = Object.freeze({
+  CONFIRMATION_REQUIRED: "Confirme que os patrimônios serão permanentes antes de gerar o lote.",
+  EXCESS_CONFIRMATION_REQUIRED: "Confirme separadamente a geração de etiquetas acima da demanda atual.",
+  IDEMPOTENCY_CONFLICT: "A chave desta geração já foi usada com outros dados.",
+});
+
+export const BATCH_QUANTITY_LIMITS = Object.freeze({ min: 1, max: 500 });
 
 function normalize(value) {
   return String(value || "")
@@ -212,33 +232,132 @@ export function candidateEquipments(state, contextId, query = "") {
   });
 }
 
+export function operatingContext(contextId) {
+  if (contextId === undefined) return OPERATING_CONTEXTS[0];
+  const context = OPERATING_CONTEXTS.find((item) => item.id === contextId);
+  if (!context) throw new RangeError(`Contexto operacional inválido: ${String(contextId)}`);
+  return context;
+}
+
+export function batchDemand(state, contextId) {
+  return candidateEquipments(state, operatingContext(contextId).id).length;
+}
+
+export function suggestBatchName(state, contextId) {
+  const context = operatingContext(contextId);
+  const baseName = context.type === "route" ? context.label.replace(/^Rota\s+/i, "") : context.label;
+  const existingCount = state.batches.filter((batch) => batch.context?.id === context.id).length;
+  if (context.type === "stock" && existingCount === 0) return `${baseName} — Piloto`;
+  return `${baseName} — Etapa ${existingCount + 1}`;
+}
+
+export function normalizeBatchQuantity(value = 18) {
+  if (!["number", "string"].includes(typeof value) || (typeof value === "string" && !value.trim())) {
+    throw new RangeError(
+      `Quantidade de etiquetas deve ser um número inteiro entre ${BATCH_QUANTITY_LIMITS.min} e ${BATCH_QUANTITY_LIMITS.max}.`,
+    );
+  }
+  const quantity = Number(value);
+  if (!Number.isInteger(quantity)
+    || quantity < BATCH_QUANTITY_LIMITS.min
+    || quantity > BATCH_QUANTITY_LIMITS.max) {
+    throw new RangeError(
+      `Quantidade de etiquetas deve ser um número inteiro entre ${BATCH_QUANTITY_LIMITS.min} e ${BATCH_QUANTITY_LIMITS.max}.`,
+    );
+  }
+  return quantity;
+}
+
+export function validateBatchGeneration(preview, confirmation = false) {
+  const normalized = typeof confirmation === "object" && confirmation !== null
+    ? confirmation
+    : { confirmed: confirmation === true, excessConfirmed: false };
+  if (normalized.confirmed !== true) {
+    return {
+      ok: false,
+      code: "CONFIRMATION_REQUIRED",
+      error: BATCH_GENERATION_ERRORS.CONFIRMATION_REQUIRED,
+    };
+  }
+  if (preview?.excess > 0 && normalized.excessConfirmed !== true) {
+    return {
+      ok: false,
+      code: "EXCESS_CONFIRMATION_REQUIRED",
+      error: BATCH_GENERATION_ERRORS.EXCESS_CONFIRMATION_REQUIRED,
+    };
+  }
+  return { ok: true };
+}
+
+function batchGenerationFingerprint(preview) {
+  return JSON.stringify({
+    operation: "generate_batch",
+    batchId: preview.batchId,
+    campaignId: preview.campaignId,
+    quantity: preview.quantity,
+    contextId: preview.context?.id,
+    friendlyName: preview.friendlyName,
+    demandAtCreation: preview.demandAtCreation,
+  });
+}
+
 export function prepareBatchPreview(state, options = {}) {
-  const quantity = Math.max(1, Math.min(100, Number(options.quantity) || 18));
+  const batch = options.batchId ? state.batches.find((item) => item.id === options.batchId) : null;
+  const quantity = normalizeBatchQuantity(options.quantity === undefined ? batch?.plannedQuantity : options.quantity);
   const start = nextNpNumber(state.labels);
   const estimated = Array.from({ length: quantity }, (_, index) => formatNp(start + index));
-  const context = OPERATING_CONTEXTS.find((item) => item.id === options.contextId) || OPERATING_CONTEXTS[0];
-  const batch = options.batchId ? state.batches.find((item) => item.id === options.batchId) : null;
-  const demand = candidateEquipments(state, context.id).length;
+  const context = operatingContext(options.contextId === undefined ? batch?.context?.id : options.contextId);
+  const demand = batchDemand(state, context.id);
+  const requestedName = String(options.friendlyName || options.name || batch?.friendlyName || batch?.name || "").trim();
+  const friendlyName = requestedName || suggestBatchName(state, context.id);
+  const requestedDemandSnapshot = Number(options.demandAtCreation ?? batch?.demandSnapshot);
+  const demandAtCreation = Number.isFinite(requestedDemandSnapshot) && requestedDemandSnapshot >= 0
+    ? Math.floor(requestedDemandSnapshot)
+    : demand;
+  const excess = Math.max(0, quantity - demand);
+  const shortfall = Math.max(0, demand - quantity);
   return {
     idempotencyKey: options.idempotencyKey || `preview-${batch?.id || state.nextBatchNumber}-${quantity}-${context.id}`,
     batchId: batch?.id || `PAT-202609-${pad(state.nextBatchNumber, 4)}`,
     campaignId: state.campaign.id,
     campaignName: state.campaign.name,
+    name: friendlyName,
+    friendlyName,
     quantity,
     context,
     demand,
-    excess: Math.max(0, quantity - demand),
+    demandAtCreation,
+    demandSnapshot: demandAtCreation,
+    excess,
+    shortfall,
+    usesTotalDemand: demand > 0 && quantity === demand,
+    requiresExcessConfirmation: excess > 0,
     estimated,
     estimateLabel: quantity === 1 ? estimated[0] : `${estimated[0]} — ${estimated.at(-1)}`,
   };
 }
 
-export function generateFreeLabelBatch(state, preview) {
+export function generateFreeLabelBatch(state, preview, confirmation = false) {
+  const generationFingerprint = batchGenerationFingerprint(preview);
   const replay = state.batches.find((batch) => batch.generationKey === preview.idempotencyKey);
-  if (replay) return { state, batch: replay, replayed: true };
+  if (replay) {
+    if (replay.generationFingerprint && replay.generationFingerprint !== generationFingerprint) {
+      return {
+        state,
+        batch: replay,
+        replayed: false,
+        ok: false,
+        code: "IDEMPOTENCY_CONFLICT",
+        error: BATCH_GENERATION_ERRORS.IDEMPOTENCY_CONFLICT,
+      };
+    }
+    return { state, batch: replay, replayed: true, ok: true };
+  }
   const batchIndex = state.batches.findIndex((batch) => batch.id === preview.batchId);
   const existingBatch = state.batches[batchIndex];
-  if (existingBatch && existingBatch.labelIds.length) return { state, batch: existingBatch, replayed: true };
+  if (existingBatch && existingBatch.labelIds.length) return { state, batch: existingBatch, replayed: true, ok: true };
+  const validation = validateBatchGeneration(preview, confirmation);
+  if (!validation.ok) return { state, batch: existingBatch || null, replayed: false, ...validation };
 
   const start = nextNpNumber(state.labels);
   const labels = Array.from({ length: preview.quantity }, (_, offset) => {
@@ -263,14 +382,18 @@ export function generateFreeLabelBatch(state, preview) {
   });
   const batch = {
     id: preview.batchId,
+    name: preview.friendlyName,
+    friendlyName: preview.friendlyName,
     campaignId: preview.campaignId,
     status: "gerado",
     plannedQuantity: preview.quantity,
+    demandSnapshot: preview.demandAtCreation,
     labelIds: labels.map((label) => label.id),
     context: preview.context,
-    createdAt: new Date().toISOString(),
-    printCount: 0,
+    createdAt: existingBatch?.createdAt || new Date().toISOString(),
+    printCount: existingBatch?.printCount || 0,
     generationKey: preview.idempotencyKey,
+    generationFingerprint,
   };
   const batches = batchIndex >= 0
     ? state.batches.map((item, index) => index === batchIndex ? batch : item)
@@ -285,7 +408,7 @@ export function generateFreeLabelBatch(state, preview) {
   for (const label of labels) {
     nextState = appendEvent(nextState, { type: "patrimonio_gerado", title: "Patrimônio livre gerado", labelId: label.id, batchId: batch.id });
   }
-  return { state: nextState, batch, replayed: false };
+  return { state: nextState, batch, replayed: false, ok: true };
 }
 
 export function markBatchPrinted(state, batchId, labelIds = null) {

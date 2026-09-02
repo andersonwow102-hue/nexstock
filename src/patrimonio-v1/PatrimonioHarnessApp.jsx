@@ -9,10 +9,12 @@ import {
 } from "./integrationPoints.js";
 import {
   CATEGORIES,
+  BATCH_CREATION_SCENARIOS,
   INVENTORY_FILTERS,
   LABEL_STATES,
   OPERATING_CONTEXTS,
   activeLabelForEquipment,
+  batchDemand,
   batchLabels,
   batchProgress,
   bindFreeLabel,
@@ -20,6 +22,7 @@ import {
   candidateEquipments,
   confirmLabel,
   createPatrimonyFixture,
+  createQueixoBatchFixture,
   equipmentPatrimonyState,
   filterInventory,
   formatNp,
@@ -31,6 +34,7 @@ import {
   prepareBatchPreview,
   resolveLabelByCode,
   simulateEquipmentRegistration,
+  suggestBatchName,
 } from "./model.js";
 
 const MODES = Object.freeze([
@@ -49,6 +53,13 @@ const SCENARIOS = Object.freeze([
   { value: "multiplo", label: "Cadastro múltiplo", mode: "overview" },
   { value: "lotes", label: "Lotes", mode: "batches" },
   { value: "lote_aberto", label: "Lote aberto", mode: "batches" },
+  { value: "lote_novo_total", label: "Novo lote · demanda total", mode: "batches", batchComposer: "total" },
+  { value: "lote_novo_queixo", label: "Novo lote · Queixo", mode: "batches", batchComposer: "partial" },
+  { value: "lote_confirmacao", label: "Confirmação · Queixo", mode: "batches", batchPreview: "partial" },
+  { value: "lote_criado", label: "Lote criado · Queixo", mode: "batches", showcaseBatch: true },
+  { value: "lote_dossie", label: "Dossiê · Queixo", mode: "batches", showcaseBatch: true },
+  { value: "lote_excesso", label: "Novo lote · excesso", mode: "batches", batchComposer: "excess" },
+  { value: "lote_mobile", label: "Novo lote · mobile", mode: "batches", batchComposer: "partial" },
   { value: "ativacao", label: "Ativação mobile", mode: "deployment", step: "scan", labelId: "pat-000001" },
   { value: "bar_savio", label: "Bar do Sávio", mode: "deployment", step: "equipment", labelId: "pat-000001", contextId: "bar-savio" },
   { value: "aplicacao", label: "Aplicação", mode: "deployment", step: "apply", labelId: "pat-000004" },
@@ -67,6 +78,15 @@ const BATCH_STATUS = Object.freeze({
   cancelado: "Cancelado",
 });
 
+const CONTEXT_TYPES = Object.freeze([
+  { value: "stock", label: "Estoque interno", icon: "box" },
+  { value: "route", label: "Rota", icon: "route" },
+  { value: "point", label: "Ponto", icon: "pin" },
+  { value: "manager", label: "Com gerente", icon: "user" },
+  { value: "repair", label: "Conserto", icon: "wrench" },
+  { value: "transfer", label: "Transferência", icon: "deploy" },
+]);
+
 const STEP_LABELS = Object.freeze([
   ["scan", "Etiqueta"],
   ["context", "Contexto"],
@@ -77,6 +97,34 @@ const STEP_LABELS = Object.freeze([
 ]);
 
 const DIALOG_FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex='-1'])";
+
+function batchName(batch) {
+  return batch?.friendlyName || batch?.name || batch?.context?.label || "Lote sem nome";
+}
+
+function scenarioDraft(kind = "partial") {
+  const preset = BATCH_CREATION_SCENARIOS[kind] || BATCH_CREATION_SCENARIOS.partial;
+  const context = OPERATING_CONTEXTS.find((item) => item.id === preset.contextId) || OPERATING_CONTEXTS[0];
+  return {
+    contextType: context.type,
+    contextId: context.id,
+    quantity: String(preset.quantity),
+    friendlyName: preset.friendlyName,
+    nameEdited: false,
+  };
+}
+
+function defaultBatchDraft(state) {
+  const context = OPERATING_CONTEXTS[0];
+  const demand = batchDemand(state, context.id);
+  return {
+    contextType: context.type,
+    contextId: context.id,
+    quantity: demand ? String(demand) : "",
+    friendlyName: suggestBatchName(state, context.id),
+    nameEdited: false,
+  };
+}
 
 function keepDialogFocus(event, root) {
   if (event.key !== "Tab" || !root) return;
@@ -176,7 +224,7 @@ function PageHead({ onPrepare }) {
         <h1>Patrimônio</h1>
         <span>Geração, impressão, implantação e conferência da identidade física.</span>
       </div>
-      <button className="pv-button pv-button--primary" onClick={onPrepare} type="button"><Icon name="tag" />Gerar etiquetas livres</button>
+      <button className="pv-button pv-button--primary" onClick={onPrepare} type="button"><Icon name="plus" />Novo lote</button>
     </section>
   );
 }
@@ -254,7 +302,7 @@ function InventoryLedger({ state, onSelect, focusMode = "all" }) {
   function changeFilter(key, value) { setFilters((current) => ({ ...current, [key]: value })); }
   return (
     <section className="pv-ledger" aria-labelledby="inventory-ledger-title">
-      <header className="pv-ledger-head"><div><small>FONTE OPERACIONAL · EQUIPAMENTOS</small><h2 id="inventory-ledger-title">Inventory Ledger</h2></div><span><strong>{filtered.length}</strong> no recorte</span></header>
+      <header className="pv-ledger-head"><div><small>FONTE OPERACIONAL · EQUIPAMENTOS</small><h2 id="inventory-ledger-title">Inventory Ledger</h2></div><span><strong>{filtered.length}</strong> na visão atual</span></header>
       <div className="pv-ledger-toolbar">
         <label className="pv-search"><span className="pv-sr-only">Buscar</span><Icon name="search" /><input onChange={(event) => setQuery(event.target.value)} placeholder="Buscar NP, equipamento, ID ou referência anterior" ref={searchRef} value={query} /><kbd>/</kbd></label>
         <label><span>Patrimônio</span><select onChange={(event) => changeFilter("patrimony", event.target.value)} value={filters.patrimony}>{INVENTORY_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
@@ -310,14 +358,28 @@ function Dossier({ state, equipmentId, onClose, onQr }) {
   );
 }
 
-function BatchPreview({ preview, confirmed, onConfirmed, onGenerate, onClose }) {
+function NewBatchComposer({ state, draft, onDraft, onReview, onClose }) {
   const titleRef = useRef(null);
   const dialogRef = useRef(null);
+  const closeHandlerRef = useRef(onClose);
+  const contexts = OPERATING_CONTEXTS.filter((item) => item.type === draft.contextType);
+  const context = OPERATING_CONTEXTS.find((item) => item.id === draft.contextId) || contexts[0];
+  const demand = context ? batchDemand(state, context.id) : 0;
+  const quantity = Number(draft.quantity);
+  const quantityIsValid = Number.isInteger(quantity) && quantity >= 1 && quantity <= 500;
+  const excess = quantityIsValid ? Math.max(0, quantity - demand) : 0;
+  const shortfall = quantityIsValid ? Math.max(0, demand - quantity) : 0;
+  const coverage = demand > 0 && quantityIsValid ? Math.min(100, Math.round((quantity / demand) * 100)) : 0;
+
+  useEffect(() => {
+    closeHandlerRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     const previousFocus = document.activeElement;
     titleRef.current?.focus();
     function handleKey(event) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeHandlerRef.current();
       else keepDialogFocus(event, dialogRef.current);
     }
     window.addEventListener("keydown", handleKey);
@@ -325,17 +387,142 @@ function BatchPreview({ preview, confirmed, onConfirmed, onGenerate, onClose }) 
       window.removeEventListener("keydown", handleKey);
       previousFocus?.focus?.();
     };
+  }, []);
+
+  function selectContextType(contextType) {
+    const nextContext = OPERATING_CONTEXTS.find((item) => item.type === contextType);
+    if (!nextContext) return;
+    onDraft({
+      ...draft,
+      contextType,
+      contextId: nextContext.id,
+      friendlyName: suggestBatchName(state, nextContext.id),
+      nameEdited: false,
+    });
+  }
+
+  function selectContext(contextId) {
+    onDraft({
+      ...draft,
+      contextId,
+      friendlyName: suggestBatchName(state, contextId),
+      nameEdited: false,
+    });
+  }
+
+  function submit(event) {
+    event.preventDefault();
+    if (!context || !quantityIsValid || !draft.friendlyName.trim()) return;
+    onReview({
+      batchId: draft.batchId,
+      contextId: context.id,
+      quantity,
+      friendlyName: draft.friendlyName.trim(),
+      demandAtCreation: demand,
+    });
+  }
+
+  return (
+    <div className="pv-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()} role="presentation">
+      <section aria-labelledby="pv-composer-title" aria-modal="true" className="pv-batch-composer" ref={dialogRef} role="dialog">
+        <header>
+          <div><small>NOVO LOTE · PLANEJAMENTO</small><h2 id="pv-composer-title" ref={titleRef} tabIndex="-1">Defina o trabalho desta etapa</h2><p>O contexto organiza a implantação. As etiquetas continuam livres até o vínculo.</p></div>
+          <button aria-label="Fechar novo lote" onClick={onClose} type="button"><Icon name="close" /></button>
+        </header>
+        <form onSubmit={submit}>
+          <section className="pv-composer-context" aria-labelledby="pv-context-title">
+            <span className="pv-composer-step">01</span>
+            <div className="pv-composer-section-head"><small>CONTEXTO PLANEJADO</small><h3 id="pv-context-title">Onde esta etapa será trabalhada?</h3></div>
+            <div className="pv-campaign-readonly"><Icon name="campaign" size={16} /><span><small>CAMPANHA · SOMENTE LEITURA</small><strong>{state.campaign.name}</strong></span></div>
+            <div aria-label="Tipo de contexto" className="pv-context-type-grid" role="group">
+              {CONTEXT_TYPES.filter((type) => OPERATING_CONTEXTS.some((item) => item.type === type.value)).map((type) => (
+                <button aria-pressed={draft.contextType === type.value} key={type.value} onClick={() => selectContextType(type.value)} type="button"><Icon name={type.icon} size={17} /><span>{type.label}</span></button>
+              ))}
+            </div>
+            <label className="pv-composer-field">
+              <span>{CONTEXT_TYPES.find((item) => item.value === draft.contextType)?.label || "Contexto"}</span>
+              <select onChange={(event) => selectContext(event.target.value)} required value={context?.id || ""}>
+                {contexts.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+            </label>
+            <p className="pv-context-rule"><Icon name="info" size={15} />Planejamento não cria trava regional: cada NP permanece livre até ser vinculado.</p>
+          </section>
+
+          <section aria-labelledby="pv-demand-title" className="pv-demand-decision">
+            <span className="pv-composer-step">02</span>
+            <div className="pv-composer-section-head"><small>DEMANDA E QUANTIDADE</small><h3 id="pv-demand-title">Decida o tamanho do lote</h3></div>
+            <div className="pv-demand-pair">
+              <div className="pv-demand-current"><small>Equipamentos aguardando patrimônio neste contexto</small><strong>{demand}</strong><span>demanda atual</span></div>
+              <Icon className="pv-demand-arrow" name="arrow" size={22} />
+              <label className="pv-demand-quantity"><span>Quantidade de etiquetas a gerar</span><input aria-describedby="pv-quantity-guidance" inputMode="numeric" max="500" min="1" onChange={(event) => onDraft({ ...draft, quantity: event.target.value })} required type="number" value={draft.quantity} /><small>entre 1 e 500</small></label>
+            </div>
+            <div aria-hidden="true" className="pv-demand-meter"><span style={{ width: `${coverage}%` }} /></div>
+            <div aria-live="polite" className={`pv-quantity-guidance${excess ? " is-excess" : ""}`} id="pv-quantity-guidance">
+              {!quantityIsValid ? <><Icon name="info" /><span><strong>Informe uma quantidade válida.</strong><small>Use um número inteiro entre 1 e 500 etiquetas.</small></span></>
+                : excess ? <><Icon name="alert" /><span><strong>Você está gerando {excess} etiqueta{excess > 1 ? "s" : ""} a mais que a demanda atual deste contexto.</strong><small>As etiquetas excedentes continuarão disponíveis e não serão vinculadas automaticamente.</small></span></>
+                  : shortfall ? <><Icon name="info" /><span><strong>Este lote atenderá até {quantity} dos {demand} equipamentos atualmente pendentes.</strong><small>Você poderá continuar o mesmo contexto em outros lotes.</small></span></>
+                    : <><Icon name="check" /><span><strong>{demand ? "A quantidade cobre a demanda atual deste contexto." : "Não há demanda pendente neste contexto."}</strong><small>{demand ? "Nada será gerado antes da confirmação." : "As etiquetas serão livres e exigirão confirmação de excesso."}</small></span></>}
+            </div>
+            <button className="pv-use-total" disabled={!demand || String(demand) === draft.quantity} onClick={() => onDraft({ ...draft, quantity: String(demand) })} type="button"><Icon name="check" size={15} />Usar demanda total · {demand}</button>
+          </section>
+
+          <section className="pv-composer-name" aria-labelledby="pv-name-title">
+            <span className="pv-composer-step">03</span>
+            <div className="pv-composer-section-head"><small>NOME DO LOTE</small><h3 id="pv-name-title">Dê um nome fácil de reconhecer</h3></div>
+            <label className="pv-composer-field"><span>Nome amigável</span><input maxLength="80" onChange={(event) => onDraft({ ...draft, friendlyName: event.target.value, nameEdited: true })} required type="text" value={draft.friendlyName} /><small>O código PAT será gerado separadamente e continuará sendo a referência de auditoria.</small></label>
+          </section>
+
+          <section className="pv-composer-summary" aria-label="Resumo do novo lote">
+            <span className="pv-composer-step">04</span>
+            <div><small>RESUMO</small><strong>{draft.friendlyName.trim() || "Nome do lote"}</strong><p>{context?.label || "Selecione um contexto"} · {quantityIsValid ? `${quantity} etiqueta${quantity > 1 ? "s" : ""}` : "quantidade pendente"} · demanda {demand}</p></div>
+          </section>
+
+          <footer><button className="pv-button" onClick={onClose} type="button">Cancelar</button><button className="pv-button pv-button--primary" disabled={!context || !quantityIsValid || !draft.friendlyName.trim()} type="submit">Revisar geração <Icon name="arrow" size={16} /></button></footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function BatchPreview({ preview, confirmed, excessConfirmed, onConfirmed, onExcessConfirmed, onGenerate, onBack, onClose }) {
+  const titleRef = useRef(null);
+  const dialogRef = useRef(null);
+  const closeHandlerRef = useRef(onClose);
+  useEffect(() => {
+    closeHandlerRef.current = onClose;
   }, [onClose]);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    titleRef.current?.focus();
+    function handleKey(event) {
+      if (event.key === "Escape") closeHandlerRef.current();
+      else keepDialogFocus(event, dialogRef.current);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      previousFocus?.focus?.();
+    };
+  }, []);
   return (
     <div className="pv-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()} role="presentation">
       <section aria-labelledby="pv-preview-title" aria-modal="true" className="pv-batch-preview" ref={dialogRef} role="dialog">
-        <header><div><small>CONFIRMAÇÃO IRREVERSÍVEL DE IDENTIDADE</small><h2 id="pv-preview-title" ref={titleRef} tabIndex="-1">Gerar {preview.quantity} patrimônios?</h2></div><button aria-label="Fechar" onClick={onClose} type="button"><Icon name="close" /></button></header>
-        <div className="pv-preview-identity"><span><small>CAMPANHA</small><strong>{preview.campaignName}</strong></span><span><small>LOTE</small><strong>{preview.batchId}</strong></span><span><small>CONTEXTO PLANEJADO</small><strong>{preview.context.label}</strong></span></div>
-        <div className="pv-preview-estimate"><small>FAIXA ESTIMADA · NÃO RESERVADA</small><strong>{preview.estimateLabel}</strong><p>Concorrência pode intercalar números. O PDF definitivo usará somente a lista persistida após a geração.</p></div>
-        {preview.excess ? <div className="pv-preview-excess" role="alert"><Icon name="alert" /><span><strong>Excesso sob confirmação</strong><small>Você está gerando {preview.excess} etiqueta{preview.excess > 1 ? "s" : ""} a mais que a demanda atual deste recorte ({preview.demand}).</small></span></div> : null}
+        <header><div><small>REVISÃO FINAL · IDENTIDADE PERMANENTE</small><h2 id="pv-preview-title" ref={titleRef} tabIndex="-1">Gerar {preview.quantity} patrimônios?</h2><p>Confira o planejamento antes de consumir a sequência NP.</p></div><button aria-label="Fechar confirmação" onClick={onClose} type="button"><Icon name="close" /></button></header>
+        <div className="pv-preview-identity">
+          <span><small>CAMPANHA</small><strong>{preview.campaignName}</strong></span>
+          <span><small>LOTE</small><strong>{preview.friendlyName}</strong><code>{preview.batchId}</code></span>
+          <span><small>CONTEXTO PLANEJADO</small><strong>{preview.context.label}</strong></span>
+          <span><small>DEMANDA ATUAL</small><strong>{preview.demand} equipamentos</strong></span>
+          <span><small>QUANTIDADE</small><strong>{preview.quantity} etiquetas</strong></span>
+        </div>
+        <div className="pv-preview-outcome"><Icon name="tag" size={24} /><span><small>O QUE ACONTECE AGORA</small><strong>Serão gerados {preview.quantity} patrimônios permanentes com QR Code.</strong><p>Eles permanecerão livres até serem vinculados aos equipamentos durante a implantação.</p></span></div>
+        {preview.shortfall ? <div className="pv-preview-coverage"><Icon name="info" /><span><strong>Etapa parcial planejada</strong><small>Este lote atenderá até {preview.quantity} dos {preview.demand} equipamentos atualmente pendentes.</small></span></div> : null}
+        {preview.excess ? <div className="pv-preview-excess" role="alert"><Icon name="alert" /><span><strong>Excesso sob confirmação · {preview.excess} etiqueta{preview.excess > 1 ? "s" : ""} excedente{preview.excess > 1 ? "s" : ""}</strong><small>Elas continuarão disponíveis e não serão vinculadas automaticamente.</small></span></div> : null}
         <div className="pv-preview-rule"><Icon name="alert" /><span><strong>Os códigos gerados serão permanentes e não serão reutilizados.</strong><small>Cancelar depois da geração não apaga identidades; cada etiqueta deverá ser usada, transferida ou anulada com motivo.</small></span></div>
-        <label className="pv-explicit-confirm"><input checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} type="checkbox" /><span><strong>Confirmo a geração local de {preview.quantity} identidades fictícias{preview.excess ? `, incluindo o excesso de ${preview.excess}` : ""}</strong><small>Esta ação existe somente na memória do harness.</small></span></label>
-        <footer><button className="pv-button" onClick={onClose} type="button">Cancelar</button><button className="pv-button pv-button--primary" disabled={!confirmed} onClick={onGenerate} type="button"><Icon name="tag" />Gerar {preview.quantity} patrimônios</button></footer>
+        {preview.excess ? <label className="pv-explicit-confirm is-excess"><input checked={excessConfirmed} onChange={(event) => onExcessConfirmed(event.target.checked)} type="checkbox" /><span><strong>Confirmo a criação de {preview.excess} etiqueta{preview.excess > 1 ? "s" : ""} além da demanda deste contexto</strong><small>O excedente ficará livre para uso posterior.</small></span></label> : null}
+        <label className="pv-explicit-confirm"><input checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} type="checkbox" /><span><strong>Confirmo a geração local de {preview.quantity} identidades fictícias permanentes</strong><small>Esta ação existe somente na memória do harness.</small></span></label>
+        <div className="pv-preview-estimate"><span><small>FAIXA ESTIMADA · NÃO RESERVADA</small><strong>{preview.estimateLabel}</strong></span><p>Concorrência pode intercalar números. Documentos definitivos usam apenas identidades persistidas.</p></div>
+        <footer><button className="pv-button" onClick={onBack} type="button">Voltar e editar</button><button className="pv-button pv-button--primary" disabled={!confirmed || (preview.excess > 0 && !excessConfirmed)} onClick={onGenerate} type="button"><Icon name="tag" />Gerar {preview.quantity} patrimônios</button></footer>
       </section>
     </div>
   );
@@ -348,6 +535,9 @@ function LabelState({ state }) {
 function BatchesView({ state, onState, selectedBatchId, onSelectedBatch, onPrepare, onArtifact, onDeploy }) {
   const batch = state.batches.find((item) => item.id === selectedBatchId) || state.batches[0];
   const labels = batchLabels(state, batch);
+  const selectedProgress = batch ? batchProgress(state, batch) : null;
+  const demandSnapshot = batch?.demandSnapshot ?? batch?.demandAtCreation;
+  const currentDemand = batch?.context?.id ? batchDemand(state, batch.context.id) : null;
   async function artifact(type) {
     if (!batch) return;
     if (type === "labels") {
@@ -366,11 +556,11 @@ function BatchesView({ state, onState, selectedBatchId, onSelectedBatch, onPrepa
         <header><div><small>CONTROLE DE ETIQUETAS</small><h2>Lotes da campanha</h2><p>O lote mede identidades físicas; a campanha mede equipamentos.</p></div><button className="pv-button pv-button--primary" onClick={onPrepare} type="button"><Icon name="plus" />Novo lote</button></header>
         <div className="pv-batch-list">{state.batches.map((item) => {
           const progress = batchProgress(state, item);
-          return <button aria-pressed={item.id === batch?.id} className={item.id === batch?.id ? "is-selected" : ""} key={item.id} onClick={() => onSelectedBatch(item.id)} type="button"><code>{item.id}</code><span><strong>{item.context.label}</strong><small>{item.plannedQuantity} planejados · {BATCH_STATUS[item.status]}</small></span><div><b>{progress.total}</b><small>gerados</small></div><div><b>{progress.available}</b><small>disponíveis</small></div><div><b>{progress.bound}</b><small>vinculados</small></div><div><b>{progress.applied}</b><small>aplicados</small></div><div><b>{progress.verified}</b><small>conferidos</small></div><i><span style={{ width: `${progress.percent}%` }} /></i></button>;
+          return <button aria-pressed={item.id === batch?.id} className={item.id === batch?.id ? "is-selected" : ""} key={item.id} onClick={() => onSelectedBatch(item.id)} type="button"><span className="pv-batch-list-identity"><strong>{batchName(item)}</strong><code>{item.id}</code><small>{item.context.label} · {BATCH_STATUS[item.status]}</small></span><div><b>{progress.total}</b><small>{progress.total === 1 ? "gerada" : "geradas"}</small></div><div><b>{progress.available}</b><small>disponíveis</small></div><div><b>{progress.bound}</b><small>{progress.bound === 1 ? "vinculada" : "vinculadas"}</small></div><div><b>{progress.applied}</b><small>{progress.applied === 1 ? "aplicada" : "aplicadas"}</small></div><div><b>{progress.verified}</b><small>{progress.verified === 1 ? "conferida" : "conferidas"}</small></div><i><span style={{ width: `${progress.percent}%` }} /></i></button>;
         })}</div>
-        {batch ? <section className="pv-label-ledger"><header><div><small>LOTE ABERTO</small><h3>{batch.id}</h3></div><span>{labels.length || batch.plannedQuantity} {labels.length ? "identidades persistidas" : "planejadas"}</span></header>{labels.length ? <div className="pv-label-table"><div className="pv-label-table-head"><span>Patrimônio</span><span>Estado</span><span>Equipamento</span><span>Impressões</span></div>{labels.map((label) => { const equipment = state.equipments.find((item) => item.id === label.equipmentId); return <button key={label.id} onClick={() => onDeploy(label.id)} type="button"><code>{label.code}</code><LabelState state={label.state} /><span>{equipment?.name || "Sem vínculo"}<small>{equipment?.position.label || "Etiqueta livre"}</small></span><b>{label.printCount}</b><Icon name="chevron" size={15} /></button>; })}</div> : <div className="pv-batch-empty"><Icon name="tag" size={26} /><strong>Lote preparado; nenhuma identidade emitida</strong><span>Gerar é a única ação que consome a sequência NP.</span><button className="pv-button pv-button--primary" onClick={onPrepare} type="button">Gerar {batch.plannedQuantity} patrimônios</button></div>}</section> : null}
+        {batch ? <section className="pv-label-ledger"><header><div><small>LOTE ABERTO · {batch.id}</small><h3>{batchName(batch)}</h3></div><span>{labels.length || batch.plannedQuantity} {labels.length ? "identidades persistidas" : "planejadas"}</span></header>{labels.length ? <div className="pv-label-table"><div className="pv-label-table-head"><span>Patrimônio</span><span>Estado</span><span>Equipamento</span><span>Impressões</span></div>{labels.map((label) => { const equipment = state.equipments.find((item) => item.id === label.equipmentId); return <button key={label.id} onClick={() => onDeploy(label.id)} type="button"><code>{label.code}</code><LabelState state={label.state} /><span>{equipment?.name || "Sem vínculo"}<small>{equipment?.position.label || "Etiqueta livre"}</small></span><b>{label.printCount}</b><Icon name="chevron" size={15} /></button>; })}</div> : <div className="pv-batch-empty"><Icon name="tag" size={26} /><strong>Lote preparado; nenhuma identidade emitida</strong><span>Revise o planejamento antes de consumir a sequência NP.</span><button className="pv-button pv-button--primary" onClick={() => onPrepare(batch)} type="button">Revisar geração</button></div>}</section> : null}
       </div>
-        {batch ? <aside className="pv-batch-inspector"><header><small>DOSSIÊ DO LOTE</small><h2>{batch.id}</h2><span className={`pv-status is-${batch.status}`}>{BATCH_STATUS[batch.status]}</span></header><dl><div><dt>Campanha</dt><dd>{state.campaign.name}</dd></div><div><dt>Contexto</dt><dd>{batch.context.label}</dd></div><div><dt>Quantidade planejada</dt><dd>{batch.plannedQuantity}</dd></div><div><dt>Identidades reais</dt><dd>{labels.length}</dd></div><div><dt>Impressões</dt><dd>{batch.printCount}</dd></div></dl><section><small>DOCUMENTOS FICTÍCIOS</small><button disabled={!labels.length} onClick={() => artifact("labels")} type="button"><Icon name="printer" />Etiquetas livres</button><button onClick={() => artifact("route")} type="button"><Icon name="route" />Roteiro sem associação</button><button onClick={() => artifact("calibration")} type="button"><Icon name="document" />Folha de calibração</button><button disabled={batch.status !== "concluido"} onClick={() => artifact("final")} type="button"><Icon name="check" />Relatório pós-implantação</button></section><footer><button className="pv-button pv-button--primary" disabled={!labels.length} onClick={() => onDeploy(labels.find((label) => label.state === "disponivel")?.id || labels[0]?.id)} type="button"><Icon name="play" />Continuar implantação</button></footer></aside> : null}
+        {batch ? <aside className="pv-batch-inspector"><header><small>DOSSIÊ DO LOTE</small><h2>{batchName(batch)}</h2><code>{batch.id}</code><span className={`pv-status is-${batch.status}`}>{BATCH_STATUS[batch.status]}</span></header><dl><div><dt>Campanha</dt><dd>{state.campaign.name}</dd></div><div><dt>Contexto planejado</dt><dd>{batch.context.label}</dd></div><div><dt>Demanda na criação</dt><dd>{demandSnapshot ?? "—"}</dd></div>{demandSnapshot != null && currentDemand !== demandSnapshot ? <div><dt>Demanda atual</dt><dd>{currentDemand}</dd></div> : null}<div><dt>Quantidade planejada</dt><dd>{batch.plannedQuantity}</dd></div><div><dt>Realmente geradas</dt><dd>{selectedProgress.total}</dd></div><div><dt>Disponíveis</dt><dd>{selectedProgress.available}</dd></div><div><dt>Vinculadas</dt><dd>{selectedProgress.bound}</dd></div><div><dt>Aplicadas</dt><dd>{selectedProgress.applied}</dd></div><div><dt>Conferidas</dt><dd>{selectedProgress.verified}</dd></div><div><dt>Anuladas</dt><dd>{selectedProgress.annulled}</dd></div><div><dt>Impressões</dt><dd>{batch.printCount}</dd></div></dl><section><small>DOCUMENTOS FICTÍCIOS</small><button disabled={!labels.length} onClick={() => artifact("labels")} type="button"><Icon name="printer" />Etiquetas livres</button><button onClick={() => artifact("route")} type="button"><Icon name="route" />Roteiro sem associação</button><button onClick={() => artifact("calibration")} type="button"><Icon name="document" />Folha de calibração</button><button disabled={batch.status !== "concluido"} onClick={() => artifact("final")} type="button"><Icon name="check" />Relatório pós-implantação</button></section><footer><button className="pv-button pv-button--primary" disabled={!labels.length} onClick={() => onDeploy(labels.find((label) => label.state === "disponivel")?.id || labels[0]?.id)} type="button"><Icon name="play" />Continuar implantação</button></footer></aside> : null}
     </section>
   );
 }
@@ -552,8 +742,11 @@ export default function PatrimonioHarnessApp({ onArtifactRequest, onQrRequest } 
   const [selectedEquipmentId, setSelectedEquipmentId] = useState("");
   const [selectedBatchId, setSelectedBatchId] = useState(state.activeBatchId);
   const [deploymentLabelId, setDeploymentLabelId] = useState("");
+  const [batchComposerOpen, setBatchComposerOpen] = useState(false);
+  const [batchDraft, setBatchDraft] = useState(() => defaultBatchDraft(state));
   const [preview, setPreview] = useState(null);
   const [previewConfirmed, setPreviewConfirmed] = useState(false);
+  const [excessConfirmed, setExcessConfirmed] = useState(false);
   const [toast, setToast] = useState("");
   const [qr, setQr] = useState(null);
   const scenarioConfig = SCENARIOS.find((item) => item.value === scenario) || SCENARIOS[0];
@@ -563,6 +756,38 @@ export default function PatrimonioHarnessApp({ onArtifactRequest, onQrRequest } 
     setMode(scenarioConfig.mode);
     if (scenarioConfig.equipmentId) setSelectedEquipmentId(scenarioConfig.equipmentId);
     if (scenarioConfig.batchId) setSelectedBatchId(scenarioConfig.batchId);
+    if (scenarioConfig.showcaseBatch) {
+      const showcase = createQueixoBatchFixture();
+      setState(showcase);
+      setSelectedBatchId(showcase.activeBatchId);
+      setBatchComposerOpen(false);
+      setPreview(null);
+    } else if (scenarioConfig.batchComposer) {
+      const base = createPatrimonyFixture();
+      setState(base);
+      setSelectedBatchId(base.activeBatchId);
+      setBatchDraft(scenarioDraft(scenarioConfig.batchComposer));
+      setBatchComposerOpen(true);
+      setPreview(null);
+    } else if (scenarioConfig.batchPreview) {
+      const base = createPatrimonyFixture();
+      const preset = BATCH_CREATION_SCENARIOS[scenarioConfig.batchPreview];
+      setState(base);
+      setBatchDraft(scenarioDraft(scenarioConfig.batchPreview));
+      setBatchComposerOpen(false);
+      setPreview(prepareBatchPreview(base, {
+        contextId: preset.contextId,
+        quantity: preset.quantity,
+        friendlyName: preset.friendlyName,
+        demandAtCreation: preset.demand,
+        idempotencyKey: `scenario-preview-${preset.id}`,
+      }));
+      setPreviewConfirmed(false);
+      setExcessConfirmed(false);
+    } else {
+      setBatchComposerOpen(false);
+      setPreview(null);
+    }
   }, [scenarioConfig]);
   useEffect(() => {
     if (!toast) return undefined;
@@ -570,18 +795,41 @@ export default function PatrimonioHarnessApp({ onArtifactRequest, onQrRequest } 
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  function openPreview() {
-    const prepared = state.batches.find((batch) => batch.status === "preparado");
-    setPreview(prepareBatchPreview(state, { quantity: prepared?.plannedQuantity || 18, contextId: prepared?.context.id, batchId: prepared?.id }));
+  function openComposer(batch) {
+    if (batch?.id) {
+      setBatchDraft({
+        batchId: batch.id,
+        contextType: batch.context.type,
+        contextId: batch.context.id,
+        quantity: String(batch.plannedQuantity),
+        friendlyName: batchName(batch),
+        nameEdited: true,
+      });
+    } else {
+      setBatchDraft(defaultBatchDraft(state));
+    }
+    setPreview(null);
+    setBatchComposerOpen(true);
+  }
+
+  function reviewBatch(options) {
+    setPreview(prepareBatchPreview(state, options));
     setPreviewConfirmed(false);
+    setExcessConfirmed(false);
+    setBatchComposerOpen(false);
   }
 
   function generate() {
-    const result = generateFreeLabelBatch(state, preview);
+    const result = generateFreeLabelBatch(state, preview, { confirmed: previewConfirmed, excessConfirmed });
+    if (!result.ok) {
+      setToast(result.error || "Revise as confirmações antes de gerar o lote.");
+      return;
+    }
     setState(result.state);
     setSelectedBatchId(result.batch.id);
     setPreview(null);
     setPreviewConfirmed(false);
+    setExcessConfirmed(false);
     setScenario("lote_aberto");
     setToast(result.replayed ? "Requisição repetida: nenhum patrimônio duplicado." : `${result.batch.labelIds.length} patrimônios fictícios gerados.`);
   }
@@ -626,17 +874,18 @@ export default function PatrimonioHarnessApp({ onArtifactRequest, onQrRequest } 
       <a className="pv-skip-link" href="#pv-main">Ir para o conteúdo</a>
       <DevBar onScenario={chooseScenario} onTheme={setTheme} scenario={scenario} theme={theme} />
       <main id="pv-main">
-        <PageHead onPrepare={openPreview} />
+        <PageHead onPrepare={openComposer} />
         <div className="pv-safety-note"><Icon name="shield" /><span><strong>Marco A isolado.</strong> Nenhum Supabase remoto, dado real, migration remota ou NP operacional.</span></div>
         <RovingTabs label="Áreas do controle patrimonial" onChange={(value) => { setMode(value); chooseScenario(value === "overview" ? "campanha" : value === "batches" ? "lotes" : "ativacao"); }} options={MODES} value={mode} />
         {!showDemo ? <SummaryStrip state={state} /> : null}
         <div aria-labelledby={`pv-tab-${mode}`} className="pv-content" id={`pv-panel-${mode}`} role="tabpanel">
-          {showDemo ? <DemoState error={scenario === "erro"} /> : mode === "overview" ? <>{showRegistration ? <RegistrationContract multiple={scenario === "multiplo"} onArtifact={artifact} onQr={openQr} onState={setState} state={state} /> : <><CampaignBoard onScenario={chooseScenario} state={state} /><InventoryLedger focusMode={scenario === "legado" ? "legacy" : "all"} onSelect={setSelectedEquipmentId} state={state} /></>}</> : mode === "batches" ? <BatchesView onArtifact={artifact} onDeploy={deploy} onPrepare={openPreview} onSelectedBatch={setSelectedBatchId} onState={setState} selectedBatchId={selectedBatchId} state={state} /> : <ActivationFlow initialContextId={scenarioConfig.contextId} initialLabelId={deploymentLabelId || scenarioConfig.labelId} initialStep={scenarioConfig.step} onOpenDossier={setSelectedEquipmentId} onState={setState} state={state} />}
+          {showDemo ? <DemoState error={scenario === "erro"} /> : mode === "overview" ? <>{showRegistration ? <RegistrationContract multiple={scenario === "multiplo"} onArtifact={artifact} onQr={openQr} onState={setState} state={state} /> : <><CampaignBoard onScenario={chooseScenario} state={state} /><InventoryLedger focusMode={scenario === "legado" ? "legacy" : "all"} onSelect={setSelectedEquipmentId} state={state} /></>}</> : mode === "batches" ? <BatchesView onArtifact={artifact} onDeploy={deploy} onPrepare={openComposer} onSelectedBatch={setSelectedBatchId} onState={setState} selectedBatchId={selectedBatchId} state={state} /> : <ActivationFlow initialContextId={scenarioConfig.contextId} initialLabelId={deploymentLabelId || scenarioConfig.labelId} initialStep={scenarioConfig.step} onOpenDossier={setSelectedEquipmentId} onState={setState} state={state} />}
         </div>
       </main>
       <footer className="pv-footer"><span><Icon name="keyboard" />Setas alternam áreas · Esc fecha painéis · ações vivem só na memória</span><strong>HARNESS DEV · PATRIMÔNIO FASE 1</strong></footer>
       {selectedEquipmentId ? <Dossier equipmentId={selectedEquipmentId} onClose={() => setSelectedEquipmentId("")} onQr={openQr} state={state} /> : null}
-      {preview ? <BatchPreview confirmed={previewConfirmed} onClose={() => setPreview(null)} onConfirmed={setPreviewConfirmed} onGenerate={generate} preview={preview} /> : null}
+      {batchComposerOpen ? <NewBatchComposer draft={batchDraft} onClose={() => setBatchComposerOpen(false)} onDraft={setBatchDraft} onReview={reviewBatch} state={state} /> : null}
+      {preview ? <BatchPreview confirmed={previewConfirmed} excessConfirmed={excessConfirmed} onBack={() => { setPreview(null); setBatchComposerOpen(true); }} onClose={() => setPreview(null)} onConfirmed={setPreviewConfirmed} onExcessConfirmed={setExcessConfirmed} onGenerate={generate} preview={preview} /> : null}
       <QrDialog data={qr} onClose={() => setQr(null)} />
       {toast ? <div aria-live="polite" className="pv-toast"><Icon name="check" />{toast}</div> : null}
     </div>

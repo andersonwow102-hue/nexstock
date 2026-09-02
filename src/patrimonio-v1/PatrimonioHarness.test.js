@@ -3,7 +3,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { compactPublicId, createPatrimonyFixture } from "./fixtures.js";
+import {
+  compactPublicId,
+  createBatchCreationScenario,
+  createPatrimonyFixture,
+  createQueixoBatchFixture,
+} from "./fixtures.js";
 import {
   PUBLIC_ID_PATTERN,
   buildFinalReportJob,
@@ -14,6 +19,7 @@ import {
 } from "./integrationPoints.js";
 import {
   activeLabelForEquipment,
+  batchDemand,
   batchProgress,
   bindFreeLabel,
   campaignProgress,
@@ -29,6 +35,7 @@ import {
   prepareBatchPreview,
   resolveLabelByCode,
   simulateEquipmentRegistration,
+  validateBatchGeneration,
 } from "./model.js";
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -42,7 +49,7 @@ function generateBatch(state = createPatrimonyFixture(), options = {}) {
     idempotencyKey: "test-free-labels-001",
     ...options,
   });
-  return generateFreeLabelBatch(state, preview);
+  return generateFreeLabelBatch(state, preview, { confirmed: true, excessConfirmed: true });
 }
 
 test("snapshot local preserva 488 equipamentos e a classificação auditada", () => {
@@ -166,6 +173,122 @@ test("preview estima sequência sem selecionar nem pré-associar equipamento", (
   assert.equal(Object.hasOwn(preview, "equipments"), false);
 });
 
+test("preview respeita o contrato RPC de 1 a 500 sem mascarar entrada inválida", () => {
+  const state = createPatrimonyFixture();
+  const defaults = prepareBatchPreview(state);
+  const maximum = prepareBatchPreview(state, { quantity: 500, contextId: "rota-queixo" });
+  const prepared = prepareBatchPreview(state, { batchId: "PAT-202609-0002" });
+
+  assert.equal(defaults.quantity, 18);
+  assert.equal(defaults.context.id, "estoque");
+  assert.equal(maximum.quantity, 500);
+  assert.equal(maximum.estimated.length, 500);
+  assert.equal(prepared.quantity, 25);
+  assert.equal(prepared.context.id, "rota-queixo");
+  for (const invalidQuantity of [0, -1, 501, 1.5, "", "vinte", null, true]) {
+    assert.throws(
+      () => prepareBatchPreview(state, { quantity: invalidQuantity, contextId: "estoque" }),
+      /número inteiro entre 1 e 500/,
+    );
+  }
+  for (const invalidContext of ["", "nao-existe", null]) {
+    assert.throws(
+      () => prepareBatchPreview(state, { quantity: 18, contextId: invalidContext }),
+      /Contexto operacional inválido/,
+    );
+  }
+});
+
+test("criação de lote cobre demanda total, etapa parcial e excesso exatos", () => {
+  const expected = {
+    total: { contextId: "estoque", demand: 18, quantity: 18, shortfall: 0, excess: 0 },
+    partial: { contextId: "rota-queixo", demand: 100, quantity: 25, shortfall: 75, excess: 0 },
+    excess: { contextId: "bar-savio", demand: 2, quantity: 5, shortfall: 0, excess: 3 },
+  };
+
+  for (const [kind, values] of Object.entries(expected)) {
+    const fixture = createBatchCreationScenario(kind);
+    const preview = prepareBatchPreview(fixture.state, fixture.options);
+    assert.equal(batchDemand(fixture.state, values.contextId), values.demand);
+    assert.equal(preview.context.id, values.contextId);
+    assert.equal(preview.demand, values.demand);
+    assert.equal(preview.demandAtCreation, values.demand);
+    assert.equal(preview.demandSnapshot, values.demand);
+    assert.equal(preview.quantity, values.quantity);
+    assert.equal(preview.shortfall, values.shortfall);
+    assert.equal(preview.excess, values.excess);
+    assert.equal(preview.usesTotalDemand, kind === "total");
+    assert.equal(preview.requiresExcessConfirmation, kind === "excess");
+    assert.equal(preview.friendlyName, fixture.scenario.friendlyName);
+  }
+});
+
+test("excesso exige confirmação separada e repetição idempotente não consome nova faixa", () => {
+  const fixture = createBatchCreationScenario("excess");
+  const preview = prepareBatchPreview(fixture.state, fixture.options);
+  const missingPermanence = generateFreeLabelBatch(fixture.state, preview);
+  const missingExcess = generateFreeLabelBatch(fixture.state, preview, true);
+  const generated = generateFreeLabelBatch(fixture.state, preview, {
+    confirmed: true,
+    excessConfirmed: true,
+  });
+  const repeated = generateFreeLabelBatch(generated.state, preview, {
+    confirmed: true,
+    excessConfirmed: true,
+  });
+
+  assert.equal(validateBatchGeneration(preview).code, "CONFIRMATION_REQUIRED");
+  assert.equal(missingPermanence.code, "CONFIRMATION_REQUIRED");
+  assert.equal(missingPermanence.state.labels.length, fixture.state.labels.length);
+  assert.equal(validateBatchGeneration(preview, true).code, "EXCESS_CONFIRMATION_REQUIRED");
+  assert.equal(missingExcess.code, "EXCESS_CONFIRMATION_REQUIRED");
+  assert.equal(generated.ok, true);
+  assert.equal(generated.batch.labelIds.length, 5);
+  assert.equal(generated.batch.demandSnapshot, 2);
+  assert.equal(repeated.replayed, true);
+  assert.equal(repeated.state.labels.length, generated.state.labels.length);
+});
+
+test("lote gerado preserva nome humano e demanda capturada na criação", () => {
+  const fixture = createBatchCreationScenario("partial");
+  const preview = prepareBatchPreview(fixture.state, fixture.options);
+  const generated = generateFreeLabelBatch(fixture.state, preview, true);
+  const moved = {
+    ...generated.state,
+    equipments: generated.state.equipments.map((equipment) => equipment.position.id === "rota-queixo"
+      ? { ...equipment, position: { ...equipment.position, id: "ponto-aurora", label: "Ponto Aurora" } }
+      : equipment),
+  };
+
+  assert.equal(generated.batch.name, "Queixo — Etapa 1");
+  assert.equal(generated.batch.friendlyName, "Queixo — Etapa 1");
+  assert.equal(generated.batch.context.id, "rota-queixo");
+  assert.equal(generated.batch.plannedQuantity, 25);
+  assert.equal(generated.batch.demandSnapshot, 100);
+  assert.equal(batchDemand(moved, "rota-queixo"), 0);
+  assert.equal(moved.batches.find((batch) => batch.id === generated.batch.id).demandSnapshot, 100);
+});
+
+test("fixture de Queixo expõe leitura humana e distribuição 18/4/2/1", () => {
+  const state = createQueixoBatchFixture();
+  const batch = state.batches.find((item) => item.id === state.activeBatchId);
+
+  assert.equal(batch.friendlyName, "Queixo — Etapa 1");
+  assert.equal(batch.name, "Queixo — Etapa 1");
+  assert.equal(batch.demandSnapshot, 100);
+  assert.deepEqual(batchProgress(state, batch), {
+    total: 25,
+    available: 18,
+    bound: 4,
+    applied: 2,
+    verified: 1,
+    annulled: 0,
+    resolved: 1,
+    percent: 4,
+  });
+  assert.equal(batchDemand(state, "rota-queixo"), 93);
+});
+
 test("geração cria etiquetas livres e repete a mesma chave sem consumir nova faixa", () => {
   const source = createPatrimonyFixture();
   const preview = prepareBatchPreview(source, {
@@ -173,8 +296,9 @@ test("geração cria etiquetas livres e repete a mesma chave sem consumir nova f
     contextId: "bar-savio",
     idempotencyKey: "batch-idempotent-001",
   });
-  const generated = generateFreeLabelBatch(source, preview);
-  const repeated = generateFreeLabelBatch(generated.state, preview);
+  const confirmation = { confirmed: true, excessConfirmed: true };
+  const generated = generateFreeLabelBatch(source, preview, confirmation);
+  const repeated = generateFreeLabelBatch(generated.state, preview, confirmation);
   const generatedLabels = generated.state.labels.filter((label) => generated.batch.labelIds.includes(label.id));
 
   assert.equal(generated.replayed, false);
@@ -199,7 +323,7 @@ test("lote preparado recebe identidades livres apenas na confirmação", () => {
     contextId: prepared.context.id,
     idempotencyKey: "prepared-batch-001",
   });
-  const generated = generateFreeLabelBatch(state, preview);
+  const generated = generateFreeLabelBatch(state, preview, true);
 
   assert.equal(generated.batch.id, prepared.id);
   assert.equal(generated.batch.labelIds.length, 2);
