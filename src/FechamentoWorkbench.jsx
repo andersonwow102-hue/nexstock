@@ -310,7 +310,7 @@ export default function FechamentoWorkbench({
                   <header><div><span>Despesas registradas</span><strong>{formatar(totais.despesasSistema)}</strong></div><small>{despesas?.grupos?.length || 0} grupo{despesas?.grupos?.length !== 1 ? "s" : ""} · {despesas?.quantidadeLancamentos || 0} lançamento{despesas?.quantidadeLancamentos !== 1 ? "s" : ""}</small></header>
                   {(despesas?.grupos || []).length === 0 ? <p className="fechamento-vazio">Nenhuma despesa encontrada neste recorte.</p> : despesas.grupos.map((grupo) => (
                     <article key={grupo.chave}>
-                      <span><strong>{grupo.nome}</strong><small>{grupo.lancamentos.map((item) => item.descricao || "Despesa sem descrição").join(" · ")}</small></span>
+                      <span><strong>{grupo.nome}</strong><small className="fechamento-despesa-itens">{grupo.lancamentos.map((item) => <span key={item.id}>{item.descricao || "Despesa sem descrição"}{despesas?.onEditar&&<button type="button" onClick={() => despesas.onEditar(item)}>Editar</button>}</span>)}</small></span>
                       <span className="fechamento-despesa-contexto"><small>{[...grupo.meses].join(", ")}</small>{grupo.modalidades.size > 0 && <em>{[...grupo.modalidades].join(", ")}</em>}</span>
                       <b>{formatar(grupo.total)}</b>
                     </article>

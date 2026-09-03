@@ -6233,9 +6233,26 @@ body {
 
 .despesa-planilha .tabela th:last-child,
 .despesa-planilha .tabela td:last-child {
-  width: 52px;
+  width: 124px;
   text-align: center;
 }
+
+.despesa-linha-acoes { display:flex; align-items:center; justify-content:flex-end; gap:7px; }
+.despesa-editar-acao {
+  min-height:30px; padding:5px 9px; border:1px solid var(--border); border-radius:8px;
+  background:transparent; color:var(--txt-secondary); font:inherit; font-size:11px; font-weight:700; cursor:pointer;
+}
+.despesa-editar-acao:hover { border-color:var(--azul); color:var(--azul); }
+.despesa-editar-acao:focus-visible { outline:2px solid var(--azul); outline-offset:2px; }
+
+.despesa-admin-edit-form { display:grid; gap:14px; }
+.despesa-admin-edit-form .campo { margin:0; }
+.despesa-admin-competencia {
+  display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 13px;
+  border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-input);
+}
+.despesa-admin-competencia span { color:var(--txt-muted); font-size:11px; }
+.despesa-admin-competencia strong { color:var(--txt-primary); font-size:13px; }
 
 .despesa-planilha input,
 .despesa-planilha select,
@@ -6385,6 +6402,8 @@ body {
     gap: 10px;
     padding-bottom: 2px;
   }
+
+  .despesa-mobile-card-head .despesa-linha-acoes { margin-left:auto; }
 
   .despesa-mobile-card-head span {
     font-size: 11px;
@@ -6869,6 +6888,7 @@ body {
     right: max(14px, env(safe-area-inset-right));
     bottom: max(18px, calc(12px + env(safe-area-inset-bottom)));
   }
+
   .chat-flutuante.aberto {
     inset: 0 !important;
     display: flex;

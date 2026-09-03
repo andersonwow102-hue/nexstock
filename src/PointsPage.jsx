@@ -7,7 +7,7 @@ import {
 } from "./pointsData.js";
 import {
   carregarPontos, salvarPonto, carregarHistoricoPontos, adicionarHistoricoPonto, salvarEquipamento,
-  carregarDespesasMensais, salvarDespesaMensal, excluirDespesaMensal,
+  carregarDespesasMensais, salvarDespesaMensal, editarDespesaMensalAdmin, excluirDespesaMensal,
   carregarProrrogacoesDespesas,
   carregarSolicitacoesModalidade, criarSolicitacaoModalidade, concluirSolicitacaoModalidade,
   carregarSolicitacoesStatusPonto, solicitarDesativacaoPonto, decidirDesativacaoPonto, reativarPonto,
@@ -1254,11 +1254,13 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
 
 function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], prorrogacoes = [], competenciaInicial=competenciaAtual(), onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
   const gerente = perfilAtual?.perfil === "gerente";
+  const administrador = perfilAtual?.perfil === "administrador";
   const despesaDoGerente = Boolean(gerenteDespesa);
   const [rota, setRota] = useState(rotasGerente[0] || "");
   const [competencia, setCompetencia] = useState(competenciaInicial);
   const criarLinha = () => ({ id:null, descricao:"", valor:"", observacao:"" });
   const [linhas, setLinhas] = useState([]);
+  const [edicaoAdminId, setEdicaoAdminId] = useState(null);
   const [erro, setErro] = useState("");
   const mesAtual = competenciaAtual();
   const nomeGerentePerfil = perfilAtual?.gerenteNome || perfilAtual?.nome || gerenteDespesa;
@@ -1286,6 +1288,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
       ? base
       : base.length ? [...base, criarLinha()] : [criarLinha(), criarLinha(), criarLinha(), criarLinha()]);
     setErro("");
+    setEdicaoAdminId(null);
   }, [ponto?.id, gerenteDespesa, rota, competencia, despesas, prorrogacaoAtiva]);
 
   const totalBrutoMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
@@ -1315,7 +1318,8 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
       setErro("As despesas do mês só podem ser lançadas do dia 10 até o último dia do mês.");
       return;
     }
-    const validas = linhas
+    const linhasParaSalvar = administrador ? linhas.filter(l => !l.id) : linhas;
+    const validas = linhasParaSalvar
       .map(l => ({...l, descricao:l.descricao.trim(), observacao:String(l.observacao||"").trim(), valorNumero:parseMoeda(l.valor)}))
       .filter(l => l.descricao || l.valorNumero>0 || l.observacao);
     const erroLinha = validas.find(l => !l.descricao || l.valorNumero<=0);
@@ -1337,6 +1341,30 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
     }
   }
 
+  async function salvarEdicaoAdmin() {
+    const linha = linhas.find(item => Number(item.id) === Number(edicaoAdminId));
+    if (!administrador || !linha) return;
+    const descricao = linha.descricao.trim();
+    const valorNumero = parseMoeda(linha.valor);
+    if (!descricao || valorNumero <= 0) {
+      setErro("Informe a descrição e um valor maior que zero para salvar a alteração.");
+      return;
+    }
+    try {
+      await onSalvar(ponto, competencia, [{
+        ...linha,
+        descricao,
+        observacao:String(linha.observacao || "").trim(),
+        valorPrevisto:valorNumero,
+        valorReal:valorNumero,
+        edicaoAdministrativa:true,
+      }]);
+      setEdicaoAdminId(null);
+    } catch (e) {
+      setErro(e?.message || "Não foi possível editar a despesa.");
+    }
+  }
+
   return (
     <OperationModal
       open
@@ -1348,7 +1376,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
       overlayClassName="pcf-operation-modal-overlay"
       footer={<>
         <button className="btn-secundario" type="button" data-so-autofocus="true" onClick={onFechar}>Fechar</button>
-        {podeEditarAgora&&<button className="btn-primario" type="button" onClick={salvar}>Salvar despesas</button>}
+        {podeEditarAgora&&<button className="btn-primario" type="button" onClick={edicaoAdminId ? salvarEdicaoAdmin : salvar}>{edicaoAdminId ? "Salvar alteração" : "Salvar despesas"}</button>}
       </>}
     >
           {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
@@ -1395,38 +1423,42 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
             <table className="tabela">
               <thead><tr><th>Descrição</th><th>Valor</th><th>Observação</th><th></th></tr></thead>
               <tbody>
-                {linhas.map((linha,index)=>(
+                {linhas.map((linha,index)=>{
+                  const linhaEmEdicao = !administrador || !linha.id || Number(edicaoAdminId) === Number(linha.id);
+                  return (
                   <tr key={`${linha.id||"nova"}-${index}`}>
-                    <td><input value={linha.descricao} disabled={!podeEditarAgora} placeholder="Ex: Internet" onChange={e=>alterarLinha(index,"descricao",e.target.value)}/></td>
-                    <td><input value={linha.valor} disabled={!podeEditarAgora} placeholder="R$ 0,00" onChange={e=>alterarLinha(index,"valor",mascaraMoeda(e.target.value))}/></td>
-                    <td><input value={linha.observacao} disabled={!podeEditarAgora} placeholder="Opcional" onChange={e=>alterarLinha(index,"observacao",e.target.value)}/></td>
-                    <td>{podeEditarAgora&&<button className="btn-remover-linha" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</td>
+                    <td><input value={linha.descricao} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="Ex: Internet" onChange={e=>alterarLinha(index,"descricao",e.target.value)}/></td>
+                    <td><input value={linha.valor} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="R$ 0,00" onChange={e=>alterarLinha(index,"valor",mascaraMoeda(e.target.value))}/></td>
+                    <td><input value={linha.observacao} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="Opcional" onChange={e=>alterarLinha(index,"observacao",e.target.value)}/></td>
+                    <td><div className="despesa-linha-acoes">{administrador&&linha.id&&<button className="despesa-editar-acao" type="button" onClick={()=>setEdicaoAdminId(linhaEmEdicao&&edicaoAdminId?null:linha.id)}>{linhaEmEdicao&&edicaoAdminId?"Cancelar":"Editar"}</button>}{podeEditarAgora&&linhaEmEdicao&&<button className="btn-remover-linha" type="button" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</div></td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
           <div className="despesa-mobile-lista">
-            {linhas.map((linha,index)=>(
+            {linhas.map((linha,index)=>{
+              const linhaEmEdicao = !administrador || !linha.id || Number(edicaoAdminId) === Number(linha.id);
+              return (
               <article className="despesa-mobile-card" key={`mobile-${linha.id||"nova"}-${index}`}>
                 <div className="despesa-mobile-card-head">
                   <span>Despesa {index + 1}</span>
-                  {podeEditarAgora&&<button className="btn-remover-linha" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}
+                  <div className="despesa-linha-acoes">{administrador&&linha.id&&<button className="despesa-editar-acao" type="button" onClick={()=>setEdicaoAdminId(linhaEmEdicao&&edicaoAdminId?null:linha.id)}>{linhaEmEdicao&&edicaoAdminId?"Cancelar":"Editar"}</button>}{podeEditarAgora&&linhaEmEdicao&&<button className="btn-remover-linha" type="button" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</div>
                 </div>
                 <div className="campo">
                   <label>Descrição</label>
-                  <input value={linha.descricao} disabled={!podeEditarAgora} placeholder="Ex: Internet, aluguel, energia" onChange={e=>alterarLinha(index,"descricao",e.target.value)}/>
+                  <input value={linha.descricao} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="Ex: Internet, aluguel, energia" onChange={e=>alterarLinha(index,"descricao",e.target.value)}/>
                 </div>
                 <div className="campo">
                   <label>Valor</label>
-                  <input value={linha.valor} disabled={!podeEditarAgora} placeholder="R$ 0,00" inputMode="decimal" onChange={e=>alterarLinha(index,"valor",mascaraMoeda(e.target.value))}/>
+                  <input value={linha.valor} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="R$ 0,00" inputMode="decimal" onChange={e=>alterarLinha(index,"valor",mascaraMoeda(e.target.value))}/>
                 </div>
                 <div className="campo">
                   <label>Observação</label>
-                  <input value={linha.observacao} disabled={!podeEditarAgora} placeholder="Opcional" onChange={e=>alterarLinha(index,"observacao",e.target.value)}/>
+                  <input value={linha.observacao} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="Opcional" onChange={e=>alterarLinha(index,"observacao",e.target.value)}/>
                 </div>
               </article>
-            ))}
+            )})}
           </div>
           {podeEditarAgora&&<button className="btn-secundario despesa-add-linha" onClick={()=>setLinhas(prev=>[...prev,criarLinha()])}>+ Adicionar mais despesas</button>}
           {despesasMes.length===0&&<p className="acessos-nota">{consultandoMesAnterior
@@ -1963,18 +1995,21 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       return;
     }
     try{
-      await Promise.all(linhas.map(linha=>salvarDespesaMensal(linha)));
+      const edicoesAdministrativas = administrador && linhas.every(linha=>linha.edicaoAdministrativa&&linha.id);
+      await Promise.all(linhas.map(linha=>edicoesAdministrativas?editarDespesaMensalAdmin(linha):salvarDespesaMensal(linha)));
       const atualizadas = await carregarDespesasMensais();
       setDespesas(atualizadas);
       onDespesasChange?.(atualizadas);
-      const totalMes = atualizadas
-        .filter(d=>Number(d.pontoId)===Number(ponto.id)&&String(d.competencia||"").slice(0,7)===competencia)
-        .reduce((s,d)=>s+valorDespesa(d),0);
-      const pontoAtualizado = {...ponto, possuiDespesa: totalMes>0?"sim":"nao", valorDespesa: totalMes};
-      await salvarPonto(pontoAtualizado);
-      const pontosAtualizados = pontos.map(p=>p.id===ponto.id?pontoAtualizado:p);
-      setPontos(pontosAtualizados); onPontosChange?.(pontosAtualizados);
-      setPontoDespesas(null);
+      if (ponto?.id && !edicoesAdministrativas) {
+        const totalMes = atualizadas
+          .filter(d=>Number(d.pontoId)===Number(ponto.id)&&String(d.competencia||"").slice(0,7)===competencia)
+          .reduce((s,d)=>s+valorDespesa(d),0);
+        const pontoAtualizado = {...ponto, possuiDespesa: totalMes>0?"sim":"nao", valorDespesa: totalMes};
+        await salvarPonto(pontoAtualizado);
+        const pontosAtualizados = pontos.map(p=>p.id===ponto.id?pontoAtualizado:p);
+        setPontos(pontosAtualizados); onPontosChange?.(pontosAtualizados);
+      }
+      if (!edicoesAdministrativas) setPontoDespesas(null);
     }catch(e){
       console.error("Erro ao salvar despesas do ponto:",e);
       throw e;

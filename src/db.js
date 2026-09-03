@@ -516,6 +516,20 @@ export async function salvarDespesaMensal(despesa) {
   return data.id;
 }
 
+export async function editarDespesaMensalAdmin(despesa) {
+  if (!despesa?.id) throw new Error('Despesa mensal inválida.');
+  const valor = Number(despesa.valorReal ?? despesa.valorPrevisto) || 0;
+  const { data, error } = await supabase.rpc('editar_despesa_mensal_admin', {
+    p_despesa_id: Number(despesa.id),
+    p_descricao: normalizeFreeText(despesa.descricao || ''),
+    p_valor_previsto: valor,
+    p_valor_real: valor,
+    p_observacao: normalizeFreeText(despesa.observacao || ''),
+  });
+  if (error) throw new Error(error.message);
+  return mapDespesaMensal(data);
+}
+
 export async function excluirDespesaMensal(id) {
   const { error } = await supabase.from('despesas_mensais').delete().eq('id', id);
   if (error) throw new Error(error.message);

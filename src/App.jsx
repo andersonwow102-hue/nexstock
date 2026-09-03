@@ -27,7 +27,7 @@ import {
   carregarEquipamentos, salvarEquipamento, excluirEquipamento,
   carregarHistoricoEquipamentos, adicionarHistoricoEquipamento,
   carregarPontos, salvarPonto, adicionarHistoricoPonto, carregarHistoricoPontos,
-  carregarPerfilAtual, resolverEmailPorLogin, carregarDespesasMensais,
+  carregarPerfilAtual, resolverEmailPorLogin, carregarDespesasMensais, editarDespesaMensalAdmin,
   carregarMensagensInternas, enviarMensagemInterna, marcarMensagensInternasLidas,
   carregarPixEnvios, enviarPixParaGerente,
   carregarFechamentosRotas, salvarFechamentoRota, finalizarPrestacaoRota,
@@ -1403,7 +1403,42 @@ function FechamentoModule({ onMenu, menuOpen, ...pageProps }) {
   </>;
 }
 
-function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = [], onPixEnviosChange, prazosAbertos = false, onFecharPrazos }) {
+function AdminExpenseEditModal({ despesa, onSalvar, onFechar }) {
+  const [descricao,setDescricao]=useState(despesa.descricao || "");
+  const [valor,setValor]=useState(textoMoedaFechamento(valorDespesaPrestacao(despesa)));
+  const [observacao,setObservacao]=useState(despesa.observacao || "");
+  const [erro,setErro]=useState("");
+  const [salvando,setSalvando]=useState(false);
+
+  async function confirmar(event) {
+    event.preventDefault();
+    const valorNumero = numeroFechamento(valor);
+    if (!descricao.trim() || valorNumero <= 0) {
+      setErro("Informe a descrição e um valor maior que zero.");
+      return;
+    }
+    setSalvando(true);
+    setErro("");
+    try {
+      await onSalvar({...despesa,descricao:descricao.trim(),observacao:observacao.trim(),valorPrevisto:valorNumero,valorReal:valorNumero});
+    } catch (e) {
+      setErro(e?.message || "Não foi possível editar a despesa.");
+      setSalvando(false);
+    }
+  }
+
+  return <OperationModal open title="Editar despesa" onClose={onFechar} closeLabel="Fechar edição da despesa" size="md" footer={<><button className="btn-secundario" type="button" onClick={onFechar}>Cancelar</button><button className="btn-primario" type="submit" form="admin-expense-edit-form" disabled={salvando}>{salvando?"Salvando...":"Salvar alteração"}</button></>}>
+    <form id="admin-expense-edit-form" className="despesa-admin-edit-form" onSubmit={confirmar}>
+      {erro&&<div className="erro-msg" role="alert">{erro}</div>}
+      <div className="despesa-admin-competencia"><span>Competência preservada</span><strong>{formatarMesPrestacao(mesDespesaPrestacao(despesa.competencia))}</strong></div>
+      <label className="campo"><span>Descrição</span><input value={descricao} onChange={event=>setDescricao(event.target.value)} autoFocus/></label>
+      <label className="campo"><span>Valor</span><input value={valor} inputMode="decimal" onChange={event=>setValor(event.target.value)} onBlur={()=>setValor(textoMoedaFechamento(numeroFechamento(valor)))}/></label>
+      <label className="campo"><span>Observação</span><input value={observacao} onChange={event=>setObservacao(event.target.value)} placeholder="Opcional"/></label>
+    </form>
+  </OperationModal>;
+}
+
+function FechamentoPage({ pontos = [], itens = [], despesas = [], onDespesasChange, pixEnvios = [], onPixEnviosChange, prazosAbertos = false, onFecharPrazos }) {
   const [cartaoPix,setCartaoPix]=useState(null);
   const [pixEnvio,setPixEnvio]=useState({gerente:GERENTES[0]||"",rota:"",mensagem:""});
   const [pixErro,setPixErro]=useState("");
@@ -1430,6 +1465,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const [prorrogacaoErro,setProrrogacaoErro]=useState("");
   const [prorrogacaoOk,setProrrogacaoOk]=useState("");
   const [prorrogacaoSalvando,setProrrogacaoSalvando]=useState(false);
+  const [despesaEmEdicao,setDespesaEmEdicao]=useState(null);
   const despesasFechamento = despesas.filter(d => {
     const mes = mesDespesaPrestacao(d.competencia);
     const dia = diaDespesaPrestacao(d.criadoEm);
@@ -1518,6 +1554,12 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   const comissaoExtraPermitida = permiteComissaoExtra(gerenteSelecionado, rotaDetalheAtiva);
   const comissaoExtraFechamento = comissaoExtraPermitida ? Math.max(0, numeroFechamento(comissaoExtra)) : 0;
   const totalDetalhe = Math.max(0, totalDetalheSistema - subtracaoPlayBetFechamento + ajudaCustoFechamento + comissaoExtraFechamento);
+
+  async function salvarEdicaoDespesaAdmin(despesa) {
+    const atualizada = await editarDespesaMensalAdmin(despesa);
+    onDespesasChange?.(despesas.map(item=>Number(item.id)===Number(atualizada.id)?atualizada:item));
+    setDespesaEmEdicao(null);
+  }
   const mediaPorPonto = pontosDetalhe.length ? totalDetalhe / pontosDetalhe.length : 0;
   const calculosModalidades = modalidadesDaRota.map(modalidade => {
     const valores = fechamentoValores[modalidade.id] || {};
@@ -2078,6 +2120,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
   );
 
   return (
+    <>
     <FechamentoWorkbench
       etapas={etapasFechamento}
       etapaAtual={Math.min(etapaFechamento,5)}
@@ -2141,7 +2184,7 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
           onBlur: ()=>setComissaoExtra(textoMoedaFechamento(comissaoExtra)),
         },
       }}
-      despesas={{grupos:despesasDetalheAgrupadas,quantidadeLancamentos:despesasDetalhe.length}}
+      despesas={{grupos:despesasDetalheAgrupadas,quantidadeLancamentos:despesasDetalhe.length,onEditar:setDespesaEmEdicao}}
       feedback={{erro:fechamentoErro,sucesso:fechamentoOk}}
       acoes={{
         salvando: fechamentoSalvando,
@@ -2158,6 +2201,8 @@ function FechamentoPage({ pontos = [], itens = [], despesas = [], pixEnvios = []
       prazos={{aberto:prazosAbertos,onFechar:onFecharPrazos,conteudo:prazoConteudo}}
       secondaryTools={pixConteudo}
     />
+    {despesaEmEdicao&&<AdminExpenseEditModal despesa={despesaEmEdicao} onSalvar={salvarEdicaoDespesaAdmin} onFechar={()=>setDespesaEmEdicao(null)}/>}
+    </>
   );
 }
 
@@ -4842,6 +4887,7 @@ function Sistema({onLogout}){
             pontos={pontos}
             itens={itens}
             despesas={despesasBackup}
+            onDespesasChange={setDespesasBackup}
             pixEnvios={pixEnvios}
             onPixEnviosChange={setPixEnvios}
           />

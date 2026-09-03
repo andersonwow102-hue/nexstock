@@ -229,7 +229,8 @@ test("lote de rebranding não altera Supabase nem sua configuração", () => {
   // O contrato dos mappers de leitura pode evoluir em trabalhos posteriores.
   // A proteção permanente do rebranding permanece sobre infraestrutura,
   // migrations e configuração do cliente Supabase. A exceção abaixo é a
-  // Fase 1 patrimonial explicitamente autorizada e ainda somente local.
+  // Fase 1 patrimonial e auditoria administrativa de despesas foram
+  // explicitamente autorizadas em trabalhos posteriores e permanecem locais.
   const protegidos = ["supabase", "src/supabase.js"];
   const alterados = execFileSync("git", ["status", "--porcelain", "--untracked-files=all", "--", ...protegidos], {
     cwd: arquivo("."),
@@ -242,6 +243,8 @@ test("lote de rebranding não altera Supabase nem sua configuração", () => {
     .filter((linha) => !/supabase\/migrations\/202606130800_legacy_schema_baseline\.sql$/.test(linha))
     .filter((linha) => !/supabase\/migrations\/20260901(?:09|10)\d+_(?:patrimonio|equipamentos_patrimonio).*\.sql$/.test(linha))
     .filter((linha) => !/supabase\/tests\/(?:bootstrap_patrimonio_local\.sql|patrimonio_fase1_(?:rls\.sql|concorrencia\.(?:md|sql)))$/.test(linha))
+    .filter((linha) => !/supabase\/migrations\/202609021200_despesas_admin_edicao_auditada\.sql$/.test(linha))
+    .filter((linha) => !/supabase\/tests\/despesas_admin_edicao_auditada\.sql$/.test(linha))
     .join("\n");
   assert.equal(alterados, "", `arquivos protegidos alterados neste lote:\n${alterados}`);
 

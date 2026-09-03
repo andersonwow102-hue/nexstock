@@ -540,6 +540,14 @@
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesas-ledger article > span { display: grid; gap: 3px; min-width: 0; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesas-ledger article strong { font-size: 10px; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesas-ledger article small { color: var(--fc-text-muted); font-size: 9px; line-height: 1.35; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesa-itens { display:flex; flex-wrap:wrap; gap:3px 8px; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesa-itens > span { display:inline-flex; align-items:center; gap:5px; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesa-itens button {
+  border:0; border-bottom:1px solid transparent; padding:1px 0; background:transparent;
+  color:var(--fc-accent); font:inherit; font-size:9px; font-weight:700; cursor:pointer;
+}
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesa-itens button:hover { border-bottom-color:currentColor; }
+.command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesa-itens button:focus-visible { outline:2px solid var(--fc-accent); outline-offset:2px; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesas-ledger article > b { font-family: var(--font-mono, monospace); font-size: 10px; text-align: right; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-despesa-contexto em { color: var(--fc-copper-strong); font-size: 8px; font-style: normal; }
 .command-flow-shell .fechamento-page[data-layout="workbench"] .fechamento-ajustes-ledger label { align-items: center; border-bottom: 1px solid var(--fc-line); display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) 14px minmax(108px, 0.7fr); padding: 9px 12px; }
