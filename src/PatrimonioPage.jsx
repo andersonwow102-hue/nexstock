@@ -13,6 +13,13 @@ const STATUS = Object.freeze({
   anulado: "Anulado",
   baixado: "Baixado",
 });
+const BATCH_STATUS = Object.freeze({
+  preparado: "Preparado",
+  gerado: "Gerado",
+  em_uso: "Em uso",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
+});
 
 function Icon({ name, size = 17 }) {
   return <OperationIcon name={name} size={size} />;
@@ -56,10 +63,73 @@ function ReadOnlyLedger({ records }) {
   );
 }
 
+function BatchLedger({ batches, selectedId, onSelect }) {
+  return (
+    <section className="pv-batch-ledger" aria-labelledby="patrimonio-batches-title">
+      <header className="pv-ledger-head">
+        <div><small>PREPARAÇÃO CONTROLADA · LEITURA RLS</small><h2 id="patrimonio-batches-title">Lotes de etiquetas</h2></div>
+        <span><strong>{batches.length}</strong> lotes</span>
+      </header>
+      <div className="pv-batch-list" role="list">
+        {batches.map((batch) => (
+          <button
+            className={`pv-batch-row${selectedId === batch.id ? " is-selected" : ""}`}
+            key={batch.id}
+            type="button"
+            role="listitem"
+            aria-pressed={selectedId === batch.id}
+            onClick={() => onSelect(batch.id)}
+          >
+            <span className="pv-batch-main"><strong>{batch.nome_amigavel || "Lote sem nome"}</strong><small>{batch.campanha_nome || batch.campanha_codigo || "Campanha"}</small></span>
+            <span className="pv-batch-context"><small>Contexto</small><strong>{batch.contexto_label || batch.contexto || "—"}</strong></span>
+            <span className="pv-batch-quantity"><small>Quantidade</small><strong>{batch.quantidade}</strong><em>{batch.geradas || 0} geradas</em></span>
+            <span className={`pv-state is-${batch.situacao}`}>{BATCH_STATUS[batch.situacao] || batch.situacao}</span>
+            <span className="pv-batch-code">{batch.codigo}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BatchDossier({ batch }) {
+  if (!batch) return null;
+  const progress = [
+    ["Planejadas", batch.quantidade],
+    ["Geradas", batch.geradas || 0],
+    ["Disponíveis", batch.disponiveis || 0],
+    ["Vinculadas", batch.vinculadas || 0],
+    ["Aplicadas", batch.aplicadas || 0],
+    ["Conferidas", batch.conferidas || 0],
+    ["Anuladas", batch.anuladas || 0],
+  ];
+  return (
+    <aside className="pv-batch-dossier" aria-labelledby="patrimonio-batch-dossier-title">
+      <div className="pv-dossier-kicker">DOSSIÊ DO LOTE</div>
+      <h2 id="patrimonio-batch-dossier-title">{batch.nome_amigavel || "Lote sem nome"}</h2>
+      <p className="pv-batch-dossier-code">{batch.codigo}</p>
+      <dl className="pv-dossier-meta">
+        <div><dt>Campanha</dt><dd>{batch.campanha_nome || batch.campanha_codigo || "—"}</dd></div>
+        <div><dt>Contexto</dt><dd>{batch.contexto_label || batch.contexto || "—"}</dd></div>
+        <div><dt>Demanda no preparo</dt><dd>{batch.demanda_contexto_no_preparo ?? "—"}</dd></div>
+        <div><dt>Estado</dt><dd><span className={`pv-state is-${batch.situacao}`}>{BATCH_STATUS[batch.situacao] || batch.situacao}</span></dd></div>
+      </dl>
+      <div className="pv-dossier-progress" aria-label="Progresso das etiquetas">
+        {progress.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}
+      </div>
+      <div className="pv-dossier-actions" aria-label="Ações patrimoniais">
+        <button className="pv-button pv-button--primary" disabled type="button"><Icon name="tag" /> Geração ainda não liberada</button>
+        <small>Nenhuma ação deste dossiê altera dados nesta etapa.</small>
+      </div>
+    </aside>
+  );
+}
+
 export default function PatrimonioPage({ perfilAtual, theme = "escuro", loadData }) {
   const [data, setData] = useState(EMPTY);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [selectedBatchId, setSelectedBatchId] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -72,6 +142,7 @@ export default function PatrimonioPage({ perfilAtual, theme = "escuro", loadData
     loadData().then((result) => {
       if (!active) return;
       setData(result);
+      setSelectedBatchId((current) => result.lotes.some((batch) => batch.id === current) ? current : (result.lotes[0]?.id || null));
       setStatus("ready");
     }).catch((reason) => {
       if (!active) return;
@@ -91,6 +162,7 @@ export default function PatrimonioPage({ perfilAtual, theme = "escuro", loadData
     conferidos: data.patrimonios.filter((item) => item.situacao === "conferido").length,
   }), [data]);
   const empty = status === "ready" && !data.campanhas.length && !data.lotes.length && !data.patrimonios.length;
+  const selectedBatch = data.lotes.find((batch) => batch.id === selectedBatchId) || null;
 
   return (
     <div className="patrimonio-v1-app pv-real-page" data-theme={theme}>
@@ -105,7 +177,10 @@ export default function PatrimonioPage({ perfilAtual, theme = "escuro", loadData
         {!empty ? <section aria-label="Resumo patrimonial" className="pv-summary-strip">
           {[[summary.campanhas,"Campanhas"],[summary.lotes,"Lotes"],[summary.emitidos,"Emitidos"],[summary.disponiveis,"Disponíveis"],[summary.vinculados,"Vinculados"],[summary.aplicados,"Aplicados"],[summary.conferidos,"Conferidos"]].map(([value,label]) => <div key={label}><strong>{value}</strong><span>{label}</span><small>dados reais</small></div>)}
         </section> : null}
-        {empty ? <EmptyState role={perfilAtual?.perfil} /> : <ReadOnlyLedger records={data.patrimonios} />}
+        {empty ? <EmptyState role={perfilAtual?.perfil} /> : null}
+        {!empty && data.lotes.length ? <div className="pv-batch-layout"><BatchLedger batches={data.lotes} selectedId={selectedBatchId} onSelect={setSelectedBatchId} /><BatchDossier batch={selectedBatch} /></div> : null}
+        {!empty && !data.lotes.length ? <section className="pv-real-lots-empty" aria-labelledby="patrimonio-lotes-vazio-title"><div><small>CAMPAIGN CONTROL</small><h2 id="patrimonio-lotes-vazio-title">Nenhum lote preparado</h2><p>A campanha está ativa, mas nenhum lote foi preparado. A próxima etapa permanece bloqueada nesta versão de leitura.</p></div><span>0 lotes</span></section> : null}
+        {data.patrimonios.length ? <ReadOnlyLedger records={data.patrimonios} /> : null}
         <section className="pv-real-catalog" aria-label="Catálogo patrimonial"><div><small>CATÁLOGO ATIVO</small><h2>{data.catalogo.length} categorias operacionais</h2></div><p>{data.catalogo.filter((item) => item.patrimoniavel).length} patrimoniáveis · {data.catalogo.filter((item) => !item.patrimoniavel).map((item) => item.nome).join(", ") || "nenhuma exceção"} fora da emissão de NP.</p></section>
       </> : null}
     </div>
