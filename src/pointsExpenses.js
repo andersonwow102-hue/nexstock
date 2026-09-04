@@ -61,6 +61,7 @@ export function criarAnaliseDespesasRede({ pontos = [], despesas = [], competenc
       pontos: 0,
       comDespesa: 0,
       semDespesa: 0,
+      despesasGerente: [],
     };
 
     atual.totalPontos += Number(ponto.valorDespesa) || 0;
@@ -80,9 +81,11 @@ export function criarAnaliseDespesasRede({ pontos = [], despesas = [], competenc
       pontos: 0,
       comDespesa: 0,
       semDespesa: 0,
+      despesasGerente: [],
     };
 
     atual.totalGerente += valorDespesa(despesa);
+    atual.despesasGerente.push(despesa);
     rotas.set(rota, atual);
   });
 

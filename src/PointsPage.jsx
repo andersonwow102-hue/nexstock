@@ -636,6 +636,7 @@ export function PointExpensesModal({
   podeEditar = false,
   suspenso = false,
   onAbrirDespesaPonto,
+  onAbrirDespesaGerente,
   onFechar,
 }) {
   const mesAtual = competenciaAtual();
@@ -677,6 +678,9 @@ export function PointExpensesModal({
   const despesasDoPonto = pontoSelecionado
     ? listarDespesasPonto({ despesas, pontoId: pontoSelecionado.id, competencia })
     : [];
+  const rotaResumoSelecionada = rotaSelecionada === "Todas"
+    ? null
+    : analise.resumoRotas.find(item => item.rota === rotaSelecionada) || null;
 
   const selecionarPerspectiva = proxima => {
     setPerspectiva(proxima);
@@ -821,8 +825,27 @@ export function PointExpensesModal({
               </div>
             ) : (
               <>
+                {rotaResumoSelecionada && (
+                  <section className="pcf-expenses-manager-detail" aria-labelledby="pcf-expenses-manager-title">
+                    <header>
+                      <div><span>Despesa do gerente</span><h3 id="pcf-expenses-manager-title">Responsabilidade da rota</h3></div>
+                      <strong>{rotaResumoSelecionada.totalGerente > 0 ? formatarReais(rotaResumoSelecionada.totalGerente) : "Sem despesa de gerente"}</strong>
+                    </header>
+                    {rotaResumoSelecionada.despesasGerente.length > 0 ? (
+                      <div className="pcf-expenses-manager-ledger">
+                        {rotaResumoSelecionada.despesasGerente.map(despesa => (
+                          <article key={despesa.id}>
+                            <div><strong>{despesa.gerente || rotaResumoSelecionada.rota}</strong><small>{despesa.descricao || "Despesa própria do gerente"}</small></div>
+                            <b>{formatarReais(valorDespesa(despesa))}</b>
+                            {onAbrirDespesaGerente && <button type="button" onClick={() => onAbrirDespesaGerente(despesa, competencia)}><OperationIcon name="edit" size={14}/>Editar</button>}
+                          </article>
+                        ))}
+                      </div>
+                    ) : <p>Não existe lançamento próprio do gerente nesta competência.</p>}
+                  </section>
+                )}
                 <div className="pcf-expenses-points-context">
-                  <div><span>Leitura financeira</span><h3>{rotaSelecionada === "Todas" ? "Todos os pontos" : `Rota ${rotaSelecionada}`}</h3></div>
+                  <div><span>{rotaSelecionada === "Todas" ? "Leitura financeira" : "Despesas dos pontos"}</span><h3>{rotaSelecionada === "Todas" ? "Todos os pontos" : `Rota ${rotaSelecionada}`}</h3></div>
                   {rotaSelecionada !== "Todas" && <button type="button" onClick={() => setRotaSelecionada("Todas")}><OperationIcon name="close" size={13}/>Todas as rotas</button>}
                 </div>
                 <div className="pcf-expenses-toolbar">
@@ -1252,7 +1275,7 @@ export function AbaPontos({ pontos, equipamentos, historico=[], acessos=[], soli
   </section>;
 }
 
-function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], prorrogacoes = [], competenciaInicial=competenciaAtual(), onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
+export function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente=[], despesas = [], prorrogacoes = [], competenciaInicial=competenciaAtual(), edicaoInicialId=null, somenteEdicaoExistente=false, onSalvar, onRemover, onFechar, podeEditar, perfilAtual }) {
   const gerente = perfilAtual?.perfil === "gerente";
   const administrador = perfilAtual?.perfil === "administrador";
   const despesaDoGerente = Boolean(gerenteDespesa);
@@ -1260,7 +1283,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
   const [competencia, setCompetencia] = useState(competenciaInicial);
   const criarLinha = () => ({ id:null, descricao:"", valor:"", observacao:"" });
   const [linhas, setLinhas] = useState([]);
-  const [edicaoAdminId, setEdicaoAdminId] = useState(null);
+  const [edicaoAdminId, setEdicaoAdminId] = useState(administrador ? edicaoInicialId : null);
   const [erro, setErro] = useState("");
   const mesAtual = competenciaAtual();
   const nomeGerentePerfil = perfilAtual?.gerenteNome || perfilAtual?.nome || gerenteDespesa;
@@ -1284,12 +1307,14 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
         valor:valorDespesa(d) ? mascaraMoeda(String(Math.round(valorDespesa(d)*100))) : "",
         observacao:d.observacao || "",
       }));
-    setLinhas(gerente && competencia !== mesAtual && !prorrogacaoAtiva
+    setLinhas(somenteEdicaoExistente
+      ? base
+      : gerente && competencia !== mesAtual && !prorrogacaoAtiva
       ? base
       : base.length ? [...base, criarLinha()] : [criarLinha(), criarLinha(), criarLinha(), criarLinha()]);
     setErro("");
-    setEdicaoAdminId(null);
-  }, [ponto?.id, gerenteDespesa, rota, competencia, despesas, prorrogacaoAtiva]);
+    setEdicaoAdminId(administrador ? edicaoInicialId : null);
+  }, [ponto?.id, gerenteDespesa, rota, competencia, despesas, prorrogacaoAtiva, administrador, edicaoInicialId, somenteEdicaoExistente]);
 
   const totalBrutoMes = linhas.reduce((s,l)=>s+parseMoeda(l.valor),0);
   const totalMes = Math.max(0, totalBrutoMes);
@@ -1368,7 +1393,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
   return (
     <OperationModal
       open
-      title={despesaDoGerente ? `Minhas despesas · ${gerenteDespesa}` : `Despesas mensais · ${ponto.nomeFantasia}`}
+      title={despesaDoGerente ? `${administrador ? "Despesa do gerente" : "Minhas despesas"} · ${gerenteDespesa}` : `Despesas mensais · ${ponto.nomeFantasia}`}
       onClose={onFechar}
       closeLabel="Fechar despesas mensais"
       size="xl"
@@ -1376,7 +1401,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
       overlayClassName="pcf-operation-modal-overlay"
       footer={<>
         <button className="btn-secundario" type="button" data-so-autofocus="true" onClick={onFechar}>Fechar</button>
-        {podeEditarAgora&&<button className="btn-primario" type="button" onClick={edicaoAdminId ? salvarEdicaoAdmin : salvar}>{edicaoAdminId ? "Salvar alteração" : "Salvar despesas"}</button>}
+        {podeEditarAgora&&(!somenteEdicaoExistente||edicaoAdminId)&&<button className="btn-primario" type="button" onClick={edicaoAdminId ? salvarEdicaoAdmin : salvar}>{edicaoAdminId ? "Salvar alteração" : "Salvar despesas"}</button>}
       </>}
     >
           {erro&&<div className="erro-msg" role="alert"><OperationIcon name="warning" size={17}/><span>{erro}</span></div>}
@@ -1430,7 +1455,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
                     <td><input value={linha.descricao} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="Ex: Internet" onChange={e=>alterarLinha(index,"descricao",e.target.value)}/></td>
                     <td><input value={linha.valor} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="R$ 0,00" onChange={e=>alterarLinha(index,"valor",mascaraMoeda(e.target.value))}/></td>
                     <td><input value={linha.observacao} disabled={!podeEditarAgora||!linhaEmEdicao} placeholder="Opcional" onChange={e=>alterarLinha(index,"observacao",e.target.value)}/></td>
-                    <td><div className="despesa-linha-acoes">{administrador&&linha.id&&<button className="despesa-editar-acao" type="button" onClick={()=>setEdicaoAdminId(linhaEmEdicao&&edicaoAdminId?null:linha.id)}>{linhaEmEdicao&&edicaoAdminId?"Cancelar":"Editar"}</button>}{podeEditarAgora&&linhaEmEdicao&&<button className="btn-remover-linha" type="button" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</div></td>
+                    <td><div className="despesa-linha-acoes">{administrador&&linha.id&&<button className="despesa-editar-acao" type="button" onClick={()=>setEdicaoAdminId(linhaEmEdicao&&edicaoAdminId?null:linha.id)}>{linhaEmEdicao&&edicaoAdminId?"Cancelar":"Editar"}</button>}{!somenteEdicaoExistente&&podeEditarAgora&&linhaEmEdicao&&<button className="btn-remover-linha" type="button" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</div></td>
                   </tr>
                 )})}
               </tbody>
@@ -1443,7 +1468,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
               <article className="despesa-mobile-card" key={`mobile-${linha.id||"nova"}-${index}`}>
                 <div className="despesa-mobile-card-head">
                   <span>Despesa {index + 1}</span>
-                  <div className="despesa-linha-acoes">{administrador&&linha.id&&<button className="despesa-editar-acao" type="button" onClick={()=>setEdicaoAdminId(linhaEmEdicao&&edicaoAdminId?null:linha.id)}>{linhaEmEdicao&&edicaoAdminId?"Cancelar":"Editar"}</button>}{podeEditarAgora&&linhaEmEdicao&&<button className="btn-remover-linha" type="button" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</div>
+                  <div className="despesa-linha-acoes">{administrador&&linha.id&&<button className="despesa-editar-acao" type="button" onClick={()=>setEdicaoAdminId(linhaEmEdicao&&edicaoAdminId?null:linha.id)}>{linhaEmEdicao&&edicaoAdminId?"Cancelar":"Editar"}</button>}{!somenteEdicaoExistente&&podeEditarAgora&&linhaEmEdicao&&<button className="btn-remover-linha" type="button" title="Remover linha" aria-label={`Remover linha ${index+1}`} onClick={()=>removerLinha(index)}><OperationIcon name="close"/></button>}</div>
                 </div>
                 <div className="campo">
                   <label>Descrição</label>
@@ -1460,7 +1485,7 @@ function PointMonthlyExpensesModal({ ponto=null, gerenteDespesa="", rotasGerente
               </article>
             )})}
           </div>
-          {podeEditarAgora&&<button className="btn-secundario despesa-add-linha" onClick={()=>setLinhas(prev=>[...prev,criarLinha()])}>+ Adicionar mais despesas</button>}
+          {!somenteEdicaoExistente&&podeEditarAgora&&<button className="btn-secundario despesa-add-linha" onClick={()=>setLinhas(prev=>[...prev,criarLinha()])}>+ Adicionar mais despesas</button>}
           {despesasMes.length===0&&<p className="acessos-nota">{consultandoMesAnterior
             ?`Nenhuma despesa registrada em ${competenciaTexto}.`
             :despesaDoGerente
@@ -1855,6 +1880,7 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
   const [pontoEdit,  setPontoEdit] = useState(null);
   const [verDespesas,setVerDespesas]=useState(false);
   const [pontoDespesas,setPontoDespesas]=useState(null);
+  const [despesaGerenteAdmin,setDespesaGerenteAdmin]=useState(null);
   const [despesasGerenteAbertas,setDespesasGerenteAbertas]=useState(false);
   const [pontoSolicitacao,setPontoSolicitacao]=useState(null);
   const [pontoDesativacao,setPontoDesativacao]=useState(null);
@@ -2185,8 +2211,9 @@ export default function PointsPage({ equipamentos=[], podeEditar=false, perfilAt
       </>)}
 
       {modalForm&&((pontoEdit&&podeEditarPonto)||(!pontoEdit&&podeCriarPonto))&&<PointFormModal ponto={pontoEdit} pontos={pontos} equipamentos={equipamentos} perfilAtual={perfilAtual} acessos={pontoEdit?acessosDoPonto(acessosModalidades,pontoEdit.id):[]} podeEditarAcessos={administrador&&Boolean(pontoEdit?.id)} mostrarEquipamentos={administrador} onEditarEquipamento={onEditarEquipamento} onExcluirEquipamento={onExcluirEquipamento} onSalvar={salvarPontoHandler} onFechar={()=>{setModalForm(false);setPontoEdit(null);}}/>}
-      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveisBase} despesas={despesasVisiveis} competenciaInicial={competenciaDespesas} permitirSelecionarCompetencia={administrador} podeEditar={podeEditarDespesas} suspenso={Boolean(pontoDespesas)} onAbrirDespesaPonto={(ponto,competencia)=>{setCompetenciaDespesas(competencia);setPontoDespesas(ponto);}} onFechar={()=>setVerDespesas(false)}/>}
+      {verDespesas&&mostrarDespesas&&<PointExpensesModal pontos={pontosVisiveisBase} despesas={despesasVisiveis} competenciaInicial={competenciaDespesas} permitirSelecionarCompetencia={administrador} podeEditar={podeEditarDespesas} suspenso={Boolean(pontoDespesas||despesaGerenteAdmin)} onAbrirDespesaPonto={(ponto,competencia)=>{setCompetenciaDespesas(competencia);setPontoDespesas(ponto);}} onAbrirDespesaGerente={administrador?(despesa,competencia)=>{setCompetenciaDespesas(competencia);setDespesaGerenteAdmin(despesa);}:undefined} onFechar={()=>setVerDespesas(false)}/>}
       {pontoDespesas&&<PointMonthlyExpensesModal ponto={pontoDespesas} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasPonto} onRemover={removerDespesaPonto} onFechar={()=>setPontoDespesas(null)}/>}
+      {despesaGerenteAdmin&&administrador&&<PointMonthlyExpensesModal gerenteDespesa={despesaGerenteAdmin.gerente} rotasGerente={[despesaGerenteAdmin.rota]} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} edicaoInicialId={despesaGerenteAdmin.id} somenteEdicaoExistente podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={async(...args)=>{await salvarDespesasPonto(...args);setDespesaGerenteAdmin(null);}} onFechar={()=>setDespesaGerenteAdmin(null)}/>}
       {despesasGerenteAbertas&&gerenteAtual&&<PointMonthlyExpensesModal gerenteDespesa={gerenteAtual} rotasGerente={rotasDoGerente} despesas={despesasVisiveis} prorrogacoes={prorrogacoes} competenciaInicial={competenciaDespesas} podeEditar={podeEditarDespesas} perfilAtual={perfilAtual} onSalvar={salvarDespesasGerente} onRemover={removerDespesaPonto} onFechar={()=>setDespesasGerenteAbertas(false)}/>}
       {pontoSolicitacao&&podeSolicitarModalidade&&<SolicitacaoModalidadeModal ponto={pontoSolicitacao} perfilAtual={perfilAtual} onSalvar={salvarSolicitacaoModalidade} onFechar={()=>setPontoSolicitacao(null)}/>}
       {pontoDesativacao&&podeSolicitarDesativacao&&<MotivoCicloPontoModal ponto={pontoDesativacao} titulo="Solicitar desativação" acaoLabel="Enviar solicitação" onConfirmar={motivo=>enviarSolicitacaoDesativacao(pontoDesativacao,motivo)} onFechar={()=>setPontoDesativacao(null)}/>}

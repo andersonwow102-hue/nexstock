@@ -4717,6 +4717,90 @@
   border-bottom-color: var(--pcf-border);
 }
 
+.points-command-flow .pcf-expenses-manager-detail {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid var(--pcf-border);
+  border-radius: 10px;
+  background: var(--pcf-depth-1-alt);
+}
+
+.points-command-flow .pcf-expenses-manager-detail > header,
+.points-command-flow .pcf-expenses-manager-ledger article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.points-command-flow .pcf-expenses-manager-detail > header div,
+.points-command-flow .pcf-expenses-manager-ledger article > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.points-command-flow .pcf-expenses-manager-detail span,
+.points-command-flow .pcf-expenses-manager-detail small {
+  color: var(--pcf-muted);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.points-command-flow .pcf-expenses-manager-detail h3,
+.points-command-flow .pcf-expenses-manager-detail p {
+  margin: 0;
+}
+
+.points-command-flow .pcf-expenses-manager-detail > header > strong,
+.points-command-flow .pcf-expenses-manager-ledger article > b {
+  color: var(--pcf-text);
+  font-family: var(--font-data, "JetBrains Mono", monospace);
+  white-space: nowrap;
+}
+
+.points-command-flow .pcf-expenses-manager-ledger {
+  overflow: hidden;
+  border: 1px solid var(--pcf-border);
+  border-radius: 8px;
+  background: var(--pcf-depth-1);
+}
+
+.points-command-flow .pcf-expenses-manager-ledger article {
+  min-height: 58px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--pcf-border);
+}
+
+.points-command-flow .pcf-expenses-manager-ledger article:last-child {
+  border-bottom: 0;
+}
+
+.points-command-flow .pcf-expenses-manager-ledger button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--pcf-border-strong);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--pcf-accent-strong);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.points-command-flow .pcf-expenses-manager-ledger button:hover,
+.points-command-flow .pcf-expenses-manager-ledger button:focus-visible {
+  border-color: var(--pcf-accent);
+  background: var(--pcf-accent-wash);
+}
+
 .points-command-flow .pcf-expenses-detail-entry {
   min-height: 68px;
   padding-inline: 16px;
@@ -4939,6 +5023,20 @@
 
   .points-command-flow > * {
     flex-shrink: 0;
+  }
+
+  .points-command-flow .pcf-expenses-manager-detail > header,
+  .points-command-flow .pcf-expenses-manager-ledger article {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .points-command-flow .pcf-expenses-manager-ledger article > div {
+    flex: 1 1 calc(100% - 110px);
+  }
+
+  .points-command-flow .pcf-expenses-manager-ledger button {
+    min-height: 40px;
   }
 
   .points-command-flow .pcf-command-header {

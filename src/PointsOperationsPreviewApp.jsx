@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AbaPontos, PointExpensesModal } from "./PointsPage.jsx";
+import { AbaPontos, PointExpensesModal, PointMonthlyExpensesModal } from "./PointsPage.jsx";
 import { Modal as OperationModal, OperationIcon } from "./components/operations/OperationsUI.jsx";
 import { handleMainScrollKey } from "./components/operations/mainScrollNavigation.js";
 import { aplicarResumoDespesaMes, valorDespesa } from "./pointsExpenses.js";
@@ -93,6 +93,8 @@ export default function PointsOperationsPreviewApp() {
   const estadoInicial=useMemo(()=>resolverEstadoPreviewPontos(params,PONTOS_PREVIEW.map(ponto=>ponto.id)),[params]);
   const [light,setLight]=useState(estadoInicial.tema==="light");
   const [despesasAbertas,setDespesasAbertas]=useState(false);
+  const [despesasPreview,setDespesasPreview]=useState(()=>DESPESAS_PREVIEW.map(item=>({...item})));
+  const [despesaGerenteAdmin,setDespesaGerenteAdmin]=useState(null);
   const [perspectivaDespesas,setPerspectivaDespesas]=useState(estadoInicial.perspectivaDespesas);
   const cenario=String(params.get("cenario")||"").toLowerCase();
   const [busca,setBusca]=useState(cenario==="single"?"Posto Central 01":"");
@@ -159,7 +161,8 @@ export default function PointsOperationsPreviewApp() {
          <AbaPontos pontos={PONTOS_PREVIEW} equipamentos={equipamentosPreview} historico={HISTORICO_PREVIEW} acessos={ACESSOS_PREVIEW} solicitacoes={[]} solicitacoesStatus={solicitacoesPreview} competencia="2026-08" busca={busca} onBuscaChange={setBusca} onLimparBusca={()=>setBusca("")} filtroDespesa={filtroDespesa} onFiltroDespesaChange={setFiltroDespesa} onLimparFiltro={()=>setFiltroDespesa("todos")} totalDespesasCompetencia={TOTAL_DESPESAS_PREVIEW} despesasAbertas={despesasAbertas} pontoSelecionadoInicialId={estadoInicial.pontoSelecionadoId} pedidoDossie={pedidoDossiePreview} filtroPendenciaInicial={cenario==="pendencias"?"pendente":"todos"} onEditar={()=>simular("Edição simulada.")} onDespesas={()=>simular("Despesas simuladas.")} onSolicitarModalidade={()=>simular("Solicitação de modalidade simulada.")} onSolicitarDesativacao={()=>simular("Solicitação de desativação simulada.")} onDecidirDesativacao={decidirPreview} onMovimentarEquipamento={(item,contexto)=>{setErroMovPreview("");setMovimentacaoPreview({item,ponto:contexto.ponto});}} onReativar={()=>simular("Reativação simulada.")} onVerAcessos={()=>simular("Acessos simulados.")} onVerDespesas={()=>{setPerspectivaDespesas("rotas");setDespesasAbertas(true);}} onExportExcel={itens=>simular(`CSV simulado com ${itens.length} resultado(s) filtrado(s).`)} onExportPDF={itens=>simular(`PDF simulado com ${itens.length} resultado(s) filtrado(s).`)} onCarregarHistoricoFormal={carregarCicloPreview} podeVerHistoricoFormal podeEditar podeEditarDespesas podeSolicitarModalidade podeSolicitarDesativacao podeDecidirDesativacao podeReativar mostrarDespesas/>
       </div>
     </main>
-    {despesasAbertas&&<PointExpensesModal pontos={PONTOS_BASE_PREVIEW} despesas={DESPESAS_PREVIEW} competenciaInicial="2026-08" permitirSelecionarCompetencia perspectivaInicial={perspectivaDespesas} pontoSelecionadoInicialId={estadoInicial.pontoDespesasId} podeEditar onAbrirDespesaPonto={ponto=>simular(`Lançamentos de ${ponto.nomeFantasia} preservados no fluxo real.`)} onFechar={()=>setDespesasAbertas(false)}/>}
+    {despesasAbertas&&<PointExpensesModal pontos={PONTOS_BASE_PREVIEW} despesas={despesasPreview} competenciaInicial="2026-08" permitirSelecionarCompetencia perspectivaInicial={perspectivaDespesas} pontoSelecionadoInicialId={estadoInicial.pontoDespesasId} podeEditar suspenso={Boolean(despesaGerenteAdmin)} onAbrirDespesaPonto={ponto=>simular(`Lançamentos de ${ponto.nomeFantasia} preservados no fluxo real.`)} onAbrirDespesaGerente={despesa=>setDespesaGerenteAdmin(despesa)} onFechar={()=>setDespesasAbertas(false)}/>}
+    {despesaGerenteAdmin&&<PointMonthlyExpensesModal gerenteDespesa={despesaGerenteAdmin.gerente} rotasGerente={[despesaGerenteAdmin.rota]} despesas={despesasPreview} competenciaInicial="2026-08" edicaoInicialId={despesaGerenteAdmin.id} somenteEdicaoExistente podeEditar perfilAtual={{perfil:"administrador",nome:"Admin local"}} onSalvar={async(_contexto,_competencia,linhas)=>{const atualizada=linhas[0];setDespesasPreview(lista=>lista.map(item=>item.id===atualizada.id?{...item,...atualizada}:item));setDespesaGerenteAdmin(null);setNotice("Despesa do gerente atualizada somente na fixture DEV.");}} onFechar={()=>setDespesaGerenteAdmin(null)}/>}
     <MovementPreviewModal contexto={movimentacaoPreview} erro={erroMovPreview} onClose={()=>{setMovimentacaoPreview(null);setErroMovPreview("");}} onConfirmar={confirmarMovimentacaoPreview}/>
   </div>;
 }

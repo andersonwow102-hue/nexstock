@@ -36,3 +36,12 @@ test("frontend usa a RPC e expõe Editar sem mudar handlers de gerente", () => {
   assert.match(app, /onDespesasChange\?\.\(despesas\.map/);
   assert.match(app, /Competência preservada/);
 });
+
+test("Explorer separa despesa própria do gerente e reutiliza a edição auditada", () => {
+  assert.match(points, /Despesa do gerente/);
+  assert.match(points, /Despesas dos pontos/);
+  assert.match(points, /onAbrirDespesaGerente\(despesa, competencia\)/);
+  assert.match(points, /somenteEdicaoExistente/);
+  assert.match(points, /edicaoInicialId=\{despesaGerenteAdmin\.id\}/);
+  assert.match(points, /onSalvar=\{async\(\.\.\.args\)=>\{await salvarDespesasPonto\(\.\.\.args\)/);
+});

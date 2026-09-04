@@ -51,10 +51,29 @@ test("análise consolida pontos e gerentes e ordena rotas pelo total", () => {
     { totalPontos: queixo.totalPontos, totalGerente: queixo.totalGerente, total: queixo.total, com: queixo.comDespesa, sem: queixo.semDespesa },
     { totalPontos: 125, totalGerente: 20, total: 145, com: 1, sem: 1 }
   );
+  assert.deepEqual(queixo.despesasGerente.map(item => item.id), [5]);
+  assert.equal(queixo.despesasGerente[0].pontoId, null);
 
   const jussara = analise.resumoRotas.find(item => item.rota === "Jussara");
   assert.equal(jussara.pontos, 0);
   assert.equal(jussara.total, 200);
+});
+
+test("edição derivada da despesa do gerente altera somente os totais correspondentes", () => {
+  const atualizadas = despesas.map(item => item.id === 5 ? { ...item, valorReal: 40, valorPrevisto: 40 } : item);
+  const antes = criarAnaliseDespesasRede({ pontos, despesas, competencia: "2026-08" });
+  const depois = criarAnaliseDespesasRede({ pontos, despesas: atualizadas, competencia: "2026-08" });
+  const rotaAntes = antes.resumoRotas.find(item => item.rota === "Queixo");
+  const rotaDepois = depois.resumoRotas.find(item => item.rota === "Queixo");
+
+  assert.equal(depois.totalPontos, antes.totalPontos);
+  assert.equal(depois.totalGerentes, antes.totalGerentes + 20);
+  assert.equal(depois.totalGeral, antes.totalGeral + 20);
+  assert.equal(rotaDepois.totalPontos, rotaAntes.totalPontos);
+  assert.equal(rotaDepois.totalGerente, rotaAntes.totalGerente + 20);
+  assert.equal(rotaDepois.total, rotaAntes.total + 20);
+  assert.equal(atualizadas.find(item => item.id === 5).id, 5);
+  assert.equal(atualizadas.find(item => item.id === 5).competencia, "2026-08-01");
 });
 
 test("filtros de rota, situação e busca preservam ordenação financeira", () => {
