@@ -19,12 +19,35 @@ const empty = Object.freeze({ catalogo: [
   { codigo: "totens", nome: "Totens", patrimoniavel: true, ordem: 9 },
 ], campanhas: [], lotes: [], patrimonios: [], eventos: [] });
 const loadEmpty = async () => empty;
+const contextualBatch = Object.freeze({
+  ...empty,
+  campanhas: [{ id: "campanha-local", nome: "Implantação Patrimonial NEPTERA 2026", situacao: "ativa" }],
+  lotes: [{
+    id: "lote-local",
+    codigo: "PAT-202609-0001",
+    nome_amigavel: "Piloto Estoque — Etapa 1",
+    campanha_nome: "Implantação Patrimonial NEPTERA 2026",
+    contexto: "Estoque interno",
+    contexto_label: "Estoque interno",
+    demanda_contexto_no_preparo: 19,
+    quantidade: 5,
+    situacao: "preparado",
+    geradas: 0,
+    disponiveis: 0,
+    vinculadas: 0,
+    aplicadas: 0,
+    conferidas: 0,
+    anuladas: 0,
+  }],
+});
 
 export function Preview() {
   const params = new URLSearchParams(window.location.search);
   const theme = params.get("tema") === "escuro" ? "escuro" : "claro";
   const role = ["administrador", "operador", "gerente", "consulta"].includes(params.get("perfil")) ? params.get("perfil") : "administrador";
-  return <div className={`preview-shell${theme === "claro" ? " tema-claro" : ""}`}><main><header className="preview-equipment-head"><div><small>CONTROLE DE EQUIPAMENTOS</small><h1>Equipamentos</h1></div><span>Prévia segura · {role}</span></header><nav aria-label="Visualização de equipamentos" className="preview-equipment-tabs">{[["package","Lista"],["activity","Resumo"],["history","Movimentações"],["tag","Patrimônio"]].map(([icon,label]) => <button aria-current={label === "Patrimônio" ? "page" : undefined} className={label === "Patrimônio" ? "is-active" : ""} key={label} type="button"><OperationIcon name={icon} size={16}/>{label}</button>)}</nav><PatrimonioPage loadData={loadEmpty} perfilAtual={{ perfil: role }} theme={theme} /></main><aside>DEV · COMPONENTE REAL · ESTADO VAZIO</aside></div>;
+  const hasBatch = params.get("cenario") === "lote";
+  const loadData = async () => hasBatch ? contextualBatch : empty;
+  return <div className={`preview-shell${theme === "claro" ? " tema-claro" : ""}`}><main><header className="preview-equipment-head"><div><small>CONTROLE DE EQUIPAMENTOS</small><h1>Equipamentos</h1></div><span>Prévia segura · {role}</span></header><nav aria-label="Visualização de equipamentos" className="preview-equipment-tabs">{[["package","Lista"],["activity","Resumo"],["history","Movimentações"],["tag","Patrimônio"]].map(([icon,label]) => <button aria-current={label === "Patrimônio" ? "page" : undefined} className={label === "Patrimônio" ? "is-active" : ""} key={label} type="button"><OperationIcon name={icon} size={16}/>{label}</button>)}</nav><PatrimonioPage loadData={loadData} perfilAtual={{ perfil: role }} theme={theme} /></main><aside>DEV · COMPONENTE REAL · {hasBatch ? "LOTE CONTEXTUAL" : "ESTADO VAZIO"}</aside></div>;
 }
 
 if (import.meta.env.DEV) createRoot(document.getElementById("root")).render(<Preview />);

@@ -34,6 +34,30 @@ test("mantém mutações patrimoniais fechadas e estado vazio contextual", () =>
 test("preview do componente real é DEV-only e não consulta produção", () => {
   const preview = readFileSync(new URL("./patrimonio-real-preview/main.jsx", import.meta.url), "utf8");
   assert.match(preview, /if \(import\.meta\.env\.DEV\)/);
-  assert.match(preview, /loadData=\{loadEmpty\}/);
+  assert.match(preview, /cenario.*lote/);
+  assert.match(preview, /Piloto Estoque — Etapa 1/);
+  assert.match(preview, /demanda_contexto_no_preparo: 19/);
+  assert.match(preview, /quantidade: 5/);
   assert.doesNotMatch(preview, /supabase|\.rpc\(|\.insert\(|\.update\(|\.delete\(/i);
+});
+
+test("renderiza ledger e dossie do lote contextual com campos do backend", () => {
+  for (const field of [
+    "nome_amigavel",
+    "codigo",
+    "campanha_nome",
+    "contexto_label",
+    "demanda_contexto_no_preparo",
+    "quantidade",
+    "situacao",
+    "geradas",
+    "disponiveis",
+    "vinculadas",
+    "aplicadas",
+    "conferidas",
+    "anuladas",
+  ]) assert.match(page, new RegExp(`batch\\.${field}`));
+  assert.match(page, /aria-pressed=\{selectedId === batch\.id\}/);
+  assert.match(page, /setSelectedBatchId/);
+  assert.match(page, /Nenhum lote preparado/);
 });

@@ -1,5 +1,5 @@
 -- Executar somente em PostgreSQL local descartavel, depois do bootstrap e das
--- migrations 202609010900..202609011010. O script termina em ROLLBACK; nextval
+-- migrations 202609010900..202609021100. O script termina em ROLLBACK; nextval
 -- nao e transacional, portanto recrie o banco antes de repetir a suite.
 \set ON_ERROR_STOP on
 
@@ -228,21 +228,26 @@ begin
 
   begin
     perform public.patrimonio_preparar_lote(
-      v_campanha, 8, 'Excesso deve exigir confirmacao', false,
+      v_campanha, 8, '{"tipo":"estoque"}'::jsonb,
+      'Excesso deve exigir confirmacao', false,
       '20000000-0000-0000-0000-000000000018'
     );
     raise exception 'Lote excedente foi preparado sem confirmacao explicita.';
   exception when sqlstate '22023' then null; end;
   v_lote_excesso := public.patrimonio_preparar_lote(
-    v_campanha, 8, 'Excesso confirmado para auditoria', true,
+    v_campanha, 8, '{"tipo":"estoque"}'::jsonb,
+    'Excesso confirmado para auditoria', true,
     '20000000-0000-0000-0000-000000000019'
   );
   if not exists (
     select 1 from public.patrimonio_lotes l
     where l.id = v_lote_excesso
       and l.saldo_pendente_no_preparo = 7
+      and l.demanda_contexto_no_preparo = 3
       and l.quantidade_excedente = 1
+      and l.quantidade_excedente_contexto = 5
       and l.excesso_confirmado
+      and l.excesso_contexto_confirmado
   ) then raise exception 'Aviso/confirmacao de excesso nao ficou auditavel no lote.'; end if;
   perform public.patrimonio_cancelar_lote(
     v_lote_excesso, 'Lote excedente criado apenas para validar confirmacao',
@@ -250,7 +255,8 @@ begin
   );
 
   v_lote_1 := public.patrimonio_preparar_lote(
-    v_campanha, 3, 'Primeiro recorte local', false,
+    v_campanha, 3, '{"tipo":"estoque"}'::jsonb,
+    'Primeiro recorte local', false,
     '20000000-0000-0000-0000-000000000020'
   );
   v_resultado := public.patrimonio_gerar_lote(
@@ -343,7 +349,8 @@ begin
   perform public.patrimonio_concluir_lote(v_lote_1, '20000000-0000-0000-0000-000000000037');
 
   v_lote_2 := public.patrimonio_preparar_lote(
-    v_campanha, 1, 'Teste de correcao', false,
+    v_campanha, 1, '{"tipo":"estoque"}'::jsonb,
+    'Teste de correcao', false,
     '20000000-0000-0000-0000-000000000040'
   );
   v_resultado := public.patrimonio_gerar_lote(v_lote_2, '20000000-0000-0000-0000-000000000041');
@@ -389,7 +396,8 @@ begin
   exception when foreign_key_violation then null; end;
 
   v_lote_3 := public.patrimonio_preparar_lote(
-    v_campanha, 1, 'Estoque livre para teste RLS', false,
+    v_campanha, 1, '{"tipo":"estoque"}'::jsonb,
+    'Estoque livre para teste RLS', false,
     '20000000-0000-0000-0000-000000000050'
   );
   v_resultado := public.patrimonio_gerar_lote(v_lote_3, '20000000-0000-0000-0000-000000000051');
@@ -493,7 +501,8 @@ begin
 
   begin
     v_lote_cancelado := public.patrimonio_preparar_lote(
-      v_campanha, 1, 'Nao deve preparar em campanha concluida', false,
+      v_campanha, 1, '{"tipo":"estoque"}'::jsonb,
+      'Nao deve preparar em campanha concluida', false,
       '20000000-0000-0000-0000-000000000065'
     );
     raise exception 'Lote foi preparado em campanha concluida: %', v_lote_cancelado;
@@ -681,7 +690,7 @@ begin
   end if;
   foreach v_function in array array[
     'public.patrimonio_criar_campanha(text,uuid)',
-    'public.patrimonio_preparar_lote(uuid,integer,text,boolean,uuid)',
+    'public.patrimonio_preparar_lote(uuid,integer,jsonb,text,boolean,uuid)',
     'public.patrimonio_gerar_lote(uuid,uuid)',
     'public.patrimonio_cadastrar_equipamentos(jsonb,integer,uuid)',
     'public.patrimonio_vincular_etiqueta(text,bigint,jsonb,uuid)',
@@ -695,6 +704,11 @@ begin
       raise exception 'RPC % indisponivel a authenticated.', v_function;
     end if;
   end loop;
+  if has_function_privilege(
+    'authenticated',
+    'public.patrimonio_preparar_lote(uuid,integer,text,boolean,uuid)',
+    'EXECUTE'
+  ) then raise exception 'Assinatura antiga de preparo permaneceu exposta.'; end if;
   if has_function_privilege(
     'authenticated',
     'private.patrimonio_registrar_evento(text,uuid,uuid,uuid,bigint,bigint,bigint,text,text,text,jsonb,uuid)',

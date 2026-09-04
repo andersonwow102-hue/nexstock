@@ -8,11 +8,12 @@ somente em PostgreSQL local descartável, nunca no Supabase remoto.
 
 1. Crie um banco local vazio.
 2. Aplique `bootstrap_patrimonio_local.sql`.
-3. Aplique, em ordem, as migrations `202609010900` a `202609011010`.
+3. Aplique, em ordem, as migrations `202609010900` a `202609021100`.
 4. Execute o script com a trava explícita:
 
 ```powershell
 psql -v ON_ERROR_STOP=1 -v patrimonio_local_confirmado=1 `
+  -v patrimonio_dblink_conn="host=127.0.0.1 port=5432" `
   -d patrimonio_concurrency `
   -f supabase/tests/patrimonio_fase1_concorrencia.sql
 ```

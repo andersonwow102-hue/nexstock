@@ -1,5 +1,5 @@
 -- Executar somente em PostgreSQL local descartavel, depois do bootstrap e das
--- migrations 202609010900 a 202609011010. O teste abre duas conexoes reais via
+-- migrations 202609010900 a 202609021100. O teste abre duas conexoes reais via
 -- dblink e persiste fixtures ficticias; descarte o banco ao terminar.
 --
 -- Exemplo:
@@ -9,6 +9,11 @@
 \if :{?patrimonio_local_confirmado}
 \else
   \echo 'ABORTADO: informe -v patrimonio_local_confirmado=1 em banco local descartavel.'
+  \quit
+\endif
+\if :{?patrimonio_dblink_conn}
+\else
+  \echo 'ABORTADO: informe -v patrimonio_dblink_conn="host=... port=..." para o PostgreSQL local.'
   \quit
 \endif
 
@@ -30,6 +35,16 @@ end;
 $$;
 
 create extension if not exists dblink;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'patrimonio_dblink_local') then
+    execute 'drop role patrimonio_dblink_local';
+  end if;
+  execute 'create role patrimonio_dblink_local login password ''patrimonio-local-descartavel''';
+  execute 'grant authenticated to patrimonio_dblink_local';
+end;
+$$;
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -77,7 +92,8 @@ reset role;
 create function public.patrimonio_teste_preparar(
   p_campanha_id uuid,
   p_quantidade integer,
-  p_contexto text,
+  p_contexto jsonb,
+  p_nome_amigavel text,
   p_confirmar_excesso boolean,
   p_idempotencia uuid
 )
@@ -87,7 +103,8 @@ set search_path = pg_catalog, public, private, pg_temp
 as $$
 begin
   return public.patrimonio_preparar_lote(
-    p_campanha_id, p_quantidade, p_contexto, p_confirmar_excesso, p_idempotencia
+    p_campanha_id, p_quantidade, p_contexto, p_nome_amigavel,
+    p_confirmar_excesso, p_idempotencia
   )::text;
 exception when others then
   return sqlstate;
@@ -176,15 +193,21 @@ exception when others then
 end;
 $$;
 
-grant execute on function public.patrimonio_teste_preparar(uuid, integer, text, boolean, uuid) to authenticated;
+grant execute on function public.patrimonio_teste_preparar(uuid, integer, jsonb, text, boolean, uuid) to authenticated;
 grant execute on function public.patrimonio_teste_criar_campanha(text, uuid) to authenticated;
 grant execute on function public.patrimonio_teste_gerar(uuid, uuid) to authenticated;
 grant execute on function public.patrimonio_teste_vincular(text, bigint, jsonb, uuid) to authenticated;
 grant execute on function public.patrimonio_teste_cadastrar(jsonb, integer, uuid) to authenticated;
 grant execute on function public.patrimonio_teste_cancelar(uuid, text, uuid) to authenticated;
 
-select dblink_connect('patrimonio_a', 'dbname=' || current_database());
-select dblink_connect('patrimonio_b', 'dbname=' || current_database());
+select dblink_connect(
+  'patrimonio_a',
+  :'patrimonio_dblink_conn' || ' dbname=' || current_database() || ' user=patrimonio_dblink_local password=patrimonio-local-descartavel'
+);
+select dblink_connect(
+  'patrimonio_b',
+  :'patrimonio_dblink_conn' || ' dbname=' || current_database() || ' user=patrimonio_dblink_local password=patrimonio-local-descartavel'
+);
 
 create temp table patrimonio_resultados (
   origem text primary key,
@@ -271,8 +294,8 @@ select dblink_exec('patrimonio_a', 'set local role authenticated');
 select dblink_send_query(
   'patrimonio_a',
   format(
-    'select public.patrimonio_teste_preparar(%L::uuid, 7, %L, false, %L::uuid)',
-    :'campanha_id', 'Reserva concorrente A', '93000000-0000-0000-0000-000000000001'
+    'select public.patrimonio_teste_preparar(%L::uuid, 7, %L::jsonb, %L, false, %L::uuid)',
+    :'campanha_id', '{"tipo":"estoque"}', 'Reserva concorrente A', '93000000-0000-0000-0000-000000000001'
   )
 );
 do $$ begin
@@ -292,8 +315,8 @@ select dblink_exec('patrimonio_b', 'set local role authenticated');
 select dblink_send_query(
   'patrimonio_b',
   format(
-    'select public.patrimonio_teste_preparar(%L::uuid, 7, %L, false, %L::uuid)',
-    :'campanha_id', 'Reserva concorrente B', '93000000-0000-0000-0000-000000000002'
+    'select public.patrimonio_teste_preparar(%L::uuid, 7, %L::jsonb, %L, false, %L::uuid)',
+    :'campanha_id', '{"tipo":"estoque"}', 'Reserva concorrente B', '93000000-0000-0000-0000-000000000002'
   )
 );
 select pg_sleep(0.25);
@@ -334,7 +357,8 @@ select public.patrimonio_cancelar_lote(
   '93000000-0000-0000-0000-000000000003'
 );
 select public.patrimonio_preparar_lote(
-  :'campanha_id'::uuid, 2, 'Geracao idempotente concorrente',
+  :'campanha_id'::uuid, 2, '{"tipo":"estoque"}'::jsonb,
+  'Geracao idempotente concorrente',
   false,
   '93000000-0000-0000-0000-000000000004'
 ) as lote_idempotente
@@ -398,7 +422,7 @@ begin
      or (select count(*)
          from public.equipamentos_patrimonio ep
          join public.patrimonio_lotes l on l.id = ep.lote_origem_id
-         where l.contexto = 'Geracao idempotente concorrente') <> 2
+         where l.nome_amigavel = 'Geracao idempotente concorrente') <> 2
      or (select last_value from public.patrimonio_np_seq) <> 2
      or (select count(*) from public.patrimonio_eventos
          where evento = 'lote_gerado'
@@ -489,7 +513,7 @@ begin
      or (select count(*)
          from public.equipamentos_patrimonio ep
          join public.patrimonio_lotes l on l.id = ep.lote_origem_id
-         where l.contexto = 'Geracao idempotente concorrente'
+         where l.nome_amigavel = 'Geracao idempotente concorrente'
            and ep.situacao = 'disponivel') <> 1
      or (select last_value from public.patrimonio_np_seq) <> 2 then
     raise exception 'Disputa de vinculo criou duplicidade ou alterou a etiqueta perdedora.';
@@ -657,7 +681,8 @@ select set_config(
 );
 set role authenticated;
 select public.patrimonio_preparar_lote(
-  :'campanha_id'::uuid, 1, 'Lote paralelo ao cadastro', false,
+  :'campanha_id'::uuid, 1, '{"tipo":"estoque"}'::jsonb,
+  'Lote paralelo ao cadastro', false,
   '93000000-0000-0000-0000-000000000015'
 ) as lote_misto
 \gset
@@ -721,7 +746,7 @@ begin
      or (select count(*)
          from public.equipamentos_patrimonio ep
          join public.patrimonio_lotes l on l.id = ep.lote_origem_id
-         where l.contexto = 'Lote paralelo ao cadastro') <> 1
+         where l.nome_amigavel = 'Lote paralelo ao cadastro') <> 1
      or (select count(*)
          from public.equipamentos e
          join public.equipamentos_patrimonio ep on ep.equipamento_id = e.id
@@ -744,7 +769,8 @@ select set_config(
 );
 set role authenticated;
 select public.patrimonio_preparar_lote(
-  :'campanha_id'::uuid, 1, 'Cancelamento concorrente',
+  :'campanha_id'::uuid, 1, '{"tipo":"estoque"}'::jsonb,
+  'Cancelamento concorrente',
   false,
   '93000000-0000-0000-0000-000000000008'
 ) as lote_cancelamento
@@ -805,12 +831,12 @@ do $$
 begin
   if (select resultado from patrimonio_resultados where origem = 'geracao_pos_cancelamento') <> '55000'
      or (select situacao from public.patrimonio_lotes
-         where contexto = 'Cancelamento concorrente') <> 'cancelado'
+         where nome_amigavel = 'Cancelamento concorrente') <> 'cancelado'
      or exists (
        select 1
        from public.equipamentos_patrimonio ep
        join public.patrimonio_lotes l on l.id = ep.lote_origem_id
-       where l.contexto = 'Cancelamento concorrente'
+       where l.nome_amigavel = 'Cancelamento concorrente'
      )
      or (select last_value::text from public.patrimonio_np_seq)
         <> (select resultado from patrimonio_resultados where origem = 'np_antes_cancelamento') then
@@ -822,7 +848,9 @@ $$;
 select dblink_disconnect('patrimonio_a');
 select dblink_disconnect('patrimonio_b');
 
-drop function public.patrimonio_teste_preparar(uuid, integer, text, boolean, uuid);
+drop role patrimonio_dblink_local;
+
+drop function public.patrimonio_teste_preparar(uuid, integer, jsonb, text, boolean, uuid);
 drop function public.patrimonio_teste_criar_campanha(text, uuid);
 drop function public.patrimonio_teste_gerar(uuid, uuid);
 drop function public.patrimonio_teste_vincular(text, bigint, jsonb, uuid);

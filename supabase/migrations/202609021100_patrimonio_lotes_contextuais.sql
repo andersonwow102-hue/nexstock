@@ -13,7 +13,9 @@ alter table public.patrimonio_lotes
   add column contexto_tipo text not null,
   add column contexto_referencia text,
   add column contexto_label text not null,
-  add column demanda_contexto_no_preparo integer not null;
+  add column demanda_contexto_no_preparo integer not null,
+  add column quantidade_excedente_contexto integer not null,
+  add column excesso_contexto_confirmado boolean not null;
 
 alter table public.patrimonio_lotes
   add constraint patrimonio_lotes_nome_amigavel_check check (
@@ -35,12 +37,18 @@ alter table public.patrimonio_lotes
   ),
   add constraint patrimonio_lotes_demanda_contexto_check check (
     demanda_contexto_no_preparo >= 0
+  ),
+  add constraint patrimonio_lotes_excesso_contexto_check check (
+    quantidade_excedente_contexto = greatest(quantidade - demanda_contexto_no_preparo, 0)
+    and excesso_contexto_confirmado = (quantidade_excedente_contexto > 0)
   );
 
 comment on column public.patrimonio_lotes.nome_amigavel is
   'Nome humano do lote. O codigo PAT permanece como identidade tecnica e auditavel.';
 comment on column public.patrimonio_lotes.demanda_contexto_no_preparo is
   'Demanda pendente do contexto, calculada transacionalmente pelo backend no preparo.';
+comment on column public.patrimonio_lotes.quantidade_excedente_contexto is
+  'Excesso sobre a demanda contextual; nao substitui o excesso global historico do lote.';
 
 create or replace function private.patrimonio_demanda_contexto(
   p_campanha_id uuid,
@@ -182,7 +190,8 @@ declare
   v_pendentes integer;
   v_reservadas integer;
   v_saldo_pendente integer;
-  v_excesso integer;
+  v_excesso_global integer;
+  v_excesso_contexto integer;
 begin
   if auth.uid() is null or p_idempotencia is null then
     raise exception 'Autenticacao e chave de idempotencia sao obrigatorias.' using errcode = '42501';
@@ -239,11 +248,19 @@ begin
           and ep.situacao in ('disponivel', 'vinculado', 'aplicado')), 0)
   into v_pendentes, v_reservadas;
   v_saldo_pendente := greatest(v_pendentes - v_reservadas, 0);
-  v_excesso := greatest(p_quantidade - v_contexto.demanda, 0);
-  if v_excesso > 0 and p_confirmar_excesso is distinct from true then
-    raise exception 'Quantidade excede em % a demanda do contexto; confirme explicitamente o excesso.', v_excesso
+  v_excesso_global := greatest(p_quantidade - v_saldo_pendente, 0);
+  v_excesso_contexto := greatest(p_quantidade - v_contexto.demanda, 0);
+  if greatest(v_excesso_global, v_excesso_contexto) > 0
+     and p_confirmar_excesso is distinct from true then
+    raise exception 'Quantidade excede a demanda disponivel; confirme explicitamente o excesso.'
       using errcode = '22023',
-            detail = jsonb_build_object('quantidade_solicitada', p_quantidade, 'demanda_contexto', v_contexto.demanda, 'quantidade_excedente', v_excesso)::text;
+            detail = jsonb_build_object(
+              'quantidade_solicitada', p_quantidade,
+              'saldo_pendente_global', v_saldo_pendente,
+              'demanda_contexto', v_contexto.demanda,
+              'quantidade_excedente_global', v_excesso_global,
+              'quantidade_excedente_contexto', v_excesso_contexto
+            )::text;
   end if;
 
   perform set_config('stockon.patrimonio_rpc', 'permitido', true);
@@ -253,16 +270,21 @@ begin
     id, numero, codigo, campanha_id, quantidade, contexto,
     saldo_pendente_no_preparo, quantidade_excedente, excesso_confirmado,
     nome_amigavel, contexto_tipo, contexto_referencia, contexto_label, demanda_contexto_no_preparo,
+    quantidade_excedente_contexto, excesso_contexto_confirmado,
     criado_por_user_id, criado_por_nome_snapshot, criado_por_perfil_snapshot
   ) values (
     v_lote_id, v_numero, v_codigo, p_campanha_id, p_quantidade, v_contexto.contexto_label,
-    v_saldo_pendente, v_excesso, v_excesso > 0,
+    v_saldo_pendente, v_excesso_global, v_excesso_global > 0,
     v_nome, v_contexto.contexto_tipo, v_contexto.contexto_referencia, v_contexto.contexto_label, v_contexto.demanda,
+    v_excesso_contexto, v_excesso_contexto > 0,
     auth.uid(), v_identidade.usuario_nome, v_identidade.perfil
   );
   v_resultado := jsonb_build_object('lote_id', v_lote_id, 'codigo', v_codigo, 'quantidade', p_quantidade,
     'nome_amigavel', v_nome, 'demanda_contexto_no_preparo', v_contexto.demanda,
-    'saldo_pendente_no_preparo', v_saldo_pendente, 'quantidade_excedente', v_excesso, 'excesso_confirmado', v_excesso > 0);
+    'saldo_pendente_no_preparo', v_saldo_pendente,
+    'quantidade_excedente', v_excesso_global, 'excesso_confirmado', v_excesso_global > 0,
+    'quantidade_excedente_contexto', v_excesso_contexto,
+    'excesso_contexto_confirmado', v_excesso_contexto > 0);
   perform private.patrimonio_registrar_evento('lote_preparado', p_campanha_id, null, v_lote_id, null, null, null,
     null, 'preparado', null, v_resultado - 'lote_id', p_idempotencia);
   perform private.patrimonio_idempotencia_registrar('lote_preparado', p_idempotencia, v_payload, v_resultado);
@@ -293,7 +315,8 @@ select
   count(ep.id) filter (where ep.situacao = 'baixado')::integer as baixadas,
   l.preparado_em, l.gerado_em, l.concluido_em,
   l.nome_amigavel, l.contexto_tipo, l.contexto_referencia, l.contexto_label,
-  l.demanda_contexto_no_preparo, c.nome as campanha_nome
+  l.demanda_contexto_no_preparo, l.quantidade_excedente_contexto,
+  l.excesso_contexto_confirmado, c.nome as campanha_nome
 from public.patrimonio_lotes l
 join public.patrimonio_campanhas c on c.id = l.campanha_id
 left join public.equipamentos_patrimonio ep on ep.lote_origem_id = l.id
