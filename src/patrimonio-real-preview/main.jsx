@@ -45,8 +45,14 @@ export function Preview() {
   const params = new URLSearchParams(window.location.search);
   const theme = params.get("tema") === "escuro" ? "escuro" : "claro";
   const role = ["administrador", "operador", "gerente", "consulta"].includes(params.get("perfil")) ? params.get("perfil") : "administrador";
-  const hasBatch = params.get("cenario") === "lote";
-  const loadData = async () => hasBatch ? contextualBatch : empty;
+  const hasBatch = params.get("cenario") === "lote" || params.get("cenario") === "piloto";
+  const loadData = async () => {
+    if (import.meta.env.DEV && params.get("cenario") === "piloto") {
+      const { default: audit } = await import("../../qa/patrimonio-piloto/audit.json");
+      return { ...empty, campanhas: contextualBatch.campanhas, lotes: [audit.rows[0].batch], patrimonios: audit.rows[0].records };
+    }
+    return hasBatch ? contextualBatch : empty;
+  };
   return <div className={`preview-shell${theme === "claro" ? " tema-claro" : ""}`}><main><header className="preview-equipment-head"><div><small>CONTROLE DE EQUIPAMENTOS</small><h1>Equipamentos</h1></div><span>Prévia segura · {role}</span></header><nav aria-label="Visualização de equipamentos" className="preview-equipment-tabs">{[["package","Lista"],["activity","Resumo"],["history","Movimentações"],["tag","Patrimônio"]].map(([icon,label]) => <button aria-current={label === "Patrimônio" ? "page" : undefined} className={label === "Patrimônio" ? "is-active" : ""} key={label} type="button"><OperationIcon name={icon} size={16}/>{label}</button>)}</nav><PatrimonioPage loadData={loadData} perfilAtual={{ perfil: role }} theme={theme} /></main><aside>DEV · COMPONENTE REAL · {hasBatch ? "LOTE CONTEXTUAL" : "ESTADO VAZIO"}</aside></div>;
 }
 

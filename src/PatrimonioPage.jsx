@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { OperationIcon } from "./components/operations/OperationsUI.jsx";
 import "./patrimonio-v1/patrimonio-v1.css";
 import "./PatrimonioPage.css";
+import { isBatchFullyGenerated, createPersistedBatchPdf } from "./patrimonioPrint.js";
 
 const EMPTY = Object.freeze({ catalogo: [], campanhas: [], lotes: [], patrimonios: [], eventos: [] });
 const MUTATIONS_ENABLED = false;
@@ -92,7 +93,7 @@ function BatchLedger({ batches, selectedId, onSelect }) {
   );
 }
 
-function BatchDossier({ batch }) {
+function BatchDossier({ batch, onPrint, printing, printMessage }) {
   if (!batch) return null;
   const progress = [
     ["Planejadas", batch.quantidade],
@@ -102,6 +103,7 @@ function BatchDossier({ batch }) {
     ["Aplicadas", batch.aplicadas || 0],
     ["Conferidas", batch.conferidas || 0],
     ["Anuladas", batch.anuladas || 0],
+    ["Impressões", batch.impressoes || 0],
   ];
   return (
     <aside className="pv-batch-dossier" aria-labelledby="patrimonio-batch-dossier-title">
@@ -118,8 +120,11 @@ function BatchDossier({ batch }) {
         {progress.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}
       </div>
       <div className="pv-dossier-actions" aria-label="Ações patrimoniais">
-        <button className="pv-button pv-button--primary" disabled type="button"><Icon name="tag" /> Geração ainda não liberada</button>
-        <small>Nenhuma ação deste dossiê altera dados nesta etapa.</small>
+        {isBatchFullyGenerated(batch)
+          ? <button className="pv-button pv-button--primary" disabled={printing} onClick={onPrint} type="button"><Icon name="printer" />{printing ? "Gerando PDF…" : "Imprimir etiquetas"}</button>
+          : <button className="pv-button pv-button--primary" disabled type="button"><Icon name="tag" />{batch.situacao === "preparado" ? "Geração ainda não liberada" : "Etiquetas indisponíveis"}</button>}
+        <small>Gerar PDF não registra impressão física nem altera dados.</small>
+        {printMessage ? <small role="status">{printMessage}</small> : null}
       </div>
     </aside>
   );
@@ -130,6 +135,26 @@ export default function PatrimonioPage({ perfilAtual, theme = "escuro", loadData
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [selectedBatchId, setSelectedBatchId] = useState(null);
+  const [printing, setPrinting] = useState(false);
+  const [printMessage, setPrintMessage] = useState("");
+
+  async function printLabels() {
+    if (printing) return;
+    setPrinting(true);
+    setPrintMessage("");
+    try {
+      const fresh = await loadData();
+      const batch = fresh.lotes.find((item) => item.id === selectedBatchId);
+      const pdf = await createPersistedBatchPdf(batch, fresh.patrimonios);
+      pdf.save(`NEPTERA_${batch.codigo}_ETIQUETAS.pdf`);
+      setData(fresh);
+      setPrintMessage("PDF gerado. Nenhuma impressão física foi registrada.");
+    } catch (reason) {
+      setPrintMessage(reason?.message || "Não foi possível gerar o PDF. Tente novamente.");
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -178,7 +203,7 @@ export default function PatrimonioPage({ perfilAtual, theme = "escuro", loadData
           {[[summary.campanhas,"Campanhas"],[summary.lotes,"Lotes"],[summary.emitidos,"Emitidos"],[summary.disponiveis,"Disponíveis"],[summary.vinculados,"Vinculados"],[summary.aplicados,"Aplicados"],[summary.conferidos,"Conferidos"]].map(([value,label]) => <div key={label}><strong>{value}</strong><span>{label}</span><small>dados reais</small></div>)}
         </section> : null}
         {empty ? <EmptyState role={perfilAtual?.perfil} /> : null}
-        {!empty && data.lotes.length ? <div className="pv-batch-layout"><BatchLedger batches={data.lotes} selectedId={selectedBatchId} onSelect={setSelectedBatchId} /><BatchDossier batch={selectedBatch} /></div> : null}
+        {!empty && data.lotes.length ? <div className="pv-batch-layout"><BatchLedger batches={data.lotes} selectedId={selectedBatchId} onSelect={(id) => { setSelectedBatchId(id); setPrintMessage(""); }} /><BatchDossier batch={selectedBatch} onPrint={printLabels} printing={printing} printMessage={printMessage} /></div> : null}
         {!empty && !data.lotes.length ? <section className="pv-real-lots-empty" aria-labelledby="patrimonio-lotes-vazio-title"><div><small>CAMPAIGN CONTROL</small><h2 id="patrimonio-lotes-vazio-title">Nenhum lote preparado</h2><p>A campanha está ativa, mas nenhum lote foi preparado. A próxima etapa permanece bloqueada nesta versão de leitura.</p></div><span>0 lotes</span></section> : null}
         {data.patrimonios.length ? <ReadOnlyLedger records={data.patrimonios} /> : null}
         <section className="pv-real-catalog" aria-label="Catálogo patrimonial"><div><small>CATÁLOGO ATIVO</small><h2>{data.catalogo.length} categorias operacionais</h2></div><p>{data.catalogo.filter((item) => item.patrimoniavel).length} patrimoniáveis · {data.catalogo.filter((item) => !item.patrimoniavel).map((item) => item.nome).join(", ") || "nenhuma exceção"} fora da emissão de NP.</p></section>
