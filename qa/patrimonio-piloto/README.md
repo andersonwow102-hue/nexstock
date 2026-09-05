@@ -33,11 +33,45 @@ renderizar o PDF com `pdftoppm -scale-to 2100 -png -singlefile` em
 tmp/pdfs/piloto-preview e executar `python qa/patrimonio-piloto/qa-pdf.py`.
 O ambiente Python precisa de Pillow e pypdf. A dependência temporária foi removida após o QA.
 
-O alias `neptera.vercel.app` foi confirmado na listagem Vercel do projeto. O acesso
-externo sem sessão redireciona ao login Vercel. A resolução completa via navegador
-externo permanece dependente desse acesso; nenhuma configuração de proteção foi alterada.
+## Correção da base pública do QR
+
+Base anterior: `https://neptera.vercel.app`, constante em src/patrimonioPrint.js,
+independente de variável de ambiente, preview ou URL de deployment.
+O projeto tem `ssoProtection.deploymentType = all_except_custom_domains`.
+O alias adicional neptera.vercel.app não consta na lista de domínios de produção;
+os cinco caminhos retornavam HTTP 302 para vercel.com/sso-api.
+
+Base temporária: `https://nexstock-delta.vercel.app`, domínio verificado de produção
+do mesmo projeto, sem gitBranch, sem customEnvironmentId e sem redirect.
+Os cinco caminhos retornam HTTP 200 com título NEPTERA. Todos foram abertos no
+navegador sem sessão e mostraram login NEPTERA, aviso de retorno e URL preservada,
+sem NP ou dados operacionais na tela. Nenhuma proteção ou configuração Vercel mudou.
+
+O login atual usa signInWithPassword e atualiza o estado de autenticação sem navegar
+para outra URL. App mantém rotaPatrimonio e, autenticado, monta PatrimonioDeepLinkPage
+antes do Sistema. Não foi necessário alterar App, autenticação, RLS ou rewrites.
+O retorno foi validado por testes de contrato/transição de autenticação para os cinco
+destinos. Não foi executado login com senha real no navegador.
+O resolvedor de produção foi validado para os cinco códigos no contexto de gerente
+em transação READ ONLY seguida de ROLLBACK: código/ID corretos, estado disponível,
+equipamento nulo e lote oculto. Sem autenticação, o resolvedor retornou zero resultados.
+
+PDF regenerado no mesmo caminho, preservando layout, NPs e public_ids. ZXing leu os
+cinco QRs do PDF renderizado e confirmou a nova base; os cinco links PDF coincidem.
+Hash de códigos/IDs/lote do banco coincide com o snapshot aprovado.
+Consulta final: 5 disponíveis, 0 vinculadas, 0 aplicadas, 0 conferidas, 0 impressões,
+0 eventos de impressão e patrimonio_np_seq.last_value = 5.
+
+Testes relevantes de deep link/autenticação, Patrimônio e QR/PDF passaram.
+Lint, build e git diff --check passaram. Nenhum teste de despesas foi executado.
+
+Classificação: READY para a correção local de base pública. O novo PDF usa um endereço
+já acessível em produção; ele não depende de deploy. Para o gerador da aplicação
+adotar a base temporária, publicar futuramente o frontend com src/patrimonioPrint.js
+atualizado, incluindo a implementação de impressão local ainda não publicada.
+Não há alteração de variáveis de ambiente, domínio, Deployment Protection ou banco.
 
 Prévia DEV sem acesso ao banco: `/patrimonio-real-preview.html?cenario=piloto&tema=claro`.
 Ela usa exclusivamente o snapshot auditado. A tela operacional continua usando loadData real.
 
-Sem push, deploy ou registro de impressão. Aguardando aprovação do PDF pelo Anderson.
+Sem push, deploy ou registro de impressão. Parado após entregar a correção local.

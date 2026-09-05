@@ -1,7 +1,8 @@
 import { PATRIMONIO_PUBLIC_ID_PATTERN } from "./patrimonioDeepLink.js";
 
-// Canonical production destination, independent of the local preview's origin.
-export const PATRIMONIO_QR_ORIGIN = "https://neptera.vercel.app";
+// Temporary pilot base: verified public production domain, without Vercel SSO.
+// Independent of preview/deployment URLs. NEPTERA authentication and RLS still apply.
+export const PATRIMONIO_QR_ORIGIN = "https://nexstock-delta.vercel.app";
 
 export function isBatchFullyGenerated(batch) {
   return Boolean(batch?.id && ["gerado", "em_uso", "concluido"].includes(batch.situacao)

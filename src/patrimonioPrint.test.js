@@ -1,13 +1,42 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { isBatchFullyGenerated, persistedBatchLabels, createPersistedBatchPdf, PATRIMONIO_QR_ORIGIN } from "./patrimonioPrint.js";
-import { parsePatrimonioRoute } from "./patrimonioDeepLink.js";
+import { parsePatrimonioRoute, patrimonioViewModel, resolvePatrimonioWithClient } from "./patrimonioDeepLink.js";
 
 const batch = { id: "batch-a", codigo: "PAT-TEST", situacao: "gerado", quantidade: 2, geradas: 2 };
 const records = [
   { lote_origem_id: "batch-a", codigo: "NP-000042", public_id: "abcdefghijklmnopqrstuv" },
   { lote_origem_id: "batch-a", codigo: "NP-000010", public_id: "ABCDEFGHIJKLMNOPQRSTUV" },
 ];
+test("QR piloto usa somente domínio público verificado de produção", () => {
+  assert.equal(PATRIMONIO_QR_ORIGIN, "https://nexstock-delta.vercel.app");
+});
+
+test("cinco destinos auditados sobrevivem à transição de autenticação sem divulgar dados antes do login", async () => {
+  const { records: audited } = JSON.parse(readFileSync(new URL("../qa/patrimonio-piloto/audit.json", import.meta.url))).rows[0];
+  for (const [index, record] of audited.entries()) {
+    const destination = new URL(`/patrimonio/${record.public_id}`, PATRIMONIO_QR_ORIGIN);
+    const route = parsePatrimonioRoute(destination.pathname);
+    const before = patrimonioViewModel({ authenticated: false, route, record });
+    assert.equal(before.kind, "login");
+    assert.equal(before.disclosure, false);
+    assert.equal(before.preserveDestination, true);
+    assert.equal(before.record, undefined);
+    // Simulates the auth state transition; the live resolver is checked separately in READ ONLY SQL.
+    const resolved = await resolvePatrimonioWithClient({ rpc: async (name, args) => {
+      assert.equal(name, "patrimonio_resolver_public_id");
+      assert.equal(args.p_public_id, route.publicId);
+      return { data: [record], error: null };
+    } }, route.publicId);
+    for (const role of ["administrador", "gerente"]) {
+      const after = patrimonioViewModel({ authenticated: true, route, record: resolved, role });
+      assert.equal(after.kind, "resolved");
+      assert.equal(after.record.code, `NP-${String(index + 1).padStart(6, "0")}`);
+      assert.equal(after.record.publicId, route.publicId);
+    }
+  }
+});
 test("impressão exige lote totalmente gerado", () => {
   for (const situacao of ["preparado", "cancelado", "", undefined]) assert.equal(isBatchFullyGenerated({ ...batch, situacao }), false);
   assert.equal(isBatchFullyGenerated({ ...batch, geradas: 1 }), false);
